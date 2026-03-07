@@ -7386,30 +7386,12 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     document.head.appendChild(link);
   } catch(e) { console.warn('[pwa] manifest:', e); }
 
-  // ── Service Worker ─────────────────────────────────────────────────────────
-  try {
-    if('serviceWorker' in navigator) {
-      const sw = [
-        "const C='tovsa-v1';",
-        "self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./']).catch(()=>{})));self.skipWaiting();});",
-        "self.addEventListener('activate',e=>{e.waitUntil(clients.claim());});",
-        "self.addEventListener('fetch',e=>{",
-        "  if(e.request.method!=='GET')return;",
-        "  e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{",
-        "    caches.open(C).then(c=>c.put(e.request,res.clone()));return res;",
-        "  }).catch(()=>caches.match('./'))));",
-        "});",
-        "self.addEventListener('notificationclick',e=>{",
-        "  e.notification.close();",
-        "  e.waitUntil(clients.matchAll({type:'window'}).then(cs=>{if(cs.length)return cs[0].focus();return clients.openWindow('./');}));",
-        "});"
-      ].join('\n');
-      navigator.serviceWorker
-        .register(URL.createObjectURL(new Blob([sw], { type: 'application/javascript' })), { scope: './' })
-        .then(reg => { window._swReg = reg; })
-        .catch(e => console.warn('[pwa] sw:', e));
-    }
-  } catch(e) { console.warn('[pwa] sw:', e); }
+  // ── Service Worker (sw.js должен лежать рядом с index.html) ──────────────
+  if('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => { window._swReg = reg; })
+      .catch(e => console.warn('[pwa] sw:', e));
+  }
 
   // ── Install prompt ─────────────────────────────────────────────────────────
   let _deferredPrompt = null;

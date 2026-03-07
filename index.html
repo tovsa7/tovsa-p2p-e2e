@@ -1380,15 +1380,11 @@ async function initIdentity(){
     // Обновляем кнопку группы — теперь идентификация готова
     if(_grpActive) _grpUpdateStatus(_grpActive);
     // Авто-подписка ntfy если разрешение уже было выдано
-    if('Notification' in window && Notification.permission === 'granted' && 'serviceWorker' in navigator) {
-      navigator.serviceWorker.ready.then(reg => {
-        reg.pushManager.getSubscription().then(sub => {
-          if (!sub || !localStorage.getItem('ntfyTopic')) {
-            console.log('[ntfy] авто-подписка после готовности ключа...');
-            if(typeof _ntfySubscribe === 'function') _ntfySubscribe();
-          }
-        });
-      }).catch(()=>{});
+    // Вызываем через window чтобы дождаться инициализации IIFE
+    window._ntfyKeyReady = true;
+    if(typeof window._ntfySubscribe === 'function') {
+      console.log('[ntfy] авто-подписка после готовности ключа...');
+      window._ntfySubscribe();
     }
   }catch(e){
     console.warn('Identity init failed:',e);
@@ -7595,6 +7591,11 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
   document.addEventListener('DOMContentLoaded', () => {
     _updateNotifUI();
     _checkPersist();
+    // Если ключ уже был готов до загрузки IIFE — подписываемся сейчас
+    if(window._ntfyKeyReady && 'Notification' in window && Notification.permission === 'granted') {
+      console.log('[ntfy] авто-подписка (ключ был готов раньше IIFE)...');
+      window._ntfySubscribe();
+    }
   });
 
 })();

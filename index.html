@@ -1377,6 +1377,8 @@ async function initIdentity(){
     myFingerprint=bytesToFingerprint(hash);
     // Hex первых 24 байт хеша → presence peer ID
     myPresenceId = await sha256hex(myPubKeyRaw, 24);
+    // Экспортируем для PWA-модуля (IIFE не имеет доступа к let-переменным)
+    window.myPubKeyRaw = myPubKeyRaw;
     // Обновляем кнопку группы — теперь идентификация готова
     if(_grpActive) _grpUpdateStatus(_grpActive);
     // Авто-подписка ntfy если разрешение уже было выдано

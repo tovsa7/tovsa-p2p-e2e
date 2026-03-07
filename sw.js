@@ -1,4 +1,4 @@
-const C = 'tovsa-v1';
+const C = 'tovsa-v3';
 
 self.addEventListener('install', e => {
   e.waitUntil(

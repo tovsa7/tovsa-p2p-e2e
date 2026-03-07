@@ -7581,7 +7581,24 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     _checkPersist();
   };
 
-  document.addEventListener('DOMContentLoaded', () => { _updateNotifUI(); _checkPersist(); });
+  document.addEventListener('DOMContentLoaded', () => {
+    _updateNotifUI();
+    _checkPersist();
+    // Если разрешение уже было выдано раньше — подписываемся автоматически
+    if('Notification' in window && Notification.permission === 'granted' && 'serviceWorker' in navigator) {
+      // Проверяем: если подписка уже есть — не делаем лишний запрос
+      navigator.serviceWorker.ready.then(reg => {
+        reg.pushManager.getSubscription().then(sub => {
+          if (!sub || !localStorage.getItem('ntfyTopic')) {
+            console.log('[ntfy] авто-подписка при загрузке...');
+            _ntfySubscribe();
+          } else {
+            console.log('[ntfy] подписка уже есть, топик=', localStorage.getItem('ntfyTopic'));
+          }
+        });
+      }).catch(() => {});
+    }
+  });
 
 })();
 // ══════════════════════════════════════════════════════════════════════════════

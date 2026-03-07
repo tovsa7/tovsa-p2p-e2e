@@ -7466,7 +7466,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     return null;
   }
 
-  async function _ntfySubscribe() {
+  window._ntfySubscribe = async function _ntfySubscribe() {
     try {
       const myHex = _myPubKeyHex();
       console.log('[ntfy] subscribe: myHex=', myHex ? myHex.slice(0,8)+'...' : 'NULL');

@@ -3634,6 +3634,11 @@ function sendMsg(){
   _typingTimer = null;
   _sendTypingStop();
   if(_shadowEnabled) _sendShadow('');
+  // Push уведомление собеседнику (если он офлайн)
+  if(currentPeerFp && typeof window._pushNotifyPeer === 'function'){
+    const myName = document.getElementById('my-name-input')?.value?.trim() || 'Tovsa';
+    window._pushNotifyPeer(currentPeerFp, myName, t);
+  }
 }
 
 function attachMsgLongPress(el,text,sender,ts,fp){
@@ -7386,7 +7391,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     document.head.appendChild(link);
   } catch(e) { console.warn('[pwa] manifest:', e); }
 
-  // ── Service Worker (sw.js должен лежать рядом с index.html) ──────────────
+  // ── Service Worker ────────────────────────────────────────────────────────
   if('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js')
       .then(reg => { window._swReg = reg; })
@@ -7414,7 +7419,75 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     if(outcome === 'accepted') _deferredPrompt = null;
   };
 
-  // ── Notifications UI — используем существующий _requestNotifPermission ─────
+  // ── ntfy.sh Push ───────────────────────────────────────────────────────────
+  // Топик = tovsa-{первые 16 символов fingerprint}
+  // Никакого сервера не нужно — ntfy.sh бесплатный посредник
+  const NTFY = 'https://ntfy.sh';
+
+  function _ntfyTopic(fp) {
+    return 'tovsa-' + (fp || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 16).toLowerCase();
+  }
+
+  function _b64ToUint8(b64) {
+    const p = '='.repeat((4 - b64.length % 4) % 4);
+    const s = atob((b64 + p).replace(/-/g, '+').replace(/_/g, '/'));
+    return Uint8Array.from([...s].map(c => c.charCodeAt(0)));
+  }
+
+  async function _ntfySubscribe() {
+    try {
+      // Получаем VAPID-ключ ntfy.sh
+      const info = await fetch(NTFY + '/v1/info').then(r => r.json());
+      const vapidKey = info.web_push_public_key;
+      if (!vapidKey) throw new Error('ntfy: нет vapid key');
+
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: _b64ToUint8(vapidKey)
+      });
+
+      const fp    = window.myFingerprint || '';
+      const topic = _ntfyTopic(fp);
+
+      // Регистрируем подписку в ntfy
+      const res = await fetch(NTFY + '/v1/webpush', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topics:       [topic],
+          subscription: sub.toJSON()
+        })
+      });
+      if (!res.ok) throw new Error('ntfy register: ' + res.status);
+
+      localStorage.setItem('ntfyTopic', topic);
+      console.log('[ntfy] подписан на', topic);
+      return true;
+    } catch(e) {
+      console.warn('[ntfy] subscribe error:', e);
+      return false;
+    }
+  }
+
+  // Отправить push собеседнику через ntfy
+  window._pushNotifyPeer = async function(targetFp, senderName, text) {
+    if (!targetFp) return;
+    const topic = _ntfyTopic(targetFp);
+    try {
+      await fetch(NTFY + '/' + topic, {
+        method: 'POST',
+        headers: {
+          'Title':    senderName || 'Tovsa',
+          'Priority': 'high',
+          'Tags':     'speech_balloon'
+        },
+        body: text ? (text.length > 120 ? text.slice(0, 120) + '…' : text) : '📨 Новое сообщение'
+      });
+    } catch(e) { console.warn('[ntfy] notify error:', e); }
+  };
+
+  // ── Notifications UI ───────────────────────────────────────────────────────
   function _updateNotifUI() {
     const btn  = document.getElementById('notif-btn');
     const desc = document.getElementById('notif-desc');
@@ -7422,7 +7495,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     const p = ('Notification' in window) ? Notification.permission : 'unsupported';
     if(p === 'granted') {
       btn.textContent = '✓ включены'; btn.disabled = true;
-      if(desc) desc.textContent = 'Уведомления включены';
+      if(desc) desc.textContent = 'Фоновые уведомления включены';
     } else if(p === 'denied') {
       btn.textContent = '✗ заблокированы'; btn.disabled = true;
       if(desc) { desc.textContent = 'Разрешите в настройках браузера'; desc.style.color = 'var(--e)'; }
@@ -7430,10 +7503,16 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
       btn.textContent = 'недоступно'; btn.disabled = true;
     }
   }
-  window.pwaRequestNotif = () => {
+
+  window.pwaRequestNotif = async () => {
     if(!('Notification' in window)) { toast('Не поддерживается браузером'); return; }
-    _requestNotifPermission();
-    setTimeout(_updateNotifUI, 800);
+    const perm = await Notification.requestPermission();
+    if(typeof _notifPermission !== 'undefined') window._notifPermission = perm;
+    _updateNotifUI();
+    if(perm === 'granted' && 'serviceWorker' in navigator) {
+      const ok = await _ntfySubscribe();
+      toast(ok ? 'Уведомления включены ✓' : 'Уведомления включены (push недоступен)');
+    }
   };
 
   // ── Persistent storage ─────────────────────────────────────────────────────

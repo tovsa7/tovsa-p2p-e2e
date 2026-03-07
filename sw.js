@@ -29,11 +29,32 @@ self.addEventListener('fetch', e => {
   );
 });
 
+// Push от ntfy.sh
+self.addEventListener('push', e => {
+  let title = 'Tovsa';
+  let body  = 'Новое сообщение';
+  try {
+    if (e.data) {
+      const d = e.data.json();
+      title = d.title || d.topic || title;
+      body  = d.message || d.body || body;
+    }
+  } catch (_) {
+    try { body = e.data.text() || body; } catch (_) {}
+  }
+  e.waitUntil(
+    self.registration.showNotification(title, {
+      body, tag: 'tovsa-msg', renotify: true, vibrate: [200, 100, 200]
+    })
+  );
+});
+
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   e.waitUntil(
-    clients.matchAll({ type: 'window' }).then(cs => {
-      if (cs.length) return cs[0].focus();
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
+      const existing = cs.find(c => c.url.includes(self.location.origin));
+      if (existing) return existing.focus();
       return clients.openWindow('./');
     })
   );

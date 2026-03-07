@@ -7498,14 +7498,16 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
       if (!pubKeyHex && targetFp === currentPeerFp) pubKeyHex = currentPeerPubKeyHex;
       if (!pubKeyHex) { console.warn('[ntfy] нет pubKeyHex для', targetFp); return; }
       const topic = await _ntfyTopicFromPubHex(pubKeyHex);
+      const _safeBody = text ? (text.length > 120 ? text.slice(0, 120) + '...' : text) : 'Новое сообщение';
       await fetch(NTFY + '/' + topic, {
         method: 'POST',
         headers: {
-          'Title':    senderName || 'Tovsa',
-          'Priority': 'high',
-          'Tags':     'speech_balloon'
+          'Title':        encodeURIComponent(senderName || 'Tovsa'),
+          'Priority':     'high',
+          'Tags':         'speech_balloon',
+          'Content-Type': 'text/plain; charset=utf-8'
         },
-        body: text ? (text.length > 120 ? text.slice(0, 120) + '…' : text) : '📨 Новое сообщение'
+        body: _safeBody
       });
     } catch(e) { console.warn('[ntfy] notify error:', e); }
   };

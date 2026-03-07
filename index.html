@@ -3103,6 +3103,8 @@ async function _handleIdentityPacket(data, setIdDone){
       _presencePubKeyCache[res.fp] = res.pubHex;
       lastPeerFp = res.fp;
       lastPeerPubKeyHex = res.pubHex;
+      // Кешируем pubKeyHex для push-уведомлений (даже если контакт не сохранён)
+      try { const _pc=JSON.parse(localStorage.getItem('_ntfyPubCache')||'{}'); _pc[res.fp]=res.pubHex; localStorage.setItem('_ntfyPubCache',JSON.stringify(_pc)); } catch(_){}
       if(contact){
         if(!contact.pubKeyHex) contact.pubKeyHex = res.pubHex;
         contact.lastSeen = Date.now();
@@ -7487,8 +7489,14 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     try {
       // Берём pubKeyHex собеседника из контактов
       const contacts = await getContacts();
-      const pubKeyHex = contacts[targetFp]?.pubKeyHex;
-      if (!pubKeyHex) return; // нет ключа — не знаем топик
+      let pubKeyHex = contacts[targetFp]?.pubKeyHex;
+      // Fallback: кеш из localStorage (работает даже если контакт не сохранён)
+      if (!pubKeyHex) {
+        try { pubKeyHex = JSON.parse(localStorage.getItem('_ntfyPubCache')||'{}')[targetFp]; } catch(_) {}
+      }
+      // Fallback: активное соединение
+      if (!pubKeyHex && targetFp === currentPeerFp) pubKeyHex = currentPeerPubKeyHex;
+      if (!pubKeyHex) { console.warn('[ntfy] нет pubKeyHex для', targetFp); return; }
       const topic = await _ntfyTopicFromPubHex(pubKeyHex);
       await fetch(NTFY + '/' + topic, {
         method: 'POST',

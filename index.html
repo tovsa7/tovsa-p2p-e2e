@@ -4114,6 +4114,12 @@ function _hideTyping(){
   clearTimeout(_typingHideTimer);
 }
 
+function sysMsg(text){
+  const m=$('msgs'); if(!m) return;
+  const el=document.createElement('div'); el.className='sysmsg'; el.textContent=text;
+  m.appendChild(el); m.scrollTop=m.scrollHeight;
+}
+
 async function addMsg(text,type,replyText,replySender,replyTs,forcedTs){
   const m=$('msgs'),d=document.createElement('div');
   d.className='msg '+type;
@@ -7452,20 +7458,28 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
   async function _ntfySubscribe() {
     try {
       const myHex = _myPubKeyHex();
+      console.log('[ntfy] subscribe: myHex=', myHex ? myHex.slice(0,8)+'...' : 'NULL');
       if (!myHex) throw new Error('ключ ещё не готов');
 
       // Получаем VAPID-ключ ntfy.sh
-      const info = await fetch(NTFY + '/v1/info').then(r => r.json());
+      const infoRes = await fetch(NTFY + '/v1/info');
+      console.log('[ntfy] /v1/info status=', infoRes.status);
+      const info = await infoRes.json();
+      console.log('[ntfy] vapid key=', info.web_push_public_key ? 'OK' : 'MISSING', info);
       const vapidKey = info.web_push_public_key;
       if (!vapidKey) throw new Error('ntfy: нет vapid key');
 
       const reg = await navigator.serviceWorker.ready;
+      console.log('[ntfy] SW ready, scope=', reg.scope);
+
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: _b64ToUint8(vapidKey)
       });
+      console.log('[ntfy] pushManager.subscribe OK, endpoint=', sub.endpoint.slice(0,40)+'...');
 
       const topic = await _ntfyTopicFromPubHex(myHex);
+      console.log('[ntfy] topic=', topic);
 
       // Регистрируем подписку в ntfy
       const res = await fetch(NTFY + '/v1/webpush', {
@@ -7473,10 +7487,12 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topics: [topic], subscription: sub.toJSON() })
       });
-      if (!res.ok) throw new Error('ntfy register: ' + res.status);
+      const resText = await res.text();
+      console.log('[ntfy] /v1/webpush status=', res.status, 'body=', resText.slice(0,100));
+      if (!res.ok) throw new Error('ntfy register: ' + res.status + ' ' + resText);
 
       localStorage.setItem('ntfyTopic', topic);
-      console.log('[ntfy] подписан на', topic);
+      console.log('[ntfy] подписка успешна, топик=', topic);
       return true;
     } catch(e) {
       console.warn('[ntfy] subscribe error:', e);
@@ -7487,20 +7503,25 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
   // Отправить push собеседнику через ntfy (вызывается при отправке сообщения)
   window._pushNotifyPeer = async function(targetFp, senderName, text) {
     if (!targetFp) return;
+    console.log('[ntfy] _pushNotifyPeer вызван, targetFp=', targetFp ? targetFp.slice(0,4)+'...' : 'null');
     try {
       // Берём pubKeyHex собеседника из контактов
       const contacts = await getContacts();
       let pubKeyHex = contacts[targetFp]?.pubKeyHex;
+      console.log('[ntfy] pubKeyHex из contacts:', pubKeyHex ? 'OK' : 'нет');
       // Fallback: кеш из localStorage (работает даже если контакт не сохранён)
       if (!pubKeyHex) {
         try { pubKeyHex = JSON.parse(localStorage.getItem('_ntfyPubCache')||'{}')[targetFp]; } catch(_) {}
+        console.log('[ntfy] pubKeyHex из cache:', pubKeyHex ? 'OK' : 'нет');
       }
       // Fallback: активное соединение
       if (!pubKeyHex && targetFp === currentPeerFp) pubKeyHex = currentPeerPubKeyHex;
+      console.log('[ntfy] pubKeyHex итого:', pubKeyHex ? pubKeyHex.slice(0,8)+'...' : 'NULL');
       if (!pubKeyHex) { console.warn('[ntfy] нет pubKeyHex для', targetFp); return; }
       const topic = await _ntfyTopicFromPubHex(pubKeyHex);
+      console.log('[ntfy] отправка на топик=', topic);
       const _safeBody = text ? (text.length > 120 ? text.slice(0, 120) + '...' : text) : 'Новое сообщение';
-      await fetch(NTFY + '/' + topic, {
+      const r = await fetch(NTFY + '/' + topic, {
         method: 'POST',
         headers: {
           'Title':        encodeURIComponent(senderName || 'Tovsa'),
@@ -7510,6 +7531,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
         },
         body: _safeBody
       });
+      console.log('[ntfy] отправка статус=', r.status, r.ok ? 'OK' : 'ERROR');
     } catch(e) { console.warn('[ntfy] notify error:', e); }
   };
 

@@ -2,8 +2,13 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>P2P Мессенджер</title>
+<meta name="theme-color" content="#0a0a0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tovsa">
+<meta name="mobile-web-app-capable" content="yes">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
@@ -475,9 +480,9 @@ textarea::placeholder{color:var(--mu)}
 
 <div class="hdr">
   <div class="dot" id="dot"></div>
-  <span class="htitle" id="hdr-title">ФПВ Друн</span>
+  <span class="htitle" id="hdr-title">Tovsa</span>
   <span class="hstat" id="stat" style="display:none">без сервера</span>
-  <span class="hstat" id="tagline" style="font-size:10px;color:var(--mu);font-style:italic">Друзья должны быть везде и всегда!</span>
+
 </div>
 
 <!-- Мини-плеер -->
@@ -618,6 +623,35 @@ textarea::placeholder{color:var(--mu)}
         <div class="sk-storage-bar" style="flex:1"><div class="sk-storage-fill" id="sk-fill" style="width:0%"></div></div>
         <div class="sk-storage-num" id="sk-storage-num" style="font-size:10px;color:var(--mu);white-space:nowrap">считаем...</div>
       </div>
+    </div>
+  </div>
+  <div class="sn-section">
+    <div class="sn-label">Приложение</div>
+    <!-- Install PWA -->
+    <div id="pwa-install-wrap" style="display:none;flex-direction:column;gap:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px">
+        <div>
+          <div style="font-size:13px;font-weight:700">Установить приложение</div>
+          <div style="font-size:10px;color:var(--mu);margin-top:2px">Работает как нативное приложение</div>
+        </div>
+        <button class="action-btn" id="pwa-install-btn" onclick="pwaTriggerInstall()">+ установить</button>
+      </div>
+    </div>
+    <!-- Notifications -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px">
+      <div>
+        <div style="font-size:13px;font-weight:700">Уведомления</div>
+        <div style="font-size:10px;color:var(--mu);margin-top:2px" id="notif-desc">Уведомления о новых сообщениях</div>
+      </div>
+      <button class="action-btn" id="notif-btn" onclick="pwaRequestNotif()">включить</button>
+    </div>
+    <!-- Persistent storage -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px">
+      <div>
+        <div style="font-size:13px;font-weight:700">Защита данных</div>
+        <div style="font-size:10px;color:var(--mu);margin-top:2px" id="persist-desc">Браузер может удалить данные автоматически</div>
+      </div>
+      <button class="action-btn" id="persist-btn" onclick="pwaRequestPersist()">защитить</button>
     </div>
   </div>
   <div class="sn-section">
@@ -3011,6 +3045,7 @@ async function _handleServicePacket(j, idDone){
   if(idDone && (j.__edit__ || j.__msg__)){
     const contacts = await getContacts();
     const peerName = (currentPeerFp && contacts[currentPeerFp]?.name) || 'Неизвестный';
+    window.peerNameCache = peerName;
 
     if(j.__edit__ && j.ts && j.text){
       const ts = Number(j.ts);
@@ -4250,7 +4285,7 @@ function mpUpdateMediaSession(name,source){
   if(!('mediaSession' in navigator)) return;
   navigator.mediaSession.metadata=new MediaMetadata({
     title: name||'Аудио',
-    artist: source||'ФПВ Друн',
+    artist: source||'Tovsa',
   });
   navigator.mediaSession.setActionHandler('play',()=>{
     _mpAudio&&_mpAudio.play();
@@ -7322,6 +7357,219 @@ function grpSendChatMsg(){
 document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
 // ══════════════════════════════════════════════════════════════════════════════
 // END GROUPS MODULE
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PWA MODULE — manifest, service worker, notifications, persistent storage
+// ══════════════════════════════════════════════════════════════════════════════
+(function(){
+
+  // ── Manifest (inline blob) ─────────────────────────────────────────────────
+  const ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="#0a0a0f"/><circle cx="256" cy="256" r="180" fill="none" stroke="#00ff9d" stroke-width="18"/><circle cx="256" cy="256" r="80" fill="#00ff9d"/><circle cx="256" cy="256" r="36" fill="#0a0a0f"/></svg>`;
+  const ICON_URL = 'data:image/svg+xml;base64,' + btoa(ICON_SVG);
+
+  const manifest = {
+    name: 'Tovsa',
+    short_name: 'Tovsa',
+    description: 'P2P мессенджер с E2E шифрованием',
+    start_url: './',
+    display: 'standalone',
+    orientation: 'portrait',
+    background_color: '#0a0a0f',
+    theme_color: '#0a0a0f',
+    icons: [
+      { src: ICON_URL, sizes: '192x192', type: 'image/svg+xml' },
+      { src: ICON_URL, sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' }
+    ]
+  };
+  try {
+    const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement('link');
+    link.rel   = 'manifest'; link.href = url;
+    document.head.appendChild(link);
+  } catch(e) { console.warn('[pwa] manifest error', e); }
+
+  // ── Service Worker (blob) ──────────────────────────────────────────────────
+  const SW_CODE = `
+const CACHE = 'tovsa-v1';
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches.open(CACHE).then(c => c.addAll(['./', './index.html'])).catch(()=>{})
+  );
+  self.skipWaiting();
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(clients.claim());
+});
+self.addEventListener('fetch', e => {
+  if(e.request.method !== 'GET') return;
+  e.respondWith(
+    caches.match(e.request).then(cached => cached || fetch(e.request).then(res => {
+      const clone = res.clone();
+      caches.open(CACHE).then(c => c.put(e.request, clone));
+      return res;
+    }))
+  );
+});
+self.addEventListener('push', e => {
+  const data = e.data ? e.data.json() : { title:'Tovsa', body:'Новое сообщение' };
+  e.waitUntil(self.registration.showNotification(data.title || 'Tovsa', {
+    body: data.body || '',
+    icon: data.icon || '',
+    badge: data.icon || '',
+    tag: 'msg',
+    renotify: true,
+    vibrate: [200, 100, 200]
+  }));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(clients.matchAll({type:'window'}).then(cs => {
+    if(cs.length) return cs[0].focus();
+    return clients.openWindow('./');
+  }));
+});
+`;
+  try {
+    const swBlob = new Blob([SW_CODE], { type: 'application/javascript' });
+    const swUrl  = URL.createObjectURL(swBlob);
+    navigator.serviceWorker.register(swUrl, { scope: './' })
+      .then(reg => { window._swReg = reg; console.log('[pwa] sw registered'); })
+      .catch(err => console.warn('[pwa] sw failed', err));
+  } catch(e) { console.warn('[pwa] sw error', e); }
+
+  // ── Install prompt ─────────────────────────────────────────────────────────
+  let _installPrompt = null;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    _installPrompt = e;
+    const wrap = document.getElementById('pwa-install-wrap');
+    if(wrap) wrap.style.display = 'flex';
+  });
+  window.addEventListener('appinstalled', () => {
+    _installPrompt = null;
+    const wrap = document.getElementById('pwa-install-wrap');
+    if(wrap) wrap.style.display = 'none';
+    if(typeof toast === 'function') toast('Приложение установлено ✓');
+  });
+  window.pwaTriggerInstall = async function() {
+    if(!_installPrompt) return;
+    _installPrompt.prompt();
+    const { outcome } = await _installPrompt.userChoice;
+    if(outcome === 'accepted') _installPrompt = null;
+  };
+
+  // ── Notifications ──────────────────────────────────────────────────────────
+  function _updateNotifUI() {
+    const btn  = document.getElementById('notif-btn');
+    const desc = document.getElementById('notif-desc');
+    if(!btn || !desc) return;
+    const perm = Notification.permission;
+    if(perm === 'granted') {
+      btn.textContent  = '✓ включены';
+      btn.disabled     = true;
+      desc.textContent = 'Уведомления о новых сообщениях включены';
+    } else if(perm === 'denied') {
+      btn.textContent  = '✗ заблокированы';
+      btn.disabled     = true;
+      desc.textContent = 'Разрешите уведомления в настройках браузера';
+      desc.style.color = 'var(--e)';
+    } else {
+      btn.textContent  = 'включить';
+      btn.disabled     = false;
+    }
+  }
+  window.pwaRequestNotif = async function() {
+    if(!('Notification' in window)) {
+      if(typeof toast === 'function') toast('Уведомления не поддерживаются');
+      return;
+    }
+    const result = await Notification.requestPermission();
+    _updateNotifUI();
+    if(result === 'granted' && typeof toast === 'function') toast('Уведомления включены ✓');
+  };
+
+  // Показываем уведомление о входящем сообщении
+  window._pwaNotifyMsg = function(senderName, text) {
+    if(Notification.permission !== 'granted') return;
+    if(!document.hidden) return; // только если вкладка в фоне
+    try {
+      const n = new Notification(senderName || 'Новое сообщение', {
+        body: text && text.length > 80 ? text.slice(0, 80) + '…' : (text || ''),
+        tag: 'tovsa-msg',
+        renotify: true,
+        silent: false
+      });
+      n.onclick = () => { window.focus(); n.close(); };
+    } catch(e) {}
+  };
+
+  // ── Persistent storage ─────────────────────────────────────────────────────
+  async function _checkPersist() {
+    if(!navigator.storage || !navigator.storage.persisted) return;
+    const btn  = document.getElementById('persist-btn');
+    const desc = document.getElementById('persist-desc');
+    if(!btn || !desc) return;
+    const persisted = await navigator.storage.persisted();
+    if(persisted) {
+      btn.textContent  = '✓ защищено';
+      btn.disabled     = true;
+      desc.textContent = 'Данные защищены от автоудаления';
+      desc.style.color = 'var(--a)';
+    }
+  }
+  window.pwaRequestPersist = async function() {
+    if(!navigator.storage || !navigator.storage.persist) {
+      if(typeof toast === 'function') toast('Не поддерживается браузером');
+      return;
+    }
+    const granted = await navigator.storage.persist();
+    if(granted) {
+      if(typeof toast === 'function') toast('Данные защищены ✓');
+    } else {
+      if(typeof toast === 'function') toast('Браузер отказал — попробуйте установить приложение');
+    }
+    _checkPersist();
+  };
+
+  // Инициализация при загрузке
+  document.addEventListener('DOMContentLoaded', () => {
+    if('Notification' in window) _updateNotifUI();
+    else {
+      const btn = document.getElementById('notif-btn');
+      if(btn) { btn.textContent = 'недоступно'; btn.disabled = true; }
+    }
+    _checkPersist();
+  });
+
+})();
+
+// Хук на входящие сообщения — запускаем уведомление
+(function(){
+  const _origAddMsg = typeof addMsg === 'function' ? addMsg : null;
+  // Перехватываем через прокси dc.onmessage уже не нужен —
+  // просто патчим addMsg после её объявления ниже:
+  const _patch = () => {
+    if(typeof addMsg !== 'function') return;
+    if(addMsg._pwaPatched) return;
+    const _orig = addMsg;
+    window.addMsg = async function(text, type, ...rest) {
+      if(type === 'in' && typeof window._pwaNotifyMsg === 'function') {
+        const senderName = window.peerNameCache || 'Собеседник';
+        window._pwaNotifyMsg(senderName, typeof text === 'string' ? text : '📎 файл');
+      }
+      return _orig.call(this, text, type, ...rest);
+    };
+    window.addMsg._pwaPatched = true;
+  };
+  // Патчим сразу и после DOMContentLoaded на случай если addMsg ещё не объявлена
+  _patch();
+  document.addEventListener('DOMContentLoaded', _patch);
+  setTimeout(_patch, 500);
+})();
+// ══════════════════════════════════════════════════════════════════════════════
+// END PWA MODULE
 // ══════════════════════════════════════════════════════════════════════════════
 </script>
 

@@ -3977,7 +3977,7 @@ function _requestNotifPermission(){
 
 function _sendNotif(title, body, onClick){
   if(!('Notification' in window)) return;
-  if(document.visibilityState === 'visible') return; // вкладка активна — не мешаем
+  if(document.hasFocus()) return; // приложение активно — не мешаем
   if(_notifPermission !== 'granted') return;
   try{
     const n = new Notification(title, { body, icon: '', silent: false });

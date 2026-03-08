@@ -1377,16 +1377,22 @@ async function initIdentity(){
     myFingerprint=bytesToFingerprint(hash);
     // Hex первых 24 байт хеша → presence peer ID
     myPresenceId = await sha256hex(myPubKeyRaw, 24);
-    // Экспортируем для PWA-модуля (IIFE не имеет доступа к let-переменным)
-    window.myPubKeyRaw = myPubKeyRaw;
     // Обновляем кнопку группы — теперь идентификация готова
     if(_grpActive) _grpUpdateStatus(_grpActive);
-    // Авто-подписка ntfy если разрешение уже было выдано
-    // Вызываем через window чтобы дождаться инициализации IIFE
-    window._ntfyKeyReady = true;
-    if(typeof window._ntfySubscribe === 'function') {
-      console.log('[ntfy] авто-подписка после готовности ключа...');
-      window._ntfySubscribe();
+    // Сохраняем hex публичного ключа для ntfy (читается из IIFE после загрузки)
+    const _myPubHex = Array.from(myPubKeyRaw).map(b=>b.toString(16).padStart(2,'0')).join('');
+    localStorage.setItem('_myPubHex', _myPubHex);
+    console.log('[ntfy] ключ готов, hex сохранён:', _myPubHex.slice(0,8)+'...');
+    // Подписываемся на push — ждём пока IIFE загрузится если нужно
+    if('Notification' in window && Notification.permission === 'granted') {
+      const _tryNtfy = (attempts) => {
+        if(typeof window._ntfySubscribe === 'function') {
+          window._ntfySubscribe();
+        } else if(attempts > 0) {
+          setTimeout(() => _tryNtfy(attempts - 1), 200);
+        }
+      };
+      _tryNtfy(20); // ждём до 4 секунд
     }
   }catch(e){
     console.warn('Identity init failed:',e);
@@ -7466,7 +7472,8 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
 
   window._ntfySubscribe = async function _ntfySubscribe() {
     try {
-      const myHex = _myPubKeyHex();
+      // Читаем hex из localStorage — туда записывает initIdentity
+      const myHex = localStorage.getItem('_myPubHex');
       console.log('[ntfy] subscribe: myHex=', myHex ? myHex.slice(0,8)+'...' : 'NULL');
       if (!myHex) throw new Error('ключ ещё не готов');
 
@@ -7567,7 +7574,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     if(typeof _notifPermission !== 'undefined') window._notifPermission = perm;
     _updateNotifUI();
     if(perm === 'granted' && 'serviceWorker' in navigator) {
-      const ok = await _ntfySubscribe();
+      const ok = await window._ntfySubscribe();
       toast(ok ? 'Уведомления включены ✓' : 'Уведомления включены (push недоступен)');
     }
   };
@@ -7593,9 +7600,11 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
   document.addEventListener('DOMContentLoaded', () => {
     _updateNotifUI();
     _checkPersist();
-    // Если ключ уже был готов до загрузки IIFE — подписываемся сейчас
-    if(window._ntfyKeyReady && 'Notification' in window && Notification.permission === 'granted') {
-      console.log('[ntfy] авто-подписка (ключ был готов раньше IIFE)...');
+    // Если initIdentity уже завершился (ключ в localStorage) — подписываемся
+    // (на случай если IIFE загрузился позже initIdentity)
+    if(localStorage.getItem('_myPubHex') &&
+       'Notification' in window && Notification.permission === 'granted') {
+      console.log('[ntfy] авто-подписка: IIFE загрузился после ключа...');
       window._ntfySubscribe();
     }
   });

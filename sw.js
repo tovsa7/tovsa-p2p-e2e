@@ -70,7 +70,8 @@ self.addEventListener('push', e => {
 
     await self.registration.showNotification(title, {
       body, icon: ICON_URL, badge: ICON_URL, tag, renotify: true,
-      vibrate: [200, 100, 200], actions
+      vibrate: [200, 100, 200], actions,
+      data: { action: isConn ? 'accept-call' : 'open-chat' }
     });
   })());
 });
@@ -78,16 +79,20 @@ self.addEventListener('push', e => {
 // ── Notification click ─────────────────────────────────────────────────────────
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-  const isAccept = e.action === 'accept' || e.notification.tag === 'tovsa-conn';
+  const isAccept   = e.action === 'accept' || e.notification.tag === 'tovsa-conn';
+  const isOpenChat = e.notification.data?.action === 'open-chat';
+
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
       const existing = cs.find(c => c.url.includes(self.location.origin));
       if (existing) {
         existing.focus();
-        if(isAccept) existing.postMessage({ action: 'accept-call' });
+        if (isAccept)   existing.postMessage({ action: 'accept-call' });
+        if (isOpenChat) existing.postMessage({ action: 'open-chat' });
         return;
       }
-      return clients.openWindow(isAccept ? './?action=accept-call' : './');
+      const url = isAccept ? './?action=accept-call' : isOpenChat ? './?action=open-chat' : './';
+      return clients.openWindow(url);
     })
   );
 });

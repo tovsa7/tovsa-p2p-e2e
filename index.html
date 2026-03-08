@@ -4298,15 +4298,26 @@ function _sendNotifConn(callerName, callerFp){
   if(_notifPermission !== 'granted') return;
   try{
     const icon = _getNotifIcon();
-    const n = new Notification('📡 ' + callerName, {
+    const opts = {
       body: 'Хочет соединиться — нажмите чтобы принять',
       icon, badge: icon, silent: false,
-      tag: 'tovsa-conn',
-      renotify: true,
+      tag: 'tovsa-conn', renotify: true,
+      actions: [{ action: 'accept', title: '✓ Принять' }],
       data: { callerFp, action: 'accept-call' }
-    });
-    n.onclick = () => { window.focus(); acceptCall(); n.close(); };
-    setTimeout(() => n.close(), 30000);
+    };
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.ready.then(reg =>
+        reg.showNotification('📡 ' + callerName, opts)
+      ).catch(()=>{
+        const n = new Notification('📡 ' + callerName, opts);
+        n.onclick = () => { window.focus(); acceptCall(); n.close(); };
+        setTimeout(() => n.close(), 30000);
+      });
+    } else {
+      const n = new Notification('📡 ' + callerName, opts);
+      n.onclick = () => { window.focus(); acceptCall(); n.close(); };
+      setTimeout(() => n.close(), 30000);
+    }
   }catch(_){}
 }
 
@@ -4314,6 +4325,7 @@ function _sendNotifConn(callerName, callerFp){
 if('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('message', e => {
     if(e.data?.action === 'accept-call'){ window.focus(); acceptCall(); }
+    if(e.data?.action === 'open-chat'){ window.focus(); showTab('sc'); }
   });
 }
 
@@ -4323,9 +4335,28 @@ function _sendNotif(title, body, onClick){
   if(_notifPermission !== 'granted') return;
   try{
     const icon = _getNotifIcon();
-    const n = new Notification(title, { body, icon, badge: icon, silent: false });
-    n.onclick = () => { window.focus(); if(onClick) onClick(); n.close(); };
-    setTimeout(() => n.close(), 6000);
+    const opts = {
+      body, icon, badge: icon, silent: false,
+      tag: 'tovsa-msg', renotify: true,
+      vibrate: [200, 100, 200],
+      data: { action: onClick ? 'open-chat' : 'open' }
+    };
+    // SW showNotification работает даже когда вкладка свёрнута
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.ready.then(reg =>
+        reg.showNotification(title, opts)
+      ).catch(()=>{
+        if(!document.hidden){
+          const n = new Notification(title, { body, icon, badge: icon, silent: false });
+          n.onclick = () => { window.focus(); if(onClick) onClick(); n.close(); };
+          setTimeout(() => n.close(), 6000);
+        }
+      });
+    } else if(!document.hidden){
+      const n = new Notification(title, { body, icon, badge: icon, silent: false });
+      n.onclick = () => { window.focus(); if(onClick) onClick(); n.close(); };
+      setTimeout(() => n.close(), 6000);
+    }
   }catch(_){}
 }
 
@@ -4467,13 +4498,15 @@ async function addMsg(text,type,replyText,replySender,replyTs,forcedTs){
   const contacts=await getContacts();
   const sender=type==='out'?'Вы':(currentPeerFp&&contacts[currentPeerFp]?.name)||'Неизвестный';
   attachMsgLongPress(d,text,sender,ts,currentPeerFp);
-  m.appendChild(d);m.scrollTop=m.scrollHeight;
+  const atBottom = m.scrollHeight - m.scrollTop - m.clientHeight < 80;
+  const inChat = $('sc').classList.contains('on');
+  m.appendChild(d);
+  // Скроллим вниз только если пользователь был внизу И чат виден И приложение активно
+  if(atBottom && inChat && !document.hidden) m.scrollTop=m.scrollHeight;
   if(type==='in') _sendNotif(sender, text, ()=>showTab('sc'));
   if(type==='in'){
-    const m = $('msgs');
-    const atBottom = m.scrollHeight - m.scrollTop - m.clientHeight < 80;
-    const inChat = $('sc').classList.contains('on');
-    if(!atBottom || !inChat) _addUnread();
+    // Если приложение свёрнуто — всегда помечаем как непрочитанное
+    if(!atBottom || !inChat || document.hidden) _addUnread();
   }
   if(currentPeerFp) await saveMsg(currentPeerFp,text,type,ts,replyText,replySender,replyTs);
 }
@@ -8099,9 +8132,12 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     // Обработка URL параметра от SW (открытие через уведомление с action)
     const urlAction = new URLSearchParams(location.search).get('action');
     if(urlAction === 'accept-call'){
-      history.replaceState(null, '', location.pathname); // убираем параметр из URL
-      // Ждём пока приложение полностью инициализируется
+      history.replaceState(null, '', location.pathname);
       setTimeout(() => { if(typeof acceptCall === 'function') acceptCall(); }, 2000);
+    }
+    if(urlAction === 'open-chat'){
+      history.replaceState(null, '', location.pathname);
+      setTimeout(() => { if(typeof showTab === 'function') showTab('sc'); }, 500);
     }
   });
 

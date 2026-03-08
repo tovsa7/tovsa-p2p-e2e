@@ -483,7 +483,7 @@ textarea::placeholder{color:var(--mu)}
   <span class="htitle" id="hdr-title">Tovsa</span>
   <span class="hstat" id="stat" style="display:none">без сервера</span>
   <span id="tagline" style="display:none"></span>
-  <span style="font-size:9px;color:var(--mu);opacity:.4">v4</span>
+  <span style="font-size:9px;color:var(--mu);opacity:.4">v6</span>
 
 </div>
 
@@ -978,6 +978,7 @@ textarea::placeholder{color:var(--mu)}
       <div id="typing-indicator" style="display:none;font-size:9px;color:var(--a);margin-top:1px">печатает...</div>
     </div>
     <button class="idsave" id="idsavebtn" onclick="saveContact()" style="display:none">+ сохранить</button>
+    <button id="call-online-btn" onclick="callPeerOnline()" title="Позвать онлайн" style="display:none;background:none;border:1px solid var(--a);color:var(--a);border-radius:10px;padding:5px 10px;font-size:11px;cursor:pointer;flex-shrink:0">📣</button>
   </div>
   <div id="pin-bar" style="display:none;align-items:center;gap:8px;padding:7px 12px;
     background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0;">
@@ -1861,6 +1862,15 @@ async function openHistory(fp){
   const contacts=await getContacts();
   const contact=contacts[fp];
   $('sh-name').textContent=contact?.name||'Неизвестный';
+  // Показываем кнопку "позвать онлайн" если нет активного соединения
+  currentPeerFp = fp;
+  const callBtn = $('call-online-btn');
+  if(callBtn){
+    const isConn = $('sc').dataset.active==='1' && dc && dc.readyState==='open';
+    callBtn.style.display = isConn ? 'none' : 'block';
+    callBtn.textContent = '📣';
+    callBtn.disabled = false;
+  }
   const h=await getHistory();
   const msgs=h[fp]||[];
   const lastMsg=msgs.at(-1);
@@ -2722,7 +2732,7 @@ async function _handleIncomingCallConn(conn){
     $('call-sub').textContent = req.callerFp ? 'fp: ' + req.callerFp : 'запрос на соединение';
     $('call-banner').classList.add('on');
     try{ if(navigator.vibrate) navigator.vibrate([150, 80, 150]); }catch(_){}
-    _sendNotif('📞 ' + req.callerName, 'Входящий запрос соединения', ()=>{ window.focus(); });
+    _sendNotif('📞 ' + req.callerName, 'Хочет соединиться с вами', ()=>{ window.focus(); });
   }
 
   conn.on('open', ()=>{
@@ -3000,6 +3010,8 @@ function createPC(){
       if(inChat){
         setStat('соединение разорвано');
         sysMsg('✗ Соединение разорвано');
+        const peerName = (currentPeerFp && contacts[currentPeerFp]?.name) || 'Собеседник';
+        _sendNotif('📵 ' + peerName, 'Соединение разорвано');
         $('reconnect-bar').style.display='flex';
         $('reconnect-btn').disabled = !_pjOk;
       }else{
@@ -3009,7 +3021,12 @@ function createPC(){
     }else if(s==='connected'||s==='completed'){
       clearTimeout(pc._reconnectHint);
       $('reconnect-bar').style.display='none';
-      if(inChat){ setStat('подключено ✓'); $('dot').className='dot con'; }
+      if(inChat){
+        setStat('подключено ✓');
+        $('dot').className='dot con';
+        const peerName = (currentPeerFp && contacts[currentPeerFp]?.name) || 'Собеседник';
+        _sendNotif('🔗 ' + peerName, 'Соединение установлено', ()=>showTab('sc'));
+      }
     }
   };
 }
@@ -3446,6 +3463,11 @@ async function onConn(){
   $('mi').focus();
   _e2eUpdateLockBadge();
 
+  // Скрываем кнопку "позвать онлайн" — уже подключены
+  const callBtn = $('call-online-btn');
+  if(callBtn) callBtn.style.display = 'none';
+  _callOnlineWatching = null;
+
   // Генерируем ECDH-пару и сразу отправляем свой публичный ключ открыто.
   // Identity будет отправлено из dc.onmessage после получения ответного hello.
   try{
@@ -3455,6 +3477,22 @@ async function onConn(){
     console.warn('[e2e] onConn error:', err);
     // Fallback — если ECDH не работает, отправляем identity без шифрования
     try{ dc.send(await makeIdentityMsg()); }catch(e2){}
+  }
+
+  // Отправляем оффлайн-очередь после установки соединения
+  if(_offlineQueue.length > 0){
+    setTimeout(async () => {
+      const queue = [..._offlineQueue];
+      _offlineQueue = [];
+      for(const item of queue){
+        if(dc && dc.readyState === 'open'){
+          const pkt = {__msg__:true, ts:item.ts, text:item.text};
+          if(item.replyText){ pkt.replyText=item.replyText; pkt.replySender=item.replySender; pkt.replyTs=item.replyTs; }
+          _e2eSend(JSON.stringify(pkt));
+        }
+      }
+      if(queue.length) toast(`📤 Отправлено ${queue.length} отложенных сообщений`);
+    }, 1500); // ждём завершения E2E хэндшейка
   }
 }
 
@@ -3633,7 +3671,19 @@ function sendMsg(){
     });
     return;
   }
-  if(!dc||dc.readyState!=='open')return;
+  // Если нет соединения — кладём в очередь
+  if(!dc||dc.readyState!=='open'){
+    const ts=Date.now();
+    const queueItem = _replyText
+      ? {text:t,ts,replyText:_replyText,replySender:_replyIsOut?'self':'peer',replyTs:_replyTs}
+      : {text:t,ts};
+    _offlineQueue.push(queueItem);
+    addMsg(t,'out',_replyText||null,_replySender||null,_replyTs||null,ts);
+    if(_replyText) cancelReply();
+    i.value=''; i.style.height='auto'; i.focus();
+    toast('📤 Отправится когда восстановится соединение');
+    return;
+  }
   const ts=Date.now();
   if(_replyText){
     const senderRole=_replyIsOut?'self':'peer';
@@ -3824,6 +3874,8 @@ function fallbackCopy(text){
 
 // ── Reply ──
 let _replyText=null;
+let _offlineQueue = []; // очередь сообщений при потере соединения
+let _callOnlineWatching = null; // fp за которым наблюдаем для уведомления "вошёл онлайн"
 let _replySender=null;  // отображаемое имя (для локального UI)
 let _replyIsOut=null;   // true = цитируем своё сообщение
 let _replyTs=null;
@@ -4003,7 +4055,10 @@ function _sendNotif(title, body, onClick){
   if(document.hasFocus()) return; // приложение активно — не мешаем
   if(_notifPermission !== 'granted') return;
   try{
-    const n = new Notification(title, { body, icon: '', silent: false });
+    // Иконка — SVG логотип закодированный в base64
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="48" fill="#0a0a0f"/><circle cx="96" cy="96" r="52" fill="none" stroke="#7c6aff" stroke-width="12"/><circle cx="96" cy="96" r="24" fill="#7c6aff"/><circle cx="96" cy="44" r="8" fill="#7c6aff"/><circle cx="148" cy="96" r="8" fill="#7c6aff"/><circle cx="96" cy="148" r="8" fill="#7c6aff"/><circle cx="44" cy="96" r="8" fill="#7c6aff"/></svg>`;
+    const icon = 'data:image/svg+xml;base64,' + btoa(svg);
+    const n = new Notification(title, { body, icon, badge: icon, silent: false });
     n.onclick = () => { window.focus(); if(onClick) onClick(); n.close(); };
     setTimeout(() => n.close(), 6000);
   }catch(_){}
@@ -5437,6 +5492,7 @@ async function _fpToPid(pubKeyHex){
 
 // Применить результат проверки одного контакта
 function _applyPresenceResult(fp, result){
+  const prev = _presenceCache[fp];
   _presenceCache[fp] = result;
   _presenceCacheTime[fp] = Date.now();
   const dot = document.getElementById('pd-' + fp);
@@ -5444,6 +5500,36 @@ function _applyPresenceResult(fp, result){
     dot.className = 'ci-presence-dot ' + result;
     dot.title = result === 'online' ? 'онлайн' : 'офлайн';
   }
+  // Уведомление когда ожидаемый контакт вошёл онлайн
+  if(_callOnlineWatching === fp && prev !== 'online' && result === 'online'){
+    const contacts = JSON.parse(localStorage.getItem('contacts')||'{}');
+    const name = contacts[fp]?.name || 'Собеседник';
+    _sendNotif('🟢 ' + name, 'Вошёл в сеть — можно подключиться', ()=>showTab('sc'));
+    toast('🟢 ' + name + ' онлайн!');
+    _callOnlineWatching = null;
+    const callBtn = $('call-online-btn');
+    if(callBtn) callBtn.style.display = 'none';
+  }
+}
+
+// Позвать собеседника онлайн — отправляем push и начинаем следить за presence
+async function callPeerOnline(){
+  if(!currentPeerFp){ toast('Нет активного чата'); return; }
+  const contacts = await getContacts();
+  const peerName = contacts[currentPeerFp]?.name || 'кто-то';
+  const myName = document.getElementById('my-name-input')?.value?.trim() || 'Tovsa';
+
+  // Отправляем push собеседнику
+  if(typeof window._pushNotifyPeer === 'function'){
+    window._pushNotifyPeer(currentPeerFp, '📣 ' + myName, 'Ждёт вас в чате — зайдите в сеть');
+  }
+
+  // Начинаем следить за presence
+  _callOnlineWatching = currentPeerFp;
+  toast('📣 Уведомление отправлено, жду ' + peerName + '...');
+
+  const callBtn = $('call-online-btn');
+  if(callBtn){ callBtn.textContent = '⏳'; callBtn.disabled = true; setTimeout(()=>{ callBtn.textContent='📣'; callBtn.disabled=false; }, 30000); }
 }
 
 // ── Метод 1: REST API — один запрос, нет нагрузки на WebSocket маяка ──
@@ -6422,11 +6508,15 @@ function _updateUnreadBadges(){
 function _addUnread(){
   _unreadCount++;
   _updateUnreadBadges();
+  // Badge API — счётчик на иконке приложения
+  if(navigator.setAppBadge) navigator.setAppBadge(_unreadCount).catch(()=>{});
 }
 
 function _clearUnread(){
   _unreadCount = 0;
   _updateUnreadBadges();
+  // Очищаем бейдж на иконке
+  if(navigator.clearAppBadge) navigator.clearAppBadge().catch(()=>{});
 }
 
 function scrollToBottom(){

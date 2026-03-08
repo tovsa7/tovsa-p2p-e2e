@@ -8243,20 +8243,10 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
       let pushPubHex = null;
       try { pushPubHex = JSON.parse(localStorage.getItem('_pushPubCache')||'{}')[targetFp]; } catch(_) {}
 
-      let body;
       const authFields = await _signNotify(fp);
       if (!authFields) { console.warn('[push] ключ не готов, пропускаем notify'); return; }
-      if (pushPubHex && typeof _encryptPushPayload === 'function') {
-        // Шифруем payload — сервер не видит содержимое
-        const pushPubRaw = new Uint8Array(pushPubHex.match(/.{2}/g).map(h => parseInt(h,16)));
-        const payload = JSON.stringify({ title: senderName || 'Tovsa', body: text || 'Новое сообщение' });
-        const encryptedBuf = await _encryptPushPayload(pushPubRaw, payload);
-        const encrypted = btoa(String.fromCharCode(...encryptedBuf)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-        body = JSON.stringify({ targetFp: fp, encrypted, ...authFields });
-      } else {
-        // Fallback: без шифрования контента (собеседник ещё не передал push pub key)
-        body = JSON.stringify({ targetFp: fp, senderName: 'Tovsa', text: 'Новое сообщение', ...authFields });
-      }
+      // Транспортное шифрование обеспечивается RFC 8291 (VAPID) на стороне воркера
+      const body = JSON.stringify({ targetFp: fp, senderName: senderName || 'Tovsa', text: text || 'Новое сообщение', ...authFields });
 
       const res = await fetch(PUSH_SERVER + '/push/notify', {
         method: 'POST',
@@ -8272,27 +8262,14 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     if (!targetFps?.length || !PUSH_SERVER || PUSH_SERVER.includes('ВАШ')) return;
     try {
       const contacts = await getContacts();
-      const pushPubCache = JSON.parse(localStorage.getItem('_pushPubCache') || '{}');
-
-      // Отправляем каждому индивидуально чтобы шифровать его ключом
+      // Отправляем каждому индивидуально
       await Promise.allSettled(targetFps.map(async fp => {
         const pubKeyHex = contacts[fp]?.pubKeyHex;
         if (!pubKeyHex) return;
         const serverFp = await _pubHexToFp(pubKeyHex);
-        const pushPubHex = pushPubCache[fp];
-
-        let body;
         const authFields = await _signNotify(serverFp);
         if (!authFields) return;
-        if (pushPubHex && typeof _encryptPushPayload === 'function') {
-          const pushPubRaw = new Uint8Array(pushPubHex.match(/.{2}/g).map(h => parseInt(h,16)));
-          const payload = JSON.stringify({ title: senderName || 'Tovsa', body: text || 'Новое сообщение' });
-          const encryptedBuf = await _encryptPushPayload(pushPubRaw, payload);
-          const encrypted = btoa(String.fromCharCode(...encryptedBuf)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-          body = JSON.stringify({ targetFp: serverFp, encrypted, ...authFields });
-        } else {
-          body = JSON.stringify({ targetFp: serverFp, senderName: 'Tovsa', text: 'Новое сообщение', ...authFields });
-        }
+        const body = JSON.stringify({ targetFp: serverFp, senderName: senderName || 'Tovsa', text: text || 'Новое сообщение', ...authFields });
 
         await fetch(PUSH_SERVER + '/push/notify', {
           method: 'POST',

@@ -90,29 +90,14 @@ self.addEventListener('push', e => {
 
     try {
       if (e.data) {
-        const raw = e.data.arrayBuffer ? await e.data.arrayBuffer() : null;
-
-        // Пробуем расшифровать если есть зашифрованный payload
-        if (raw && raw.byteLength > 0) {
-          const decrypted = await _decryptPushPayload(raw).catch(() => null);
-          if (decrypted) {
-            try {
-              const d = JSON.parse(decrypted);
-              title = d.title || title;
-              body  = d.body  || body;
-            } catch(_) { body = decrypted; }
-          } else {
-            // Fallback: попробуем как обычный JSON
-            try {
-              const d = e.data.json();
-              title = d.title || title;
-              body  = d.body  || body;
-            } catch(_) {
-              try { body = e.data.text() || body; } catch(_) {}
-            }
-          }
+        // RFC 8291 расшифровывается браузером автоматически — e.data уже plaintext JSON
+        try {
+          const d = e.data.json();
+          title = d.title || title;
+          body  = d.body  || body;
+        } catch(_) {
+          try { body = e.data.text() || body; } catch(_) {}
         }
-
         if (title.startsWith('📡')) { tag = 'tovsa-conn'; isConn = true; }
       }
     } catch (_) {}

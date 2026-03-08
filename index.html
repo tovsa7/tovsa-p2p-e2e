@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="preconnect" href="https://0.peerjs.com">
+<link rel="preconnect" href="https://peerjs-server-lwcm.onrender.com">
+<link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
 <title>Tovsa</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icon-192.png">
@@ -2601,21 +2604,27 @@ function testS(i){
   btn.disabled=true;st.className='sstat spin';st.textContent='…';
   const t0=performance.now();let done=false,p=null;
   return new Promise(res=>{
-    const fin=(ok,lbl,lat)=>{
+    const fin=(ok,lbl,lat,srflxData)=>{
       if(done)return;done=true;clearTimeout(tm);
       try{p&&p.close()}catch(e){}
       btn.disabled=false;
       st.className='sstat '+(ok?'ok':'err');
       st.textContent=lbl;
       updateCnt();
-      res({ok,lat:lat||null});
+      res({ok,lat:lat||null,srflx:srflxData||null});
     };
-    const tm=setTimeout(()=>fin(false,'timeout',null),5000);
+    const tm=setTimeout(()=>fin(false,'timeout',null),1500);
     try{
       p=new RTCPeerConnection({iceServers:[{urls:STUNS[i].u}],iceCandidatePoolSize:1});
       p.onicecandidate=e=>{
         if(!e.candidate)return;
-        if(e.candidate.candidate.includes('srflx')){const l=Math.round(performance.now()-t0);fin(true,l+'ms',l)}
+        const c=e.candidate.candidate;
+        if(c.includes('srflx')){
+          const l=Math.round(performance.now()-t0);
+          const pts=c.split(' ');
+          const ri=pts.indexOf('raddr');
+          fin(true,l+'ms',l,{ip:pts[4],port:parseInt(pts[5]),localIp:ri>=0?pts[ri+1]:null});
+        }
       };
       p.onicecandidateerror=()=>fin(false,'error',null);
       p.createDataChannel('t');
@@ -2626,10 +2635,24 @@ function testS(i){
 
 async function autoTest(){
   natState='pending';
-  let natStarted=false,working=[];
-  const all=STUNS.map((_,i)=>testS(i).then(r=>({i,...r})));
+  const nb=document.getElementById('natbadge');
+  const working=[];
 
-  all.forEach(p=>p.then(({i,ok})=>{
+  // Показываем кешированный результат мгновенно пока идёт реальная проверка
+  try{
+    const cached=JSON.parse(localStorage.getItem('_natCache')||'null');
+    if(cached&&(Date.now()-cached.ts)<30*60*1000){
+      setNAT(nb,cached.cls,cached.type+'*',cached.desc+' · уточняем...');
+    }
+  }catch(_){}
+
+  // Запускаем testS и detectNAT параллельно.
+  // detectNAT использует один RTCPeerConnection с двумя STUN — это единственный
+  // корректный способ определить тип NAT (сравнение портов от одного и того же сокета).
+  // testS нужен только чтобы понять какие серверы работают и показать галочки.
+  const allTests=STUNS.map((_,i)=>testS(i).then(r=>({i,...r})));
+
+  allTests.forEach(p=>p.then(({i,ok})=>{
     if(!ok) return;
     working.push(i);
     if(working.length<=2){
@@ -2638,13 +2661,20 @@ async function autoTest(){
       $(`sr${i}`).querySelector('.sbox').textContent='✓';
       updateCnt();
     }
-    if(!natStarted&&working.length>=2){
-      natStarted=true;
-      detectNAT(working[0],working[1]);
-    }
   }));
 
-  await Promise.all(all);
+  // detectNAT стартует сразу — не ждёт testS.
+  // Использует первые два сервера из списка; если они не ответят за 2500ms,
+  // после Promise.all(allTests) перезапустим с реально рабочими серверами.
+  const natPromise=detectNAT(0, 1);
+
+  await Promise.all([Promise.all(allTests), natPromise]);
+
+  // Если detectNAT не получил ответ от серверов 0 и 1 (таймаут),
+  // повторяем с первыми реально рабочими
+  if((natState==='pending'||natState==='')&&working.length>0){
+    await detectNAT(working[0]??-1, working[1]??-1);
+  }
 
   working.forEach(i=>{
     if(!STUNS[i].on){
@@ -2654,14 +2684,10 @@ async function autoTest(){
     }
   });
 
-  // Show hint only if no servers found (error state)
   if(working.length===0) setHint('var(--e)','✗ рабочих серверов не найдено · проверьте сеть');
   else clearHint();
 
-  if(!natStarted) detectNAT(working[0]??-1, working[1]??-1);
-
   updateCnt();
-  // Re-enable rerun button
   $('cbtn').disabled=false;
   $('cbtn').textContent='↺ повторить проверку';
   $('cbtn').style.display='block';
@@ -2719,6 +2745,10 @@ function setNAT(el,cls,type,desc){
   else if(cls==='err') natState='symmetric';
   else if(cls==='warn') natState='unknown';
   else natState='pending';
+  // Кешируем результат: при следующем открытии покажем мгновенно
+  if(cls==='ok'||cls==='err'||cls==='warn'){
+    try{ localStorage.setItem('_natCache', JSON.stringify({cls,type,desc,ts:Date.now()})); }catch(_){}
+  }
   updateCnt();
   updateNetStatus();
   updateSigState();
@@ -2730,13 +2760,14 @@ async function warmup(){
     const p=new RTCPeerConnection({iceServers:[]});
     p.createDataChannel('w');
     await p.createOffer().then(o=>p.setLocalDescription(o)).catch(()=>{});
-    await new Promise(r=>setTimeout(r,100));
     p.close();
   }catch(e){}
 }
 
 async function rerunAll(){
   natState='pending';
+  // Сбрасываем кеш при ручной проверке — не показываем старый результат
+  try{ localStorage.removeItem('_natCache'); }catch(_){}
   const btn=$('cbtn');
   btn.disabled=true;
   btn.textContent='◉ проверяем...';
@@ -2762,14 +2793,14 @@ openDB().then(()=>{
   updateFavLast();
   renderContacts();
 });
-setTimeout(async()=>{await warmup();await autoTest();},200);
-setTimeout(()=>{ initLeaderElection(); _updateLeaderBtn(); }, 200);
+setTimeout(async()=>{await warmup();await autoTest();},50);
+setTimeout(()=>{ initLeaderElection(); _updateLeaderBtn(); }, 0);
 
 // ── Leader election (BroadcastChannel) ──
 // Только одна вкладка держит маяк — "лидер".
 // Остальные слушают её статус и не создают пиров.
 const LEADER_CH   = 'p2p_leader';
-const LEADER_TTL  = 1500;   // лидер пингует каждые 600мс, умер если нет 1.5с
+const LEADER_TTL  = 800;    // лидер пингует каждые 600мс, умер если нет 800мс
 const LEADER_PING = 600;
 
 let _leaderChannel   = null;
@@ -2855,6 +2886,10 @@ function _resignLeader(){
   }
   _presenceBeaconReady = false;
   _pjOk = false;
+
+  // Сообщаем остальным вкладкам что лидер уступил — они перехватят немедленно,
+  // не дожидаясь LEADER_TTL таймаута
+  if(_leaderChannel) _leaderChannel.postMessage({ type: 'close', tabId: _tabId });
 
   _leaderDeadTimer = setTimeout(()=>{
     _becomeLeader();
@@ -3080,13 +3115,13 @@ async function detectNAT(i1,i2){
     const found=[]; let p=null; let endTm=null;
     const finish=()=>{clearTimeout(tm);clearTimeout(endTm);try{p&&p.close()}catch(e){}res(found)};
     // Timeout long enough for both STUNs to respond even on slow networks
-    const tm=setTimeout(finish,10000);
+    const tm=setTimeout(finish,2500); // fallback timeout
     try{
       p=new RTCPeerConnection({iceServers,iceCandidatePoolSize:iceServers.length});
       p.onicecandidate=e=>{
         if(!e.candidate){
           // Gathering complete — short wait to catch any concurrent late arrivals
-          clearTimeout(endTm);endTm=setTimeout(finish,300);
+          clearTimeout(endTm);endTm=setTimeout(finish,50);
           return;
         }
         const c=e.candidate.candidate;
@@ -5576,7 +5611,7 @@ function _beaconConnect(ctx){
         ctx.idSuffix = '-' + Math.random().toString(36).slice(2,6);
         _presencePeer = null;
         ctx._done = true; safePeerDestroy(p); ctx._done = false;
-        setTimeout(()=>{ if(!ctx.gone()) _beaconConnect(ctx); }, 2000);
+        setTimeout(()=>{ if(!ctx.gone()) _beaconConnect(ctx); }, 300);
         return;
       }
       _presencePeer = null;
@@ -5587,7 +5622,7 @@ function _beaconConnect(ctx){
       if(srv.slow && !ctx.isStable() && ctx.wakeAttempts < ctx.MAX_WAKE){
         ctx.stableAt = 0;
         ctx._done = true; safePeerDestroy(p); ctx._done = false;
-        setTimeout(()=>_beaconWake(ctx), 3000);
+        setTimeout(()=>_beaconWake(ctx), 1500);
       } else {
         ctx._done = true; safePeerDestroy(p); ctx._done = false;
         ctx.fail(e.type);
@@ -5605,7 +5640,7 @@ function _beaconConnect(ctx){
         ctx.stableAt = 0;
         _presencePeer = null;
         ctx._done = true; safePeerDestroy(p); ctx._done = false;
-        setTimeout(()=>_beaconWake(ctx), 3000);
+        setTimeout(()=>_beaconWake(ctx), 1500);
         return;
       }
 
@@ -5615,7 +5650,7 @@ function _beaconConnect(ctx){
           if(!ctx.gone() && !p.destroyed && _presencePeer === p){
             try{ p.reconnect(); }catch(e){ ctx.fail('reconnect-failed'); }
           }
-        }, 1500 * ctx.reconnects);
+        }, 800 * ctx.reconnects);
       } else {
         _presencePeer = null;
         ctx._done = true; safePeerDestroy(p); ctx._done = false;
@@ -5634,7 +5669,7 @@ function _beaconConnect(ctx){
 
   }catch(e){
     if(srv.slow && !_pjChecked && ctx.wakeAttempts < ctx.MAX_WAKE){
-      setTimeout(()=>_beaconWake(ctx), 3000);
+      setTimeout(()=>_beaconWake(ctx), 1500);
     } else {
       ctx.fail('exception');
     }
@@ -5648,16 +5683,16 @@ function _beaconWake(ctx){
   const text = ctx.wakeAttempts === 1 ? 'пробуждение...' : `попытка ${ctx.wakeAttempts}...`;
   _setSrvRow(ctx.idx, 'spin', text);
 
-  fetchWithTimeout(`https://${ctx.srv.host}`, 25000).then(r => {
+  fetchWithTimeout(`https://${ctx.srv.host}`, 12000).then(r => {
     if(ctx.gone()) return;
     if(r.status < 500){
       _setSrvRow(ctx.idx, 'spin', 'подключение...');
-      setTimeout(()=>_beaconConnect(ctx), 800);
+      setTimeout(()=>_beaconConnect(ctx), 200);
     } else {
-      setTimeout(()=>_beaconWake(ctx), 4000);
+      setTimeout(()=>_beaconWake(ctx), 2000);
     }
   }).catch(() => {
-    if(!ctx.gone()) setTimeout(()=>_beaconWake(ctx), 5000);
+    if(!ctx.gone()) setTimeout(()=>_beaconWake(ctx), 3000);
   });
 }
 
@@ -5667,7 +5702,7 @@ function initMasterPeer(){
   const dead = () => _beaconVersion !== myVersion;
 
   if(!myPresenceId){
-    setTimeout(()=>{ if(!dead()) initMasterPeer(); }, 500);
+    setTimeout(()=>{ if(!dead()) initMasterPeer(); }, 100);
     return;
   }
 
@@ -5711,7 +5746,7 @@ function initMasterPeer(){
       _notifyStatus();
       // Автоматически повторяем попытку подключения (нарастающий интервал, макс 60с)
       if(_isLeader && !_autoReconnectTimer){
-        const delay = Math.min(5000 * (1 + _autoReconnectAttempts), 60000);
+        const delay = Math.min(3000 * (1 + _autoReconnectAttempts), 60000);
         _autoReconnectAttempts++;
         const sec = Math.round(delay / 1000);
         _setSrvRow(idx, 'spin', `повтор через ${sec}с...`);
@@ -5765,7 +5800,7 @@ function claimLeadership(){
   if(_isLeader){ toast('Уже лидер на этой вкладке'); return; }
   // Отправляем claim с заведомо большим tabId — текущий лидер уступит
   if(_leaderChannel) _leaderChannel.postMessage({ type: 'claim', tabId: Date.now() + 1e12, tabId_real: _tabId });
-  setTimeout(()=>{ if(!_isLeader) _becomeLeader(); }, 200);
+  setTimeout(()=>{ if(!_isLeader) _becomeLeader(); }, 50);
 }
 
 function _updateLeaderBtn(){
@@ -6111,7 +6146,6 @@ async function connectToContact(fp, opts={}){
   // Если не в режиме "остаться в чате" — переходим на вкладку подключения
   if(!opts.stayInChat){
     showTab('connect');
-    await new Promise(r=>setTimeout(r,100));
   }
   joinSigRoom(roomCode, myFingerprint);
 }

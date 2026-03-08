@@ -571,11 +571,26 @@ textarea::placeholder{color:var(--mu)}
       <button class="action-btn" style="flex:1;justify-content:center" onclick="shareMyContact()">↑ поделиться</button>
       <button class="action-btn" style="flex:1;justify-content:center" onclick="showAddContact()">+ добавить контакт</button>
     </div>
-    <!-- Мой код (скрыт по умолчанию) -->
-    <div id="my-contact-share" style="display:none;flex-direction:column;gap:8px">
-      <div class="sdplbl">Ваш код — отправьте собеседнику</div>
-      <div class="sdpbox" id="my-contact-code" onclick="copyMyContactCode()" style="font-size:10px;word-break:break-all"></div>
-      <div class="sdphint" style="font-size:10px;color:var(--mu);text-align:right">нажмите, чтобы скопировать</div>
+    <!-- Мой контакт — поделиться (скрыт по умолчанию) -->
+    <div id="my-contact-share" style="display:none;flex-direction:column;gap:12px">
+      <!-- QR карточка -->
+      <div style="display:flex;justify-content:center">
+        <div id="my-contact-qr-card" style="background:#0d0d14;border:1px solid rgba(0,255,157,.25);border-radius:16px;padding:20px;display:flex;flex-direction:column;align-items:center;gap:12px;min-width:220px">
+          <div style="font-size:11px;color:var(--a);letter-spacing:2px;text-transform:uppercase">Tovsa</div>
+          <div style="position:relative;display:inline-block">
+            <canvas id="my-contact-qr-canvas" width="256" height="256" style="border-radius:10px;display:block;width:220px;height:220px"></canvas>
+          </div>
+          <div id="my-contact-qr-name" style="font-size:12px;color:var(--tx);font-weight:700;letter-spacing:1px"></div>
+          <div style="font-size:9px;color:var(--mu)">сканируйте для добавления</div>
+        </div>
+      </div>
+      <!-- Кнопки действий -->
+      <div style="display:flex;gap:8px">
+        <button class="btn" style="flex:1;font-size:11px" onclick="shareMyContactNative()" id="share-native-btn">↑ поделиться</button>
+        <button class="action-btn" style="flex:1;justify-content:center" onclick="copyMyContactLink()">🔗 копировать ссылку</button>
+        <button class="action-btn" style="justify-content:center" onclick="saveMyQR()" title="Сохранить QR">⬇</button>
+      </div>
+      <div class="sdphint">Собеседник откроет ссылку — контакт добавится автоматически</div>
     </div>
     <!-- Поле ввода чужого кода (скрыто по умолчанию) -->
     <div id="add-contact-form" style="display:none;flex-direction:column;gap:8px">
@@ -4314,11 +4329,12 @@ function _sendNotifConn(callerName, callerFp){
       navigator.serviceWorker.ready.then(reg =>
         reg.showNotification('📡 ' + callerName, opts)
       ).catch(()=>{
+        if(!('Notification' in window)) return;
         const n = new Notification('📡 ' + callerName, opts);
         n.onclick = () => { window.focus(); acceptCall(); n.close(); };
         setTimeout(() => n.close(), 30000);
       });
-    } else {
+    } else if('Notification' in window) {
       const n = new Notification('📡 ' + callerName, opts);
       n.onclick = () => { window.focus(); acceptCall(); n.close(); };
       setTimeout(() => n.close(), 30000);
@@ -4359,13 +4375,13 @@ function _sendNotif(title, body, onClick){
       navigator.serviceWorker.ready.then(reg =>
         reg.showNotification(title, opts)
       ).catch(()=>{
-        if(!document.hidden){
+        if(!document.hidden && 'Notification' in window){
           const n = new Notification(title, { body, icon, badge: icon, silent: false });
           n.onclick = () => { window.focus(); if(onClick) onClick(); n.close(); };
           setTimeout(() => n.close(), 6000);
         }
       });
-    } else if(!document.hidden){
+    } else if(!document.hidden && 'Notification' in window){
       const n = new Notification(title, { body, icon, badge: icon, silent: false });
       n.onclick = () => { window.focus(); if(onClick) onClick(); n.close(); };
       setTimeout(() => n.close(), 6000);
@@ -6351,32 +6367,185 @@ async function shareMyContact(){
 
   if(!myPubKeyRaw || !myFingerprint){ toast('Ключ ещё не готов'); return; }
 
-  // Получаем имя из настроек (если есть)
   let myName = '';
   try{ myName = ($('my-name-input')?.value || localStorage.getItem('myName') || '').trim(); }catch(_){}
 
+  const pubHex = Array.from(myPubKeyRaw).map(b => b.toString(16).padStart(2,'0')).join('');
+  // Короткий формат: pubHex:имя — меньше модулей в QR
+  const shortCode = myName ? pubHex + ':' + encodeURIComponent(myName) : pubHex;
+  const link = location.origin + location.pathname + '?add=' + shortCode;
+
+  // Полный payload для обратной совместимости (копирование кода)
   const payload = {
     v: 1,
     fp: myFingerprint,
-    pub: Array.from(myPubKeyRaw).map(b => b.toString(16).padStart(2,'0')).join(''),
+    pub: pubHex,
     name: myName || undefined
   };
+  const legacyCode = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
 
-  const code = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-  $('my-contact-code').textContent = code;
-  $('my-contact-code').dataset.raw = code;
+  // Сохраняем ссылку для копирования
+  shareDiv.dataset.link = link;
+
+  // Скрываем кнопку Web Share если не поддерживается
+  const nativeBtn = $('share-native-btn');
+  if(nativeBtn) nativeBtn.style.display = navigator.share ? '' : 'none';
+
   shareDiv.style.display = 'flex';
+
+  // Генерируем QR с именем
+  await _renderQR(link, myName);
+}
+
+async function _renderQR(text, name){
+  const canvas = $('my-contact-qr-canvas');
+  const nameEl = $('my-contact-qr-name');
+  if(!canvas) return;
+  if(nameEl) nameEl.textContent = name || '';
+
+  const draw = () => {
+    const tmp = document.createElement('div');
+    tmp.style.cssText = 'position:absolute;left:-9999px;visibility:hidden';
+    document.body.appendChild(tmp);
+    const qr = new QRCode(tmp, { text, width: 256, height: 256, correctLevel: QRCode.CorrectLevel.M });
+    const qrData = qr._oQRCode;
+    const count  = qrData.getModuleCount();
+    document.body.removeChild(tmp);
+
+    // HiDPI — рисуем в 2x для чёткости
+    const dpr    = Math.min(window.devicePixelRatio || 1, 3);
+    const size   = 256;
+    canvas.width  = size * dpr;
+    canvas.height = size * dpr;
+    canvas.style.width  = size + 'px';
+    canvas.style.height = size + 'px';
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    const margin = 14;
+    const cell   = (size - margin * 2) / count;
+
+    const dark = (r, c) =>
+      r >= 0 && c >= 0 && r < count && c < count && qrData.isDark(r, c);
+
+    const isFinder = (r, c) =>
+      (r < 7 && c < 7) ||
+      (r < 7 && c >= count - 7) ||
+      (r >= count - 7 && c < 7);
+
+    // Фон
+    ctx.fillStyle = '#0a0a0f';
+    ctx.fillRect(0, 0, size, size);
+
+    for(let r = 0; r < count; r++){
+      for(let c = 0; c < count; c++){
+        if(!dark(r, c)) continue;
+
+        const T  = dark(r-1, c);
+        const B  = dark(r+1, c);
+        const L  = dark(r, c-1);
+        const Ri = dark(r, c+1);
+
+        const finder = isFinder(r, c);
+
+        // Пиксельно точные координаты — округляем чтобы не было зазоров
+        const x  = Math.round(margin + c * cell);
+        const y  = Math.round(margin + r * cell);
+        const x2 = Math.round(margin + (c + 1) * cell);
+        const y2 = Math.round(margin + (r + 1) * cell);
+        const w  = x2 - x;
+        const h  = y2 - y;
+
+        ctx.fillStyle = finder ? '#00ff9d' : '#00e890';
+
+        // Радиус от реального размера модуля в пикселях
+        const R  = w * 0.4;
+        const tl = (!T && !L)  ? R : 0;
+        const tr = (!T && !Ri) ? R : 0;
+        const br = (!B && !Ri) ? R : 0;
+        const bl = (!B && !L)  ? R : 0;
+
+        ctx.beginPath();
+        ctx.moveTo(x + tl, y);
+        ctx.lineTo(x + w - tr, y);
+        if(tr) ctx.arcTo(x+w, y,   x+w, y+tr, tr); else ctx.lineTo(x+w, y);
+        ctx.lineTo(x+w, y+h-br);
+        if(br) ctx.arcTo(x+w, y+h, x+w-br, y+h, br); else ctx.lineTo(x+w, y+h);
+        ctx.lineTo(x+bl, y+h);
+        if(bl) ctx.arcTo(x, y+h,   x, y+h-bl, bl); else ctx.lineTo(x, y+h);
+        ctx.lineTo(x, y+tl);
+        if(tl) ctx.arcTo(x, y,     x+tl, y, tl); else ctx.lineTo(x, y);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+    ctx.shadowBlur = 0;
+  };
+
+  if(typeof QRCode !== 'undefined'){
+    draw();
+  } else {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    s.onload  = draw;
+    s.onerror = () => {
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, 256, 256);
+      ctx.fillStyle = '#00ff9d';
+      ctx.font = '11px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('QR недоступен офлайн', 128, 128);
+    };
+    document.head.appendChild(s);
+  }
+}
+
+function copyMyContactLink(){
+  const link = $('my-contact-share')?.dataset.link;
+  if(!link) return;
+  navigator.clipboard.writeText(link)
+    .then(() => toast('Ссылка скопирована'))
+    .catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = link; ta.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+      document.body.removeChild(ta); toast('Ссылка скопирована');
+    });
+}
+
+async function shareMyContactNative(){
+  const link = $('my-contact-share')?.dataset.link;
+  if(!link || !navigator.share) return;
+  let myName = '';
+  try{ myName = ($('my-name-input')?.value || localStorage.getItem('myName') || '').trim(); }catch(_){}
+  try{
+    await navigator.share({
+      title: 'Tovsa',
+      text: (myName ? myName + ' приглашает вас в Tovsa' : 'Добавьте меня в Tovsa'),
+      url: link
+    });
+  } catch(e){ if(e.name !== 'AbortError') toast('Ошибка шаринга'); }
 }
 
 function copyMyContactCode(){
-  const code = $('my-contact-code').dataset.raw || $('my-contact-code').textContent;
-  if(!code) return;
-  navigator.clipboard.writeText(code).then(() => toast('Код скопирован')).catch(() => {
-    const ta = document.createElement('textarea');
-    ta.value = code; ta.style.cssText = 'position:fixed;opacity:0';
-    document.body.appendChild(ta); ta.select(); document.execCommand('copy');
-    document.body.removeChild(ta); toast('Код скопирован');
-  });
+  // Оставляем для обратной совместимости — теперь копирует ссылку
+  copyMyContactLink();
+}
+
+function saveMyQR(){
+  const canvas = $('my-contact-qr-canvas');
+  if(!canvas) return;
+  canvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href     = url;
+    a.download = 'tovsa-qr.png';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast('QR сохранён');
+  }, 'image/png');
 }
 
 function showAddContact(){
@@ -6392,10 +6561,25 @@ async function importContact(){
   if(!raw){ toast('Вставьте код контакта'); return; }
 
   let payload;
-  try{
-    payload = JSON.parse(decodeURIComponent(escape(atob(raw))));
-  }catch(e){
-    toast('Неверный формат кода'); return;
+
+  // Новый короткий формат: 64-char hex pubkey или hex:имя
+  const shortMatch = raw.match(/^([0-9a-f]{64})(?::(.+))?$/i);
+  if(shortMatch){
+    const pubHex  = shortMatch[1];
+    const name    = shortMatch[2] ? decodeURIComponent(shortMatch[2]) : undefined;
+    const pubBytes = new Uint8Array(pubHex.match(/.{2}/g).map(b => parseInt(b,16)));
+    try{
+      const hash = await sha256(pubBytes);
+      const fp   = bytesToFingerprint(hash);
+      payload = { v:1, fp, pub: pubHex, name };
+    }catch(e){ toast('Ошибка разбора ключа'); return; }
+  } else {
+    // Старый формат base64 JSON
+    try{
+      payload = JSON.parse(decodeURIComponent(escape(atob(raw))));
+    }catch(e){
+      toast('Неверный формат кода'); return;
+    }
   }
 
   if(!payload.fp || !payload.pub){ toast('Код повреждён или устарел'); return; }
@@ -8151,6 +8335,24 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     if(urlAction === 'open-chat'){
       history.replaceState(null, '', location.pathname);
       setTimeout(() => { if(typeof showTab === 'function') showTab('sc'); }, 500);
+    }
+
+    // Обработка ссылки-приглашения ?add=КОД
+    const addCode = new URLSearchParams(location.search).get('add');
+    if(addCode){
+      history.replaceState(null, '', location.pathname);
+      setTimeout(async () => {
+        try{
+          const inp = $('add-contact-input');
+          if(inp){
+            inp.value = addCode; // URLSearchParams уже декодирует %xx
+            if(typeof showTab === 'function') showTab('sk');
+            const addForm = $('add-contact-form');
+            if(addForm) addForm.style.display = 'flex';
+            if(typeof importContact === 'function') await importContact();
+          }
+        } catch(e){ toast('Неверная ссылка-приглашение'); }
+      }, 1500);
     }
   });
 

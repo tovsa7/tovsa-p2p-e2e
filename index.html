@@ -483,7 +483,7 @@ textarea::placeholder{color:var(--mu)}
   <span class="htitle" id="hdr-title">Tovsa</span>
   <span class="hstat" id="stat" style="display:none">без сервера</span>
   <span id="tagline" style="display:none"></span>
-  <span style="font-size:9px;color:var(--mu);opacity:.4">v3</span>
+  <span style="font-size:9px;color:var(--mu);opacity:.4">v4</span>
 
 </div>
 
@@ -7465,23 +7465,39 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     if (!PUSH_SERVER || PUSH_SERVER.includes('ВАШ')) return false;
     try {
       const myHex = localStorage.getItem('_myPubHex');
+      console.log('[push] subscribe start, myHex=', myHex ? myHex.slice(0,8)+'...' : 'NULL');
       if (!myHex) return false;
 
-      const { publicKey } = await fetch(PUSH_SERVER + '/push/vapid').then(r => r.json());
+      console.log('[push] fetching VAPID key from', PUSH_SERVER);
+      const vapidRes = await fetch(PUSH_SERVER + '/push/vapid');
+      console.log('[push] vapid status=', vapidRes.status);
+      const { publicKey } = await vapidRes.json();
+      console.log('[push] publicKey=', publicKey ? publicKey.slice(0,20)+'...' : 'NULL');
       if (!publicKey) throw new Error('нет VAPID ключа');
 
       const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: _b64ToUint8(publicKey)
-      });
+      console.log('[push] SW ready, scope=', reg.scope);
+
+      let sub;
+      try {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: _b64ToUint8(publicKey)
+        });
+        console.log('[push] pushManager.subscribe OK, endpoint=', sub.endpoint.slice(0,50)+'...');
+      } catch(subErr) {
+        console.warn('[push] pushManager.subscribe FAILED:', subErr.name, subErr.message);
+        throw subErr;
+      }
 
       const fp  = await _pubHexToFp(myHex);
+      console.log('[push] sending subscription to server, fp=', fp.slice(0,8)+'...');
       const res = await fetch(PUSH_SERVER + '/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fingerprint: fp, subscription: sub.toJSON() })
       });
+      console.log('[push] server subscribe status=', res.status);
       if (!res.ok) throw new Error('subscribe: ' + res.status);
 
       localStorage.setItem('_pushFp', fp);

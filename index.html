@@ -7470,51 +7470,9 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     return null;
   }
 
-  window._ntfySubscribe = async function _ntfySubscribe() {
-    try {
-      // Читаем hex из localStorage — туда записывает initIdentity
-      const myHex = localStorage.getItem('_myPubHex');
-      console.log('[ntfy] subscribe: myHex=', myHex ? myHex.slice(0,8)+'...' : 'NULL');
-      if (!myHex) throw new Error('ключ ещё не готов');
-
-      // Получаем VAPID-ключ ntfy.sh
-      const infoRes = await fetch(NTFY + '/v1/info');
-      console.log('[ntfy] /v1/info status=', infoRes.status);
-      const info = await infoRes.json();
-      console.log('[ntfy] vapid key=', info.web_push_public_key ? 'OK' : 'MISSING', info);
-      const vapidKey = info.web_push_public_key;
-      if (!vapidKey) throw new Error('ntfy: нет vapid key');
-
-      const reg = await navigator.serviceWorker.ready;
-      console.log('[ntfy] SW ready, scope=', reg.scope);
-
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: _b64ToUint8(vapidKey)
-      });
-      console.log('[ntfy] pushManager.subscribe OK, endpoint=', sub.endpoint.slice(0,40)+'...');
-
-      const topic = await _ntfyTopicFromPubHex(myHex);
-      console.log('[ntfy] topic=', topic);
-
-      // Регистрируем подписку в ntfy
-      const res = await fetch(NTFY + '/v1/webpush', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topics: [topic], subscription: sub.toJSON() })
-      });
-      const resText = await res.text();
-      console.log('[ntfy] /v1/webpush status=', res.status, 'body=', resText.slice(0,100));
-      if (!res.ok) throw new Error('ntfy register: ' + res.status + ' ' + resText);
-
-      localStorage.setItem('ntfyTopic', topic);
-      console.log('[ntfy] подписка успешна, топик=', topic);
-      return true;
-    } catch(e) {
-      console.warn('[ntfy] subscribe error:', e);
-      return false;
-    }
-  }
+  // ntfy web push subscription недоступна для сторонних PWA
+  // (ntfy.sh VAPID работает только для ntfy.sh/app)
+  window._ntfySubscribe = async function() { return false; };
 
   // Отправить push собеседнику через ntfy (вызывается при отправке сообщения)
   window._pushNotifyPeer = async function(targetFp, senderName, text) {
@@ -7573,9 +7531,8 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     const perm = await Notification.requestPermission();
     if(typeof _notifPermission !== 'undefined') window._notifPermission = perm;
     _updateNotifUI();
-    if(perm === 'granted' && 'serviceWorker' in navigator) {
-      const ok = await window._ntfySubscribe();
-      toast(ok ? 'Уведомления включены ✓' : 'Уведомления включены (push недоступен)');
+    if(perm === 'granted') {
+      toast('Уведомления включены ✓');
     }
   };
 

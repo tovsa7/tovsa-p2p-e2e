@@ -483,7 +483,7 @@ textarea::placeholder{color:var(--mu)}
   <span class="htitle" id="hdr-title">Tovsa</span>
   <span class="hstat" id="stat" style="display:none">без сервера</span>
   <span id="tagline" style="display:none"></span>
-  <span style="font-size:9px;color:var(--mu);opacity:.4">v7</span>
+  <span style="font-size:9px;color:var(--mu);opacity:.4">v8</span>
 
 </div>
 
@@ -2732,7 +2732,7 @@ async function _handleIncomingCallConn(conn){
     $('call-sub').textContent = req.callerFp ? 'fp: ' + req.callerFp : 'запрос на соединение';
     $('call-banner').classList.add('on');
     try{ if(navigator.vibrate) navigator.vibrate([150, 80, 150]); }catch(_){}
-    _sendNotif('📞 ' + req.callerName, 'Хочет соединиться с вами', ()=>{ window.focus(); });
+    _sendNotifConn(req.callerName, req.callerFp);
   }
 
   conn.on('open', ()=>{
@@ -4083,6 +4083,32 @@ function _getNotifIcon(){
     _notifIconPng = c.toDataURL('image/png');
   }catch(_){ _notifIconPng = ''; }
   return _notifIconPng;
+}
+
+// Уведомление о входящем соединении — с кнопкой "Принять"
+function _sendNotifConn(callerName, callerFp){
+  if(!('Notification' in window)) return;
+  if(document.hasFocus()) return;
+  if(_notifPermission !== 'granted') return;
+  try{
+    const icon = _getNotifIcon();
+    const n = new Notification('📡 ' + callerName, {
+      body: 'Хочет соединиться — нажмите чтобы принять',
+      icon, badge: icon, silent: false,
+      tag: 'tovsa-conn',
+      renotify: true,
+      data: { callerFp, action: 'accept-call' }
+    });
+    n.onclick = () => { window.focus(); acceptCall(); n.close(); };
+    setTimeout(() => n.close(), 30000);
+  }catch(_){}
+}
+
+// Слушаем сообщения от SW (например action из push-уведомления)
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.addEventListener('message', e => {
+    if(e.data?.action === 'accept-call'){ window.focus(); acceptCall(); }
+  });
 }
 
 function _sendNotif(title, body, onClick){
@@ -5711,7 +5737,7 @@ async function connectToContact(fp, opts={}){
   // Шлём push собеседнику — он может быть офлайн в приложении
   if(typeof window._pushNotifyPeer === 'function'){
     const myName = document.getElementById('my-name-input')?.value?.trim() || 'Tovsa';
-    window._pushNotifyPeer(fp, '📞 ' + myName, 'Хочет соединиться — зайдите в приложение');
+    window._pushNotifyPeer(fp, '📡 ' + myName, 'Хочет соединиться — зайдите в приложение');
   }
 
   const roomCode = await sha256hex(new Uint8Array(pubKeyHex.match(/.{2}/g).map(h=>parseInt(h,16))), 6);
@@ -7564,6 +7590,15 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     const w = document.getElementById('pwa-install-wrap');
     if(w) w.style.display = 'none';
     toast('Приложение установлено ✓');
+    // Переподписываемся в контексте PWA чтобы уведомления шли через приложение
+    if('serviceWorker' in navigator && 'Notification' in window && Notification.permission === 'granted'){
+      navigator.serviceWorker.ready.then(async reg => {
+        const sub = await reg.pushManager.getSubscription();
+        if(sub) await sub.unsubscribe(); // сбрасываем старую браузерную подписку
+        localStorage.removeItem('_pushFp'); // сбрасываем кеш
+        setTimeout(() => window._ntfySubscribe && window._ntfySubscribe(), 1000);
+      });
+    }
   });
   window.pwaTriggerInstall = async () => {
     if(!_deferredPrompt) return;
@@ -7702,11 +7737,16 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     _updateNotifUI();
     _checkPersist();
     // Если initIdentity уже завершился (ключ в localStorage) — подписываемся
-    // (на случай если IIFE загрузился позже initIdentity)
     if(localStorage.getItem('_myPubHex') &&
        'Notification' in window && Notification.permission === 'granted') {
-      console.log('[ntfy] авто-подписка: IIFE загрузился после ключа...');
       window._ntfySubscribe();
+    }
+    // Обработка URL параметра от SW (открытие через уведомление с action)
+    const urlAction = new URLSearchParams(location.search).get('action');
+    if(urlAction === 'accept-call'){
+      history.replaceState(null, '', location.pathname); // убираем параметр из URL
+      // Ждём пока приложение полностью инициализируется
+      setTimeout(() => { if(typeof acceptCall === 'function') acceptCall(); }, 2000);
     }
   });
 

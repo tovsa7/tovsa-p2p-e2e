@@ -1,4 +1,5 @@
-const C = 'tovsa-v8';
+const C        = 'tovsa-v8';
+const C_FONTS  = 'tovsa-fonts-v1';
 const ICON_URL = './icon-192.png';
 const DB_NAME  = 'fpv_drun_v1';
 const DB_VER   = 2;
@@ -19,14 +20,33 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== C).map(k => caches.delete(k))))
+      .then(keys => Promise.all(
+        keys.filter(k => k !== C && k !== C_FONTS).map(k => caches.delete(k))
+      ))
       .then(() => clients.claim())
+      .then(() => clients.matchAll({ type: 'window' }))
+      .then(cs => cs.forEach(c => c.postMessage({ action: 'sw-updated' })))
   );
 });
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
+
+  // ── Google Fonts — cache-first ──────────────────────────────────────────────
+  if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
+    e.respondWith(
+      caches.open(C_FONTS).then(async cache => {
+        const cached = await cache.match(e.request);
+        if (cached) return cached;
+        const res = await fetch(e.request);
+        if (res.ok) cache.put(e.request, res.clone());
+        return res;
+      }).catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
   if (url.origin !== self.location.origin) return;
 
   const isPrecached = PRECACHE.some(p => {

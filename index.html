@@ -1115,6 +1115,11 @@ textarea::placeholder{color:var(--mu)}
 </div>
 
 <div id="toast"></div>
+<div id="update-banner" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a2e;border:1px solid var(--a);border-radius:20px;padding:8px 8px 8px 16px;font-size:12px;color:var(--tx);z-index:999;display:none;align-items:center;gap:10px;white-space:nowrap;box-shadow:0 4px 24px #00ff9d22">
+  <span>🆕 Доступно обновление</span>
+  <button onclick="location.reload()" style="background:var(--a);color:#000;border:none;border-radius:14px;padding:4px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Обновить</button>
+  <button onclick="this.parentElement.style.display='none'" style="background:none;border:none;color:var(--tx);opacity:.5;cursor:pointer;font-size:14px;padding:0 4px">✕</button>
+</div>
 <div id="call-banner">
   <div class="call-pulse"></div>
   <div class="call-info">
@@ -4326,6 +4331,14 @@ if('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('message', e => {
     if(e.data?.action === 'accept-call'){ window.focus(); acceptCall(); }
     if(e.data?.action === 'open-chat'){ window.focus(); showTab('sc'); }
+    if(e.data?.action === 'sw-updated'){
+      // Показываем только если SW уже был установлен раньше (не первый запуск)
+      if(localStorage.getItem('sw-installed')){
+        const b = document.getElementById('update-banner');
+        if(b) b.style.display = 'flex';
+      }
+      localStorage.setItem('sw-installed', '1');
+    }
   });
 }
 

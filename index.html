@@ -486,7 +486,6 @@ textarea::placeholder{color:var(--mu)}
   <span class="htitle" id="hdr-title">Tovsa</span>
   <span class="hstat" id="stat" style="display:none">без сервера</span>
   <span id="tagline" style="display:none"></span>
-  <span style="font-size:9px;color:var(--mu);opacity:.4">v12</span>
 
 </div>
 
@@ -657,6 +656,11 @@ textarea::placeholder{color:var(--mu)}
         <div style="font-size:10px;color:var(--mu);margin-top:2px" id="persist-desc">Браузер может удалить данные автоматически</div>
       </div>
       <button class="action-btn" id="persist-btn" onclick="pwaRequestPersist()">защитить</button>
+    </div>
+    <!-- Version -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px">
+      <div style="font-size:10px;color:var(--mu);letter-spacing:1px">ВЕРСИЯ</div>
+      <div style="font-size:11px;color:var(--a);letter-spacing:1px">1.1.0</div>
     </div>
   </div>
   <div class="sn-section">
@@ -5118,9 +5122,14 @@ const SIGNALING_SERVERS = [
 ];
 const SRV_IDX_KEY = 'pj_server_idx';
 const _savedSrvIdx = localStorage.getItem(SRV_IDX_KEY);
+// При первом запуске автоматически выбираем «Резервный» (индекс 1) как надёжный дефолт.
+// Пользователь может сменить сервер вручную — выбор сохраняется в localStorage.
+if (_savedSrvIdx === null) {
+  localStorage.setItem(SRV_IDX_KEY, '1');
+}
 let _serverIndex = _savedSrvIdx !== null
   ? Math.min(parseInt(_savedSrvIdx, 10), SIGNALING_SERVERS.length - 1)
-  : -1; // -1 = пользователь ещё не выбирал сервер
+  : 1; // первый запуск → Резервный (Render)
 
 // ── UI хелперы ────────────────────────────────────────────────────────────────
 // Устанавливает статус одной строки сервера
@@ -5202,6 +5211,9 @@ function _updatePjUI(state){
 // Каждый initMasterPeer() захватывает текущую версию в замыкание.
 // sigConnect() инкрементирует счётчик — все старые колбэки видят устаревшую версию и выходят.
 let _beaconVersion = 0;
+// Авто-реконнект: таймер и счётчик попыток (сбрасываются при успехе или ручном sigConnect)
+let _autoReconnectTimer    = null;
+let _autoReconnectAttempts = 0;
 
 // ── Маяк: подключение пира к серверу ─────────────────────────────────────────
 // ctx — контекст сессии: { srv, idx, gone, fail, wake, isStable, wakeAttempts, reconnects, stableAt, idSuffix, _done }
@@ -5221,6 +5233,9 @@ function _beaconConnect(ctx){
       _pjOk = true;
       _pjChecked = true;
       _presenceBeaconReady = true;
+      // Сбрасываем авто-реконнект — соединение установлено
+      if(_autoReconnectTimer){ clearTimeout(_autoReconnectTimer); _autoReconnectTimer = null; }
+      _autoReconnectAttempts = 0;
       _onPjStatusChange(true);
       _requestNotifPermission();
       const shortName = srv.host.replace('.onrender.com','').replace('.com','').replace('.','');
@@ -5388,6 +5403,17 @@ function initMasterPeer(){
       _setSrvHeader('err');
       updateSigState();
       _notifyStatus();
+      // Автоматически повторяем попытку подключения (нарастающий интервал, макс 60с)
+      if(_isLeader && !_autoReconnectTimer){
+        const delay = Math.min(5000 * (1 + _autoReconnectAttempts), 60000);
+        _autoReconnectAttempts++;
+        const sec = Math.round(delay / 1000);
+        _setSrvRow(idx, 'spin', `повтор через ${sec}с...`);
+        _autoReconnectTimer = setTimeout(()=>{
+          _autoReconnectTimer = null;
+          if(_isLeader && !_pjOk) sigConnect();
+        }, delay);
+      }
     }
   };
 
@@ -5491,6 +5517,9 @@ function sigConnect(){
     toast('Команда отправлена лидеру...');
     return;
   }
+  // Отменяем любой ожидающий авто-реконнект и сбрасываем счётчик
+  if(_autoReconnectTimer){ clearTimeout(_autoReconnectTimer); _autoReconnectTimer = null; }
+  _autoReconnectAttempts = 0;
   _beaconVersion++;
   safePeerDestroy(_presencePeer); _presencePeer = null;
   safePeerDestroy(_incomingPeer); _incomingPeer = null;
@@ -5895,6 +5924,17 @@ function _updateBeaconStatus(){
 document.addEventListener('visibilitychange', ()=>{
   if(!document.hidden && _pjOk && _isLeader && _presenceHbTimer){
     _presenceHeartbeatTick();
+  }
+  // При возврате в приложение — автоматически переподключаемся если signaling упал
+  if(!document.hidden && _isLeader && _pjChecked && !_pjOk && !_autoReconnectTimer){
+    // Небольшая задержка чтобы сеть успела восстановиться после выхода из сна
+    _autoReconnectTimer = setTimeout(()=>{
+      _autoReconnectTimer = null;
+      if(_isLeader && !_pjOk){
+        _autoReconnectAttempts = 0; // сбрасываем — это новая попытка после возврата
+        sigConnect();
+      }
+    }, 1500);
   }
 });
 

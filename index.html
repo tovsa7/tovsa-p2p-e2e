@@ -486,7 +486,7 @@ textarea::placeholder{color:var(--mu)}
   <span class="htitle" id="hdr-title">Tovsa</span>
   <span class="hstat" id="stat" style="display:none">без сервера</span>
   <span id="tagline" style="display:none"></span>
-  <span style="font-size:9px;color:var(--mu);opacity:.4">v9</span>
+  <span style="font-size:9px;color:var(--mu);opacity:.4">v10</span>
 
 </div>
 
@@ -832,6 +832,7 @@ textarea::placeholder{color:var(--mu)}
       <span id="sh-size" style="font-size:10px;color:var(--mu)"></span>
     </div>
     <button id="sh-conn-btn" class="ci-conn-btn" style="display:none" onclick="connectToContact(_historyFp)">→ связь</button>
+    <button id="sh-invite-btn" class="ci-conn-btn" style="display:none;background:none;border-color:var(--mu);color:var(--mu)" onclick="inviteFromHistory()">📣 позвать</button>
   </div>
   <div class="msgs" id="sh-msgs" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px"></div>
   <div class="sh-empty" id="sh-empty" style="display:none">Нет сохранённых сообщений</div>
@@ -1886,8 +1887,12 @@ async function openHistory(fp){
   // Кнопка подключения — только если контакт онлайн и мы не заняты другим соединением
   const isConnected=$('sc').dataset.active==='1' && dc && dc.readyState==='open';
   const shConnBtn=$('sh-conn-btn');
+  const shInviteBtn=$('sh-invite-btn');
   const canConnect=!isConnected && _pjOk && _presenceCache[fp]==='online';
   shConnBtn.style.display=canConnect?'':'none';
+  // Кнопка "позвать" — только если контакт офлайн и не подключены
+  const canInvite = !isConnected && !canConnect && _presenceCache[fp]!=='online';
+  if(shInviteBtn) shInviteBtn.style.display=canInvite?'':'none';
 
   const container=$('sh-msgs');
   const empty=$('sh-empty');
@@ -5594,6 +5599,25 @@ async function callPeerOnline(){
   if(callBtn){ callBtn.textContent = '⏳'; callBtn.disabled = true; setTimeout(()=>{ callBtn.textContent='📣'; callBtn.disabled=false; }, 30000); }
 }
 
+// Позвать собеседника из экрана истории
+async function inviteFromHistory(){
+  if(!_historyFp) return;
+  const contacts = await getContacts();
+  const peerName = contacts[_historyFp]?.name || 'собеседник';
+  const myName = document.getElementById('my-name-input')?.value?.trim() || 'Tovsa';
+
+  if(typeof window._pushNotifyPeer === 'function'){
+    window._pushNotifyPeer(_historyFp, '📣 ' + myName, 'Ждёт вас в чате — зайдите в сеть');
+  }
+
+  _callOnlineWatching = _historyFp;
+  toast('📣 Уведомление отправлено ' + peerName);
+
+  const btn = $('sh-invite-btn');
+  if(btn){ btn.textContent = '⏳'; btn.disabled = true;
+    setTimeout(()=>{ btn.textContent='📣 позвать'; btn.disabled=false; }, 30000); }
+}
+
 // ── Метод 1: REST API — один запрос, нет нагрузки на WebSocket маяка ──
 // GET /peers возвращает JSON-массив всех активных peer-id на сервере.
 // Сравниваем со списком наших контактов — никаких WebRTC-соединений не создаётся.
@@ -5722,12 +5746,15 @@ async function refreshPresence(){
   // Обновляем список контактов — кнопки → связь появятся у онлайн-контактов
   renderContacts();
 
-  // Обновляем кнопку в экране истории если он открыт
+  // Обновляем кнопки в экране истории если он открыт
   const shConnBtn = $('sh-conn-btn');
+  const shInviteBtn = $('sh-invite-btn');
   if(shConnBtn && _historyFp){
     const isConnected = $('sc').dataset.active==='1' && dc && dc.readyState==='open';
     const canConnect = !isConnected && _pjOk && _presenceCache[_historyFp]==='online';
     shConnBtn.style.display = canConnect ? '' : 'none';
+    const canInvite = !isConnected && !canConnect && _presenceCache[_historyFp]!=='online';
+    if(shInviteBtn) shInviteBtn.style.display = canInvite ? '' : 'none';
   }
 }
 

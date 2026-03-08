@@ -7523,7 +7523,7 @@ function _grpOutConnect(code, pid){
   }
   return new Promise(resolve=>{
     _grpLog(`#${code} → outConnect к ${pid.slice(-16)}...`);
-    const tm=setTimeout(()=>{ _grpLog(`#${code} outConnect timeout: ${pid.slice(-16)}`, 'warn'); resolve(false); },5000);
+    const tm=setTimeout(()=>{ _grpLog(`#${code} outConnect timeout: ${pid.slice(-16)}`, 'warn'); resolve(false); },2500);
     try{
       const conn=peer.connect(pid,{reliable:true,serialization:'json'});
       conn.on('open',()=>{ clearTimeout(tm); _grpLog(`#${code} ✓ соединён с ${pid.slice(-16)}`); _grpSetupConn(code,pid,conn); resolve(true); });
@@ -7536,7 +7536,11 @@ function _grpOutConnect(code, pid){
 // Первый участник занимает rv-слот. Новые участники подключаются к нему,
 // представляются своим РЕАЛЬНЫМ main peer ID, получают список всех участников.
 async function _grpTryClaimRv(code){
-  if(_grpRvPeer[code] && !_grpRvPeer[code].destroyed) return;
+  // Проверяем destroyed И open: peer может быть !destroyed но уже disconnected
+  const existing = _grpRvPeer[code];
+  if(existing && !existing.destroyed && existing.open !== false) return;
+  // Мёртвый peer — чистим
+  if(existing){ try{ existing.destroy(); }catch(_){} delete _grpRvPeer[code]; }
   const rvId=_grpRvId(code);
   const cfg=_grpSrv();
   _grpLog(`#${code} → занимаем рандеву-слот`);
@@ -7547,37 +7551,55 @@ async function _grpTryClaimRv(code){
     p.on('connection',conn=>{
       conn.on('open',()=>{
         const g=_grpAll[code]; if(!g) return;
-        // Ждём hello от нового участника с его реальным PID
-        conn.on('data',d=>{
+        conn.on('data',async d=>{
           if(!d.__grp_rv_hello__) return;
-          const {realPid}=d.__grp_rv_intro__||d.__grp_rv_hello__||{};
+          const {realPid}=d.__grp_rv_hello__||{};
           _grpLog(`#${code} рандеву: новый участник ${(realPid||'?').slice(-16)}`);
-          // Отправляем ему список известных участников
+          // Подписываем intro своим Ed25519 ключом
+          let sig=null, pub=null;
+          try{
+            if(myPrivKey && myPubKeyRaw){
+              const sigData=new TextEncoder().encode(`grp-rv-intro:${code}:${g.myPid||''}:${realPid||''}`);
+              const sigBuf=await crypto.subtle.sign('Ed25519',myPrivKey,sigData);
+              sig=Array.from(new Uint8Array(sigBuf));
+              pub=Array.from(myPubKeyRaw);
+            }
+          }catch(_){}
           conn.send({__grp_rv_intro__:{
             realPid: g.myPid,
             knownPids: (g.knownPids||[]).filter(p=>p!==realPid),
             keyVer: g.keyVer||0,
-            members: _grpMemberList(code)
+            members: _grpMemberList(code),
+            sig, pub
           }});
           setTimeout(()=>safeConnClose(conn), 3000);
-          // Подключаемся к новому участнику по его РЕАЛЬНОМУ main peer ID
           if(realPid && _grpMyPeer[code] && !_grpMyPeer[code].destroyed){
             setTimeout(()=>_grpOutConnect(code, realPid), 300);
           }
         });
       });
     });
-    setTimeout(()=>{ safePeerDestroy(p); delete _grpRvPeer[code]; }, 300000);
+    // Переоткрываем rv-слот каждые 4 минуты пока мы в группе
+    const _rvRefresh = setInterval(()=>{
+      if(!_grpMyPeer[code] || _grpMyPeer[code].destroyed){
+        clearInterval(_rvRefresh);
+        return;
+      }
+      _grpLog(`#${code} rv-слот: обновление...`);
+      safePeerDestroy(p);
+      delete _grpRvPeer[code];
+      clearInterval(_rvRefresh);
+      // Небольшая задержка перед переоткрытием чтобы освободить ID на сервере
+      setTimeout(()=>{ if(_grpMyPeer[code] && !_grpMyPeer[code].destroyed) _grpTryClaimRv(code); }, 1000);
+    }, 240000); // 4 минуты
+    // Страховочный destroy через 5 минут
+    setTimeout(()=>{ clearInterval(_rvRefresh); safePeerDestroy(p); delete _grpRvPeer[code]; }, 300000);
   });
   p.on('error',e=>{
     _grpLog(`#${code} рандеву-слот: ${e.type}`, 'warn');
     delete _grpRvPeer[code];
   });
 }
-
-// Подключаемся к рандеву-слоту чтобы получить список участников.
-// Используем отдельный tmpPeer. Посылаем свой РЕАЛЬНЫЙ main peer ID
-// чтобы rv-holder мог подключиться к нам обратно.
 async function _grpRvHandshake(code, myPid){
   _grpLog(`#${code} → рандеву: создаём временный пир...`);
   const cfg=_grpSrv();
@@ -7597,7 +7619,6 @@ async function _grpRvHandshake(code, myPid){
           const conn=tmpPeer.connect(_grpRvId(code),{reliable:true,serialization:'json'});
           conn.on('open',()=>{
             _grpLog(`#${code} рандеву: канал открыт, посылаем hello...`);
-            // Сообщаем rv-holder наш РЕАЛЬНЫЙ main peer ID
             conn.send({__grp_rv_hello__:{realPid: myPid}});
             conn.on('data',d=>{ if(d.__grp_rv_intro__){ finish(d.__grp_rv_intro__); } });
             conn.on('error',()=>finish(null));
@@ -7614,18 +7635,51 @@ async function _grpRvHandshake(code, myPid){
     return false;
   }
 
-  const {knownPids, keyVer, members}=intro;
+  // ── Верификация подписи rv-holder ──
+  const {knownPids, keyVer, members, sig, pub, realPid:rvRealPid} = intro;
+  if(sig && pub){
+    try{
+      const pubBytes = new Uint8Array(pub);
+      const pubKey = await crypto.subtle.importKey('raw', pubBytes, {name:'Ed25519'}, false, ['verify']);
+      const sigData = new TextEncoder().encode(`grp-rv-intro:${code}:${rvRealPid||''}:${myPid}`);
+      const ok = await crypto.subtle.verify('Ed25519', pubKey, new Uint8Array(sig), sigData);
+      if(!ok){
+        _grpLog(`#${code} рандеву: неверная подпись rv-holder — игнорируем intro`, 'error');
+        return false;
+      }
+      // Дополнительно: если rv-holder есть в contacts — сверяем fp
+      const contacts = await getContacts().catch(()=>({}));
+      const rvFp = bytesToFingerprint(await sha256(pubBytes));
+      if(rvRealPid){
+        const matchingContact = Object.values(contacts).find(c => {
+          const chex = c.pubKeyHex;
+          if(!chex) return false;
+          const cbytes = new Uint8Array(chex.match(/.{2}/g).map(h=>parseInt(h,16)));
+          return Array.from(cbytes).join(',') === Array.from(pubBytes).join(',');
+        });
+        if(!matchingContact){
+          _grpLog(`#${code} рандеву: rv-holder fp=${rvFp} не в контактах — продолжаем (новый участник)`, 'warn');
+        }
+      }
+      _grpLog(`#${code} рандеву: ✓ подпись rv-holder верна · fp=${rvFp.slice(0,8)}...`);
+    }catch(e){
+      _grpLog(`#${code} рандеву: ошибка верификации rv-holder — игнорируем`, 'error');
+      return false;
+    }
+  } else {
+    _grpLog(`#${code} рандеву: rv-holder без подписи (старый клиент)`, 'warn');
+  }
+
   _grpLog(`#${code} рандеву: ✓ intro · известных=${knownPids?.length||0} · keyVer=${keyVer}`);
   const g=_grpAll[code]; if(!g) return false;
   if(typeof keyVer==='number') g.keyVer=Math.max(g.keyVer||0,keyVer);
-  const allPids=[...new Set([...(knownPids||[]),...(g.knownPids||[])].filter(p=>p&&p!==myPid))];
+  const allPids=[...new Set([...(knownPids||[]),...(g.knownPids||[])].filter(p=>p&&p!==myPid))].slice(-50);
   g.knownPids=allPids; _grpSave();
   _grpMergeMemberList(code, members||[]);
 
   if(!allPids.length){
     _grpLog(`#${code} рандеву: список пустой, ждём входящего соединения от rv-holder...`);
-    // rv-holder сам подключится к нам — просто ждём
-    return true; // считаем успешным, rv-holder пришлёт connection
+    return true;
   }
 
   // Шаг 2: подключаемся к известным через ГЛАВНЫЙ пир
@@ -7633,9 +7687,8 @@ async function _grpRvHandshake(code, myPid){
   const results = await Promise.all(allPids.map(pid=>_grpOutConnect(code,pid)));
   const ok = results.some(Boolean);
   _grpLog(`#${code} рандеву: ${ok?'✓ соединились':'нет ответа от участников'}`);
-  return ok || true; // возвращаем true даже если пока не соединились — rv-holder подключится входящим
+  return ok || true;
 }
-
 // ── Входящие соединения ───────────────────────────────────────────────────────
 function _grpHandleIncoming(code, conn){
   // Игнорируем tmpPeer-соединения от рандеву-рукопожатия (rvt_)
@@ -7666,28 +7719,55 @@ function _grpSetupConn(code, pid, conn){
     g.knownPids=[...(g.knownPids||[]),pid]; _grpSave();
   }
 
-  // Шлём приветствие
+  // Шлём приветствие (включаем pub для верификации fp)
   conn.send({__grp_hello__:{
     pid: g.myPid, name: g.myName||$('my-name-input')?.value?.trim()||'Аноним',
     fp: myFingerprint, keyVer: g.keyVer||0,
-    knownPids: g.knownPids||[], members: _grpMemberList(code)
+    knownPids: g.knownPids||[], members: _grpMemberList(code),
+    pub: myPubKeyRaw ? Array.from(myPubKeyRaw) : null
   }});
 
   conn.on('data',d=>{ try{ _grpOnData(code,pid,d); }catch(e){ console.warn('[grp]',e); } });
-  conn.on('close',()=>{ _grpLog(`#${code} ← закрыт: ${pid.slice(-16)}`, 'warn'); _grpOnPeerGone(code,pid); });
-  conn.on('error',e=>{ _grpLog(`#${code} conn error ${pid.slice(-16)}: ${e.type||e}`, 'warn'); _grpOnPeerGone(code,pid); });
+  const _onConnGone = (reason)=>{
+    _grpLog(`#${code} ← ${reason}: ${pid.slice(-16)}`, 'warn');
+    _grpOnPeerGone(code,pid);
+  };
+  conn.on('close',()=>_onConnGone('закрыт'));
+  conn.on('error',e=>_onConnGone(`error:${e.type||e}`));
 
-  // Heartbeat — обнаруживаем разрыв моментально, не ожидая таймаута PeerJS
+  // Heartbeat двусторонний: шлём hb и отслеживаем входящие.
+  // Если за 9с не пришёл hb от партнёра — считаем соединение мёртвым.
+  let _hbLastRx = Date.now();
+  const HB_SEND = 3000;   // интервал отправки
+  const HB_DEAD = 9000;   // timeout входящего (3 пропущенных hb)
+
   const hbInterval = setInterval(()=>{
-    if(!_grpConns[code]?.has(pid)){ clearInterval(hbInterval); return; }
+    if(!_grpConns[code]?.has(pid)){ clearInterval(hbInterval); clearInterval(hbWatchdog); return; }
     try{
       if(conn.open){ conn.send({__grp_hb__:1}); }
-      else{ clearInterval(hbInterval); _grpOnPeerGone(code,pid); }
-    }catch(_){ clearInterval(hbInterval); _grpOnPeerGone(code,pid); }
-  }, 3000);
-  // Чистим интервал при закрытии
-  conn.on('close',()=>clearInterval(hbInterval));
-  conn.on('error',()=>clearInterval(hbInterval));
+      else{ clearInterval(hbInterval); clearInterval(hbWatchdog); _grpOnPeerGone(code,pid); }
+    }catch(_){ clearInterval(hbInterval); clearInterval(hbWatchdog); _grpOnPeerGone(code,pid); }
+  }, HB_SEND);
+
+  // Watchdog: проверяем когда последний раз получили hb от партнёра
+  const hbWatchdog = setInterval(()=>{
+    if(!_grpConns[code]?.has(pid)){ clearInterval(hbInterval); clearInterval(hbWatchdog); return; }
+    if(Date.now() - _hbLastRx > HB_DEAD){
+      _grpLog(`#${code} hb watchdog: нет hb от ${pid.slice(-16)} ${HB_DEAD}мс — disconnect`, 'warn');
+      clearInterval(hbInterval); clearInterval(hbWatchdog);
+      // Сначала _grpOnPeerGone (удаляет из Map), потом close() — 
+      // иначе _onConnGone сработает раньше и выполнит логику первым
+      _grpOnPeerGone(code, pid);
+      try{ conn.close(); }catch(_){}
+    }
+  }, HB_SEND);
+
+  // Обновляем _hbLastRx при получении hb (перехватываем в _grpOnData через флаг на conn)
+  conn._grpHbRx = ()=>{ _hbLastRx = Date.now(); };
+
+  // Чистим интервалы при закрытии
+  conn.on('close',()=>{ clearInterval(hbInterval); clearInterval(hbWatchdog); });
+  conn.on('error',()=>{ clearInterval(hbInterval); clearInterval(hbWatchdog); });
 
   if(_grpActive===code){ grpRenderMembers(code); _grpUpdateStatus(code); }
   grpRenderGroupList();
@@ -7695,11 +7775,25 @@ function _grpSetupConn(code, pid, conn){
 
 // ── Обработка данных ──────────────────────────────────────────────────────────
 // Обработка hello-пакета от участника группы (обмен состоянием при подключении)
-function _grpHandleHello(code, fromPid, g, payload){
-  const {pid, name, fp, keyVer, knownPids, members} = payload;
+async function _grpHandleHello(code, fromPid, g, payload){
+  const {pid, name, fp, keyVer, knownPids, members, pub} = payload;
+  // Верифицируем fp: если pub прислан — хэш должен совпадать с fp
+  if(pub && fp){
+    try{
+      const pubBytes = new Uint8Array(pub);
+      const expectedFp = bytesToFingerprint(await sha256(pubBytes));
+      if(expectedFp !== fp){
+        _grpLog(`#${code} hello от ${fromPid.slice(-12)}: fp≠pub — игнорируем`, 'error');
+        return;
+      }
+    }catch(e){
+      _grpLog(`#${code} hello: ошибка верификации fp — игнорируем`, 'error');
+      return;
+    }
+  }
   _grpUpsertMember(code, {pid: pid||fromPid, name, fp, online:true, lastSeen:Date.now()});
   if(typeof keyVer === 'number' && keyVer > (g.keyVer||0)){ g.keyVer = keyVer; _grpSave(); }
-  const allPids = [...new Set([...(knownPids||[]), ...(g.knownPids||[])].filter(p => p && p !== g.myPid))];
+  const allPids = [...new Set([...(knownPids||[]), ...(g.knownPids||[])].filter(p => p && p !== g.myPid))].slice(-50);
   g.knownPids = allPids; _grpSave();
   _grpMergeMemberList(code, members||[]);
   allPids.filter(p => p !== fromPid && !(_grpConns[code]?.has(p))).forEach(p => _grpOutConnect(code, p));
@@ -7708,18 +7802,50 @@ function _grpHandleHello(code, fromPid, g, payload){
 
 // Обработка зашифрованного сообщения группы
 async function _grpHandleMessage(code, fromPid, g, payload, rawData){
-  const {id, ver, enc, ts, pid:sPid, name:sName, fp:sFp} = payload;
+  const {id, ver, enc, ts, pid:sPid, name:sName, fp:sFp, sig, pub} = payload;
   if(!id) return;
   if(!_grpSeen[code]) _grpSeen[code] = new Set();
   if(_grpSeen[code].has(id)) return;
+
+  // ── Верификация Ed25519 подписи ──
+  let verified = false;
+  if(sig && pub){
+    try{
+      const pubBytes = new Uint8Array(pub);
+      // fp должен совпадать с хешем pub из сообщения
+      const expectedFp = bytesToFingerprint(await sha256(pubBytes));
+      if(sFp && expectedFp !== sFp){
+        _grpLog(`#${code} msg ${id}: fp≠pub — отброшено`, 'error');
+        return;
+      }
+      const pubKey = await crypto.subtle.importKey('raw', pubBytes, {name:'Ed25519'}, false, ['verify']);
+      const sigData = new TextEncoder().encode(`grp-msg:${id}:${ts}:${enc}`);
+      verified = await crypto.subtle.verify('Ed25519', pubKey, new Uint8Array(sig), sigData);
+      if(!verified){
+        _grpLog(`#${code} msg ${id}: неверная подпись — отброшено`, 'error');
+        return;
+      }
+    }catch(e){
+      _grpLog(`#${code} msg ${id}: ошибка верификации — отброшено`, 'error');
+      return;
+    }
+  } else {
+    _grpLog(`#${code} msg ${id}: нет подписи (старый клиент)`, 'warn');
+  }
+
   _grpSeen[code].add(id);
+  // Ограничиваем размер Set — удаляем старые ID если накопилось > 500
+  if(_grpSeen[code].size > 500){
+    const iter = _grpSeen[code].values();
+    for(let i=0; i<100; i++) _grpSeen[code].delete(iter.next().value);
+  }
 
   let text;
   try{ text = await _grpDec(code, ver ?? g.keyVer ?? 0, enc); }
   catch(e){ console.warn('[grp] dec fail', e); return; }
 
   const isMe = (sPid === g.myPid);
-  const msgObj = {id, ts, pid:sPid, name:sName, fp:sFp, text, own:isMe};
+  const msgObj = {id, ts, pid:sPid, name:sName, fp:sFp, text, own:isMe, verified};
   g.history = (g.history||[]); g.history.push(msgObj); _grpSave();
 
   if(_grpActive === code){
@@ -7730,13 +7856,17 @@ async function _grpHandleMessage(code, fromPid, g, payload, rawData){
   }
   _grpForward(code, fromPid, rawData);
 }
-
 async function _grpOnData(code, fromPid, data){
   const g = _grpAll[code]; if(!g) return;
-  if(data.__grp_hb__) return;
+  if(data.__grp_hb__){
+    // Сообщаем watchdog что партнёр жив
+    const conn = _grpConns[code]?.get(fromPid);
+    if(conn?._grpHbRx) conn._grpHbRx();
+    return;
+  }
 
   if(data.__grp_hello__){
-    _grpHandleHello(code, fromPid, g, data.__grp_hello__);
+    await _grpHandleHello(code, fromPid, g, data.__grp_hello__);
     return;
   }
   if(data.__grp_msg__){
@@ -7772,7 +7902,8 @@ function _grpBroadcastHello(code){
   _grpBroadcast(code,{__grp_hello__:{
     pid:g.myPid, name:g.myName||$('my-name-input')?.value?.trim()||'Аноним',
     fp:myFingerprint, keyVer:g.keyVer||0,
-    knownPids:g.knownPids||[], members:_grpMemberList(code)
+    knownPids:g.knownPids||[], members:_grpMemberList(code),
+    pub: myPubKeyRaw ? Array.from(myPubKeyRaw) : null
   }});
 }
 
@@ -7780,7 +7911,7 @@ function _grpBroadcastHello(code){
 function _grpMemberList(code){
   return _grpAll[code]?.members||[];
 }
-function _grpUpsertMember(code, info){
+function _grpUpsertMember(code, info, save=true){
   const g=_grpAll[code]; if(!g) return;
   g.members=g.members||[];
   const idx=g.members.findIndex(m=>m.pid===info.pid);
@@ -7788,20 +7919,28 @@ function _grpUpsertMember(code, info){
   else{ g.members.push(info); }
   // Ограничиваем список 20 участниками
   if(g.members.length>20) g.members=g.members.slice(-20);
-  _grpSave();
+  if(save) _grpSave();
 }
 function _grpMergeMemberList(code, list){
-  for(const m of list) _grpUpsertMember(code, {...m, online:false});
+  // Обновляем всех участников одним батчем, сохраняем один раз в конце
+  for(const m of list) _grpUpsertMember(code, {...m, online:false}, false);
+  _grpSave();
 }
 
 // ── Отправка сообщения ────────────────────────────────────────────────────────
 async function grpSendMsg(code, text){
   const g=_grpAll[code]; if(!g||!g.myPid){ toast('Нет соединения'); return; }
+  if(!myPrivKey){ toast('Ключ не готов'); return; }
   const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
   const ts=Date.now();
   const ver=g.keyVer||0;
   const enc=await _grpEnc(code,ver,text);
-  const pkt={__grp_msg__:{id,ver,enc,ts,pid:g.myPid,name:g.myName||'Аноним',fp:myFingerprint}};
+  // Подписываем: id + ts + enc — достаточно чтобы связать подпись с конкретным зашифрованным содержимым
+  const sigData=new TextEncoder().encode(`grp-msg:${id}:${ts}:${enc}`);
+  const sigBuf=await crypto.subtle.sign('Ed25519',myPrivKey,sigData);
+  const sig=Array.from(new Uint8Array(sigBuf));
+  const pub=Array.from(myPubKeyRaw);
+  const pkt={__grp_msg__:{id,ver,enc,ts,pid:g.myPid,name:g.myName||'Аноним',fp:myFingerprint,sig,pub}};
   if(!_grpSeen[code]) _grpSeen[code]=new Set();
   _grpSeen[code].add(id);
   _grpBroadcast(code,pkt);
@@ -7833,7 +7972,9 @@ function _grpOnSelfLeft(code, silent){
 
 function _grpOnPeerGone(code, pid){
   const g=_grpAll[code]; if(!g) return;
-  _grpConns[code]?.delete(pid);
+  // Guard: если pid уже удалён (двойной вызов от watchdog + conn.close) — выходим
+  if(!_grpConns[code]?.has(pid)) return;
+  _grpConns[code].delete(pid);
   // Помечаем участника офлайн
   const m=(g.members||[]).find(x=>x.pid===pid);
   if(m){ m.online=false; m.lastSeen=Date.now(); _grpSave(); }
@@ -7999,9 +8140,14 @@ function _grpRenderMsg(code,msg,dir){
   const c=$('grp-msgs'); if(!c) return;
   const ts=new Date(msg.ts).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
   const safe=(msg.text||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // verified=false (явно) → подпись не прошла верификацию, показываем предупреждение
+  // verified=undefined → старое сообщение из истории или свои → без метки
+  const unverifiedMark = (msg.verified===false && !msg.own)
+    ? `<span title="Подпись не верифицирована" style="color:var(--e);font-size:10px;margin-left:4px">⚠</span>`
+    : '';
   const el=document.createElement('div');
   el.className=`msg ${dir}`; el.dataset.ts=msg.ts; el.dataset.msgId=msg.id||'';
-  if(dir==='in') el.innerHTML=`<div class="msender">${esc(msg.name||'?')}</div>${safe}<div class="mmeta">${ts}</div>`;
+  if(dir==='in') el.innerHTML=`<div class="msender">${esc(msg.name||'?')}${unverifiedMark}</div>${safe}<div class="mmeta">${ts}</div>`;
   else el.innerHTML=`${safe}<div class="mmeta">${ts}</div>`;
   c.appendChild(el); c.scrollTop=c.scrollHeight;
 }

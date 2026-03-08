@@ -486,7 +486,7 @@ textarea::placeholder{color:var(--mu)}
   <span class="htitle" id="hdr-title">Tovsa</span>
   <span class="hstat" id="stat" style="display:none">без сервера</span>
   <span id="tagline" style="display:none"></span>
-  <span style="font-size:9px;color:var(--mu);opacity:.4">v11</span>
+  <span style="font-size:9px;color:var(--mu);opacity:.4">v12</span>
 
 </div>
 
@@ -3710,8 +3710,9 @@ function sendMsg(){
   _typingTimer = null;
   _sendTypingStop();
   if(_shadowEnabled) _sendShadow('');
-  // Push уведомление собеседнику (если он офлайн)
-  if(currentPeerFp && typeof window._pushNotifyPeer === 'function'){
+  // Push только если соединение не активно (собеседник офлайн)
+  const _peerConnected = dc && dc.readyState === 'open';
+  if(!_peerConnected && currentPeerFp && typeof window._pushNotifyPeer === 'function'){
     const myName = document.getElementById('my-name-input')?.value?.trim() || 'Tovsa';
     window._pushNotifyPeer(currentPeerFp, myName, t);
   }

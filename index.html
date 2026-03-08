@@ -486,7 +486,7 @@ textarea::placeholder{color:var(--mu)}
   <span class="htitle" id="hdr-title">Tovsa</span>
   <span class="hstat" id="stat" style="display:none">без сервера</span>
   <span id="tagline" style="display:none"></span>
-  <span style="font-size:9px;color:var(--mu);opacity:.4">v10</span>
+  <span style="font-size:9px;color:var(--mu);opacity:.4">v11</span>
 
 </div>
 
@@ -5764,10 +5764,10 @@ async function connectToContact(fp, opts={}){
   const pubKeyHex = getPubKeyHex(fp, await getContacts());
   if(!pubKeyHex){ toast('Нет ключа контакта'); return; }
 
-  // Шлём push собеседнику — он может быть офлайн в приложении
+  // Шлём push собеседнику — передаём pubKeyHex напрямую, он уже известен
   if(typeof window._pushNotifyPeer === 'function'){
     const myName = document.getElementById('my-name-input')?.value?.trim() || 'Tovsa';
-    window._pushNotifyPeer(fp, '📡 ' + myName, 'Хочет соединиться — зайдите в приложение');
+    window._pushNotifyPeer(fp, '📡 ' + myName, 'Хочет соединиться — зайдите в приложение', pubKeyHex);
   }
 
   const roomCode = await sha256hex(new Uint8Array(pubKeyHex.match(/.{2}/g).map(h=>parseInt(h,16))), 6);
@@ -7680,23 +7680,27 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
   };
 
   // Отправить push собеседнику через Cloudflare Worker
-  window._pushNotifyPeer = async function(targetFp, senderName, text) {
+  window._pushNotifyPeer = async function(targetFp, senderName, text, knownPubKeyHex) {
     if (!targetFp || !PUSH_SERVER || PUSH_SERVER.includes('ВАШ')) return;
     try {
-      const contacts = await getContacts();
-      let pubKeyHex = contacts[targetFp]?.pubKeyHex;
+      let pubKeyHex = knownPubKeyHex;
+      if (!pubKeyHex) {
+        const contacts = await getContacts();
+        pubKeyHex = contacts[targetFp]?.pubKeyHex;
+      }
       if (!pubKeyHex) {
         try { pubKeyHex = JSON.parse(localStorage.getItem('_ntfyPubCache')||'{}')[targetFp]; } catch(_) {}
       }
       if (!pubKeyHex && targetFp === currentPeerFp) pubKeyHex = currentPeerPubKeyHex;
-      if (!pubKeyHex) return;
+      if (!pubKeyHex) { console.warn('[push] нет pubKeyHex для', targetFp); return; }
 
       const fp = await _pubHexToFp(pubKeyHex);
-      await fetch(PUSH_SERVER + '/push/notify', {
+      const res = await fetch(PUSH_SERVER + '/push/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ targetFp: fp, senderName, text })
       });
+      console.log('[push] notify status=', res.status);
     } catch(e) { console.warn('[push] notify error:', e); }
   };
 

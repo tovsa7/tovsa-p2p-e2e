@@ -7443,18 +7443,9 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     if(outcome === 'accepted') _deferredPrompt = null;
   };
 
-  // ── ntfy.sh Push ───────────────────────────────────────────────────────────
-  // Топик строится из sha256(pubKey) — всегда hex, всегда уникален
-  // Никакого сервера не нужно — ntfy.sh бесплатный посредник
-  const NTFY = 'https://ntfy.sh';
-
-  // Вычислить топик по hex публичного ключа
-  async function _ntfyTopicFromPubHex(pubKeyHex) {
-    const bytes = new Uint8Array(pubKeyHex.match(/.{2}/g).map(h => parseInt(h, 16)));
-    const hash  = await crypto.subtle.digest('SHA-256', bytes);
-    const hex   = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('').slice(0, 20);
-    return 'tovsa-' + hex;
-  }
+  // ── Cloudflare Workers Push ────────────────────────────────────────────────
+  // Замените на URL вашего воркера после деплоя на Cloudflare
+  const PUSH_SERVER = 'https://subs.tovsa7.workers.dev';
 
   function _b64ToUint8(b64) {
     const p = '='.repeat((4 - b64.length % 4) % 4);
@@ -7462,51 +7453,65 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     return Uint8Array.from([...s].map(c => c.charCodeAt(0)));
   }
 
-  // Получить hex публичного ключа текущего пользователя
-  function _myPubKeyHex() {
-    if (window.myPubKeyRaw) {
-      return Array.from(window.myPubKeyRaw).map(b => b.toString(16).padStart(2,'0')).join('');
-    }
-    return null;
+  // Стабильный ID пользователя для сервера (sha256 от pubKey, hex)
+  async function _pubHexToFp(pubKeyHex) {
+    const bytes = new Uint8Array(pubKeyHex.match(/.{2}/g).map(h => parseInt(h, 16)));
+    const hash  = await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('').slice(0, 24);
   }
 
-  // ntfy web push subscription недоступна для сторонних PWA
-  // (ntfy.sh VAPID работает только для ntfy.sh/app)
-  window._ntfySubscribe = async function() { return false; };
-
-  // Отправить push собеседнику через ntfy (вызывается при отправке сообщения)
-  window._pushNotifyPeer = async function(targetFp, senderName, text) {
-    if (!targetFp) return;
-    console.log('[ntfy] _pushNotifyPeer вызван, targetFp=', targetFp ? targetFp.slice(0,4)+'...' : 'null');
+  // Подписаться на push через Cloudflare Worker
+  window._ntfySubscribe = async function() {
+    if (!PUSH_SERVER || PUSH_SERVER.includes('ВАШ')) return false;
     try {
-      // Берём pubKeyHex собеседника из контактов
+      const myHex = localStorage.getItem('_myPubHex');
+      if (!myHex) return false;
+
+      const { publicKey } = await fetch(PUSH_SERVER + '/push/vapid').then(r => r.json());
+      if (!publicKey) throw new Error('нет VAPID ключа');
+
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: _b64ToUint8(publicKey)
+      });
+
+      const fp  = await _pubHexToFp(myHex);
+      const res = await fetch(PUSH_SERVER + '/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fingerprint: fp, subscription: sub.toJSON() })
+      });
+      if (!res.ok) throw new Error('subscribe: ' + res.status);
+
+      localStorage.setItem('_pushFp', fp);
+      console.log('[push] подписка успешна');
+      return true;
+    } catch(e) {
+      console.warn('[push] subscribe error:', e);
+      return false;
+    }
+  };
+
+  // Отправить push собеседнику через Cloudflare Worker
+  window._pushNotifyPeer = async function(targetFp, senderName, text) {
+    if (!targetFp || !PUSH_SERVER || PUSH_SERVER.includes('ВАШ')) return;
+    try {
       const contacts = await getContacts();
       let pubKeyHex = contacts[targetFp]?.pubKeyHex;
-      console.log('[ntfy] pubKeyHex из contacts:', pubKeyHex ? 'OK' : 'нет');
-      // Fallback: кеш из localStorage (работает даже если контакт не сохранён)
       if (!pubKeyHex) {
         try { pubKeyHex = JSON.parse(localStorage.getItem('_ntfyPubCache')||'{}')[targetFp]; } catch(_) {}
-        console.log('[ntfy] pubKeyHex из cache:', pubKeyHex ? 'OK' : 'нет');
       }
-      // Fallback: активное соединение
       if (!pubKeyHex && targetFp === currentPeerFp) pubKeyHex = currentPeerPubKeyHex;
-      console.log('[ntfy] pubKeyHex итого:', pubKeyHex ? pubKeyHex.slice(0,8)+'...' : 'NULL');
-      if (!pubKeyHex) { console.warn('[ntfy] нет pubKeyHex для', targetFp); return; }
-      const topic = await _ntfyTopicFromPubHex(pubKeyHex);
-      console.log('[ntfy] отправка на топик=', topic);
-      const _safeBody = text ? (text.length > 120 ? text.slice(0, 120) + '...' : text) : 'Новое сообщение';
-      const r = await fetch(NTFY + '/' + topic, {
+      if (!pubKeyHex) return;
+
+      const fp = await _pubHexToFp(pubKeyHex);
+      await fetch(PUSH_SERVER + '/push/notify', {
         method: 'POST',
-        headers: {
-          'Title':        encodeURIComponent(senderName || 'Tovsa'),
-          'Priority':     'high',
-          'Tags':         'speech_balloon',
-          'Content-Type': 'text/plain; charset=utf-8'
-        },
-        body: _safeBody
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetFp: fp, senderName, text })
       });
-      console.log('[ntfy] отправка статус=', r.status, r.ok ? 'OK' : 'ERROR');
-    } catch(e) { console.warn('[ntfy] notify error:', e); }
+    } catch(e) { console.warn('[push] notify error:', e); }
   };
 
   // ── Notifications UI ───────────────────────────────────────────────────────

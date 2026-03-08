@@ -15,6 +15,7 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
+html{overflow:hidden;height:100%;position:fixed;width:100%}
 :root{
   --bg:#0a0a0f;--sf:#12121a;--bd:#1e1e2e;
   --a:#00ff9d;--ad:rgba(0,255,157,.08);--am:rgba(0,255,157,.15);
@@ -82,8 +83,10 @@ textarea::placeholder{color:var(--mu)}
 .ld{display:inline-block;animation:blink 1s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
 /* chat */
-#sc{flex-direction:column;position:relative}
-.msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;scroll-behavior:smooth}
+#sc{flex-direction:column;position:relative;overflow:hidden;touch-action:pan-y}
+#sfav,#sh{overflow:hidden;touch-action:pan-y;overscroll-behavior:none}
+#sfav .msgs,#sh .msgs,#sc .msgs{overscroll-behavior:contain}
+.msgs{flex:1;overflow-y:auto;overflow-x:hidden;padding:16px;display:flex;flex-direction:column;gap:8px;scroll-behavior:smooth;touch-action:pan-y}
 .msg.shadow-in{background:var(--sf);color:var(--mu);border:1px dashed var(--bd);opacity:.85;font-style:italic}
 
 .msgs::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
@@ -123,7 +126,7 @@ textarea::placeholder{color:var(--mu)}
 .reply-bar-sender{font-size:10px;font-weight:700;color:var(--a);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .reply-bar-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .reply-bar-close{flex-shrink:0;background:none;border:none;color:var(--mu);font-size:18px;cursor:pointer;padding:0 4px;line-height:1}
-.iarea{padding:12px;border-top:1px solid var(--bd);background:var(--sf);display:flex;gap:8px;flex-shrink:0;align-items:flex-end}
+.iarea{padding:12px;border-top:1px solid var(--bd);background:var(--sf);display:flex;gap:8px;flex-shrink:0;align-items:flex-end;overflow:hidden;touch-action:pan-y}
 .iarea textarea{flex:1;background:var(--bg);border:1px solid var(--bd);border-radius:16px;padding:10px 16px;color:var(--tx);font-family:inherit;font-size:13px;outline:none;transition:border-color .2s;resize:none;overflow:hidden;line-height:1.4;height:calc(1.4em + 20px);max-height:120px;overflow-y:auto;scrollbar-width:none}
 .iarea textarea::-webkit-scrollbar{display:none}
 .iarea textarea:focus{border-color:var(--a)}
@@ -647,7 +650,10 @@ textarea::placeholder{color:var(--mu)}
         <div style="font-size:13px;font-weight:700">Уведомления</div>
         <div style="font-size:10px;color:var(--mu);margin-top:2px" id="notif-desc">Уведомления о новых сообщениях</div>
       </div>
-      <button class="action-btn" id="notif-btn" onclick="pwaRequestNotif()">включить</button>
+      <div style="display:flex;gap:6px">
+        <button class="action-btn" id="notif-btn" onclick="pwaRequestNotif()">включить</button>
+        <button class="action-btn" id="notif-unsub-btn" onclick="pwaUnsubscribeNotif()" style="display:none;color:var(--e);border-color:var(--e)">отписаться</button>
+      </div>
     </div>
     <!-- Persistent storage -->
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px">
@@ -838,7 +844,7 @@ textarea::placeholder{color:var(--mu)}
     <button id="sh-conn-btn" class="ci-conn-btn" style="display:none" onclick="connectToContact(_historyFp)">→ связь</button>
     <button id="sh-invite-btn" class="ci-conn-btn" style="display:none;background:none;border-color:var(--mu);color:var(--mu)" onclick="inviteFromHistory()">📣 позвать</button>
   </div>
-  <div class="msgs" id="sh-msgs" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px"></div>
+  <div class="msgs" id="sh-msgs" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:16px;display:flex;flex-direction:column;gap:8px;touch-action:pan-y"></div>
   <div class="sh-empty" id="sh-empty" style="display:none">Нет сохранённых сообщений</div>
 </div>
 
@@ -856,7 +862,7 @@ textarea::placeholder{color:var(--mu)}
       <span id="beacon-dot" style="width:7px;height:7px;border-radius:50%;background:var(--mu);flex-shrink:0;transition:background .3s,box-shadow .3s"></span>
       <span id="beacon-label" style="letter-spacing:.5px">маяк</span>
     </span>
-    <button class="presence-refresh-btn" id="presence-refresh-btn" onclick="refreshPresence()" title="Обновить статусы онлайн">↺ статусы</button>
+
   </div>
   <div id="sk-list"></div>
   <div class="sk-empty" id="sk-empty" style="display:none">Нет сохранённых контактов.<br>Подключитесь к кому-нибудь<br>и сохраните их из чата.</div>
@@ -871,7 +877,7 @@ textarea::placeholder{color:var(--mu)}
       <div class="sh-fp">личные заметки</div>
     </div>
   </div>
-  <div class="msgs" id="fav-msgs" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column-reverse;gap:8px"></div>
+  <div class="msgs" id="fav-msgs" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:16px;display:flex;flex-direction:column-reverse;gap:8px;touch-action:pan-y"></div>
   <div class="reply-bar" id="fav-reply-bar">
     <div class="reply-bar-quote">
       <div class="reply-bar-sender" id="fav-reply-bar-sender"></div>
@@ -985,6 +991,7 @@ textarea::placeholder{color:var(--mu)}
       <div id="peer-fp" style="font-size:9px;color:var(--mu);opacity:.7;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
       <div id="typing-indicator" style="display:none;font-size:9px;color:var(--a);margin-top:1px">печатает...</div>
     </div>
+    <div id="peer-push-badge" title="Статус уведомлений" style="display:none;font-size:10px;padding:3px 7px;border-radius:8px;border:1px solid var(--bd);color:var(--mu);flex-shrink:0;cursor:default"></div>
     <button class="idsave" id="idsavebtn" onclick="saveContact()" style="display:none">+ сохранить</button>
     <button id="call-online-btn" onclick="callPeerOnline()" title="Позвать онлайн" style="display:none;background:none;border:1px solid var(--a);color:var(--a);border-radius:10px;padding:5px 10px;font-size:11px;cursor:pointer;flex-shrink:0">📣</button>
   </div>
@@ -1151,7 +1158,7 @@ let pc,dc,role;
 const ID_KEY='p2p_identity_v1';
 // IndexedDB replaces localStorage for contacts, history, favourites
 const DB_NAME='fpv_drun_v1';
-const DB_VER=1;
+const DB_VER=2;
 let _db=null;
 
 function openDB(){
@@ -1164,6 +1171,7 @@ function openDB(){
       if(!db.objectStoreNames.contains('history'))  db.createObjectStore('history');
       if(!db.objectStoreNames.contains('fav'))      db.createObjectStore('fav');
       if(!db.objectStoreNames.contains('files'))    db.createObjectStore('files');
+      if(!db.objectStoreNames.contains('keys'))     db.createObjectStore('keys');
     };
     req.onsuccess=e=>{_db=e.target.result;res(_db);};
     req.onerror=()=>rej(req.error);
@@ -1226,6 +1234,8 @@ async function idbQuota(){
   return 0;
 }
 let myPrivKey=null,myPubKeyRaw=null,myFingerprint='';
+// P-256 ключевая пара для шифрования push уведомлений
+let _pushPrivKey=null, _pushPubKeyRaw=null;
 let currentPeerFp=null; // fingerprint of active chat peer
 
 // ── E2E Encryption (ECDH X25519 + AES-256-GCM) ──────────────────────────────
@@ -1392,6 +1402,8 @@ async function initIdentity(){
     const _myPubHex = Array.from(myPubKeyRaw).map(b=>b.toString(16).padStart(2,'0')).join('');
     localStorage.setItem('_myPubHex', _myPubHex);
     console.log('[ntfy] ключ готов, hex сохранён:', _myPubHex.slice(0,8)+'...');
+    // Инициализируем P-256 ключ для шифрования push уведомлений
+    await _initPushKey();
     // Подписываемся на push — ждём пока IIFE загрузится если нужно
     if('Notification' in window && Notification.permission === 'granted') {
       const _tryNtfy = (attempts) => {
@@ -1466,18 +1478,95 @@ async function makeIdentityMsg(){
   const sig=new Uint8Array(await crypto.subtle.sign('Ed25519',myPrivKey,data));
   let name='';
   try{ name=($('my-name-input')?.value||localStorage.getItem('myName')||'').trim(); }catch(_){}
+  // Проверяем активную push подписку
+  let pushEnabled = false;
+  try{
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    pushEnabled = !!sub && !!localStorage.getItem('_pushFp');
+  }catch(_){}
   return JSON.stringify({
     _t:'id',
     pub:Array.from(myPubKeyRaw),
     ts,
     sig:Array.from(sig),
-    name: name||undefined
+    name: name||undefined,
+    push: pushEnabled,
+    pushPub: _pushPubKeyRaw ? Array.from(_pushPubKeyRaw) : undefined
   });
+}
+
+// ── Push encryption key (P-256 ECDH) ──────────────────────────────────────────
+// Генерируем/загружаем P-256 ключевую пару для шифрования push payload.
+// Приватный ключ хранится в IndexedDB ('keys', 'push_priv_jwk') — SW его читает.
+// Публичный ключ передаётся собеседнику в identity пакете.
+async function _initPushKey(){
+  try{
+    const stored = await idbGet('keys', 'push_priv_jwk');
+    if(stored){
+      _pushPrivKey = await crypto.subtle.importKey(
+        'jwk', stored, {name:'ECDH', namedCurve:'P-256'}, true, ['deriveKey','deriveBits']
+      );
+      const pubJwk = await idbGet('keys', 'push_pub_jwk');
+      const pubKey = await crypto.subtle.importKey(
+        'jwk', pubJwk, {name:'ECDH', namedCurve:'P-256'}, true, []
+      );
+      _pushPubKeyRaw = new Uint8Array(await crypto.subtle.exportKey('raw', pubKey));
+    } else {
+      const kp = await crypto.subtle.generateKey(
+        {name:'ECDH', namedCurve:'P-256'}, true, ['deriveKey','deriveBits']
+      );
+      _pushPrivKey = kp.privateKey;
+      _pushPubKeyRaw = new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey));
+      const privJwk = await crypto.subtle.exportKey('jwk', kp.privateKey);
+      const pubJwk  = await crypto.subtle.exportKey('jwk', kp.publicKey);
+      await idbSet('keys', 'push_priv_jwk', privJwk);
+      await idbSet('keys', 'push_pub_jwk',  pubJwk);
+    }
+    console.log('[push-key] P-256 ключ готов');
+  } catch(e){
+    console.warn('[push-key] ошибка инициализации:', e);
+  }
+}
+
+// Шифруем push payload публичным P-256 ключом получателя (ECDH + AES-GCM)
+async function _encryptPushPayload(recipientPubKeyRaw, payload){
+  // Эфемерная пара для этого сообщения
+  const ephKP = await crypto.subtle.generateKey(
+    {name:'ECDH', namedCurve:'P-256'}, true, ['deriveKey','deriveBits']
+  );
+  const ephPubRaw = new Uint8Array(await crypto.subtle.exportKey('raw', ephKP.publicKey));
+
+  const recipientPub = await crypto.subtle.importKey(
+    'raw', recipientPubKeyRaw, {name:'ECDH', namedCurve:'P-256'}, false, []
+  );
+
+  const sharedKey = await crypto.subtle.deriveKey(
+    {name:'ECDH', public: recipientPub},
+    ephKP.privateKey,
+    {name:'AES-GCM', length:256}, false, ['encrypt']
+  );
+
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt(
+    {name:'AES-GCM', iv},
+    sharedKey,
+    new TextEncoder().encode(payload)
+  ));
+
+  // Возвращаем base64url: ephPubKey(65) + iv(12) + ciphertext
+  const out = new Uint8Array(65 + 12 + ct.length);
+  out.set(ephPubRaw, 0);
+  out.set(iv, 65);
+  out.set(ct, 77);
+  let s = '';
+  for(const b of out) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
 
 async function verifyIdentityMsg(msg){
   try{
-    const {_t,pub,ts,sig,name}=JSON.parse(msg);
+    const {_t,pub,ts,sig,name,push,pushPub}=JSON.parse(msg);
     if(_t!=='id')return null;
     if(Math.abs(Date.now()-ts)>86400000)return {valid:false,reason:'timestamp'};
     const pubBytes=new Uint8Array(pub);
@@ -1487,7 +1576,7 @@ async function verifyIdentityMsg(msg){
     if(!ok)return{valid:false,reason:'signature'};
     const hash=await sha256(pubBytes);
     const fp=bytesToFingerprint(hash);
-    return{valid:true,fp,pubHex:Array.from(pubBytes).map(b=>b.toString(16).padStart(2,'0')).join(''),name:name||''};
+    return{valid:true,fp,pubHex:Array.from(pubBytes).map(b=>b.toString(16).padStart(2,'0')).join(''),name:name||'',push:!!push,pushPub:pushPub?new Uint8Array(pushPub):null};
   }catch(e){return null;}
 }
 
@@ -2083,6 +2172,15 @@ async function infoDeleteContact(){
 document.addEventListener('DOMContentLoaded',()=>{
   setupChatScroll();
   setupFavScroll();
+
+  // Блокируем скролл страницы при открытии клавиатуры в чате и избранном
+  function lockScroll(){ window.scrollTo(0,0); document.documentElement.scrollTop=0; document.body.scrollTop=0; }
+  ['mi','fav-input'].forEach(id => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('focus', ()=>{ lockScroll(); setTimeout(lockScroll, 100); setTimeout(lockScroll, 300); });
+    el.addEventListener('blur',  lockScroll);
+  });
   $('sk-list').addEventListener('touchstart',e=>{
     const item=e.target.closest('[data-fp]');
     if(!item)return;
@@ -2291,7 +2389,30 @@ function showPeerIdentity(fp,known,name){
     $('peer-fp').style.display='';
     $('peer-fp').textContent=fp||'';
   }
+  // Сбрасываем бейдж при смене собеседника
+  _showPeerPushBadge(null);
   updateActiveBanner();
+}
+
+function _showPeerPushBadge(pushEnabled){
+  const el = document.getElementById('peer-push-badge');
+  if(!el) return;
+  if(pushEnabled === null || pushEnabled === undefined){
+    el.style.display = 'none';
+    return;
+  }
+  el.style.display = '';
+  if(pushEnabled){
+    el.textContent = '🔔';
+    el.title = 'Уведомления включены';
+    el.style.borderColor = 'var(--a)';
+    el.style.color = 'var(--a)';
+  } else {
+    el.textContent = '🔕';
+    el.title = 'Уведомления отключены';
+    el.style.borderColor = 'var(--bd)';
+    el.style.color = 'var(--mu)';
+  }
 }
 
 function resetPeerIdentity(){
@@ -3009,7 +3130,6 @@ function createPC(){
       setStat('соединение нестабильно...');
       $('dot').className='dot act';
       sysMsg('⚠ Соединение нестабильно — возможно восстановится само');
-      // Если через 7 секунд не восстановилось — показываем кнопку
       pc._reconnectHint = setTimeout(()=>{
         if(pc&&(pc.iceConnectionState==='disconnected'||pc.iceConnectionState==='failed')){
           $('reconnect-bar').style.display='flex';
@@ -3148,6 +3268,14 @@ async function _handleIdentityPacket(data, setIdDone){
       _presencePubKeyCache[res.fp] = res.pubHex;
       lastPeerFp = res.fp;
       lastPeerPubKeyHex = res.pubHex;
+      // Сохраняем push pub key собеседника для шифрования уведомлений
+      if(res.pushPub){
+        try{
+          const _pc = JSON.parse(localStorage.getItem('_pushPubCache')||'{}');
+          _pc[res.fp] = Array.from(res.pushPub).map(b=>b.toString(16).padStart(2,'0')).join('');
+          localStorage.setItem('_pushPubCache', JSON.stringify(_pc));
+        }catch(_){}
+      }
       // Кешируем pubKeyHex для push-уведомлений (даже если контакт не сохранён)
       try { const _pc=JSON.parse(localStorage.getItem('_ntfyPubCache')||'{}'); _pc[res.fp]=res.pubHex; localStorage.setItem('_ntfyPubCache',JSON.stringify(_pc)); } catch(_){}
       if(contact){
@@ -3160,6 +3288,7 @@ async function _handleIdentityPacket(data, setIdDone){
       }
       const displayName = contact?.name || res.name || undefined;
       showPeerIdentity(res.fp, !!contact, displayName);
+      _showPeerPushBadge(res.push);
       _loadPins(res.fp);
       if(!contact){
         const nameHint = res.name ? ` (представился как «${res.name}»)` : '';
@@ -3722,32 +3851,85 @@ function sendMsg(){
   }
 }
 
-function attachMsgLongPress(el,text,sender,ts,fp){
-  let timer=null;
-  let lastTap=0;
-  const start=e=>{
-    // Двойной тап — быстрая реакция ❤️
-    const now=Date.now();
-    if(now-lastTap<300){
-      clearTimeout(timer);
+// Последняя использованная реакция (для двойного тапа)
+let _lastUsedReaction = '❤️';
+
+function attachMsgLongPress(el, text, sender, ts, fp) {
+  let pressTimer = null;
+  let pickerTimer = null;
+  let lastTapTime = 0;
+  let moved = false;
+  let doubleTapped = false;
+  let pickerFired = false;
+  const isHistory = () => contactsSubScreen === 'sh';
+
+  el.addEventListener('touchstart', e => {
+    e.preventDefault();
+    moved = false;
+    pickerFired = false;
+    const now = Date.now();
+
+    // Двойной тап — последняя реакция
+    if (now - lastTapTime < 300) {
+      clearTimeout(pressTimer);
+      clearTimeout(pickerTimer);
       el.classList.remove('pressing');
-      if(fp!=='__fav__' && contactsSubScreen==='sc') toggleReaction(ts,'❤️',el);
-      lastTap=0;
+      lastTapTime = 0;
+      doubleTapped = true;
+      if (!isHistory()) {
+        if (_pickerEl) { _pickerEl.remove(); _pickerEl = null; _pickerTs = null; }
+        toggleReaction(ts, _lastUsedReaction, el);
+      }
       return;
     }
-    lastTap=now;
+    doubleTapped = false;
+    lastTapTime = now;
     el.classList.add('pressing');
-    timer=setTimeout(()=>{
-      el.classList.remove('pressing');
-      navigator.vibrate&&navigator.vibrate(30);
-      openMsgCtx(e,text,sender,ts,fp,el);
-    },500);
-  };
-  const cancel=()=>{el.classList.remove('pressing');clearTimeout(timer)};
-  el.addEventListener('touchstart',start,{passive:true});
-  el.addEventListener('touchend',cancel);
-  el.addEventListener('touchmove',cancel);
-  el.addEventListener('contextmenu',e=>{e.preventDefault();openMsgCtx(e,text,sender,ts,fp,el)});
+
+    // Среднее нажатие (200мс) — пикер реакций
+    if (!isHistory()) {
+      pickerTimer = setTimeout(() => {
+        if (!moved) {
+          pickerFired = true;
+          el.classList.remove('pressing');
+          navigator.vibrate && navigator.vibrate(10);
+          _openReactionPicker(ts, el);
+        }
+      }, 200);
+    }
+
+    // Долгое нажатие (500мс) — контекстное меню
+    pressTimer = setTimeout(() => {
+      if (!moved) {
+        clearTimeout(pickerTimer);
+        if (_pickerEl) { _pickerEl.remove(); _pickerEl = null; _pickerTs = null; }
+        el.classList.remove('pressing');
+        lastTapTime = 0;
+        navigator.vibrate && navigator.vibrate(30);
+        openMsgCtx(e, text, sender, ts, fp, el);
+      }
+    }, 500);
+  }, { passive: false });
+
+  el.addEventListener('touchend', () => {
+    el.classList.remove('pressing');
+    clearTimeout(pressTimer);
+    clearTimeout(pickerTimer);
+    // НЕ сбрасываем lastTapTime — он нужен для определения двойного тапа в следующем touchstart
+  }, { passive: true });
+
+  el.addEventListener('touchmove', () => {
+    el.classList.remove('pressing');
+    clearTimeout(pressTimer);
+    clearTimeout(pickerTimer);
+    moved = true;
+    lastTapTime = 0;
+  }, { passive: true });
+
+  el.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    openMsgCtx(e, text, sender, ts, fp, el);
+  });
 }
 
 let _msgCtxText=null;
@@ -4048,9 +4230,20 @@ function scrollToMsg(ts){
 // ── Mobile keyboard fix ──
 if(window.visualViewport){
   const onVPResize = () => {
-    document.body.style.height = window.visualViewport.height + 'px';
+    const h = window.visualViewport.height;
+    document.body.style.height = h + 'px';
+    // Сбрасываем любой скролл body/html — клавиатура не должна двигать страницу
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    window.scrollTo(0, 0);
   };
   window.visualViewport.addEventListener('resize', onVPResize);
+  // Также блокируем скролл при фокусе на поле ввода
+  window.visualViewport.addEventListener('scroll', () => {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  });
   onVPResize();
 }
 
@@ -6389,13 +6582,18 @@ function _renderReactions(ts, el){
 }
 
 function toggleReaction(ts, emoji, el){
-  if(!el) el = $('msgs').querySelector(`.msg[data-ts="${ts}"]`);
+  if(!el) {
+    el = $('msgs').querySelector(`.msg[data-ts="${ts}"]`);
+    if(!el) el = document.getElementById('fav-msgs')?.querySelector(`.msg[data-ts="${ts}"]`);
+  }
   if(!el) return;
   const r = _getReactions(ts);
   const prev = r.mine;
   r.mine = (prev === emoji) ? null : emoji; // повторный тап = убрать
   _reactions.set(ts, r);
   _renderReactions(ts, el);
+  // Запоминаем последнюю использованную реакцию
+  if(r.mine) _lastUsedReaction = r.mine;
   // Синхронизируем с собеседником
   if(dc && dc.readyState === 'open'){
     _e2eSend(JSON.stringify({__react__: {ts, emoji: r.mine}})).catch(()=>{});
@@ -6425,28 +6623,38 @@ function msgCtxReact(){
 }
 
 let _pickerEl = null;
+let _pickerTs = null;
 function _openReactionPicker(ts, msgEl){
-  if(_pickerEl) _pickerEl.remove();
+  if(_pickerEl) { _pickerEl.remove(); _pickerEl = null; _pickerTs = null; }
   const picker = document.createElement('div');
   picker.className = 'reaction-picker';
   _pickerEl = picker;
+  _pickerTs = ts;
   REACTION_EMOJIS.forEach(emoji => {
     const btn = document.createElement('button');
     btn.textContent = emoji;
     const cur = _getReactions(ts).mine;
     if(cur === emoji) btn.style.background = 'var(--ad)';
-    btn.onclick = () => { picker.remove(); _pickerEl=null; toggleReaction(ts, emoji, msgEl); };
+    btn.onclick = () => { picker.remove(); _pickerEl=null; _pickerTs=null; toggleReaction(ts, emoji, msgEl); };
     picker.appendChild(btn);
   });
-  // Позиционируем над сообщением
   document.body.appendChild(picker);
   const rect = msgEl ? msgEl.getBoundingClientRect() : {left:20,top:200,width:200};
   const pw = picker.offsetWidth || 300;
   picker.style.left = Math.min(Math.max(rect.left, 8), window.innerWidth - pw - 8) + 'px';
   picker.style.top  = Math.max(rect.top - 56, 8) + 'px';
-  // Закрыть при тапе вне пикера
-  const close = e => { if(!picker.contains(e.target)){ picker.remove(); _pickerEl=null; document.removeEventListener('touchstart',close); document.removeEventListener('mousedown',close); }};
-  setTimeout(()=>{ document.addEventListener('touchstart',close,{passive:true}); document.addEventListener('mousedown',close); },50);
+  const close = e => {
+    if(!picker.contains(e.target)){
+      picker.remove(); _pickerEl=null; _pickerTs=null;
+      document.removeEventListener('touchstart', close);
+      document.removeEventListener('mousedown', close);
+    }
+  };
+  // Задержка больше чем время одного тапа чтобы не поймать тот же touchstart
+  setTimeout(() => {
+    document.addEventListener('touchstart', close, { passive: true });
+    document.addEventListener('mousedown', close);
+  }, 400);
 }
 
 function _resetReactions(){
@@ -7736,29 +7944,106 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
       if (!pubKeyHex) { console.warn('[push] нет pubKeyHex для', targetFp); return; }
 
       const fp = await _pubHexToFp(pubKeyHex);
+
+      // Получаем push pub key получателя для шифрования
+      let pushPubHex = null;
+      try { pushPubHex = JSON.parse(localStorage.getItem('_pushPubCache')||'{}')[targetFp]; } catch(_) {}
+
+      let body;
+      if (pushPubHex && typeof _encryptPushPayload === 'function') {
+        // Шифруем payload — сервер не видит содержимое
+        const pushPubRaw = new Uint8Array(pushPubHex.match(/.{2}/g).map(h => parseInt(h,16)));
+        const payload = JSON.stringify({ title: senderName || 'Tovsa', body: text || 'Новое сообщение' });
+        const encrypted = await _encryptPushPayload(pushPubRaw, payload);
+        body = JSON.stringify({ targetFp: fp, encrypted });
+      } else {
+        // Fallback: без шифрования (собеседник ещё не передал push pub key)
+        body = JSON.stringify({ targetFp: fp, senderName: 'Tovsa', text: 'Новое сообщение' });
+      }
+
       const res = await fetch(PUSH_SERVER + '/push/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetFp: fp, senderName, text })
+        body
       });
       console.log('[push] notify status=', res.status);
     } catch(e) { console.warn('[push] notify error:', e); }
   };
 
+  // Отправить push нескольким (для групп) — каждому индивидуально зашифровано
+  window._pushNotifyMany = async function(targetFps, senderName, text) {
+    if (!targetFps?.length || !PUSH_SERVER || PUSH_SERVER.includes('ВАШ')) return;
+    try {
+      const contacts = await getContacts();
+      const pushPubCache = JSON.parse(localStorage.getItem('_pushPubCache') || '{}');
+
+      // Отправляем каждому индивидуально чтобы шифровать его ключом
+      await Promise.allSettled(targetFps.map(async fp => {
+        const pubKeyHex = contacts[fp]?.pubKeyHex;
+        if (!pubKeyHex) return;
+        const serverFp = await _pubHexToFp(pubKeyHex);
+        const pushPubHex = pushPubCache[fp];
+
+        let body;
+        if (pushPubHex && typeof _encryptPushPayload === 'function') {
+          const pushPubRaw = new Uint8Array(pushPubHex.match(/.{2}/g).map(h => parseInt(h,16)));
+          const payload = JSON.stringify({ title: senderName || 'Tovsa', body: text || 'Новое сообщение' });
+          const encrypted = await _encryptPushPayload(pushPubRaw, payload);
+          body = JSON.stringify({ targetFp: serverFp, encrypted });
+        } else {
+          body = JSON.stringify({ targetFp: serverFp, senderName: 'Tovsa', text: 'Новое сообщение' });
+        }
+
+        await fetch(PUSH_SERVER + '/push/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body
+        });
+      }));
+      console.log('[push] notify-many sent to', targetFps.length);
+    } catch(e) { console.warn('[push] notify-many error:', e); }
+  };
+
+  // Отписаться от push уведомлений
+  window._ntfyUnsubscribe = async function() {
+    try {
+      const fp = localStorage.getItem('_pushFp');
+      if (fp) {
+        await fetch(PUSH_SERVER + '/push/unsubscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fingerprint: fp })
+        });
+        localStorage.removeItem('_pushFp');
+      }
+      // Отменяем браузерную подписку
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) await sub.unsubscribe();
+      console.log('[push] отписка успешна');
+    } catch(e) { console.warn('[push] unsubscribe error:', e); }
+  };
+
   // ── Notifications UI ───────────────────────────────────────────────────────
   function _updateNotifUI() {
-    const btn  = document.getElementById('notif-btn');
-    const desc = document.getElementById('notif-desc');
+    const btn      = document.getElementById('notif-btn');
+    const unsubBtn = document.getElementById('notif-unsub-btn');
+    const desc     = document.getElementById('notif-desc');
     if(!btn) return;
     const p = ('Notification' in window) ? Notification.permission : 'unsupported';
     if(p === 'granted') {
       btn.textContent = '✓ включены'; btn.disabled = true;
       if(desc) desc.textContent = 'Фоновые уведомления включены';
+      if(unsubBtn) unsubBtn.style.display = '';
     } else if(p === 'denied') {
       btn.textContent = '✗ заблокированы'; btn.disabled = true;
       if(desc) { desc.textContent = 'Разрешите в настройках браузера'; desc.style.color = 'var(--e)'; }
+      if(unsubBtn) unsubBtn.style.display = 'none';
     } else if(p === 'unsupported') {
       btn.textContent = 'недоступно'; btn.disabled = true;
+      if(unsubBtn) unsubBtn.style.display = 'none';
+    } else {
+      if(unsubBtn) unsubBtn.style.display = 'none';
     }
   }
 
@@ -7770,6 +8055,19 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     if(perm === 'granted') {
       toast('Уведомления включены ✓');
     }
+  };
+
+  window.pwaUnsubscribeNotif = async () => {
+    if(typeof window._ntfyUnsubscribe === 'function') {
+      await window._ntfyUnsubscribe();
+    }
+    toast('Уведомления отключены');
+    const btn      = document.getElementById('notif-btn');
+    const unsubBtn = document.getElementById('notif-unsub-btn');
+    const desc     = document.getElementById('notif-desc');
+    if(btn) { btn.textContent = 'включить'; btn.disabled = false; }
+    if(unsubBtn) unsubBtn.style.display = 'none';
+    if(desc) { desc.textContent = 'Уведомления о новых сообщениях'; desc.style.color = ''; }
   };
 
   // ── Persistent storage ─────────────────────────────────────────────────────
@@ -7811,6 +8109,379 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
 // ══════════════════════════════════════════════════════════════════════════════
 // END PWA MODULE
 // ══════════════════════════════════════════════════════════════════════════════
+</script>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// GESTURES MODULE
+// ══════════════════════════════════════════════════════════════════════════════
+(function(){
+
+// ── CSS для визуальной обратной связи ─────────────────────────────────────────
+const style = document.createElement('style');
+style.textContent = `
+  /* Свайп по сообщению → ответить */
+  .msg { touch-action: pan-y; }
+  .msg.swipe-reply-hint {
+    transition: transform .15s ease !important;
+    transform: translateX(48px) !important;
+  }
+  .msg-reply-icon {
+    position: absolute;
+    right: -36px;
+    top: 50%;
+    transform: translateY(-50%) scale(0);
+    width: 28px; height: 28px;
+    background: var(--a);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    color: #000;
+    opacity: 0;
+    transition: transform .15s ease, opacity .15s ease;
+    pointer-events: none;
+  }
+  .msg { position: relative; }
+  .msg.swipe-active .msg-reply-icon {
+    transform: translateY(-50%) scale(1);
+    opacity: 1;
+  }
+
+  /* Pull-to-refresh индикатор */
+  #ptr-indicator {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 600;
+    display: flex; align-items: center; justify-content: center;
+    height: 0;
+    overflow: hidden;
+    background: var(--sf);
+    border-bottom: 1px solid var(--bd);
+    font-size: 11px; color: var(--a);
+    letter-spacing: 1px;
+    transition: height .2s ease;
+    pointer-events: none;
+  }
+  #ptr-indicator.visible { height: 44px; }
+  #ptr-indicator.refreshing { color: var(--w); }
+  .ptr-spinner {
+    display: inline-block;
+    margin-right: 6px;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+`;
+document.head.appendChild(style);
+
+// Pull-to-refresh индикатор в DOM
+const ptrEl = document.createElement('div');
+ptrEl.id = 'ptr-indicator';
+ptrEl.innerHTML = '<span class="ptr-spinner" id="ptr-spinner" style="display:none">↺</span><span id="ptr-label">↓ потяните чтобы обновить</span>';
+document.body.appendChild(ptrEl);
+
+// ── Утилиты ───────────────────────────────────────────────────────────────────
+function vibrate(ms){ navigator.vibrate && navigator.vibrate(ms); }
+
+// ── 1. СВАЙП ПО СООБЩЕНИЮ → ОТВЕТИТЬ ─────────────────────────────────────────
+// Вправо = ответить (для входящих и исходящих)
+// Подключается в attachMsgLongPress — патчим его
+
+const _origAttach = window.attachMsgLongPress;
+window.attachMsgLongPress = function(el, text, sender, ts, fp){
+  _origAttach && _origAttach(el, text, sender, ts, fp);
+  _attachSwipeReply(el, text, sender, ts, fp);
+};
+
+function _attachSwipeReply(el, text, sender, ts, fp){
+  // Иконка ответа — справа от сообщения (свайп влево)
+  const icon = document.createElement('div');
+  icon.className = 'msg-reply-icon';
+  icon.textContent = '↩';
+  icon.style.left = 'auto';
+  icon.style.right = '-36px';
+  el.appendChild(icon);
+
+  let startX = 0, startY = 0, dx = 0;
+  let swiping = false;
+  let triggered = false;
+  const THRESHOLD = 60;
+
+  el.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    dx = 0; swiping = false; triggered = false;
+    el.style.transition = '';
+    el.style.transform = '';
+  }, { passive: true });
+
+  el.addEventListener('touchmove', e => {
+    dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    if(!swiping && Math.abs(dy) > Math.abs(dx)) return;
+    if(Math.abs(dx) > 8) swiping = true;
+    if(!swiping) return;
+    // Только влево
+    if(dx > 0) return;
+    const clamped = Math.min(Math.abs(dx), THRESHOLD + 20);
+    el.style.transition = 'none';
+    el.style.transform = `translateX(-${clamped * 0.6}px)`;
+    el.classList.add('swipe-active');
+    if(clamped >= THRESHOLD && !triggered){
+      triggered = true;
+      vibrate(18);
+    }
+  }, { passive: true });
+
+  el.addEventListener('touchend', () => {
+    el.classList.remove('swipe-active');
+    el.style.transition = 'transform .2s ease';
+    el.style.transform = '';
+    if(triggered){
+      if(fp === '__fav__'){
+        window._favReplyText = text;
+        window._favReplySender = sender || '';
+        window._favReplyTs = ts || null;
+        const bar = document.getElementById('fav-reply-bar');
+        const barSender = document.getElementById('fav-reply-bar-sender');
+        const barText = document.getElementById('fav-reply-bar-text');
+        if(bar && barSender && barText){
+          barSender.textContent = sender || '';
+          barText.textContent = text;
+          bar.classList.add('on');
+          setTimeout(()=>{ const i=document.getElementById('fav-input'); i&&i.focus(); }, 50);
+        }
+      } else {
+        window._replyText = text;
+        window._replySender = sender || '';
+        window._replyIsOut = el.classList.contains('out');
+        window._replyTs = ts || null;
+        const bar = document.getElementById('reply-bar');
+        const barSender = document.getElementById('reply-bar-sender');
+        const barText = document.getElementById('reply-bar-text');
+        if(bar && barSender && barText){
+          barSender.textContent = sender || '';
+          barText.textContent = text;
+          bar.classList.add('on');
+          setTimeout(()=>{ const i=document.getElementById('mi'); i&&i.focus(); }, 50);
+        }
+      }
+    }
+    setTimeout(()=>{ el.style.transition=''; el.style.transform=''; }, 250);
+  }, { passive: true });
+}
+
+// ── 2. СВАЙП ВПРАВО → ЗАКРЫТЬ ЧАТ / ИСТОРИЮ / ИЗБРАННОЕ ─────────────────────
+// Работает с любого места экрана, только когда открыт чат/история/избранное
+(function(){
+  const CONFIRM = 90;
+  const MAX_DY  = 60;
+
+  let startX = 0, startY = 0;
+  let active = false, dismissed = false, maybeSwipe = false;
+  let currentScreen = null;
+
+  function getActiveScreen(){
+    const sub = typeof contactsSubScreen !== 'undefined' ? contactsSubScreen : '';
+    if(sub === 'sc')   return document.getElementById('sc');
+    if(sub === 'sh')   return document.getElementById('sh');
+    if(sub === 'sfav') return document.getElementById('sfav');
+    return null;
+  }
+
+  function applyDrag(el, dx){
+    const progress = Math.min(dx / CONFIRM, 1);
+    el.style.transition = 'none';
+    el.style.transform   = `translateX(${dx * 0.55}px)`;
+    el.style.opacity     = String(1 - progress * 0.25);
+    let strip = document.getElementById('swipe-back-strip');
+    if(!strip){
+      strip = document.createElement('div');
+      strip.id = 'swipe-back-strip';
+      strip.style.cssText = [
+        'position:fixed','top:0','left:0','bottom:0','width:4px',
+        'background:var(--a)','z-index:800','border-radius:0 3px 3px 0',
+        'pointer-events:none','opacity:0','transition:none'
+      ].join(';');
+      document.body.appendChild(strip);
+    }
+    strip.style.opacity = String(progress * 0.9);
+    strip.style.height  = Math.round(progress * 100) + '%';
+    strip.style.top     = Math.round((1 - progress) * 50) + '%';
+  }
+
+  function resetDrag(el, animate){
+    if(!el) return;
+    el.style.transition = animate ? 'transform .22s ease, opacity .22s ease' : '';
+    el.style.transform  = '';
+    el.style.opacity    = '';
+    const strip = document.getElementById('swipe-back-strip');
+    if(strip) strip.style.opacity = '0';
+  }
+
+  document.addEventListener('touchstart', e => {
+    // Только если открыт нужный экран
+    currentScreen = getActiveScreen();
+    if(!currentScreen){ active = false; return; }
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    active = true;
+    dismissed = false;
+    maybeSwipe = false;
+  }, { passive: true });
+
+  document.addEventListener('touchmove', e => {
+    if(!active || !currentScreen || dismissed) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    // Отменяем если явно вертикальный жест — приоритет скроллу
+    if(!maybeSwipe){
+      if(Math.abs(dy) > 8){ active = false; resetDrag(currentScreen, true); return; }
+      if(Math.abs(dx) > 8) maybeSwipe = true;
+      return;
+    }
+    if(Math.abs(dy) > MAX_DY){ active = false; resetDrag(currentScreen, true); return; }
+    if(dx > 0){
+      // Скрываем клавиатуру при начале свайпа закрытия
+      if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
+      applyDrag(currentScreen, dx);
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchend', e => {
+    if(!active || !currentScreen) return;
+    active = false;
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+
+    if(dx >= CONFIRM && Math.abs(dy) < MAX_DY){
+      dismissed = true;
+      vibrate(12);
+      currentScreen.style.transition = 'transform .22s ease, opacity .22s ease';
+      currentScreen.style.transform  = 'translateX(100%)';
+      currentScreen.style.opacity    = '0';
+      const strip = document.getElementById('swipe-back-strip');
+      if(strip) strip.style.opacity = '0';
+      const _screen = currentScreen;
+      setTimeout(()=>{
+        resetDrag(_screen, false);
+        typeof showTab === 'function' && showTab('sk');
+      }, 200);
+    } else {
+      resetDrag(currentScreen, true);
+    }
+    currentScreen = null;
+  }, { passive: true });
+})();
+
+// ── 3. СВАЙП ПО НИЖНЕЙ ПАНЕЛИ → ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК ─────────────────────────
+(function(){
+  const tabbar = document.getElementById('tabbar');
+  if(!tabbar) return;
+
+  // Порядок вкладок
+  const TABS = ['connect', 'contacts', 'grp', 'sn'];
+  function getCurrentTabIdx(){
+    if(typeof activeTab === 'undefined') return 0;
+    const map = { connect:0, contacts:1, grp:2, sn:3 };
+    return map[activeTab] ?? 0;
+  }
+  function switchToTab(idx){
+    const clamped = Math.max(0, Math.min(TABS.length - 1, idx));
+    const t = TABS[clamped];
+    if(t === 'contacts')       { typeof showContactsTab === 'function' && showContactsTab(); }
+    else if(t === 'grp')       { typeof showTabGrp      === 'function' && showTabGrp();      }
+    else                       { typeof showTab         === 'function' && showTab(t);         }
+  }
+
+  let sx = 0, sy = 0;
+  const PANEL_HEIGHT = 64;
+
+  tabbar.addEventListener('touchstart', e => {
+    sx = e.touches[0].clientX;
+    sy = e.touches[0].clientY;
+  }, { passive: true });
+
+  tabbar.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - sx;
+    const dy = e.changedTouches[0].clientY - sy;
+    if(Math.abs(dx) > 50 && Math.abs(dy) < 40){
+      vibrate(10);
+      const cur = getCurrentTabIdx();
+      switchToTab(dx < 0 ? cur + 1 : cur - 1);
+    }
+  }, { passive: true });
+})();
+
+// ── 4. PULL-TO-REFRESH ────────────────────────────────────────────────────────
+(function(){
+  const THRESHOLD = 70;
+  let startY = 0, pulling = false, refreshing = false;
+
+  function getActiveScroller(){
+    // Только список контактов — строго проверяем обе переменные
+    if(typeof activeTab === 'undefined' || activeTab !== 'contacts') return null;
+    if(typeof contactsSubScreen === 'undefined') return null;
+    if(contactsSubScreen !== 'sk' && contactsSubScreen !== '') return null;
+    return {
+      el: document.getElementById('sk'),
+      onRefresh: async () => {
+        if(typeof refreshPresence === 'function') refreshPresence();
+        await new Promise(r => setTimeout(r, 800));
+      }
+    };
+  }
+
+  document.addEventListener('touchstart', e => {
+    const info = getActiveScroller();
+    if(!info) return;
+    if(info.el && info.el.scrollTop === 0){
+      startY = e.touches[0].clientY;
+      pulling = true;
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchmove', e => {
+    if(!pulling || refreshing) return;
+    const dy = e.touches[0].clientY - startY;
+    if(dy > 0 && dy < THRESHOLD + 30){
+      const progress = Math.min(dy / THRESHOLD, 1);
+      const h = Math.round(progress * 44);
+      ptrEl.style.height = h + 'px';
+      ptrEl.classList.toggle('visible', h > 10);
+      document.getElementById('ptr-label').textContent =
+        dy >= THRESHOLD ? '↑ отпустите' : '↓ потяните чтобы обновить';
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchend', async e => {
+    if(!pulling) return;
+    pulling = false;
+    const dy = e.changedTouches[0].clientY - startY;
+    ptrEl.style.height = '';
+
+    if(dy >= THRESHOLD && !refreshing){
+      refreshing = true;
+      vibrate(20);
+      ptrEl.classList.add('visible', 'refreshing');
+      document.getElementById('ptr-spinner').style.display = '';
+      document.getElementById('ptr-label').textContent = 'обновляем...';
+
+      const info = getActiveScroller();
+      if(info) await info.onRefresh();
+
+      ptrEl.classList.remove('visible', 'refreshing');
+      document.getElementById('ptr-spinner').style.display = 'none';
+      refreshing = false;
+    } else {
+      ptrEl.classList.remove('visible');
+    }
+  }, { passive: true });
+})();
+
+// ══════════════════════════════════════════════════════════════════════════════
+// END GESTURES MODULE
+// ══════════════════════════════════════════════════════════════════════════════
+})();
 </script>
 
 <!-- Pin scope modal -->

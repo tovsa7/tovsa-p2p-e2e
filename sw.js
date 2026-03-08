@@ -1,7 +1,7 @@
 const C = 'tovsa-v7';
-
-// Иконка — реальный PNG файл рядом с приложением
 const ICON_URL = './icon-192.png';
+const DB_NAME  = 'fpv_drun_v1';
+const DB_VER   = 2;
 
 self.addEventListener('install', e => {
   self.skipWaiting();
@@ -32,37 +32,53 @@ self.addEventListener('fetch', e => {
 
 // ── Push ───────────────────────────────────────────────────────────────────────
 self.addEventListener('push', e => {
-  let title = 'Tovsa', body = 'Новое сообщение', tag = 'tovsa-msg', isConn = false;
-  try {
-    if (e.data) {
-      const d = e.data.json();
-      title = d.title || title;
-      body  = d.body  || body;
-      // Определяем тип уведомления по заголовку
-      if(title.startsWith('📡')) { tag = 'tovsa-conn'; isConn = true; }
-    }
-  } catch (_) {
-    try { body = e.data.text() || body; } catch (_) {}
-  }
+  e.waitUntil((async () => {
+    let title = 'Tovsa', body = 'Новое сообщение', tag = 'tovsa-msg', isConn = false;
 
-  const actions = isConn
-    ? [{ action: 'accept', title: '✓ Принять' }]
-    : [{ action: 'open',   title: 'Открыть'   }];
+    try {
+      if (e.data) {
+        const raw = e.data.arrayBuffer ? await e.data.arrayBuffer() : null;
 
-  e.waitUntil(
-    self.registration.showNotification(title, {
-        body, icon: ICON_URL, badge: ICON_URL, tag, renotify: true,
-        vibrate: [200, 100, 200], actions
-      })
-  );
+        // Пробуем расшифровать если есть зашифрованный payload
+        if (raw && raw.byteLength > 0) {
+          const decrypted = await _decryptPushPayload(raw).catch(() => null);
+          if (decrypted) {
+            try {
+              const d = JSON.parse(decrypted);
+              title = d.title || title;
+              body  = d.body  || body;
+            } catch(_) { body = decrypted; }
+          } else {
+            // Fallback: попробуем как обычный JSON
+            try {
+              const d = e.data.json();
+              title = d.title || title;
+              body  = d.body  || body;
+            } catch(_) {
+              try { body = e.data.text() || body; } catch(_) {}
+            }
+          }
+        }
+
+        if (title.startsWith('📡')) { tag = 'tovsa-conn'; isConn = true; }
+      }
+    } catch (_) {}
+
+    const actions = isConn
+      ? [{ action: 'accept', title: '✓ Принять' }]
+      : [{ action: 'open',   title: 'Открыть'   }];
+
+    await self.registration.showNotification(title, {
+      body, icon: ICON_URL, badge: ICON_URL, tag, renotify: true,
+      vibrate: [200, 100, 200], actions
+    });
+  })());
 });
 
 // ── Notification click ─────────────────────────────────────────────────────────
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-
   const isAccept = e.action === 'accept' || e.notification.tag === 'tovsa-conn';
-
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
       const existing = cs.find(c => c.url.includes(self.location.origin));
@@ -71,9 +87,7 @@ self.addEventListener('notificationclick', e => {
         if(isAccept) existing.postMessage({ action: 'accept-call' });
         return;
       }
-      // Открываем приложение и передаём action через URL параметр
-      const url = isAccept ? './?action=accept-call' : './';
-      return clients.openWindow(url);
+      return clients.openWindow(isAccept ? './?action=accept-call' : './');
     })
   );
 });
@@ -97,6 +111,72 @@ self.addEventListener('pushsubscriptionchange', e => {
   })());
 });
 
+// ── Расшифровка push payload ───────────────────────────────────────────────────
+// Формат: ephPubKey(65 bytes) | iv(12 bytes) | ciphertext
+// Шифрование: ECDH P-256 + AES-GCM 256
+async function _decryptPushPayload(arrayBuf) {
+  const privJwk = await _idbGet('keys', 'push_priv_jwk');
+  if (!privJwk) return null;
+
+  const privKey = await crypto.subtle.importKey(
+    'jwk', privJwk,
+    { name: 'ECDH', namedCurve: 'P-256' },
+    false, ['deriveBits', 'deriveKey']
+  );
+
+  const buf = new Uint8Array(arrayBuf);
+  if (buf.length < 65 + 12 + 1) return null;
+
+  const ephemeralPubBytes = buf.slice(0, 65);
+  const iv                = buf.slice(65, 77);
+  const ciphertext        = buf.slice(77);
+
+  const ephemeralPub = await crypto.subtle.importKey(
+    'raw', ephemeralPubBytes,
+    { name: 'ECDH', namedCurve: 'P-256' },
+    false, []
+  );
+
+  const sharedKey = await crypto.subtle.deriveKey(
+    { name: 'ECDH', public: ephemeralPub },
+    privKey,
+    { name: 'AES-GCM', length: 256 },
+    false, ['decrypt']
+  );
+
+  const plain = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv }, sharedKey, ciphertext
+  );
+
+  return new TextDecoder().decode(plain);
+}
+
+// ── IndexedDB helpers (для SW) ─────────────────────────────────────────────────
+function _swOpenDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      ['contacts','history','fav','files','keys'].forEach(s => {
+        if (!db.objectStoreNames.contains(s)) db.createObjectStore(s);
+      });
+    };
+    req.onsuccess = e => res(e.target.result);
+    req.onerror   = () => rej(req.error);
+  });
+}
+
+async function _idbGet(store, key) {
+  const db = await _swOpenDB();
+  return new Promise((res, rej) => {
+    const tx  = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).get(key);
+    req.onsuccess = () => res(req.result ?? null);
+    req.onerror   = () => rej(req.error);
+  });
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function b64urlToBytes(s) {
   const b64 = s.replace(/-/g, '+').replace(/_/g, '/');
   const bin = atob(b64); const out = new Uint8Array(bin.length);

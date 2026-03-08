@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>P2P Мессенджер</title>
+<title>Tovsa</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
 <meta name="theme-color" content="#0a0a0f">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -483,7 +486,7 @@ textarea::placeholder{color:var(--mu)}
   <span class="htitle" id="hdr-title">Tovsa</span>
   <span class="hstat" id="stat" style="display:none">без сервера</span>
   <span id="tagline" style="display:none"></span>
-  <span style="font-size:9px;color:var(--mu);opacity:.4">v8</span>
+  <span style="font-size:9px;color:var(--mu);opacity:.4">v9</span>
 
 </div>
 
@@ -7550,25 +7553,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
 // ══════════════════════════════════════════════════════════════════════════════
 (function(){
 
-  // ── Manifest (inline blob) ─────────────────────────────────────────────────
-  try {
-    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="#0a0a0f"/><circle cx="256" cy="256" r="160" fill="none" stroke="#00ff9d" stroke-width="20"/><circle cx="256" cy="256" r="64" fill="#00ff9d"/><circle cx="256" cy="80" r="24" fill="#00ff9d"/><circle cx="432" cy="256" r="24" fill="#00ff9d"/><circle cx="256" cy="432" r="24" fill="#00ff9d"/><circle cx="80" cy="256" r="24" fill="#00ff9d"/></svg>';
-    const icon = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
-    const manifest = {
-      name: 'Tovsa', short_name: 'Tovsa',
-      description: 'P2P мессенджер с E2E шифрованием',
-      start_url: './', display: 'standalone', orientation: 'portrait',
-      background_color: '#0a0a0f', theme_color: '#0a0a0f',
-      icons: [
-        { src: icon, sizes: '192x192', type: 'image/svg+xml' },
-        { src: icon, sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' }
-      ]
-    };
-    const link = document.createElement('link');
-    link.rel = 'manifest';
-    link.href = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' }));
-    document.head.appendChild(link);
-  } catch(e) { console.warn('[pwa] manifest:', e); }
+  // Manifest — реальный файл, не blob (иначе PWA не работает корректно)
 
   // ── Service Worker ────────────────────────────────────────────────────────
   if('serviceWorker' in navigator) {

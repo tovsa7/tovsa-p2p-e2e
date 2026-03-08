@@ -1,28 +1,7 @@
 const C = 'tovsa-v7';
 
-async function _buildIcon(){
-  try{
-    const c = new OffscreenCanvas(192, 192);
-    const ctx = c.getContext('2d');
-    const r = 48, s = 192;
-    ctx.fillStyle = '#0a0a0f';
-    ctx.beginPath();
-    ctx.moveTo(r,0); ctx.lineTo(s-r,0); ctx.arcTo(s,0,s,r,r);
-    ctx.lineTo(s,s-r); ctx.arcTo(s,s,s-r,s,r);
-    ctx.lineTo(r,s); ctx.arcTo(0,s,0,s-r,r);
-    ctx.lineTo(0,r); ctx.arcTo(0,0,r,0,r);
-    ctx.closePath(); ctx.fill();
-    ctx.strokeStyle='#00ff9d'; ctx.lineWidth=12;
-    ctx.beginPath(); ctx.arc(96,96,52,0,Math.PI*2); ctx.stroke();
-    ctx.fillStyle='#00ff9d';
-    ctx.beginPath(); ctx.arc(96,96,22,0,Math.PI*2); ctx.fill();
-    [[96,36],[156,96],[96,156],[36,96]].forEach(([x,y])=>{
-      ctx.beginPath(); ctx.arc(x,y,8,0,Math.PI*2); ctx.fill();
-    });
-    const blob = await c.convertToBlob({type:'image/png'});
-    return URL.createObjectURL(blob);
-  }catch(_){ return undefined; }
-}
+// Иконка — реальный PNG файл рядом с приложением
+const ICON_URL = './icon-192.png';
 
 self.addEventListener('install', e => {
   self.skipWaiting();
@@ -71,12 +50,10 @@ self.addEventListener('push', e => {
     : [{ action: 'open',   title: 'Открыть'   }];
 
   e.waitUntil(
-    _buildIcon().then(icon =>
-      self.registration.showNotification(title, {
-        body, icon, badge: icon, tag, renotify: true,
+    self.registration.showNotification(title, {
+        body, icon: ICON_URL, badge: ICON_URL, tag, renotify: true,
         vibrate: [200, 100, 200], actions
       })
-    )
   );
 });
 

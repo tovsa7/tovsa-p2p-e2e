@@ -158,13 +158,18 @@ self.addEventListener('pushsubscriptionchange', e => {
       const sub = await self.registration.pushManager.subscribe({
         userVisibleOnly: true, applicationServerKey: b64urlToBytes(publicKey)
       });
-      const fp = e.oldSubscription ? await digestHex(e.oldSubscription.endpoint) : null;
-      if (fp) {
-        await fetch('https://subs.tovsa7.workers.dev/push/subscribe', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fingerprint: fp, subscription: sub.toJSON() })
-        });
-      }
+      // Вычисляем fingerprint из публичного Ed25519 ключа (как в основном приложении)
+      // а не из endpoint подписки — они должны совпадать с ключом в KV
+      const pubRaw = await _idbGet('keys', 'id_pub_raw');
+      if (!pubRaw) return; // нет ключа — нечего обновлять
+      const pubBytes = new Uint8Array(pubRaw);
+      const hash = await crypto.subtle.digest('SHA-256', pubBytes);
+      const fp = Array.from(new Uint8Array(hash))
+        .map(b => b.toString(16).padStart(2,'0')).join('').slice(0, 24);
+      await fetch('https://subs.tovsa7.workers.dev/push/subscribe', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fingerprint: fp, subscription: sub.toJSON() })
+      });
     } catch(err) { console.warn('[sw] pushsubscriptionchange:', err); }
   })());
 });

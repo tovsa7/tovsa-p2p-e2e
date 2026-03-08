@@ -1174,6 +1174,9 @@ const STUNS=[
 
 let pc,dc,role;
 
+// ── HTML escaping utility (prevents XSS via peer-supplied strings) ──
+function esc(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
 // ── Identity (Ed25519 key pair + fingerprint) ──
 const ID_KEY='p2p_identity_v1';
 // IndexedDB replaces localStorage for contacts, history, favourites
@@ -1398,19 +1401,38 @@ function bytesToFingerprint(bytes){
 
 async function initIdentity(){
   try{
-    const stored=localStorage.getItem(ID_KEY);
-    if(stored){
-      const {priv,pub}=JSON.parse(stored);
-      myPrivKey=await crypto.subtle.importKey('jwk',priv,{name:'Ed25519'},false,['sign']);
-      const pubKey=await crypto.subtle.importKey('jwk',pub,{name:'Ed25519'},true,[]);
-      myPubKeyRaw=new Uint8Array(await crypto.subtle.exportKey('raw',pubKey));
-    }else{
-      const kp=await crypto.subtle.generateKey({name:'Ed25519'},true,['sign','verify']);
-      myPrivKey=kp.privateKey;
-      myPubKeyRaw=new Uint8Array(await crypto.subtle.exportKey('raw',kp.publicKey));
-      const privJwk=await crypto.subtle.exportKey('jwk',kp.privateKey);
-      const pubJwk=await crypto.subtle.exportKey('jwk',kp.publicKey);
-      localStorage.setItem(ID_KEY,JSON.stringify({priv:privJwk,pub:pubJwk}));
+    // ── Загрузка / генерация Ed25519 ключевой пары ──
+    // Ключи хранятся в IndexedDB ('keys' store) с extractable:false для приватного.
+    // При первом запуске после обновления — мигрируем из localStorage.
+    const storedPriv = await idbGet('keys','id_priv_jwk').catch(()=>null);
+    const storedPub  = await idbGet('keys','id_pub_raw').catch(()=>null);
+
+    if(storedPriv && storedPub){
+      // Ключи уже в IDB
+      myPrivKey = await crypto.subtle.importKey('jwk', storedPriv, {name:'Ed25519'}, false, ['sign']);
+      myPubKeyRaw = new Uint8Array(storedPub);
+    } else {
+      // Проверяем миграцию из localStorage (legacy)
+      const lsStored = localStorage.getItem(ID_KEY);
+      let privJwk, pubJwk;
+      if(lsStored){
+        ({priv:privJwk, pub:pubJwk} = JSON.parse(lsStored));
+        console.log('[identity] мигрируем ключ из localStorage → IndexedDB');
+      } else {
+        const kp = await crypto.subtle.generateKey({name:'Ed25519'}, true, ['sign','verify']);
+        privJwk = await crypto.subtle.exportKey('jwk', kp.privateKey);
+        pubJwk  = await crypto.subtle.exportKey('jwk', kp.publicKey);
+      }
+      // Импортируем приватный как non-extractable
+      myPrivKey = await crypto.subtle.importKey('jwk', privJwk, {name:'Ed25519'}, false, ['sign']);
+      // Импортируем публичный для получения raw bytes
+      const pubKey = await crypto.subtle.importKey('jwk', pubJwk, {name:'Ed25519'}, true, []);
+      myPubKeyRaw  = new Uint8Array(await crypto.subtle.exportKey('raw', pubKey));
+      // Сохраняем в IDB: приватный как JWK (нужен для экспорта бэкапа), публичный как raw bytes
+      await idbSet('keys', 'id_priv_jwk', privJwk);
+      await idbSet('keys', 'id_pub_raw',  Array.from(myPubKeyRaw));
+      // Удаляем из localStorage если там был
+      if(lsStored) localStorage.removeItem(ID_KEY);
     }
     const hash=await sha256(myPubKeyRaw);
     myFingerprint=bytesToFingerprint(hash);
@@ -1445,10 +1467,22 @@ async function backupData(){
   const contacts=await idbGet('contacts','all')||{};
   const history=await idbGet('history','all')||{};
   const fav=await idbGet('fav','all')||[];
+  // Экспортируем ключевую пару из IDB для бэкапа
+  let identityJson = null;
+  try{
+    const privJwk = await idbGet('keys','id_priv_jwk');
+    const pubRaw  = await idbGet('keys','id_pub_raw');
+    if(privJwk && pubRaw){
+      // Восстанавливаем pub JWK из raw bytes для совместимости формата бэкапа
+      const pubKey = await crypto.subtle.importKey('raw', new Uint8Array(pubRaw), {name:'Ed25519'}, true, []);
+      const pubJwk = await crypto.subtle.exportKey('jwk', pubKey);
+      identityJson = JSON.stringify({priv:privJwk, pub:pubJwk});
+    }
+  }catch(e){ console.warn('[backup] не удалось экспортировать ключ:', e); }
   const data={
     version:2,
     exportedAt:new Date().toISOString(),
-    identity:localStorage.getItem(ID_KEY),
+    identity:identityJson,
     contacts:JSON.stringify(contacts),
     history:JSON.stringify(history),
     fav:JSON.stringify(fav),
@@ -1473,15 +1507,20 @@ function restoreData(event){
       const data=JSON.parse(e.target.result);
       if(!data.version||!data.identity)throw new Error('invalid');
       if(!confirm('Восстановить данные из бэкапа?\nТекущие контакты и история будут заменены.'))return;
-      if(data.identity) localStorage.setItem(ID_KEY,data.identity);
+      if(data.identity){
+        // Восстанавливаем ключ в IDB, убираем из localStorage
+        try{
+          const {priv, pub} = JSON.parse(data.identity);
+          const pubKey = await crypto.subtle.importKey('jwk', pub, {name:'Ed25519'}, true, []);
+          const pubRaw = Array.from(new Uint8Array(await crypto.subtle.exportKey('raw', pubKey)));
+          await idbSet('keys','id_priv_jwk', priv);
+          await idbSet('keys','id_pub_raw',  pubRaw);
+          localStorage.removeItem(ID_KEY);
+        }catch(e){ console.warn('[restore] не удалось восстановить ключ:', e); }
+      }
       if(data.contacts) await idbSet('contacts','all',JSON.parse(data.contacts));
       if(data.history)  await idbSet('history','all',JSON.parse(data.history));
       if(data.fav)      await idbSet('fav','all',JSON.parse(data.fav));
-      // legacy v1 support
-      if(data.version===1){
-        try{if(data.contacts)await idbSet('contacts','all',JSON.parse(data.contacts));}catch{}
-        try{if(data.history) await idbSet('history','all',JSON.parse(data.history));}catch{}
-      }
       toast('Данные восстановлены — перезагрузите страницу');
       setTimeout(()=>location.reload(),1800);
     }catch(err){
@@ -1827,7 +1866,7 @@ function _buildContactEl(fp, c, h, isConnected){
     lastHtml = `<div class="cilast-row"><span class="cilast-text" style="color:var(--a)">нажмите чтобы открыть чат</span></div>`;
   } else if(lastMsg){
     const prefix = lastMsg.type === 'out' ? 'вы: ' : '';
-    const txt = (prefix + (lastMsg.__file__ ? ('[файл] ' + lastMsg.name) : lastMsg.text || '')).replace(/</g, '&lt;');
+    const txt = esc(prefix + (lastMsg.__file__ ? ('[файл] ' + (lastMsg.name||'')) : lastMsg.text || ''));
     const t = new Date(lastMsg.ts).toLocaleString('ru', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
     lastHtml = `<div class="cilast-row"><span class="cilast-text">${txt}</span><span class="cilast-time">${t}</span></div>`;
   }
@@ -1842,7 +1881,7 @@ function _buildContactEl(fp, c, h, isConnected){
   const isOnline = !isActivePeer && _presenceCache[fp] === 'online' && !isConnected;
   const connBtn = isOnline ? `<button class="ci-conn-btn" onclick="event.stopPropagation();connectToContact('${fp}')">→ связь</button>` : '';
   const ctxAttr = c._stranger ? '' : `oncontextmenu="openCtxMenu(event,'${fp}');return false"`;
-  const nameHtml = (c.name || 'Неизвестный').replace(/</g, '&lt;');
+  const nameHtml = esc(c.name || 'Неизвестный');
   const fpHint = c._stranger ? `<div style="font-size:9px;color:var(--mu);opacity:.7">${fp}</div>` : '';
 
   return `<div class="citem${activeClass}" data-fp="${fp}" onclick="openHistory('${fp}')" ${ctxAttr}>
@@ -2022,7 +2061,7 @@ async function openHistory(fp){
       let d;
       if(m.__file__){
         d=await buildFileBubble(m,null,m.type==='out'?'out':'in');
-        d.innerHTML=`<div class="msender">${sender}</div>`+d.innerHTML;
+        d.innerHTML=`<div class="msender">${esc(sender)}</div>`+d.innerHTML;
         d.dataset.ts=m.ts;
       } else {
         d=document.createElement('div');
@@ -2031,7 +2070,7 @@ async function openHistory(fp){
         const h2=m.text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         const t=new Date(m.ts).toLocaleString('ru',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
         const quoteHtml=m.replyText?buildQuoteHtml(m.replySender,m.replyText,m.replyTs):'';
-        d.innerHTML=`<div class="msender">${sender}</div>${quoteHtml}${h2}<div class="mmeta">${t}</div>`;
+        d.innerHTML=`<div class="msender">${esc(sender)}</div>${quoteHtml}${h2}<div class="mmeta">${t}</div>`;
       }
       attachMsgLongPress(d,m.__file__?('[файл] '+(m.name||'')):m.text,sender,m.ts,fp);
       return d;
@@ -2150,12 +2189,12 @@ async function verifyContactKey(){
       result.style.background='rgba(0,255,157,.06)';
       result.style.border='1px solid rgba(0,255,157,.25)';
       result.style.color='var(--a)';
-      result.innerHTML=`✓ Ключ и fingerprint совпадают<br><span style="opacity:.6;font-size:10px">SHA-256(публичный ключ) → ${computedFp}</span>`;
+      result.innerHTML=`✓ Ключ и fingerprint совпадают<br><span style="opacity:.6;font-size:10px">SHA-256(публичный ключ) → ${esc(computedFp)}</span>`;
     } else {
       result.style.background='rgba(224,108,117,.06)';
       result.style.border='1px solid rgba(224,108,117,.3)';
       result.style.color='var(--e)';
-      result.innerHTML=`✗ Несоответствие! Ключ и fingerprint не совпадают<br><span style="opacity:.7;font-size:10px">Ожидался: ${storedFp}<br>Вычислен: ${computedFp}</span>`;
+      result.innerHTML=`✗ Несоответствие! Ключ и fingerprint не совпадают<br><span style="opacity:.7;font-size:10px">Ожидался: ${esc(storedFp)}<br>Вычислен: ${esc(computedFp)}</span>`;
     }
   }catch(e){
     result.style.display='block';
@@ -3191,7 +3230,17 @@ async function _handleServicePacket(j, idDone){
   if(j.__read__){ _updateReadLine(j.__read__); return true; }
 
   if(j.__react__ !== undefined){
-    const {ts, emoji} = j.__react__;
+    const {ts, emoji: rawEmoji} = j.__react__;
+    // Ограничиваем emoji одним grapheme cluster — защита от HTML-инъекции через __react__
+    let emoji = null;
+    if(rawEmoji){
+      try{
+        const segs = [...new Intl.Segmenter().segment(String(rawEmoji))];
+        const first = segs[0]?.segment || '';
+        // Принимаем только если это одиночный графем без HTML-спецсимволов
+        emoji = (first && !/[<>&"']/.test(first)) ? first : null;
+      }catch(_){ emoji = null; }
+    }
     const r = _getReactions(ts);
     r.peer = emoji || null;
     _reactions.set(ts, r);
@@ -3311,7 +3360,7 @@ async function _handleIdentityPacket(data, setIdDone){
       _showPeerPushBadge(res.push);
       _loadPins(res.fp);
       if(!contact){
-        const nameHint = res.name ? ` (представился как «${res.name}»)` : '';
+        const nameHint = res.name ? ` (представился как «${esc(res.name)}»)` : '';
         sysMsg('⚠ Незнакомец' + nameHint + ' — сверьте fingerprint по другому каналу');
       } else {
         loadHistoryIntoChat(res.fp);
@@ -3446,7 +3495,7 @@ async function renderHistoryNodes(msgs, fp, peerName, prepend){
     let d;
     if(msg.__file__){
       d = await buildFileBubble(msg, null, msg.type==='out'?'out':'in');
-      d.innerHTML = `<div class="msender">${sender}</div>` + d.innerHTML;
+      d.innerHTML = `<div class="msender">${esc(sender)}</div>` + d.innerHTML;
       d.dataset.ts = msg.ts;
     } else {
       d = document.createElement('div');
@@ -4220,7 +4269,7 @@ function cancelFavReply(){
 }
 
 function buildQuoteHtml(sender,text,originTs){
-  const s=(sender||'').replace(/</g,'&lt;');
+  const s=esc(sender||'');
   const t=(text||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const clickAttr=originTs?`onclick="scrollToMsg(${originTs})" style="cursor:pointer"`:'';
   return `<div class="msg-quote" ${clickAttr}><div class="msg-quote-sender">${s}</div><div class="msg-quote-text">${t}</div></div>`;
@@ -4575,24 +4624,26 @@ async function buildFileBubble(meta,blobOrNull,msgType){
   const isVideo=meta.mime&&meta.mime.startsWith('video/');
   const isAudio=meta.mime&&meta.mime.startsWith('audio/');
   const safeName=(meta.name||'').replace(/</g,'&lt;');
-  const safeNameAttr=(meta.name||'file').replace(/'/g,"\\'");
-  const safeNameQ=(meta.name||'').replace(/"/g,'&quot;');
+  // jsName — безопасная JS-строка для onclick-атрибутов (JSON.stringify экранирует всё)
+  const jsName=JSON.stringify(meta.name||'file');
+  // safeNameTitle — для HTML-атрибута title
+  const safeNameTitle=esc(meta.name||'');
   const gifId='gif-'+Math.random().toString(36).slice(2);
   let inner='';
   if(isGif&&url){
     inner=`<div style="position:relative;display:inline-block;margin-bottom:6px;max-width:100%">
-      <img id="${gifId}" src="${url}" style="max-width:100%;max-height:260px;border-radius:8px;display:block;cursor:pointer" onclick="openImageViewer('${url}','gif')" title="${safeNameQ}">
+      <img id="${gifId}" src="${url}" style="max-width:100%;max-height:260px;border-radius:8px;display:block;cursor:pointer" onclick="openImageViewer('${url}','gif')" title="${safeNameTitle}">
       <span style="position:absolute;bottom:6px;left:6px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;pointer-events:none;letter-spacing:.5px">GIF</span>
     </div>`;
   } else if(isImage&&url){
-    inner=`<img src="${url}" style="max-width:100%;max-height:220px;border-radius:8px;display:block;cursor:pointer;margin-bottom:6px" onclick="openImageViewer('${url}')" title="${safeNameQ}">`;
+    inner=`<img src="${url}" style="max-width:100%;max-height:220px;border-radius:8px;display:block;cursor:pointer;margin-bottom:6px" onclick="openImageViewer('${url}')" title="${safeNameTitle}">`;
   } else if(isVideo&&url){
-    inner=`<video src="${url}" style="max-width:100%;max-height:220px;border-radius:8px;display:block;margin-bottom:6px;cursor:pointer;background:#000" preload="metadata" onclick="openVideoViewer('${url}','${safeNameQ}')"></video>`;
+    inner=`<video src="${url}" style="max-width:100%;max-height:220px;border-radius:8px;display:block;margin-bottom:6px;cursor:pointer;background:#000" preload="metadata" onclick="openVideoViewer('${url}',${jsName})"></video>`;
   } else if(isAudio&&url){
     inner=`<audio src="${url}" controls style="width:100%;margin-bottom:6px;accent-color:var(--a)"></audio>`;
   }
-  const dlBtn=url?`<span class="msg-file-dl" onclick="downloadFile('${url}','${safeNameAttr}')">↓ скачать</span>`:'';
-  const playBtn=(isVideo&&url)?`<span class="msg-file-dl" onclick="openVideoViewer('${url}','${safeNameQ}')" style="margin-left:8px">▶ смотреть</span>`:'';
+  const dlBtn=url?`<span class="msg-file-dl" onclick="downloadFile('${url}',${jsName})">↓ скачать</span>`:'';
+  const playBtn=(isVideo&&url)?`<span class="msg-file-dl" onclick="openVideoViewer('${url}',${jsName})" style="margin-left:8px">▶ смотреть</span>`:'';
   const statusText=url?'сохранено':'файл недоступен';
   inner+=`<div class="msg-file">
     <div class="msg-file-icon">${fileIcon(meta.mime||'')}</div>
@@ -4841,7 +4892,7 @@ function openVideoViewer(url,name){
   ov=document.createElement('div');
   ov.id='img-viewer';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px';
-  const title=name?`<div style="color:#fff;font-size:11px;opacity:.5;max-width:90vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name.replace(/</g,'&lt;')}</div>`:'';
+  const title=name?`<div style="color:#fff;font-size:11px;opacity:.5;max-width:90vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</div>`:'';
   ov.innerHTML=`${title}<video src="${url}" controls autoplay style="max-width:95vw;max-height:88vh;border-radius:8px;outline:none" onclick="event.stopPropagation()"></video><div style="font-size:11px;color:#fff;opacity:.4;cursor:pointer" onclick="this.closest('#img-viewer').remove()">✕ закрыть</div>`;
   ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
   document.body.appendChild(ov);
@@ -4863,7 +4914,7 @@ function _createFileSendBubble(file, ts){
   d.innerHTML = `<div class="msg-file">
     <div class="msg-file-icon">${fileIcon(file.type)}</div>
     <div class="msg-file-info">
-      <div class="msg-file-name">${file.name.replace(/</g,'&lt;')}</div>
+      <div class="msg-file-name">${esc(file.name)}</div>
       <div class="msg-file-size" id="fsize-${ts}">${fmtSize(file.size)} · <span id="fspeed-${ts}">отправка...</span></div>
       <div class="file-progress"><div class="file-progress-bar" id="fp-${ts}" style="width:0%"></div></div>
     </div>
@@ -5041,10 +5092,10 @@ function handleIncomingFile(data){
         d.className='msg in';
         d.dataset.fileRecv=ts;
         _getCachedPeerName(currentPeerFp).then(peerName=>{
-          d.innerHTML=`<div class="msender">${peerName}</div><div class="msg-file">
+          d.innerHTML=`<div class="msender">${esc(peerName)}</div><div class="msg-file">
             <div class="msg-file-icon">${fileIcon(j.type)}</div>
             <div class="msg-file-info">
-              <div class="msg-file-name">${j.name.replace(/</g,'&lt;')}</div>
+              <div class="msg-file-name">${esc(j.name)}</div>
               <div class="msg-file-size" id="fsize-${ts}">${fmtSize(j.size)} · <span id="fspeed-${ts}">получение...</span></div>
               <div class="file-progress"><div class="file-progress-bar" id="fp-${ts}" style="width:0%"></div></div>
             </div>
@@ -5103,7 +5154,7 @@ function handleIncomingFile(data){
         }
         _getCachedPeerName(currentPeerFp).then(peerName=>{
           buildFileBubble({name:inf.name,size:inf.size,mime:inf.type,fileId:ts,ts},blob,'in').then(nb=>{
-            nb.innerHTML=`<div class="msender">${peerName}</div>`+nb.innerHTML;
+            nb.innerHTML=`<div class="msender">${esc(peerName)}</div>`+nb.innerHTML;
             if(inf.el&&inf.el.parentNode)inf.el.parentNode.replaceChild(nb,inf.el);
             attachMsgLongPress(nb,'[файл] '+inf.name,peerName,ts,currentPeerFp);
             _sendNotif(peerName, '📎 ' + inf.name, ()=>showTab('sc'));
@@ -7916,7 +7967,7 @@ function _grpRenderMsg(code,msg,dir){
   const safe=(msg.text||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const el=document.createElement('div');
   el.className=`msg ${dir}`; el.dataset.ts=msg.ts; el.dataset.msgId=msg.id||'';
-  if(dir==='in') el.innerHTML=`<div class="msender">${(msg.name||'?').replace(/</g,'&lt;')}</div>${safe}<div class="mmeta">${ts}</div>`;
+  if(dir==='in') el.innerHTML=`<div class="msender">${esc(msg.name||'?')}</div>${safe}<div class="mmeta">${ts}</div>`;
   else el.innerHTML=`${safe}<div class="mmeta">${ts}</div>`;
   c.appendChild(el); c.scrollTop=c.scrollHeight;
 }
@@ -7933,12 +7984,12 @@ function grpRenderGroupList(){
     const unread=_grpUnread[code]||0;
     const last=(g.history||[]).at(-1);
     const lastText=last?(last.text||'').slice(0,40):'';
-    const nm=(g.name||code).replace(/</g,'&lt;');
+    const nm=esc(g.name||code);
     return `<div class="grp-item" onclick="grpOpenChat('${code}')">
       <div class="grp-item-dot${connected?' on':''}"></div>
       <div class="grp-item-info">
         <div class="grp-item-name">${nm}${unread>0?`<span class="grp-item-badge">${unread}</span>`:''}<span style="font-size:10px;font-weight:400;color:var(--mu);letter-spacing:1px;margin-left:4px">#${code}</span></div>
-        <div class="grp-item-sub">${connected?`● ${n}/${GRP_MAX} онлайн`:'○ офлайн'}${lastText?` · ${lastText.replace(/</g,'&lt;').replace(/&/g,'&amp;')}`:''}</div>
+        <div class="grp-item-sub">${connected?`● ${n}/${GRP_MAX} онлайн`:'○ офлайн'}${lastText?` · ${esc(lastText)}`:''}</div>
       </div>
       <button class="grp-item-leave" onclick="event.stopPropagation();grpConfirmLeave('${code}')" title="Покинуть">×</button>
     </div>`;
@@ -7970,7 +8021,7 @@ function grpRenderMembers(code){
     const online=isMe?amIConnected:(conns?.has(m.pid)||false);
     // Пинг доступен только если: не я, не онлайн, есть fp, И я сам подключён к группе
     const canPing=!isMe&&!online&&!!m.fp&&amIConnected;
-    const nm=(m.name||'?').replace(/</g,'&lt;');
+    const nm=esc(m.name||'?');
     return `<div class="grp-member${online?' online':''}">
       <div class="grp-member-dot"></div>
       <div class="grp-member-info">
@@ -8145,7 +8196,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
       const res = await fetch(PUSH_SERVER + '/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fingerprint: fp, subscription: sub.toJSON() })
+        body: JSON.stringify({ fingerprint: fp, subscription: sub.toJSON(), pubKeyHex: myHex })
       });
       if (!res.ok) throw new Error('subscribe: ' + res.status);
 
@@ -8157,6 +8208,19 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
       return false;
     }
   };
+
+  // Подписываем notify-запрос Ed25519 ключом отправителя
+  // Воркер верифицирует подпись перед отправкой push
+  async function _signNotify(targetFp) {
+    if (!myPrivKey || !myPubKeyRaw) return null;
+    const ts = Math.floor(Date.now() / 1000);
+    const msg = new TextEncoder().encode(`notify:${targetFp}:${ts}`);
+    const sigBuf = await crypto.subtle.sign('Ed25519', myPrivKey, msg);
+    const sig = btoa(String.fromCharCode(...new Uint8Array(sigBuf)))
+      .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    const pubKeyHex = Array.from(myPubKeyRaw).map(b=>b.toString(16).padStart(2,'0')).join('');
+    return { sig, pubKeyHex, ts };
+  }
 
   // Отправить push собеседнику через Cloudflare Worker
   window._pushNotifyPeer = async function(targetFp, senderName, text, knownPubKeyHex) {
@@ -8180,15 +8244,18 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
       try { pushPubHex = JSON.parse(localStorage.getItem('_pushPubCache')||'{}')[targetFp]; } catch(_) {}
 
       let body;
+      const authFields = await _signNotify(fp);
+      if (!authFields) { console.warn('[push] ключ не готов, пропускаем notify'); return; }
       if (pushPubHex && typeof _encryptPushPayload === 'function') {
         // Шифруем payload — сервер не видит содержимое
         const pushPubRaw = new Uint8Array(pushPubHex.match(/.{2}/g).map(h => parseInt(h,16)));
         const payload = JSON.stringify({ title: senderName || 'Tovsa', body: text || 'Новое сообщение' });
-        const encrypted = await _encryptPushPayload(pushPubRaw, payload);
-        body = JSON.stringify({ targetFp: fp, encrypted });
+        const encryptedBuf = await _encryptPushPayload(pushPubRaw, payload);
+        const encrypted = btoa(String.fromCharCode(...encryptedBuf)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+        body = JSON.stringify({ targetFp: fp, encrypted, ...authFields });
       } else {
-        // Fallback: без шифрования (собеседник ещё не передал push pub key)
-        body = JSON.stringify({ targetFp: fp, senderName: 'Tovsa', text: 'Новое сообщение' });
+        // Fallback: без шифрования контента (собеседник ещё не передал push pub key)
+        body = JSON.stringify({ targetFp: fp, senderName: 'Tovsa', text: 'Новое сообщение', ...authFields });
       }
 
       const res = await fetch(PUSH_SERVER + '/push/notify', {
@@ -8215,13 +8282,16 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
         const pushPubHex = pushPubCache[fp];
 
         let body;
+        const authFields = await _signNotify(serverFp);
+        if (!authFields) return;
         if (pushPubHex && typeof _encryptPushPayload === 'function') {
           const pushPubRaw = new Uint8Array(pushPubHex.match(/.{2}/g).map(h => parseInt(h,16)));
           const payload = JSON.stringify({ title: senderName || 'Tovsa', body: text || 'Новое сообщение' });
-          const encrypted = await _encryptPushPayload(pushPubRaw, payload);
-          body = JSON.stringify({ targetFp: serverFp, encrypted });
+          const encryptedBuf = await _encryptPushPayload(pushPubRaw, payload);
+          const encrypted = btoa(String.fromCharCode(...encryptedBuf)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+          body = JSON.stringify({ targetFp: serverFp, encrypted, ...authFields });
         } else {
-          body = JSON.stringify({ targetFp: serverFp, senderName: 'Tovsa', text: 'Новое сообщение' });
+          body = JSON.stringify({ targetFp: serverFp, senderName: 'Tovsa', text: 'Новое сообщение', ...authFields });
         }
 
         await fetch(PUSH_SERVER + '/push/notify', {

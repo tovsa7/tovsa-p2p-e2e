@@ -483,7 +483,7 @@ textarea::placeholder{color:var(--mu)}
   <span class="htitle" id="hdr-title">Tovsa</span>
   <span class="hstat" id="stat" style="display:none">без сервера</span>
   <span id="tagline" style="display:none"></span>
-  <span style="font-size:9px;color:var(--mu);opacity:.4">v6</span>
+  <span style="font-size:9px;color:var(--mu);opacity:.4">v7</span>
 
 </div>
 
@@ -4050,14 +4050,47 @@ function _requestNotifPermission(){
   Notification.requestPermission().then(p => { _notifPermission = p; });
 }
 
+// Иконка приложения — PNG через canvas (SVG не поддерживается в уведомлениях Android)
+let _notifIconPng = null;
+function _getNotifIcon(){
+  if(_notifIconPng) return _notifIconPng;
+  try{
+    const c = document.createElement('canvas'); c.width = 192; c.height = 192;
+    const ctx = c.getContext('2d');
+    // Фон
+    ctx.fillStyle = '#0a0a0f';
+    const r = 48;
+    ctx.beginPath();
+    ctx.moveTo(r, 0); ctx.lineTo(192-r, 0);
+    ctx.arcTo(192, 0, 192, r, r);
+    ctx.lineTo(192, 192-r);
+    ctx.arcTo(192, 192, 192-r, 192, r);
+    ctx.lineTo(r, 192);
+    ctx.arcTo(0, 192, 0, 192-r, r);
+    ctx.lineTo(0, r);
+    ctx.arcTo(0, 0, r, 0, r);
+    ctx.closePath(); ctx.fill();
+    // Внешний круг
+    ctx.strokeStyle = '#00ff9d'; ctx.lineWidth = 12;
+    ctx.beginPath(); ctx.arc(96, 96, 52, 0, Math.PI*2); ctx.stroke();
+    // Центральный круг
+    ctx.fillStyle = '#00ff9d';
+    ctx.beginPath(); ctx.arc(96, 96, 22, 0, Math.PI*2); ctx.fill();
+    // 4 точки
+    [[96,36],[156,96],[96,156],[36,96]].forEach(([x,y])=>{
+      ctx.beginPath(); ctx.arc(x, y, 8, 0, Math.PI*2); ctx.fill();
+    });
+    _notifIconPng = c.toDataURL('image/png');
+  }catch(_){ _notifIconPng = ''; }
+  return _notifIconPng;
+}
+
 function _sendNotif(title, body, onClick){
   if(!('Notification' in window)) return;
   if(document.hasFocus()) return; // приложение активно — не мешаем
   if(_notifPermission !== 'granted') return;
   try{
-    // Иконка — SVG логотип закодированный в base64
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="48" fill="#0a0a0f"/><circle cx="96" cy="96" r="52" fill="none" stroke="#7c6aff" stroke-width="12"/><circle cx="96" cy="96" r="24" fill="#7c6aff"/><circle cx="96" cy="44" r="8" fill="#7c6aff"/><circle cx="148" cy="96" r="8" fill="#7c6aff"/><circle cx="96" cy="148" r="8" fill="#7c6aff"/><circle cx="44" cy="96" r="8" fill="#7c6aff"/></svg>`;
-    const icon = 'data:image/svg+xml;base64,' + btoa(svg);
+    const icon = _getNotifIcon();
     const n = new Notification(title, { body, icon, badge: icon, silent: false });
     n.onclick = () => { window.focus(); if(onClick) onClick(); n.close(); };
     setTimeout(() => n.close(), 6000);
@@ -5674,6 +5707,12 @@ async function connectToContact(fp, opts={}){
   if(!_pjOk){ toast('Signaling недоступен'); return; }
   const pubKeyHex = getPubKeyHex(fp, await getContacts());
   if(!pubKeyHex){ toast('Нет ключа контакта'); return; }
+
+  // Шлём push собеседнику — он может быть офлайн в приложении
+  if(typeof window._pushNotifyPeer === 'function'){
+    const myName = document.getElementById('my-name-input')?.value?.trim() || 'Tovsa';
+    window._pushNotifyPeer(fp, '📞 ' + myName, 'Хочет соединиться — зайдите в приложение');
+  }
 
   const roomCode = await sha256hex(new Uint8Array(pubKeyHex.match(/.{2}/g).map(h=>parseInt(h,16))), 6);
 
@@ -7487,7 +7526,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
 
   // ── Manifest (inline blob) ─────────────────────────────────────────────────
   try {
-    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="#0a0a0f"/><circle cx="256" cy="256" r="180" fill="none" stroke="#00ff9d" stroke-width="18"/><circle cx="256" cy="256" r="80" fill="#00ff9d"/><circle cx="256" cy="256" r="36" fill="#0a0a0f"/></svg>';
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="#0a0a0f"/><circle cx="256" cy="256" r="160" fill="none" stroke="#00ff9d" stroke-width="20"/><circle cx="256" cy="256" r="64" fill="#00ff9d"/><circle cx="256" cy="80" r="24" fill="#00ff9d"/><circle cx="432" cy="256" r="24" fill="#00ff9d"/><circle cx="256" cy="432" r="24" fill="#00ff9d"/><circle cx="80" cy="256" r="24" fill="#00ff9d"/></svg>';
     const icon = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
     const manifest = {
       name: 'Tovsa', short_name: 'Tovsa',
@@ -7555,39 +7594,33 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     if (!PUSH_SERVER || PUSH_SERVER.includes('ВАШ')) return false;
     try {
       const myHex = localStorage.getItem('_myPubHex');
-      console.log('[push] subscribe start, myHex=', myHex ? myHex.slice(0,8)+'...' : 'NULL');
       if (!myHex) return false;
 
-      console.log('[push] fetching VAPID key from', PUSH_SERVER);
-      const vapidRes = await fetch(PUSH_SERVER + '/push/vapid');
-      console.log('[push] vapid status=', vapidRes.status);
-      const { publicKey } = await vapidRes.json();
-      console.log('[push] publicKey=', publicKey ? publicKey.slice(0,20)+'...' : 'NULL');
-      if (!publicKey) throw new Error('нет VAPID ключа');
-
       const reg = await navigator.serviceWorker.ready;
-      console.log('[push] SW ready, scope=', reg.scope);
 
-      let sub;
-      try {
-        sub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: _b64ToUint8(publicKey)
-        });
-        console.log('[push] pushManager.subscribe OK, endpoint=', sub.endpoint.slice(0,50)+'...');
-      } catch(subErr) {
-        console.warn('[push] pushManager.subscribe FAILED:', subErr.name, subErr.message);
-        throw subErr;
+      // Если уже подписаны — просто обновляем fp в localStorage, не шлём новый запрос
+      const existing = await reg.pushManager.getSubscription();
+      if (existing) {
+        const fp = await _pubHexToFp(myHex);
+        localStorage.setItem('_pushFp', fp);
+        console.log('[push] уже подписаны, fp=', fp.slice(0,8)+'...');
+        return true;
       }
 
+      const { publicKey } = await fetch(PUSH_SERVER + '/push/vapid').then(r => r.json());
+      if (!publicKey) throw new Error('нет VAPID ключа');
+
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: _b64ToUint8(publicKey)
+      });
+
       const fp  = await _pubHexToFp(myHex);
-      console.log('[push] sending subscription to server, fp=', fp.slice(0,8)+'...');
       const res = await fetch(PUSH_SERVER + '/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fingerprint: fp, subscription: sub.toJSON() })
       });
-      console.log('[push] server subscribe status=', res.status);
       if (!res.ok) throw new Error('subscribe: ' + res.status);
 
       localStorage.setItem('_pushFp', fp);

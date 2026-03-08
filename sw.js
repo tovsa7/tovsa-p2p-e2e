@@ -1,17 +1,29 @@
-const C = 'tovsa-v5';
+const C = 'tovsa-v6';
 
-// SVG иконка закодированная в base64 — используется в push уведомлениях
-const ICON = 'data:image/svg+xml;base64,' + btoa(
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">' +
-  '<rect width="192" height="192" rx="48" fill="#0a0a0f"/>' +
-  '<circle cx="96" cy="96" r="52" fill="none" stroke="#7c6aff" stroke-width="12"/>' +
-  '<circle cx="96" cy="96" r="24" fill="#7c6aff"/>' +
-  '<circle cx="96" cy="44" r="8" fill="#7c6aff"/>' +
-  '<circle cx="148" cy="96" r="8" fill="#7c6aff"/>' +
-  '<circle cx="96" cy="148" r="8" fill="#7c6aff"/>' +
-  '<circle cx="44" cy="96" r="8" fill="#7c6aff"/>' +
-  '</svg>'
-);
+// Иконка рисуется через OffscreenCanvas — PNG, единый стиль с приложением
+async function _buildIcon(){
+  try{
+    const c = new OffscreenCanvas(192, 192);
+    const ctx = c.getContext('2d');
+    const r = 48, s = 192;
+    ctx.fillStyle = '#0a0a0f';
+    ctx.beginPath();
+    ctx.moveTo(r,0); ctx.lineTo(s-r,0); ctx.arcTo(s,0,s,r,r);
+    ctx.lineTo(s,s-r); ctx.arcTo(s,s,s-r,s,r);
+    ctx.lineTo(r,s); ctx.arcTo(0,s,0,s-r,r);
+    ctx.lineTo(0,r); ctx.arcTo(0,0,r,0,r);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='#00ff9d'; ctx.lineWidth=12;
+    ctx.beginPath(); ctx.arc(96,96,52,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle='#00ff9d';
+    ctx.beginPath(); ctx.arc(96,96,22,0,Math.PI*2); ctx.fill();
+    [[96,36],[156,96],[96,156],[36,96]].forEach(([x,y])=>{
+      ctx.beginPath(); ctx.arc(x,y,8,0,Math.PI*2); ctx.fill();
+    });
+    const blob = await c.convertToBlob({type:'image/png'});
+    return URL.createObjectURL(blob);
+  }catch(_){ return undefined; }
+}
 
 self.addEventListener('install', e => {
   self.skipWaiting();
@@ -30,13 +42,8 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
-
   const url = new URL(e.request.url);
-
-  // Внешние запросы (PeerJS, Cloudflare, FCM) — не кешируем
   if (url.origin !== self.location.origin) return;
-
-  // Своё приложение — network-first (быстрые обновления)
   e.respondWith(
     fetch(e.request)
       .then(res => {
@@ -65,15 +72,17 @@ self.addEventListener('push', e => {
   }
 
   e.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      icon:     ICON,
-      badge:    ICON,
-      tag:      'tovsa-msg',
-      renotify: true,
-      vibrate:  [200, 100, 200],
-      actions:  [{ action: 'open', title: 'Открыть' }]
-    })
+    _buildIcon().then(icon =>
+      self.registration.showNotification(title, {
+        body,
+        icon,
+        badge:    icon,
+        tag:      'tovsa-msg',
+        renotify: true,
+        vibrate:  [200, 100, 200],
+        actions:  [{ action: 'open', title: 'Открыть' }]
+      })
+    )
   );
 });
 
@@ -90,38 +99,25 @@ self.addEventListener('notificationclick', e => {
 
 // ── Автообновление push-подписки если FCM её сменил ───────────────────────────
 self.addEventListener('pushsubscriptionchange', e => {
-  e.waitUntil(
-    (async () => {
-      try {
-        // Получаем VAPID ключ с воркера
-        const { publicKey } = await fetch('https://subs.tovsa7.workers.dev/push/vapid')
-          .then(r => r.json());
-
-        const sub = await self.registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: b64urlToBytes(publicKey)
+  e.waitUntil((async () => {
+    try {
+      const { publicKey } = await fetch('https://subs.tovsa7.workers.dev/push/vapid').then(r => r.json());
+      const sub = await self.registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: b64urlToBytes(publicKey)
+      });
+      const fp = e.oldSubscription ? await digestHex(e.oldSubscription.endpoint) : null;
+      if (fp) {
+        await fetch('https://subs.tovsa7.workers.dev/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fingerprint: fp, subscription: sub.toJSON() })
         });
-
-        // Достаём fp из старого subscription или из данных
-        const fp = e.oldSubscription
-          ? await digestHex(e.oldSubscription.endpoint)
-          : null;
-
-        if (fp) {
-          await fetch('https://subs.tovsa7.workers.dev/push/subscribe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fingerprint: fp, subscription: sub.toJSON() })
-          });
-        }
-      } catch(err) {
-        console.warn('[sw] pushsubscriptionchange error:', err);
       }
-    })()
-  );
+    } catch(err) { console.warn('[sw] pushsubscriptionchange error:', err); }
+  })());
 });
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function b64urlToBytes(s) {
   const b64 = s.replace(/-/g, '+').replace(/_/g, '/');
   const bin = atob(b64);

@@ -1,11 +1,19 @@
-const C = 'tovsa-v7';
+const C = 'tovsa-v8';
 const ICON_URL = './icon-192.png';
 const DB_NAME  = 'fpv_drun_v1';
 const DB_VER   = 2;
 
+const PRECACHE = [
+  './',
+  './manifest.json',
+  './icon-192.png',
+];
+
 self.addEventListener('install', e => {
   self.skipWaiting();
-  e.waitUntil(caches.open(C).then(c => c.addAll(['./'])).catch(() => {}));
+  e.waitUntil(
+    caches.open(C).then(c => c.addAll(PRECACHE)).catch(() => {})
+  );
 });
 
 self.addEventListener('activate', e => {
@@ -20,14 +28,38 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
   if (url.origin !== self.location.origin) return;
-  e.respondWith(
-    fetch(e.request)
-      .then(res => {
-        if (res.ok) { const clone = res.clone(); caches.open(C).then(c => c.put(e.request, clone)); }
-        return res;
+
+  const isPrecached = PRECACHE.some(p => {
+    const u = new URL(p, self.location.origin);
+    return u.pathname === url.pathname;
+  });
+
+  if (isPrecached) {
+    // Stale-while-revalidate: отдаём кэш мгновенно, фоном обновляем
+    e.respondWith(
+      caches.open(C).then(async cache => {
+        const cached = await cache.match(e.request);
+        const fetchPromise = fetch(e.request).then(res => {
+          if (res.ok) cache.put(e.request, res.clone());
+          return res;
+        }).catch(() => null);
+        return cached || fetchPromise;
       })
-      .catch(() => caches.match(e.request))
-  );
+    );
+  } else {
+    // Остальные ресурсы — сеть с fallback в кэш
+    e.respondWith(
+      fetch(e.request)
+        .then(res => {
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(C).then(c => c.put(e.request, clone));
+          }
+          return res;
+        })
+        .catch(() => caches.match(e.request))
+    );
+  }
 });
 
 // ── Push ───────────────────────────────────────────────────────────────────────

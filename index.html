@@ -466,6 +466,9 @@ textarea::placeholder{color:var(--mu)}
 .grp-member:last-child{border-bottom:none}
 .grp-member-dot{width:7px;height:7px;border-radius:50%;background:var(--mu);flex-shrink:0;transition:background .3s,box-shadow .3s}
 .grp-member.online .grp-member-dot{background:var(--a);box-shadow:0 0 5px var(--a)}
+.grp-member-dot.connected{background:var(--a);box-shadow:0 0 6px var(--a)}
+.grp-member-dot.online{background:#4caf50;box-shadow:0 0 5px #4caf5099}
+.grp-member-dot.checking{background:var(--w);animation:blink 1s infinite}
 .grp-member-info{flex:1;min-width:0}
 .grp-member-name{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .grp-member-sub{font-size:10px;color:var(--mu);margin-top:1px}
@@ -6232,8 +6235,14 @@ async function _presenceHeartbeatTick(){
 // Запускаем heartbeat как только signaling становится доступен
 // и останавливаем когда он падает
 function _onPjStatusChange(ok){
-  if(ok) _startPresenceHeartbeat();
-  else   _stopPresenceHeartbeat();
+  if(ok){
+    _startPresenceHeartbeat();
+    // Перезапускаем group presence если группа открыта
+    if(_grpActive && _grpAll[_grpActive]) _grpStartPresence(_grpActive);
+  } else {
+    _stopPresenceHeartbeat();
+    _grpStopAllPresence();
+  }
   _updateBeaconStatus();
 }
 
@@ -7291,6 +7300,14 @@ let _grpRvPeer  = {};   // code → Peer  (рандеву-пир, если за�
 let _grpKeyCache= {};   // `${code}:${ver}` → CryptoKey
 let _grpConnecting = {}; // code → bool  (идёт ли прямо сейчас процесс входа)
 
+// ── Presence участников группы ────────────────────────────────────────────────
+// _grpPresence[code][pid] = 'online' | 'offline' | 'checking'
+// Обновляется независимо от DataChannel-соединений.
+// Позволяет видеть онлайн-статус даже без установленного соединения.
+let _grpPresence    = {};  // code → Map<pid, status>
+let _grpPresenceHb  = {};  // code → intervalId
+const GRP_PRESENCE_INTERVAL = 30000; // интервал проверки (мс)
+
 // ── Логирование → встроенная консоль настроек ─────────────────────────────────
 function _grpLog(msg, level='info'){
   const lvl = level==='warn'?'warn':level==='error'?'error':'info';
@@ -7960,9 +7977,10 @@ function grpLeave(code){
 }
 
 function _grpOnSelfLeft(code, silent){
+  _grpStopPresence(code);
   const g=_grpAll[code];
   if(g){ g.myPid=null; (g.members||[]).forEach(m=>m.online=false); _grpSave(); }
-  delete _grpMyPeer[code]; delete _grpConns[code]; delete _grpSeen[code];
+  delete _grpMyPeer[code]; delete _grpConns[code]; delete _grpSeen[code]; delete _grpPresence[code];
   _grpConnecting[code] = false;
   _grpUpdateConnBtn(code,'idle'); _grpUpdateStatus(code);
   if(_grpActive===code) grpRenderMembers(code);
@@ -8027,6 +8045,133 @@ function _grpHandlePingMsg(data){
   const {groupCode,fromName,fromFp}=data.__grp_incoming_ping__||{};
   toast(`📣 ${fromName||fromFp||'?'} зовёт в группу #${groupCode||'?'}!`);
   _sendNotif(`📣 Группа #${groupCode||'?'}`,`${fromName||'?'} приглашает вас`);
+}
+
+// ── Group Presence ────────────────────────────────────────────────────────────
+
+// Запустить heartbeat presence для группы (вызывается при открытии чата)
+function _grpStartPresence(code){
+  if(_grpPresenceHb[code]) return; // уже запущен
+  // Первый прогон сразу
+  _grpCheckPresence(code);
+  _grpPresenceHb[code] = setInterval(()=>_grpCheckPresence(code), GRP_PRESENCE_INTERVAL);
+}
+
+// Остановить heartbeat (при закрытии/смене чата или выходе из группы)
+function _grpStopPresence(code){
+  if(_grpPresenceHb[code]){ clearInterval(_grpPresenceHb[code]); delete _grpPresenceHb[code]; }
+}
+
+// Остановить все heartbeats (при потере signaling)
+function _grpStopAllPresence(){
+  for(const code of Object.keys(_grpPresenceHb)){
+    clearInterval(_grpPresenceHb[code]);
+    delete _grpPresenceHb[code];
+  }
+}
+
+// Основная проверка присутствия участников группы
+async function _grpCheckPresence(code){
+  if(!_pjOk) return;
+  const g = _grpAll[code]; if(!g) return;
+
+  // Собираем PID-ы которые нужно проверить:
+  // knownPids минус свой pid и те что уже подключены через DataChannel
+  const myPid = g.myPid;
+  const connected = _grpConns[code]; // Map pid→conn, может быть undefined
+  const candidates = (g.knownPids||[]).filter(pid => pid && pid !== myPid);
+  if(!candidates.length) return;
+
+  if(!_grpPresence[code]) _grpPresence[code] = {};
+
+  // Отмечаем как "checking" только тех кто не подключён напрямую
+  const toCheck = candidates.filter(pid => !connected?.has(pid));
+  toCheck.forEach(pid => {
+    _grpPresence[code][pid] = 'checking';
+  });
+  // Подключённые через DataChannel — всегда online
+  connected?.forEach((_, pid) => { _grpPresence[code][pid] = 'online'; });
+
+  if(_grpActive === code) grpRenderMembers(code);
+
+  const srv = currentSrv(); if(!srv) return;
+
+  // ── Метод 1: REST /peers ──
+  // PeerJS-ID участников группы начинаются с `grpv2_CODE_`
+  // REST возвращает все активные peer-id на сервере — фильтруем по префиксу
+  let restOk = false;
+  if(_presenceRestSupported !== false){
+    try{
+      const url = buildServerUrl(srv, '/peers');
+      const res = await fetchWithTimeout(url, 5000);
+      if(res.ok){
+        _presenceRestSupported = true;
+        const allPids = await res.json();
+        const onlineSet = new Set(allPids);
+        // Учитываем суффикс от unavailable-id fallback (pid + '-tXXX')
+        const onlinePrefixes = new Set(allPids.map(p => p.replace(/-t[a-z0-9]{3}$/, '')));
+        const pidOnline = pid => onlineSet.has(pid) || onlinePrefixes.has(pid);
+
+        toCheck.forEach(pid => {
+          const status = pidOnline(pid) ? 'online' : 'offline';
+          _grpPresence[code][pid] = status;
+        });
+        restOk = true;
+      } else if(res.status === 404){
+        _presenceRestSupported = false;
+      }
+    }catch(e){
+      _grpLog(`#${code} presence REST: ${e.message}`, 'warn');
+    }
+  }
+
+  // ── Метод 2: WebRTC-connect fallback ──
+  if(!restOk && toCheck.length){
+    const randomId = `grp-pchk-${code}-${Math.random().toString(36).slice(2,8)}`;
+    let chkPeer = null;
+    try{
+      chkPeer = await new Promise((resolve, reject)=>{
+        const p = new Peer(randomId, buildPeerConfig(srv));
+        const tm = setTimeout(()=>{ safePeerDestroy(p); reject(new Error('timeout')); }, 6000);
+        p.on('open', ()=>{ clearTimeout(tm); resolve(p); });
+        p.on('error', e=>{ clearTimeout(tm); safePeerDestroy(p); reject(e); });
+      });
+
+      const BATCH = 6;
+      for(let i = 0; i < toCheck.length; i += BATCH){
+        if(chkPeer.destroyed) break;
+        await Promise.all(toCheck.slice(i, i + BATCH).map(pid =>
+          new Promise(resolve => {
+            let done = false;
+            const tm = setTimeout(()=>finish('offline'), 4000);
+            function finish(status){
+              if(done) return; done = true;
+              clearTimeout(tm);
+              try{ conn?.close(); }catch(_){}
+              _grpPresence[code][pid] = status;
+              resolve();
+            }
+            let conn;
+            try{
+              conn = chkPeer.connect(pid, {reliable:false, serialization:'json'});
+              conn.on('open',  ()=>finish('online'));
+              conn.on('close', ()=>finish('offline'));
+              conn.on('error', ()=>finish('offline'));
+            }catch(_){ finish('offline'); }
+          })
+        ));
+      }
+    }catch(e){
+      _grpLog(`#${code} presence WebRTC: ${e.message}`, 'warn');
+      toCheck.forEach(pid=>{ if(_grpPresence[code][pid]==='checking') _grpPresence[code][pid]='offline'; });
+    }finally{
+      if(chkPeer) safePeerDestroy(chkPeer);
+    }
+  }
+
+  // Перерисовываем если группа открыта
+  if(_grpActive === code) grpRenderMembers(code);
+  grpRenderGroupList();
 }
 
 // ── UI ────────────────────────────────────────────────────────────────────────
@@ -8177,6 +8322,8 @@ function grpRenderGroupList(){
 }
 
 function grpOpenChat(code){
+  // Останавливаем presence прошлой группы если была другая
+  if(_grpActive && _grpActive !== code) _grpStopPresence(_grpActive);
   _grpActive=code;
   _grpUnread[code]=0; _grpUpdateBadge();
   const g=_grpAll[code]; if(!g) return;
@@ -8187,6 +8334,8 @@ function grpOpenChat(code){
   _grpMemOpen=false; if($('grp-mem-arr')) $('grp-mem-arr').textContent='▼';
   grpRenderMembers(code); _grpUpdateStatus(code);
   showTab('sgrpc');
+  // Запускаем presence heartbeat для этой группы
+  if(_pjOk) _grpStartPresence(code);
 }
 
 function grpRenderMembers(code){
@@ -8194,19 +8343,32 @@ function grpRenderMembers(code){
   const g=_grpAll[code]; if(!g){ panel.innerHTML=''; return; }
   const conns=_grpConns[code]; const myPid=g.myPid;
   const amIConnected=_grpIsConnected(code);
+  const presence=_grpPresence[code]||{};
   const members=(g.members||[]).slice().sort((a,b)=>(a.pid||'').localeCompare(b.pid||''));
   if(!members.length){ panel.innerHTML='<div style="padding:12px 14px;font-size:11px;color:var(--mu)">Никого нет</div>'; return; }
   panel.innerHTML=members.map(m=>{
     const isMe=m.pid===myPid;
-    const online=isMe?amIConnected:(conns?.has(m.pid)||false);
-    // Пинг доступен только если: не я, не онлайн, есть fp, И я сам подключён к группе
-    const canPing=!isMe&&!online&&!!m.fp&&amIConnected;
+    const connected=!isMe&&(conns?.has(m.pid)||false);           // DataChannel открыт
+    const presenceStatus=isMe?null:presence[m.pid];              // 'online'|'offline'|'checking'|undefined
+    const visibleOnline=isMe?amIConnected:(connected||presenceStatus==='online');
+    const checking=!isMe&&!connected&&presenceStatus==='checking';
+    // Статусная строка
+    let sub;
+    if(isMe && amIConnected) sub='вы · онлайн';
+    else if(isMe) sub='вы · не подключены';
+    else if(connected) sub='онлайн · в чате';
+    else if(presenceStatus==='online') sub='онлайн';
+    else if(checking) sub='проверяем...';
+    else sub='офлайн';
+    // Пинг: не я, не онлайн совсем, есть fp, я подключён
+    const canPing=!isMe&&!visibleOnline&&!checking&&!!m.fp&&amIConnected;
     const nm=esc(m.name||'?');
-    return `<div class="grp-member${online?' online':''}">
-      <div class="grp-member-dot"></div>
+    const dotClass=connected?'grp-member-dot connected':visibleOnline?'grp-member-dot online':checking?'grp-member-dot checking':'grp-member-dot';
+    return `<div class="grp-member${visibleOnline?' online':''}">
+      <div class="${dotClass}"></div>
       <div class="grp-member-info">
         <div class="grp-member-name">${nm}${isMe?' <span style="font-size:9px;color:var(--mu)">(вы)</span>':''}</div>
-        <div class="grp-member-sub">${online?'онлайн':'офлайн'}</div>
+        <div class="grp-member-sub">${sub}</div>
       </div>
       ${canPing?`<button class="grp-ping-btn" onclick="grpPingMember('${m.fp}','${code}')" title="Позвать">📣</button>`:''}
     </div>`;

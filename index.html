@@ -6365,8 +6365,8 @@ async function _presenceHeartbeatTick(){
 function _onPjStatusChange(ok){
   if(ok){
     _startPresenceHeartbeat();
-    // Перезапускаем group presence если группа открыта
-    if(_grpActive && _grpAll[_grpActive]) _grpStartPresence(_grpActive);
+    // Запускаем presence для всех групп (нужен список во вкладке групп)
+    for(const code of Object.keys(_grpAll)) _grpStartPresence(code);
   } else {
     _stopPresenceHeartbeat();
     _grpStopAllPresence();
@@ -7438,6 +7438,9 @@ function _grpLog(msg, level='info'){
 function _grpLoad(){
   try{ _grpAll = JSON.parse(localStorage.getItem(GRP_STORE)||'{}'); }
   catch(_){ _grpAll={}; }
+  // Запустим presence для всех групп когда сигналинг будет готов
+  // (_pjOk может стать true позже — _onPjStatusChange это обработает)
+  if(_pjOk) for(const code of Object.keys(_grpAll)) _grpStartPresence(code);
 }
 function _grpSave(){
   const copy = {};
@@ -8360,11 +8363,20 @@ function _grpUpdateStatus(code){
   const inp=$('grp-chat-input'), btn=$('grp-chat-send');
   const statusEl=$('grp-chat-status'), keyBadge=$('grp-key-badge');
 
+  // Считаем онлайн через presence даже без DataChannel (для заголовка)
+  const presence=_grpPresence[code]||{};
+  const conns=_grpConns[code];
+  const myPid=g.myPid;
+  const presenceOnline=(g.members||[]).filter(m=>
+    m.pid!==myPid&&(conns?.has(m.pid)||presence[m.pid]==='online')
+  ).length;
+  const totalVisible=presenceOnline+(connected?1:0); // +1 = я онлайн
+
   if(connected){
     if(inp) inp.disabled=false; if(btn) btn.disabled=false;
     const n=(_grpConns[code]?.size||0)+1;
     if(statusEl){
-      statusEl.textContent=`● ${n}/${GRP_MAX} онлайн · ключ v${g.keyVer||0}`;
+      statusEl.textContent=`● ${n}/${GRP_MAX} в чате · ключ v${g.keyVer||0}`;
       statusEl.className='grp-chat-status s-ok';
     }
     if(keyBadge) keyBadge.style.display='inline-flex';
@@ -8389,7 +8401,16 @@ function _grpUpdateStatus(code){
       }
     }
     if(keyBadge) keyBadge.style.display='none';
-    if($('grp-members-count')) $('grp-members-count').textContent='';
+    // Показываем presence-статус даже когда не подключён
+    if(totalVisible>0){
+      if(statusEl){
+        statusEl.textContent=`● ${totalVisible} онлайн (не в чате)`;
+        statusEl.className='grp-chat-status s-warn';
+      }
+      if($('grp-members-count')) $('grp-members-count').textContent=`${totalVisible}`;
+    } else {
+      if($('grp-members-count')) $('grp-members-count').textContent='';
+    }
   }
   _grpUpdateConnBtn(code, connected?'connected':isConnecting?'connecting':'idle');
 }
@@ -8425,16 +8446,39 @@ function grpRenderGroupList(){
   list.innerHTML=codes.map(code=>{
     const g=_grpAll[code];
     const connected=_grpIsConnected(code);
-    const n=connected?(_grpConns[code]?.size||0)+1:0;
     const unread=_grpUnread[code]||0;
     const last=(g.history||[]).at(-1);
     const lastText=last?(last.text||'').slice(0,40):'';
     const nm=esc(g.name||code);
+    const myPid=g.myPid;
+
+    // Считаем онлайн: DataChannel-соединения + presence (для не-подключённых)
+    const presence=_grpPresence[code]||{};
+    const conns=_grpConns[code];
+    const members=g.members||[];
+    // Онлайн-имена участников (кроме себя)
+    const onlineNames=members
+      .filter(m=>m.pid!==myPid&&(conns?.has(m.pid)||presence[m.pid]==='online'))
+      .map(m=>esc(m.name||'?'));
+    // Себя считаем онлайн если подключены
+    const iAmOnline=connected;
+    const totalOnline=onlineNames.length+(iAmOnline?1:0);
+    const anyOnline=totalOnline>0;
+
+    // Строка статуса: имена онлайн-участников
+    let subOnline;
+    if(anyOnline){
+      const names=iAmOnline?['вы',...onlineNames]:onlineNames;
+      subOnline=`● ${names.slice(0,3).join(', ')}${names.length>3?' +'+(names.length-3):''} онлайн`;
+    } else {
+      subOnline='○ офлайн';
+    }
+
     return `<div class="grp-item" onclick="grpOpenChat('${code}')">
-      <div class="grp-item-dot${connected?' on':''}"></div>
+      <div class="grp-item-dot${anyOnline?' on':''}"></div>
       <div class="grp-item-info">
         <div class="grp-item-name">${nm}${unread>0?`<span class="grp-item-badge">${unread}</span>`:''}<span style="font-size:10px;font-weight:400;color:var(--mu);letter-spacing:1px;margin-left:4px">#${code}</span></div>
-        <div class="grp-item-sub">${connected?`● ${n}/${GRP_MAX} онлайн`:'○ офлайн'}${lastText?` · ${esc(lastText)}`:''}</div>
+        <div class="grp-item-sub">${subOnline}${lastText?` · ${esc(lastText)}`:''}</div>
       </div>
       <button class="grp-item-leave" onclick="event.stopPropagation();grpConfirmLeave('${code}')" title="Покинуть">×</button>
     </div>`;
@@ -8450,8 +8494,9 @@ function grpOpenChat(code){
   if($('grp-chat-title')) $('grp-chat-title').textContent=`${g.name||code} · #${code}`;
   const c=$('grp-msgs');
   if(c){ c.innerHTML=''; for(const m of(g.history||[])) _grpRenderMsg(code,m,m.own?'out':'in'); c.scrollTop=c.scrollHeight; }
-  const mp=$('grp-members'); if(mp) mp.classList.remove('open');
-  _grpMemOpen=false; if($('grp-mem-arr')) $('grp-mem-arr').textContent='▼';
+  // Открываем панель участников сразу — пользователь хочет видеть кто онлайн
+  const mp=$('grp-members'); if(mp) mp.classList.add('open');
+  _grpMemOpen=true; if($('grp-mem-arr')) $('grp-mem-arr').textContent='▲';
   grpRenderMembers(code); _grpUpdateStatus(code);
   showTab('sgrpc');
   // Запускаем presence heartbeat для этой группы
@@ -8844,6 +8889,16 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     if(urlAction === 'open-chat'){
       history.replaceState(null, '', location.pathname);
       setTimeout(() => { if(typeof showTab === 'function') showTab('sc'); }, 500);
+    }
+
+    // Обработка шорткатов PWA: ?tab=contacts, ?tab=connect
+    const tabParam = new URLSearchParams(location.search).get('tab');
+    if(tabParam){
+      history.replaceState(null, '', location.pathname);
+      setTimeout(() => {
+        if(tabParam === 'contacts' && typeof showContactsTab === 'function') showContactsTab();
+        else if(tabParam === 'connect' && typeof showTab === 'function') showTab('connect');
+      }, 500);
     }
 
     // Обработка ссылки-приглашения ?add=КОД

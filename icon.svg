@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="13.4 -7 83.2 88">
+  <!-- Фон -->
+  <rect x="13.4" y="-7" width="83.2" height="88" fill="#111118"/>
+
+  <!-- Щит (пунктир) -->
+  <path
+    d="M55 68 Q31 57 31 37 L31 17 L55 6 L79 17 L79 37 Q79 57 55 68 Z"
+    fill="none"
+    stroke="#00ff9d"
+    stroke-width="3"
+    stroke-linejoin="round"
+    stroke-linecap="round"
+    stroke-dasharray="5.535 7.045"
+    stroke-dashoffset="2.768"
+  />
+
+  <!-- Буква T — горизонталь -->
+  <line x1="44" y1="29" x2="66" y2="29"
+    stroke="#00ff9d" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Буква T — вертикаль -->
+  <line x1="55" y1="29" x2="55" y2="49"
+    stroke="#00ff9d" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Боковые точки -->
+  <circle cx="20.69" cy="37" r="3.261"
+    fill="none" stroke="#00ff9d" stroke-width="3"/>
+  <circle cx="89.31" cy="37" r="3.261"
+    fill="none" stroke="#00ff9d" stroke-width="3"/>
+</svg>

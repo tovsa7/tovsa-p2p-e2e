@@ -1188,7 +1188,7 @@ function esc(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</
 const ID_KEY='p2p_identity_v1';
 // IndexedDB replaces localStorage for contacts, history, favourites
 const DB_NAME='fpv_drun_v1';
-const DB_VER=2;
+const DB_VER=3;
 let _db=null;
 
 function openDB(){
@@ -1202,6 +1202,7 @@ function openDB(){
       if(!db.objectStoreNames.contains('fav'))      db.createObjectStore('fav');
       if(!db.objectStoreNames.contains('files'))    db.createObjectStore('files');
       if(!db.objectStoreNames.contains('keys'))     db.createObjectStore('keys');
+      if(!db.objectStoreNames.contains('meta'))     db.createObjectStore('meta');
     };
     req.onsuccess=e=>{_db=e.target.result;res(_db);};
     req.onerror=()=>rej(req.error);
@@ -2692,6 +2693,13 @@ let _shadowEl = null;
 initIdentity();
 initMyContactCard();
 initShadowToggle();
+// Загружаем офлайн-очередь из IDB (могла пережить перезагрузку страницы)
+idbGet('meta','offlineQueue').then(saved=>{
+  if(Array.isArray(saved) && saved.length){
+    _offlineQueue = saved;
+    toast(`📤 ${saved.length} неотправленных сообщений — отправятся при подключении`);
+  }
+}).catch(()=>{});
 const setStat=t=>{
   const el=$('stat');
   const show=t&&t!=='без сервера';
@@ -3360,23 +3368,17 @@ function createPC(){
     if(s==='disconnected'&&inChat){
       setStat('соединение нестабильно...');
       $('dot').className='dot act';
-      sysMsg('⚠ Соединение нестабильно — возможно восстановится само');
+      // Даём браузеру 7 с восстановиться самому — без сообщений в чате
       pc._reconnectHint = setTimeout(()=>{
         if(pc&&(pc.iceConnectionState==='disconnected'||pc.iceConnectionState==='failed')){
-          $('reconnect-bar').style.display='flex';
-          $('reconnect-btn').disabled = !_pjOk;
+          _p2pHandleFailure('disconnected');
         }
       }, 7000);
     }else if(s==='failed'){
       clearTimeout(pc._reconnectHint);
       $('dot').className='dot';
       if(inChat){
-        setStat('соединение разорвано');
-        sysMsg('✗ Соединение разорвано');
-        const peerName = (currentPeerFp && contacts[currentPeerFp]?.name) || 'Собеседник';
-        _sendNotif('📵 ' + peerName, 'Соединение разорвано');
-        $('reconnect-bar').style.display='flex';
-        $('reconnect-btn').disabled = !_pjOk;
+        _p2pHandleFailure('failed');
       }else{
         setStat('не удалось подключиться');
         showAlert('Возможные причины:<br>· <b>Port-Restricted Cone NAT</b> — попробуйте поменяться ролями<br>· <b>Symmetric NAT</b> — P2P невозможен без TURN-сервера');
@@ -3387,12 +3389,111 @@ function createPC(){
       if(inChat){
         setStat('подключено ✓');
         $('dot').className='dot con';
-        const peerName = (currentPeerFp && contacts[currentPeerFp]?.name) || 'Собеседник';
-        _sendNotif('🔗 ' + peerName, 'Соединение установлено', ()=>showTab('sc'));
+        // Не показываем уведомление при тихом авто-реконнекте
+        if(!_p2pReconnectFp){
+          const peerName = (currentPeerFp && contacts[currentPeerFp]?.name) || 'Собеседник';
+          _sendNotif('🔗 ' + peerName, 'Соединение установлено', ()=>showTab('sc'));
+        }
       }
     }
   };
 }
+
+// ── P2P авто-реконнект ────────────────────────────────────────────────────────
+
+// Точка входа при разрыве: решаем — авто или ручная кнопка
+function _p2pHandleFailure(reason){
+  const fp = lastPeerFp;
+  // contacts — не в скоупе, используем кеш presence имени если есть
+  const peerName = fp ? (window.peerNameCache || 'Собеседник') : 'Собеседник';
+
+  // Показываем уведомление только при явном failed и только если не в режиме авто-реконнекта
+  if(reason === 'failed' && !_p2pReconnectFp){
+    _sendNotif('📵 ' + peerName, 'Соединение разорвано');
+  }
+
+  if(!fp || !_pjOk){
+    // Нет цели или signaling недоступен — только ручная кнопка
+    setStat('соединение разорвано');
+    $('reconnect-bar').style.display='flex';
+    $('reconnect-btn').disabled = !_pjOk;
+    return;
+  }
+
+  const peerOnline = _presenceCache[fp] === 'online';
+  if(peerOnline){
+    // Собеседник онлайн → сразу начинаем автопереподключение
+    _p2pReconnectStopped = false;
+    _p2pReconnectFp = fp;
+    setStat('переподключаемся...');
+    $('reconnect-bar').style.display='none';
+    _p2pScheduleReconnect(fp, 0);
+  } else {
+    // Собеседник офлайн → ждём через presence
+    setStat('собеседник офлайн');
+    $('reconnect-bar').style.display='flex';
+    $('reconnect-btn').disabled = !_pjOk;
+    _callOnlineWatching = fp;
+    _p2pReconnectFp = fp;
+    _p2pReconnectStopped = false;
+  }
+}
+
+// Планируем следующую попытку переподключения
+// Пока собеседник онлайн — продолжаем; интервал нарастает до 30 с
+const _P2P_RETRY_DELAYS = [2000, 5000, 10000, 20000, 30000];
+
+function _p2pScheduleReconnect(fp, attempt){
+  clearTimeout(_p2pReconnectTimer);
+  if(_p2pReconnectStopped || _p2pReconnectFp !== fp) return;
+
+  const delay = _P2P_RETRY_DELAYS[Math.min(attempt, _P2P_RETRY_DELAYS.length - 1)];
+  const sec = Math.round(delay / 1000);
+  setStat(`переподключаемся... (${sec}с)`);
+
+  _p2pReconnectTimer = setTimeout(async () => {
+    if(_p2pReconnectStopped || _p2pReconnectFp !== fp) return;
+
+    // Проверяем presence прямо перед попыткой (свежий результат)
+    if(!_pjOk){
+      setStat('signaling недоступен');
+      $('reconnect-bar').style.display='flex';
+      $('reconnect-btn').disabled = true;
+      // Будем ждать восстановления маяка через _onPjStatusChange
+      return;
+    }
+
+    const peerOnline = _presenceCache[fp] === 'online';
+    if(!peerOnline){
+      // Ушёл офлайн — переходим в режим ожидания
+      setStat('собеседник офлайн');
+      $('reconnect-bar').style.display='flex';
+      $('reconnect-btn').disabled = false;
+      _callOnlineWatching = fp;
+      return;
+    }
+
+    setStat(`переподключаемся... (попытка ${attempt + 1})`);
+    // connectToContact не бросает исключений (использует toast) — следим за результатом через таймер
+    connectToContact(fp, { stayInChat: true });
+    // Если через 15 с соединение не поднялось — пробуем ещё раз
+    _p2pReconnectTimer = setTimeout(()=>{
+      if(_p2pReconnectStopped || _p2pReconnectFp !== fp) return;
+      const connected = dc && dc.readyState === 'open';
+      if(!connected) _p2pScheduleReconnect(fp, attempt + 1);
+    }, 15000);
+  }, delay);
+}
+
+// Остановить авто-реконнект (вызывается из goBack и onConn)
+function _p2pReconnectStop(){
+  _p2pReconnectStopped = true;
+  _p2pReconnectFp = null;
+  clearTimeout(_p2pReconnectTimer);
+  _p2pReconnectTimer = null;
+}
+
+// ── Конец P2P авто-реконнект ──────────────────────────────────────────────────
 
 // ── Служебные пакеты от собеседника (typing, shadow, react, pin, file, edit, msg) ──
 async function _handleServicePacket(j, idDone){
@@ -3651,12 +3752,15 @@ function setupDC(){
     _resetPinState();
     _resetReactions();
     $('sc').dataset.active = '';
-    setStat('собеседник отключился');
+    if(!_p2pReconnectFp && !window._goingBack) setStat('собеседник отключился');
     $('dot').className = 'dot';
-    if($('sc').classList.contains('on')) sysMsg('Собеседник закрыл соединение');
-    $('reconnect-bar').style.display = 'flex';
-    $('reconnect-btn').disabled = !_pjOk;
-    $('reconnect-btn').title = _pjOk ? '' : 'Signaling недоступен';
+    if($('sc').classList.contains('on') && !_p2pReconnectFp && !window._goingBack) sysMsg('Собеседник закрыл соединение');
+    // Не перебиваем reconnect-bar если уже идёт авто-реконнект или пользователь вышел сам
+    if(!_p2pReconnectFp && !window._goingBack){
+      $('reconnect-bar').style.display = 'flex';
+      $('reconnect-btn').disabled = !_pjOk;
+      $('reconnect-btn').title = _pjOk ? '' : 'Signaling недоступен';
+    }
   };
 
   if(dc.readyState === 'open') onConn();
@@ -3846,14 +3950,27 @@ function setupChatScroll(){
 
 async function onConn(){
   clearTimeout(pc._connTimeout);
+
+  // Запомним флаг до остановки — нужен для wasReconnect
+  const _wasAutoReconnect = !!_p2pReconnectFp;
+
+  // Останавливаем авто-реконнект — соединение восстановлено
+  _p2pReconnectStop();
+
   $('dot').className='dot con'; setStat('подключено ✓');
+  const wasReconnect = $('sc').dataset.active==='1' || _wasAutoReconnect; // уже были в чате (или это авто-реконнект)
   resetPeerIdentity();
   $('sc').dataset.active='1';
   $('reconnect-bar').style.display='none';
   role=null;
   updateActiveBanner();
-  contactsSubScreen='sk';
-  showTab('sc');
+  if(!wasReconnect){
+    contactsSubScreen='sk';
+    showTab('sc');
+  } else {
+    // Реконнект — остаёмся в чате, только обновляем статус
+    contactsSubScreen='sc';
+  }
   $('mi').focus();
   _e2eUpdateLockBadge();
 
@@ -3874,10 +3991,22 @@ async function onConn(){
   }
 
   // Отправляем оффлайн-очередь после установки соединения
+  // Сначала мержим то что могло накопиться в IDB (пережило перезагрузку)
+  try{
+    const saved = await idbGet('meta','offlineQueue').catch(()=>null);
+    if(Array.isArray(saved) && saved.length){
+      // Мержим: из IDB могут быть сообщения которых нет в памяти (после перезагрузки)
+      const inMemTs = new Set(_offlineQueue.map(m=>m.ts));
+      for(const item of saved) if(!inMemTs.has(item.ts)) _offlineQueue.push(item);
+      _offlineQueue.sort((a,b)=>a.ts-b.ts);
+    }
+  }catch(_){}
+
   if(_offlineQueue.length > 0){
     setTimeout(async () => {
       const queue = [..._offlineQueue];
       _offlineQueue = [];
+      idbSet('meta','offlineQueue',[]).catch(()=>{});
       for(const item of queue){
         if(dc && dc.readyState === 'open'){
           const pkt = {__msg__:true, ts:item.ts, text:item.text};
@@ -3907,6 +4036,13 @@ function updateActiveBanner(){
 }
 
 function goBack(){
+  // Пользователь вышел сам — останавливаем авто-реконнект
+  _p2pReconnectStop();
+  _callOnlineWatching = null;
+  // Флаг: подавить побочные эффекты dc.onclose (reconnect-bar, sysMsg)
+  window._goingBack = true;
+  setTimeout(()=>{ window._goingBack = false; }, 500);
+
   _e2eReset();
   _resetReadState();
   _resetPinState();
@@ -3931,6 +4067,7 @@ function goBack(){
   resetPeerIdentity();
   hideAlert();
   $('dot').className='dot';setStat('без сервера');
+  $('reconnect-bar').style.display='none';
   if(contactsSubScreen==='sc') contactsSubScreen='sk';
   showTab(wasInChat ? 'contacts' : 'connect');
 }
@@ -4072,6 +4209,7 @@ function sendMsg(){
       ? {text:t,ts,replyText:_replyText,replySender:_replyIsOut?'self':'peer',replyTs:_replyTs}
       : {text:t,ts};
     _offlineQueue.push(queueItem);
+    idbSet('meta','offlineQueue',_offlineQueue).catch(()=>{});
     addMsg(t,'out',_replyText||null,_replySender||null,_replyTs||null,ts);
     if(_replyText) cancelReply();
     i.value=''; i.style.height='auto'; i.focus();
@@ -4323,6 +4461,13 @@ function fallbackCopy(text){
 // ── Reply ──
 let _replyText=null;
 let _offlineQueue = []; // очередь сообщений при потере соединения
+
+// ── P2P авто-реконнект ────────────────────────────────────────────────────────
+let _p2pReconnectTimer    = null;  // таймер следующей попытки
+let _p2pReconnectFp       = null;  // fp цели (кому переподключаемся)
+let _p2pReconnectStopped  = false; // true = пользователь вышел сам (goBack)
+// ──────────────────────────────────────────────────────────────────────────────
+
 let _callOnlineWatching = null; // fp за которым наблюдаем для уведомления "вошёл онлайн"
 let _replySender=null;  // отображаемое имя (для локального UI)
 let _replyIsOut=null;   // true = цитируем своё сообщение
@@ -6070,16 +6215,51 @@ function _applyPresenceResult(fp, result){
     dot.className = 'ci-presence-dot ' + result;
     dot.title = result === 'online' ? 'онлайн' : 'офлайн';
   }
-  // Уведомление когда ожидаемый контакт вошёл онлайн
-  if(_callOnlineWatching === fp && prev !== 'online' && result === 'online'){
-    const contacts = JSON.parse(localStorage.getItem('contacts')||'{}');
-    const name = contacts[fp]?.name || 'Собеседник';
-    _sendNotif('🟢 ' + name, 'Вошёл в сеть — можно подключиться', ()=>showTab('sc'));
-    toast('🟢 ' + name + ' онлайн!');
+  // Единый хук: контакт появился онлайн
+  if(prev !== 'online' && result === 'online'){
+    _onPeerCameOnline(fp).catch(e => console.warn('[presence] _onPeerCameOnline error:', e));
+  }
+}
+
+// Централизованный обработчик «собеседник появился онлайн»
+async function _onPeerCameOnline(fp){
+  const contacts = await getContacts();
+  const name = contacts[fp]?.name || 'Собеседник';
+
+  // 1. Ждали именно этого собеседника после разрыва → авто-реконнект
+  if(_p2pReconnectFp === fp && !_p2pReconnectStopped){
+    const isDisconnected = !dc || dc.readyState !== 'open';
+    if(isDisconnected){
+      setStat('собеседник онлайн — переподключаемся...');
+      _callOnlineWatching = null;
+      $('reconnect-bar').style.display='none';
+      _p2pScheduleReconnect(fp, 0);
+      return;
+    }
+  }
+
+  // 2. Ждали появления через "позвать онлайн" (callPeerOnline / inviteFromHistory)
+  if(_callOnlineWatching === fp){
     _callOnlineWatching = null;
     const callBtn = $('call-online-btn');
     if(callBtn) callBtn.style.display = 'none';
+
+    const wasConnected = lastPeerFp === fp;
+    const isOpen = dc && dc.readyState === 'open';
+    if(wasConnected && !isOpen){
+      // Был наш собеседник — сразу переподключаемся
+      _p2pReconnectFp = fp;
+      _p2pReconnectStopped = false;
+      _p2pScheduleReconnect(fp, 0);
+    } else if(!isOpen) {
+      // Другой контакт вошёл онлайн — уведомляем (уже подключённые сюда не попадают)
+      _sendNotif('🟢 ' + name, 'Вошёл в сеть — можно подключиться', ()=>showTab('sc'));
+      toast('🟢 ' + name + ' онлайн!');
+    }
+    return;
   }
+
+  // 3. Никого не ждали — просто обновляем UI
 }
 
 // Позвать собеседника онлайн — отправляем push и начинаем следить за presence
@@ -6263,21 +6443,30 @@ async function refreshPresence(){
 
 // Подключиться к контакту напрямую через его presence ID как код комнаты
 async function connectToContact(fp, opts={}){
-  if(!_pjOk){ toast('Signaling недоступен'); return; }
+  if(!_pjOk){ if(!opts.stayInChat) toast('Signaling недоступен'); return; }
   const pubKeyHex = getPubKeyHex(fp, await getContacts());
-  if(!pubKeyHex){ toast('Нет ключа контакта'); return; }
+  // После await — проверяем не отменили ли реконнект (например goBack)
+  if(opts.stayInChat && _p2pReconnectStopped) return;
+  if(!pubKeyHex){ if(!opts.stayInChat) toast('Нет ключа контакта'); return; }
 
-  // Шлём push собеседнику — передаём pubKeyHex напрямую, он уже известен
-  if(typeof window._pushNotifyPeer === 'function'){
+  // Шлём push собеседнику — только при ручном подключении, не при авто-реконнекте
+  if(typeof window._pushNotifyPeer === 'function' && !opts.stayInChat){
     const myName = document.getElementById('my-name-input')?.value?.trim() || 'Tovsa';
     window._pushNotifyPeer(fp, '📡 ' + myName, 'Хочет соединиться — зайдите в приложение', pubKeyHex);
   }
 
   const roomCode = await sha256hex(new Uint8Array(pubKeyHex.match(/.{2}/g).map(h=>parseInt(h,16))), 6);
+  // После второго await — снова проверяем
+  if(opts.stayInChat && _p2pReconnectStopped) return;
 
   // Если не в режиме "остаться в чате" — переходим на вкладку подключения
   if(!opts.stayInChat){
     showTab('connect');
+  }
+  // При авто-реконнекте (stayInChat) не показываем stunwrap при отсутствии STUN
+  if(opts.stayInChat && !STUNS.some((s,i)=>s.on&&$(`ss${i}`).classList.contains('ok'))){
+    // STUN недоступен — откладываем, следующая попытка сама разберётся
+    return;
   }
   joinSigRoom(roomCode, myFingerprint);
 }
@@ -6368,9 +6557,28 @@ function _onPjStatusChange(ok){
     _startPresenceHeartbeat();
     // Запускаем presence для всех групп (нужен список во вкладке групп)
     for(const code of Object.keys(_grpAll)) _grpStartPresence(code);
+
+    // Маяк восстановился — если ждали переподключения P2P, возобновляем
+    if(_p2pReconnectFp && !_p2pReconnectStopped){
+      const connected = dc && dc.readyState === 'open';
+      if(!connected){
+        setStat('signaling восстановлен — переподключаемся...');
+        $('reconnect-bar').style.display='none';
+        $('reconnect-btn').disabled = false;
+        _p2pScheduleReconnect(_p2pReconnectFp, 0);
+      }
+    }
   } else {
     _stopPresenceHeartbeat();
     _grpStopAllPresence();
+
+    // Маяк упал — если шёл авто-реконнект, показываем ручную кнопку
+    if(_p2pReconnectFp && !_p2pReconnectStopped){
+      clearTimeout(_p2pReconnectTimer);
+      setStat('signaling недоступен');
+      $('reconnect-bar').style.display='flex';
+      $('reconnect-btn').disabled = true;
+    }
   }
   _updateBeaconStatus();
 }

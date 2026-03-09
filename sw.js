@@ -1,4 +1,4 @@
-const C        = 'tovsa-v8';
+const C        = 'tovsa-v9';
 const C_FONTS  = 'tovsa-fonts-v1';
 const ICON_URL = './icon-192.png';
 const DB_NAME  = 'fpv_drun_v1';
@@ -7,8 +7,13 @@ const DB_VER   = 2;
 const PRECACHE = [
   './',
   './manifest.json',
+  './icon-48.png',
+  './icon-72.png',
+  './icon-96.png',
   './icon-192.png',
   './icon-512.png',
+  './icon-512-maskable.png',
+  './icon.svg',
 ];
 
 self.addEventListener('install', e => {

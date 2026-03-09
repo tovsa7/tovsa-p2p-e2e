@@ -159,45 +159,6 @@ self.addEventListener('pushsubscriptionchange', e => {
   })());
 });
 
-// ── Расшифровка push payload ───────────────────────────────────────────────────
-// Формат: ephPubKey(65 bytes) | iv(12 bytes) | ciphertext
-// Шифрование: ECDH P-256 + AES-GCM 256
-async function _decryptPushPayload(arrayBuf) {
-  const privJwk = await _idbGet('keys', 'push_priv_jwk');
-  if (!privJwk) return null;
-
-  const privKey = await crypto.subtle.importKey(
-    'jwk', privJwk,
-    { name: 'ECDH', namedCurve: 'P-256' },
-    false, ['deriveBits', 'deriveKey']
-  );
-
-  const buf = new Uint8Array(arrayBuf);
-  if (buf.length < 65 + 12 + 1) return null;
-
-  const ephemeralPubBytes = buf.slice(0, 65);
-  const iv                = buf.slice(65, 77);
-  const ciphertext        = buf.slice(77);
-
-  const ephemeralPub = await crypto.subtle.importKey(
-    'raw', ephemeralPubBytes,
-    { name: 'ECDH', namedCurve: 'P-256' },
-    false, []
-  );
-
-  const sharedKey = await crypto.subtle.deriveKey(
-    { name: 'ECDH', public: ephemeralPub },
-    privKey,
-    { name: 'AES-GCM', length: 256 },
-    false, ['decrypt']
-  );
-
-  const plain = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv }, sharedKey, ciphertext
-  );
-
-  return new TextDecoder().decode(plain);
-}
 
 // ── IndexedDB helpers (для SW) ─────────────────────────────────────────────────
 function _swOpenDB() {
@@ -232,7 +193,4 @@ function b64urlToBytes(s) {
   return out;
 }
 
-async function digestHex(str) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,24);
-}
+

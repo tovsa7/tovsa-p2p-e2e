@@ -1274,6 +1274,12 @@ let _e2eEcdhPub    = null;      // наш временный ECDH-ключ (пу
 let _e2eReady      = false;     // хэндшейк завершён
 let _e2ePendingOut = [];        // сообщения, ожидающие готовности ключа
 let _e2eHandshakeTimeout = null;
+// ── Periodic rekey state ──────────────────────────────────────────────────────
+const E2E_REKEY_INTERVAL = 50;  // рекей каждые N отправленных сообщений
+let _e2eMsgSentCount  = 0;      // счётчик отправленных сообщений в сессии
+let _e2eRekeyPending  = false;  // рекей в процессе (ждём ack)
+let _e2eRekeyPriv     = null;   // наш новый ECDH-приватный ключ (до получения ack)
+let _e2eRekeyPub      = null;   // наш новый ECDH-публичный ключ (raw)
 
 // Генерируем временную ECDH-пару для этой сессии
 async function _e2eGenKeys(){
@@ -1359,6 +1365,11 @@ function _e2eSend(payload){
   };
   if(_e2eReady){
     doSend();
+    // Считаем отправленные сообщения, инициируем рекей по порогу
+    if(typeof payload === 'string'){
+      _e2eMsgSentCount++;
+      if(_e2eMsgSentCount >= E2E_REKEY_INTERVAL) _e2eInitiateRekey();
+    }
   } else {
     _e2ePendingOut.push(doSend);
   }
@@ -1366,12 +1377,94 @@ function _e2eSend(payload){
 
 // Сбрасываем E2E-состояние при разрыве
 function _e2eReset(){
-  _e2eSessionKey = null;
-  _e2eEcdhPriv   = null;
-  _e2eEcdhPub    = null;
-  _e2eReady      = false;
-  _e2ePendingOut = [];
+  _e2eSessionKey   = null;
+  _e2eEcdhPriv     = null;
+  _e2eEcdhPub      = null;
+  _e2eReady        = false;
+  _e2ePendingOut   = [];
+  _e2eMsgSentCount = 0;
+  _e2eRekeyPending = false;
+  _e2eRekeyPriv    = null;
+  _e2eRekeyPub     = null;
   clearTimeout(_e2eHandshakeTimeout);
+}
+
+// ── Периодический рекей (forward secrecy внутри сессии) ──────────────────────
+// Инициатор: генерирует новую ECDH-пару, отправляет __e2e_rekey__ открыто.
+// Ответчик: генерирует свою новую пару, выводит новый ключ, отвечает __e2e_rekey_ack__.
+// Инициатор: получает ack, выводит новый ключ, уничтожает старый.
+// После рекея оба держат только новый сессионный ключ.
+
+async function _e2eInitiateRekey() {
+  if (_e2eRekeyPending || !_e2eReady || !dc || dc.readyState !== 'open') return;
+  try {
+    _e2eRekeyPending = true;
+    const kp = await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'}, true, ['deriveKey']);
+    _e2eRekeyPriv = kp.privateKey;
+    _e2eRekeyPub  = new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey));
+    dc.send(JSON.stringify({_t:'__e2e_rekey__', pub: Array.from(_e2eRekeyPub)}));
+  } catch(err) {
+    _e2eRekeyPending = false;
+    console.warn('[e2e] rekey initiate error:', err);
+  }
+}
+
+async function _e2eHandleRekey(peerNewPubArr) {
+  // Мы — ответчик: генерируем свою новую пару, выводим ключ, отвечаем
+  try {
+    const peerNewPub = new Uint8Array(peerNewPubArr);
+    const kp = await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'}, true, ['deriveKey']);
+    const myNewPriv = kp.privateKey;
+    const myNewPub  = new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey));
+
+    const peerKey = await crypto.subtle.importKey('raw', peerNewPub, {name:'ECDH',namedCurve:'P-256'}, false, []);
+    const newSessionKey = await crypto.subtle.deriveKey(
+      {name:'ECDH', public: peerKey}, myNewPriv,
+      {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']
+    );
+
+    // Отвечаем до смены ключа — ack шлём старым каналом (незашифрованно, как hello)
+    if (dc && dc.readyState === 'open') {
+      dc.send(JSON.stringify({_t:'__e2e_rekey_ack__', pub: Array.from(myNewPub)}));
+    }
+
+    // Переключаемся на новый ключ, уничтожаем старые
+    _e2eSessionKey   = newSessionKey;
+    _e2eEcdhPriv     = myNewPriv;
+    _e2eEcdhPub      = myNewPub;
+    _e2eMsgSentCount = 0;
+    console.info('[e2e] rekey complete (responder)');
+  } catch(err) {
+    console.warn('[e2e] rekey handle error:', err);
+  }
+}
+
+async function _e2eHandleRekeyAck(peerNewPubArr) {
+  // Мы — инициатор: получили ack, выводим финальный ключ
+  if (!_e2eRekeyPending || !_e2eRekeyPriv) return;
+  try {
+    const peerNewPub = new Uint8Array(peerNewPubArr);
+    const peerKey = await crypto.subtle.importKey('raw', peerNewPub, {name:'ECDH',namedCurve:'P-256'}, false, []);
+    const newSessionKey = await crypto.subtle.deriveKey(
+      {name:'ECDH', public: peerKey}, _e2eRekeyPriv,
+      {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']
+    );
+
+    // Переключаемся, уничтожаем старые ключи
+    _e2eSessionKey   = newSessionKey;
+    _e2eEcdhPriv     = _e2eRekeyPriv;
+    _e2eEcdhPub      = _e2eRekeyPub;
+    _e2eRekeyPriv    = null;
+    _e2eRekeyPub     = null;
+    _e2eRekeyPending = false;
+    _e2eMsgSentCount = 0;
+    console.info('[e2e] rekey complete (initiator)');
+  } catch(err) {
+    _e2eRekeyPending = false;
+    _e2eRekeyPriv    = null;
+    _e2eRekeyPub     = null;
+    console.warn('[e2e] rekey ack error:', err);
+  }
 }
 
 // Индикатор замка в заголовке чата
@@ -2506,7 +2599,47 @@ async function sha256hex(bytes, sliceBytes = null) {
   return Array.from(slice).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// PeerJS config object из дескриптора сервера
+// ── Серверы ───────────────────────────────────────────────────────────────────
+// Объявлены здесь — до первого использования в currentSrv() и _startIncomingListener()
+const SIGNALING_SERVERS = [
+  { host: '0.peerjs.com',                   port: 443, path: '/', secure: true, name: 'Основной',            slow: false },
+  { host: 'peerjs-server-lwcm.onrender.com', port: 443, path: '/', secure: true, name: 'Резервный (Render)', slow: true  },
+  { host: 'broken.peerjs.invalid',           port: 443, path: '/', secure: true, name: 'Тестовый',           slow: false },
+];
+const SRV_IDX_KEY = 'pj_server_idx';
+const _savedSrvIdx = localStorage.getItem(SRV_IDX_KEY);
+if (_savedSrvIdx === null) { localStorage.setItem(SRV_IDX_KEY, '1'); }
+let _serverIndex = _savedSrvIdx !== null
+  ? Math.min(parseInt(_savedSrvIdx, 10), SIGNALING_SERVERS.length - 1)
+  : 1;
+
+// myPresenceId — здесь же, используется в _startIncomingListener() на строке ~3000
+let myPresenceId = '';
+
+// ── Переменные, используемые до их оригинального места объявления ─────────────
+// Все let/const которые участвуют в TDZ — объявляем здесь, в начале скрипта.
+
+// PeerJS статус
+let _pjOk = false;
+
+// Presence контактов
+let _presenceCache        = {};
+let _presenceCacheTime    = {};
+let _presencePubKeyCache  = {};
+let _presenceHbRunning    = false;
+let _presenceLastHbAt     = 0;
+
+// Группы
+let _grpAll     = {};    // code → groupRecord  (persist)
+let _grpMyPeer  = {};    // code → Peer
+let _grpConns   = {};    // code → Map<peerId, DataConnection>
+let _grpSeen    = {};    // code → Set<msgId>
+let _grpActive  = null;  // текущий открытый код группы
+let _grpUnread  = {};    // code → number
+let _grpMemOpen = false;
+let _grpRvPeer  = {};    // code → Peer (рандеву-пир)
+let _grpKeyCache= {};    // `${code}:${ver}` → CryptoKey
+
 // Текущий активный сигналинг-сервер
 function currentSrv() {
   return SIGNALING_SERVERS[_serverIndex] || SIGNALING_SERVERS[0];
@@ -3456,6 +3589,18 @@ function setupDC(){
       let j;
       try{ j = JSON.parse(e.data); }catch(_){ return; }
 
+      // 1а. Рекей — инициатор прислал новый публичный ключ
+      if(j._t === '__e2e_rekey__'){
+        if(_e2eReady && j.pub) await _e2eHandleRekey(j.pub);
+        return;
+      }
+
+      // 1б. Ack рекея — ответчик прислал свой новый публичный ключ
+      if(j._t === '__e2e_rekey_ack__'){
+        if(_e2eReady && j.pub) await _e2eHandleRekeyAck(j.pub);
+        return;
+      }
+
       // 1. ECDH hello — единственное незашифрованное сообщение
       if(j._t === '__e2e_hello__'){
         if(_e2eReady) return;
@@ -4355,7 +4500,7 @@ if(window.visualViewport){
 }
 
 // ── Notifications ──
-let _notifPermission = Notification?.permission || 'default';
+let _notifPermission = (typeof Notification !== 'undefined' ? Notification.permission : null) || 'default';
 
 function _requestNotifPermission(){
   if(!('Notification' in window)) return;
@@ -5408,7 +5553,7 @@ async function _handleSigConn(sigConn, myRole, scheduleCleanup){
 
 
 let _pjChecked = false;
-let _pjOk = false;
+// _pjOk — объявлен выше (до первого использования)
 
 // Обновляет состояние блока signaling на экране подключения.
 // Активен только когда И PeerJS доступен И NAT определён (не pending).
@@ -5445,35 +5590,18 @@ function updateSigState(){
 // Создаётся при старте, при ошибке — только ручной перезапуск через кнопку ↺
 let _presencePeer = null;
 let _presenceBeaconReady = false;
-let _presenceCache = {};
-let _presenceCacheTime = {};
-let _presencePubKeyCache = {};
+// _presenceCache/_presenceCacheTime — объявлены выше
+// _presencePubKeyCache — объявлена выше
 const PRESENCE_TTL         = 60000; // мс — как долго считаем статус актуальным
 const PRESENCE_MIN_INTERVAL = 60000; // мс — троттл кнопки ↺ статусы
 const PRESENCE_HB_INTERVAL  = 15000; // мс — период автопроверки heartbeat
-let myPresenceId = '';
 let _presenceLastRefresh = 0;       // время последнего ручного обновления
 let _presenceHbTimer = null;        // таймер heartbeat (только у лидера)
-let _presenceHbRunning = false;     // защита от параллельных тиков
+// _presenceHbRunning — объявлена выше
 let _presenceRestSupported = null;  // null=неизвестно, true/false — кэш /peers
-let _presenceLastHbAt = 0;          // время последнего тика
+// _presenceLastHbAt — объявлена выше
 
-// ── Серверы ───────────────────────────────────────────────────────────────────
-const SIGNALING_SERVERS = [
-  { host: '0.peerjs.com',                   port: 443, path: '/', secure: true, name: 'Основной',            slow: false },
-  { host: 'peerjs-server-lwcm.onrender.com', port: 443, path: '/', secure: true, name: 'Резервный (Render)', slow: true  },
-  { host: 'broken.peerjs.invalid',           port: 443, path: '/', secure: true, name: 'Тестовый',           slow: false },
-];
-const SRV_IDX_KEY = 'pj_server_idx';
-const _savedSrvIdx = localStorage.getItem(SRV_IDX_KEY);
-// При первом запуске автоматически выбираем «Резервный» (индекс 1) как надёжный дефолт.
-// Пользователь может сменить сервер вручную — выбор сохраняется в localStorage.
-if (_savedSrvIdx === null) {
-  localStorage.setItem(SRV_IDX_KEY, '1');
-}
-let _serverIndex = _savedSrvIdx !== null
-  ? Math.min(parseInt(_savedSrvIdx, 10), SIGNALING_SERVERS.length - 1)
-  : 1; // первый запуск → Резервный (Render)
+// ── Серверы (объявлены выше, рядом с currentSrv) ──────────────────────────────
 
 // ── UI хелперы ────────────────────────────────────────────────────────────────
 // Устанавливает статус одной строки сервера
@@ -7289,15 +7417,7 @@ const GRP_STORE   = 'grp_groups_v3';
 const GRP_RV_TTL  = 30000; // как долго ждём рандеву
 
 // ── Состояние ─────────────────────────────────────────────────────────────────
-let _grpAll     = {};   // code → groupRecord  (persist)
-let _grpMyPeer  = {};   // code → Peer         (мой зарегистрированный пир)
-let _grpConns   = {};   // code → Map<peerId, DataConnection>
-let _grpSeen    = {};   // code → Set<msgId>
-let _grpActive  = null; // текущий открытый код группы
-let _grpUnread  = {};   // code → number
-let _grpMemOpen = false;
-let _grpRvPeer  = {};   // code → Peer  (рандеву-пир, если занял rv-слот)
-let _grpKeyCache= {};   // `${code}:${ver}` → CryptoKey
+// _grp* переменные — объявлены выше (до initIdentity)
 let _grpConnecting = {}; // code → bool  (идёт ли прямо сейчас процесс входа)
 
 // ── Presence участников группы ────────────────────────────────────────────────

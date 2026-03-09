@@ -8629,7 +8629,29 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
   // ── Service Worker ────────────────────────────────────────────────────────
   if('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js')
-      .then(reg => { window._swReg = reg; })
+      .then(reg => {
+        window._swReg = reg;
+
+        // Если новый SW уже ждёт (страница была открыта до обновления)
+        if(reg.waiting && localStorage.getItem('sw-installed')) {
+          const b = document.getElementById('update-banner');
+          if(b) b.style.display = 'flex';
+        }
+
+        // Новый SW скачался пока страница открыта
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          newWorker.addEventListener('statechange', () => {
+            if(newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              if(localStorage.getItem('sw-installed')) {
+                const b = document.getElementById('update-banner');
+                if(b) b.style.display = 'flex';
+              }
+              localStorage.setItem('sw-installed', '1');
+            }
+          });
+        });
+      })
       .catch(e => console.warn('[pwa] sw:', e));
   }
 

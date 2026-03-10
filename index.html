@@ -2950,7 +2950,7 @@ class TovSaSignaling {
       const ws = new WebSocket(`${this._url}?id=${encodeURIComponent(this._peerId)}`);
       this._ws = ws;
       ws.onopen = () => {};
-      ws.onmessage = (e) => { let msg; try { msg = JSON.parse(e.data); } catch { return; } this._handleMsg(msg); };
+      ws.onmessage = (e) => { let msg; try { msg = JSON.parse(e.data); } catch { return; } this._handleMsg(msg).catch(err => this._onError(err)); };
       ws.onclose = () => {
         this._open = false; this._ws = null;
         for (const [, p] of this._pending) { clearTimeout(p.timer); p.reject(new Error('Signaling disconnected')); }
@@ -2967,6 +2967,7 @@ class TovSaSignaling {
     this._reconnTimer = setTimeout(() => this._doConnect(), delay);
   }
   async _handleMsg(msg) {
+    if (this._destroyed) return; // WS закрыт, но сообщение ещё в полёте
     switch (msg.type) {
       case 'CHALLENGE': await this._respondChallenge(msg.nonce); break;
       case 'OPEN': this._open = true; this._reconnectIdx = 0; this._onOpen(); break;
@@ -2985,6 +2986,10 @@ class TovSaSignaling {
     }
   }
   async _respondChallenge(nonce) {
+    if (!this._privKey || !this._pubKey) {
+      this._onError(new Error('Keys not ready — cannot respond to CHALLENGE'));
+      return;
+    }
     const message  = new TextEncoder().encode(`tovsa-auth:${nonce}:${this._peerId}`);
     const sigBytes = await crypto.subtle.sign('Ed25519', this._privKey, message);
     const payload  = { type: 'AUTH', pub: Array.from(this._pubKey), sig: Array.from(new Uint8Array(sigBytes)) };

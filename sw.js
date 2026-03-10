@@ -1,4 +1,4 @@
-const C        = 'tovsa-v9';
+const C        = 'tovsa-v8';
 const C_FONTS  = 'tovsa-fonts-v1';
 const ICON_URL = './icon-192.png';
 const DB_NAME  = 'fpv_drun_v1';
@@ -7,13 +7,8 @@ const DB_VER   = 2;
 const PRECACHE = [
   './',
   './manifest.json',
-  './icon-48.png',
-  './icon-72.png',
-  './icon-96.png',
   './icon-192.png',
   './icon-512.png',
-  './icon-512-maskable.png',
-  './icon.svg',
 ];
 
 self.addEventListener('install', e => {
@@ -91,7 +86,8 @@ self.addEventListener('fetch', e => {
 // ── Push ───────────────────────────────────────────────────────────────────────
 self.addEventListener('push', e => {
   e.waitUntil((async () => {
-    let title = 'Tovsa', body = 'Новое сообщение', tag = 'tovsa-msg', isConn = false;
+    let title = 'Tovsa', body = 'Новое сообщение', tag = 'tovsa-msg';
+    let isConn = false, isContactReq = false, contactData = null;
 
     try {
       if (e.data) {
@@ -100,6 +96,16 @@ self.addEventListener('push', e => {
           const d = e.data.json();
           title = d.title || title;
           body  = d.body  || body;
+          // contact-request: воркер кладёт { action, requesterPubHex, requesterFp, name } в data
+          if (d.data?.action === 'contact-request') {
+            isContactReq = true;
+            tag = 'tovsa-contact-req';
+            contactData = {
+              requesterPubHex: d.data.requesterPubHex || '',
+              requesterFp:     d.data.requesterFp     || '',
+              name:            d.data.name            || 'Пользователь',
+            };
+          }
         } catch(_) {
           try { body = e.data.text() || body; } catch(_) {}
         }
@@ -108,13 +114,19 @@ self.addEventListener('push', e => {
     } catch (_) {}
 
     const actions = isConn
-      ? [{ action: 'accept', title: '✓ Принять' }]
-      : [{ action: 'open',   title: 'Открыть'   }];
+      ? [{ action: 'accept',         title: '✓ Принять' }]
+      : isContactReq
+        ? [{ action: 'add-contact',  title: '+ Добавить' },
+           { action: 'ignore',       title: 'Игнорировать' }]
+        : [{ action: 'open',         title: 'Открыть'   }];
 
     await self.registration.showNotification(title, {
       body, icon: ICON_URL, badge: ICON_URL, tag, renotify: true,
       vibrate: [200, 100, 200], actions,
-      data: { action: isConn ? 'accept-call' : 'open-chat' }
+      data: {
+        action: isConn ? 'accept-call' : isContactReq ? 'contact-request' : 'open-chat',
+        ...(contactData || {}),
+      }
     });
   })());
 });
@@ -122,12 +134,38 @@ self.addEventListener('push', e => {
 // ── Notification click ─────────────────────────────────────────────────────────
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-  const isAccept   = e.action === 'accept' || e.notification.tag === 'tovsa-conn';
-  const isOpenChat = e.notification.data?.action === 'open-chat';
+  const data         = e.notification.data || {};
+  const isAccept     = e.action === 'accept'       || data.action === 'accept-call';
+  const isOpenChat   = data.action === 'open-chat';
+  const isContactReq = data.action === 'contact-request';
+  const isAddContact = e.action === 'add-contact';
+  const isIgnore     = e.action === 'ignore';
+
+  // «Игнорировать» — просто закрываем уведомление, уже закрыто выше
+  if (isIgnore) return;
 
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
       const existing = cs.find(c => c.url.includes(self.location.origin));
+
+      if (isContactReq || isAddContact) {
+        // Передаём данные открытому клиенту или открываем новое окно с параметрами
+        const msg = {
+          action:          'contact-request',
+          requesterPubHex: data.requesterPubHex || '',
+          requesterFp:     data.requesterFp     || '',
+          name:            data.name            || 'Пользователь',
+          // Если нажали «Добавить» прямо из уведомления — autoAccept=true
+          autoAccept:      isAddContact,
+        };
+        if (existing) { existing.focus(); existing.postMessage(msg); return; }
+        // Если приложение закрыто и нажали «Добавить» — открываем, клиент подхватит autoAccept
+        const qs = isAddContact
+          ? `?action=contact-request&pubHex=${encodeURIComponent(data.requesterPubHex)}&name=${encodeURIComponent(data.name || '')}`
+          : './';
+        return clients.openWindow(qs);
+      }
+
       if (existing) {
         existing.focus();
         if (isAccept)   existing.postMessage({ action: 'accept-call' });
@@ -156,9 +194,26 @@ self.addEventListener('pushsubscriptionchange', e => {
       const hash = await crypto.subtle.digest('SHA-256', pubBytes);
       const fp = Array.from(new Uint8Array(hash))
         .map(b => b.toString(16).padStart(2,'0')).join('').slice(0, 24);
+      // Подписываем запрос если есть приватный ключ (воркер принимает и без подписи)
+      let authFields = {};
+      try {
+        const privJwk = await _idbGet('keys', 'id_priv_jwk');
+        if (privJwk) {
+          const privKey = await crypto.subtle.importKey('jwk', privJwk, { name: 'Ed25519' }, false, ['sign']);
+          const ts = Math.floor(Date.now() / 1000);
+          const msg = new TextEncoder().encode(`subscribe:${fp}:${ts}`);
+          const sigBuf = await crypto.subtle.sign('Ed25519', privKey, msg);
+          const sig = btoa(String.fromCharCode(...new Uint8Array(sigBuf)))
+            .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+          const pubRawArr = await _idbGet('keys', 'id_pub_raw');
+          const pubKeyHex = Array.from(new Uint8Array(pubRawArr))
+            .map(b => b.toString(16).padStart(2,'0')).join('');
+          authFields = { sig, pubKeyHex, ts };
+        }
+      } catch(_) {}
       await fetch('https://subs.tovsa7.workers.dev/push/subscribe', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fingerprint: fp, subscription: sub.toJSON() })
+        body: JSON.stringify({ fingerprint: fp, subscription: sub.toJSON(), ...authFields })
       });
     } catch(err) { console.warn('[sw] pushsubscriptionchange:', err); }
   })());

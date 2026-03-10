@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="preconnect" href="https://0.peerjs.com">
 <link rel="preconnect" href="https://peerjs-server-lwcm.onrender.com">
 <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
 <title>Tovsa</title>
@@ -37,7 +36,7 @@ html{overflow:hidden;height:100%;position:fixed;width:100%}
   font-size:9px;color:var(--a);letter-spacing:1.5px;
   text-transform:uppercase;white-space:nowrap;flex-shrink:0;
 }
-body{font-family:'JetBrains Mono',monospace;background:var(--bg);color:var(--tx);height:100dvh;display:flex;flex-direction:column;overflow:hidden;padding-bottom:calc(44px + env(safe-area-inset-bottom,0px))}
+body{font-family:'JetBrains Mono',monospace;background:var(--bg);color:var(--tx);height:100dvh;display:flex;flex-direction:column;overflow:hidden;padding-bottom:calc(68px + env(safe-area-inset-bottom,0px))}
 /* header */
 .hdr{padding:14px 18px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px;background:var(--sf);flex-shrink:0}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--mu);transition:background .4s}
@@ -53,8 +52,8 @@ body{font-family:'JetBrains Mono',monospace;background:var(--bg);color:var(--tx)
 #sr>*{flex-shrink:0;width:100%}
 .rtitle{font-size:12px;color:var(--mu);letter-spacing:3px;text-transform:uppercase;text-align:center}
 .rcards{display:flex;flex-direction:column;gap:12px}
-.rcard{background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:20px;cursor:pointer;transition:border-color .2s,background .2s}
-.rcard:hover{border-color:var(--a);background:var(--ad)}
+.rcard{background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:20px;cursor:pointer;transition:border-color .2s,background .2s,transform .2s,box-shadow .2s}
+.rcard:hover{border-color:var(--a);background:var(--ad);transform:translateY(-2px);box-shadow:0 4px 20px rgba(0,255,157,.08)}
 .rcard.dis{opacity:.35;cursor:not-allowed;pointer-events:none}
 .rcard h3{font-size:14px;color:var(--a);margin-bottom:6px}
 .rcard p{font-size:11px;color:var(--mu);line-height:1.6}
@@ -75,8 +74,9 @@ textarea{width:100%;background:var(--sf);border:1px solid var(--bd);border-radiu
 textarea:focus{border-color:var(--a)}
 textarea::placeholder{color:var(--mu)}
 /* buttons */
-.btn{background:var(--a);color:#000;border:none;border-radius:8px;padding:12px 18px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:1px;transition:opacity .2s,transform .1s}
-.btn:active{opacity:.8;transform:scale(.97)}
+.btn{background:var(--a);color:#000;border:none;border-radius:8px;padding:12px 18px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:1px;transition:opacity .15s,transform .15s,box-shadow .15s}
+.btn:hover{box-shadow:0 0 16px rgba(0,255,157,.25)}
+.btn:active{opacity:.8;transform:scale(.96);box-shadow:0 0 6px rgba(0,255,157,.15)}
 .btn:disabled{opacity:.3;cursor:not-allowed;transform:none}
 .brow{display:flex;gap:8px}
 /* badge */
@@ -84,7 +84,7 @@ textarea::placeholder{color:var(--mu)}
 .badge.ok{border-color:rgba(0,255,157,.3);color:var(--a);background:var(--ad)}
 .badge.wait{border-color:rgba(229,192,123,.3);color:var(--w);background:rgba(229,192,123,.05)}
 .ld{display:inline-block;animation:blink 1s infinite}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
 /* chat */
 #sc{flex-direction:column;position:relative;overflow:hidden;touch-action:pan-y}
 #sfav,#sh{overflow:hidden;touch-action:pan-y;overscroll-behavior:none}
@@ -93,9 +93,9 @@ textarea::placeholder{color:var(--mu)}
 .msg.shadow-in{background:var(--sf);color:var(--mu);border:1px dashed var(--bd);opacity:.85;font-style:italic}
 
 .msgs::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
-.msg{max-width:80%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.5;animation:pop .15s ease;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:opacity .15s;-webkit-tap-highlight-color:transparent;white-space:pre-wrap;word-break:break-word}
-@keyframes pop{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
-@keyframes reactionPop{0%{transform:scale(1) translateY(0);opacity:1}100%{transform:scale(1.6) translateY(-40px);opacity:0}}
+.msg{max-width:80%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.5;animation:pop .22s ease;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:opacity .15s,transform .15s;-webkit-tap-highlight-color:transparent;white-space:pre-wrap;word-break:break-word}
+@keyframes pop{0%{transform:scale(.88) translateY(6px);opacity:0}60%{transform:scale(1.02) translateY(-1px);opacity:1}100%{transform:scale(1) translateY(0);opacity:1}}
+@keyframes reactionPop{0%{transform:scale(1) translateY(0);opacity:1}30%{transform:scale(1.8) translateY(-15px);opacity:1}100%{transform:scale(1.4) translateY(-50px);opacity:0}}
 .msg.out{align-self:flex-end;background:var(--sn);border:1px solid rgba(0,255,157,.2);border-bottom-right-radius:4px}
 .msg.in{align-self:flex-start;background:var(--rc);border:1px solid var(--bd);border-bottom-left-radius:4px}
 .msg.pressing{opacity:.6;transform:scale(.97)}
@@ -115,16 +115,18 @@ textarea::placeholder{color:var(--mu)}
 .msg-quote-sender{font-size:10px;font-weight:700;color:var(--a);margin-bottom:2px}
 /* reactions */
 .msg-reactions{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
-.msg-reaction{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:12px;font-size:13px;border:1px solid var(--bd);background:var(--sf);cursor:pointer;transition:background .15s;user-select:none;-webkit-tap-highlight-color:transparent}
+.msg-reaction{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:12px;font-size:13px;border:1px solid var(--bd);background:var(--sf);cursor:pointer;transition:background .15s,transform .12s,border-color .15s;user-select:none;-webkit-tap-highlight-color:transparent}
+.msg-reaction:active{transform:scale(.9)}
 .msg-reaction.mine{border-color:rgba(0,255,157,.35);background:var(--ad)}
 .msg-reaction span{font-size:10px;color:var(--mu)}
 /* reaction picker */
-.reaction-picker{position:fixed;z-index:500;background:var(--sf);border:1px solid var(--bd);border-radius:20px;padding:6px 10px;display:flex;gap:6px;box-shadow:0 4px 24px rgba(0,0,0,.5);animation:pop .12s ease}
-.reaction-picker button{background:none;border:none;font-size:22px;cursor:pointer;padding:4px;border-radius:8px;transition:transform .1s;-webkit-tap-highlight-color:transparent}
-.reaction-picker button:active{transform:scale(1.3)}
+.reaction-picker{position:fixed;z-index:500;background:var(--sf);border:1px solid var(--bd);border-radius:20px;padding:6px 10px;display:flex;gap:6px;box-shadow:0 4px 24px rgba(0,0,0,.5);animation:pop .18s ease}
+.reaction-picker button{background:none;border:none;font-size:22px;cursor:pointer;padding:4px;border-radius:8px;transition:transform .15s,background .1s;-webkit-tap-highlight-color:transparent}
+.reaction-picker button:hover{transform:scale(1.15);background:var(--ad)}
+.reaction-picker button:active{transform:scale(1.35)}
 .msg-quote-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.reply-bar{display:none;padding:8px 12px;border-top:1px solid var(--bd);background:var(--sf);gap:8px;align-items:center}
-.reply-bar.on{display:flex}
+.reply-bar{display:flex;max-height:0;overflow:hidden;padding:0 12px;border-top:0px solid var(--bd);background:var(--sf);gap:8px;align-items:center;transition:max-height .22s cubic-bezier(.4,0,.2,1),padding .22s,border-top-width .22s}
+.reply-bar.on{max-height:80px;padding:8px 12px;border-top-width:1px}
 .reply-bar-quote{flex:1;min-width:0;font-size:11px;color:var(--mu);border-left:3px solid var(--a);padding-left:8px;overflow:hidden}
 .reply-bar-sender{font-size:10px;font-weight:700;color:var(--a);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .reply-bar-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -132,7 +134,7 @@ textarea::placeholder{color:var(--mu)}
 .iarea{padding:12px;border-top:1px solid var(--bd);background:var(--sf);display:flex;gap:8px;flex-shrink:0;align-items:flex-end;overflow:hidden;touch-action:pan-y}
 .iarea textarea{flex:1;background:var(--bg);border:1px solid var(--bd);border-radius:16px;padding:10px 16px;color:var(--tx);font-family:inherit;font-size:13px;outline:none;transition:border-color .2s;resize:none;overflow:hidden;line-height:1.4;height:calc(1.4em + 20px);max-height:120px;overflow-y:auto;scrollbar-width:none}
 .iarea textarea::-webkit-scrollbar{display:none}
-.iarea textarea:focus{border-color:var(--a)}
+.iarea textarea:focus{border-color:var(--a);box-shadow:0 0 0 2px rgba(0,255,157,.08)}
 .iarea textarea::placeholder{color:var(--mu)}
 .iarea .btn{border-radius:20px;padding:10px 20px;flex-shrink:0;align-self:flex-end}
 /* stun */
@@ -169,7 +171,7 @@ textarea::placeholder{color:var(--mu)}
 .sig-modal{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(10,10,15,.85);backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .25s}
 .sig-modal.on{opacity:1;pointer-events:all}
 .sig-modal-box{background:var(--sf);border:1px solid var(--bd);border-radius:20px;padding:32px 28px;width:100%;max-width:340px;display:flex;flex-direction:column;align-items:center;gap:20px;animation:sigpop .25s ease}
-@keyframes sigpop{from{transform:scale(.93) translateY(12px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
+@keyframes sigpop{0%{transform:scale(.88) translateY(20px);opacity:0}65%{transform:scale(1.02) translateY(-3px);opacity:1}100%{transform:scale(1) translateY(0);opacity:1}}
 .sig-modal-ring{width:64px;height:64px;position:relative;flex-shrink:0}
 .sig-modal-ring svg{width:64px;height:64px;transform:rotate(-90deg)}
 .sig-modal-ring circle{fill:none;stroke-width:3}
@@ -308,9 +310,46 @@ textarea::placeholder{color:var(--mu)}
 .gbtn.rerun:disabled{opacity:.4;cursor:not-allowed;border-color:var(--bd);color:var(--mu)}
 .gbtn.rerun:disabled:hover{border-color:var(--bd);color:var(--mu)}
 /* tab bar */
-.tabbar{display:flex;flex-shrink:0;border-top:1px solid var(--bd);background:var(--sf);position:fixed;bottom:0;left:0;right:0;z-index:100;padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabbar{
+  display:flex;flex-shrink:0;
+  background:var(--sf);
+  border:1px solid var(--bd);
+  position:fixed;
+  bottom:calc(10px + env(safe-area-inset-bottom,0px));
+  left:12px;right:12px;
+  z-index:100;
+  padding:5px;
+  gap:0;
+  border-radius:18px;
+  box-shadow:0 4px 24px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.04) inset;
+  /* нет border-top — сам бар — floating */
+}
 .tabbar.hidden{display:none}
-.tab{flex:1;display:flex;align-items:center;justify-content:center;padding:12px 0;cursor:pointer;font-size:11px;color:var(--mu);letter-spacing:.5px;border:none;background:transparent;font-family:inherit;transition:color .15s;-webkit-tap-highlight-color:transparent;outline:none;border-top:2px solid transparent}
+
+/* скользящий pill */
+#tab-pill{
+  position:absolute;
+  top:5px;bottom:5px;
+  background:var(--ad);
+  border:1px solid rgba(0,255,157,.2);
+  border-radius:13px;
+  pointer-events:none;
+  transition:left .28s cubic-bezier(.34,1.4,.64,1), width .28s cubic-bezier(.34,1.4,.64,1);
+  box-shadow:0 0 12px rgba(0,255,157,.08);
+}
+
+.tab{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  padding:9px 4px;
+  cursor:pointer;font-size:11px;color:var(--mu);letter-spacing:.5px;
+  border:none;background:transparent;font-family:inherit;
+  transition:color .2s,transform .15s;
+  -webkit-tap-highlight-color:transparent;outline:none;
+  border-radius:13px;
+  border-top:none;
+  position:relative;
+  z-index:1;
+}
 .tab-badge{
   display:none;min-width:16px;height:16px;padding:0 4px;
   background:var(--e);color:#fff;font-size:9px;font-weight:700;
@@ -324,7 +363,8 @@ textarea::placeholder{color:var(--mu)}
   letter-spacing:0;pointer-events:none;
 }
 .tab:hover{color:var(--tx)}
-.tab.act{color:var(--a);border-top-color:var(--a)}
+.tab:active{transform:scale(.9)}
+.tab.act{color:var(--a);border-top:none;}
 /* compact net status strip on connect tab */
 .netstatus{display:flex;align-items:center;gap:10px;padding:11px 16px;background:transparent;border:none;border-radius:0;font-size:11px;color:var(--mu);flex-shrink:0;cursor:pointer;transition:background .15s}
 .netstatus:hover{background:rgba(255,255,255,.03)}
@@ -369,7 +409,8 @@ textarea::placeholder{color:var(--mu)}
 .citem.pinned{background:rgba(0,255,157,.03);border-left:2px solid rgba(0,255,157,.3)}
 /* context menu */
 .ctx-bg{position:fixed;inset:0;z-index:200}
-.ctx-menu{position:fixed;z-index:201;background:var(--sf);border:1px solid var(--bd);border-radius:12px;overflow:hidden;min-width:180px;box-shadow:0 8px 32px rgba(0,0,0,.6)}
+.ctx-menu{position:fixed;z-index:201;background:var(--sf);border:1px solid var(--bd);border-radius:12px;overflow:hidden;min-width:180px;box-shadow:0 8px 32px rgba(0,0,0,.6);animation:ctxpop .15s ease}
+@keyframes ctxpop{from{transform:scale(.94) translateY(-4px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
 .ctx-item{display:flex;align-items:center;gap:10px;padding:13px 16px;font-size:12px;color:var(--tx);cursor:pointer;transition:background .12s;font-family:inherit;border:none;background:transparent;width:100%;text-align:left}
 .ctx-item:hover{background:var(--bd)}
 .ctx-item+.ctx-item{border-top:1px solid var(--bd)}
@@ -395,8 +436,8 @@ textarea::placeholder{color:var(--mu)}
 .fav-origin{font-size:10px;color:var(--a);opacity:.7;margin-top:5px;cursor:pointer;transition:opacity .15s}
 .fav-origin:hover{opacity:1;text-decoration:underline}
 /* toast */
-#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--a);color:#000;padding:8px 20px;border-radius:20px;font-size:12px;font-weight:700;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;z-index:999}
-#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(16px) scale(.95);background:var(--a);color:#000;padding:8px 20px;border-radius:20px;font-size:12px;font-weight:700;opacity:0;transition:opacity .25s cubic-bezier(.4,0,.2,1),transform .25s cubic-bezier(.34,1.56,.64,1);pointer-events:none;white-space:nowrap;z-index:999}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
 /* incoming call banner */
 #call-banner{position:fixed;top:-120px;left:0;right:0;z-index:500;display:flex;align-items:center;gap:12px;padding:14px 18px;background:var(--sf);border-bottom:2px solid var(--a);box-shadow:0 4px 24px rgba(0,255,157,.15);transition:top .35s cubic-bezier(.4,0,.2,1)}
 #call-banner.on{top:0}
@@ -581,7 +622,7 @@ textarea::placeholder{color:var(--mu)}
     <!-- Мой контакт — поделиться (скрыт по умолчанию) -->
     <div id="my-contact-share" style="display:none;flex-direction:column;gap:12px">
       <!-- QR карточка -->
-      <div style="display:flex;justify-content:center">
+      <div style="display:flex;justify-content:center;position:relative">
         <div id="my-contact-qr-card" style="background:#0d0d14;border:1px solid rgba(0,255,157,.25);border-radius:16px;padding:20px;display:flex;flex-direction:column;align-items:center;gap:12px;min-width:220px">
           <div style="font-size:11px;color:var(--a);letter-spacing:2px;text-transform:uppercase">Tovsa</div>
           <div style="position:relative;display:inline-block">
@@ -590,6 +631,7 @@ textarea::placeholder{color:var(--mu)}
           <div id="my-contact-qr-name" style="font-size:12px;color:var(--tx);font-weight:700;letter-spacing:1px"></div>
           <div style="font-size:9px;color:var(--mu)">сканируйте для добавления</div>
         </div>
+        <button onclick="$('my-contact-share').style.display='none'" style="position:absolute;top:4px;right:4px;background:rgba(30,30,46,.85);border:1px solid var(--bd);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--mu);font-size:16px;line-height:1;transition:color .15s,border-color .15s" onmouseover="this.style.color='var(--tx)';this.style.borderColor='var(--mu)'" onmouseout="this.style.color='var(--mu)';this.style.borderColor='var(--bd)'">×</button>
       </div>
       <!-- Кнопки действий -->
       <div style="display:flex;gap:8px">
@@ -608,6 +650,27 @@ textarea::placeholder{color:var(--mu)}
       </div>
     </div>
   </div>
+
+  <!-- ── Видимость в сети ─────────────────────────────────────── -->
+  <div class="sn-section">
+    <div class="sn-label">Видимость в сети</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <!-- Глобальная невидимка -->
+      <div style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:12px;color:var(--tx);font-weight:700">Глобальная невидимка</div>
+        <div style="font-size:11px;color:var(--mu);line-height:1.5">Вас не видит никто из контактов. Вы по-прежнему видите всех и можете подключаться первым.</div>
+        <button class="gbtn" id="global-hidden-btn"
+          style="width:100%;padding:10px;text-align:center;font-size:12px;margin-top:2px"
+          onclick="_setGlobalHidden(!_presenceGlobalHidden)">👁 Невидимка: ВЫКЛ</button>
+      </div>
+      <!-- Список контактов с индивидуальными переключателями -->
+      <div style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+        <div style="padding:10px 14px;font-size:11px;color:var(--mu);border-bottom:1px solid var(--bd)">Скрыть статус от отдельных контактов</div>
+        <div id="presence-contact-list" style="display:flex;flex-direction:column"></div>
+      </div>
+    </div>
+  </div>
+
   <div class="sn-section">
     <div class="sn-label">Чат</div>
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px">
@@ -665,6 +728,17 @@ textarea::placeholder{color:var(--mu)}
         </div>
         <button class="action-btn" id="pwa-install-btn" onclick="pwaTriggerInstall()">+ установить</button>
       </div>
+    </div>
+    <!-- Invite Links -->
+    <div style="padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:13px;font-weight:700">Ссылки-приглашения</div>
+          <div style="font-size:10px;color:var(--mu);margin-top:2px">Поделитесь ссылкой — контакт добавится сам</div>
+        </div>
+        <button class="action-btn" id="invite-create-btn" onclick="inviteCreateAndShow()">+ создать ссылку</button>
+      </div>
+      <div id="invite-list-wrap" style="font-size:11px;color:var(--mu)">нет активных ссылок</div>
     </div>
     <!-- Notifications -->
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px">
@@ -727,7 +801,7 @@ textarea::placeholder{color:var(--mu)}
           <div class="srv-radio" id="pj-en-0"></div>
           <div class="pjinfo">
             <div class="pjname">Основной</div>
-            <div class="pjdesc">0.peerjs.com</div>
+            <div class="pjdesc">peerjs-server-lwcm.onrender.com</div>
           </div>
           <div class="pjdot" id="pj-dot-0"></div>
           <div class="pjstat" id="pj-stat-0">—</div>
@@ -735,20 +809,11 @@ textarea::placeholder{color:var(--mu)}
         <div class="pjrow" id="pj-row-1" onclick="onSrvSelect(1)" style="cursor:pointer;border-top:1px solid var(--bd)">
           <div class="srv-radio" id="pj-en-1"></div>
           <div class="pjinfo">
-            <div class="pjname">Резервный</div>
-            <div class="pjdesc">peerjs-server-lwcm.onrender.com</div>
-          </div>
-          <div class="pjdot" id="pj-dot-1"></div>
-          <div class="pjstat" id="pj-stat-1">—</div>
-        </div>
-        <div class="pjrow" id="pj-row-2" onclick="onSrvSelect(2)" style="cursor:pointer;border-top:1px solid var(--bd)">
-          <div class="srv-radio" id="pj-en-2"></div>
-          <div class="pjinfo">
             <div class="pjname">Тестовый (нерабочий)</div>
             <div class="pjdesc">broken.peerjs.invalid</div>
           </div>
-          <div class="pjdot" id="pj-dot-2"></div>
-          <div class="pjstat" id="pj-stat-2">—</div>
+          <div class="pjdot" id="pj-dot-1"></div>
+          <div class="pjstat" id="pj-stat-1">—</div>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--bd);background:var(--bg)">
           <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--mu)">
@@ -955,6 +1020,11 @@ textarea::placeholder{color:var(--mu)}
       <button class="action-btn" id="info-verify-btn" onclick="verifyContactKey()" style="width:100%;justify-content:center">🔍 Проверить соответствие ключа и fingerprint</button>
       <div id="info-verify-result" style="display:none;margin-top:8px;font-size:11px;padding:8px 10px;border-radius:6px;line-height:1.6"></div>
     </div>
+    <div>
+      <div style="font-size:10px;color:var(--mu);margin-bottom:6px;letter-spacing:1px;text-transform:uppercase">Видимость статуса</div>
+      <button class="gbtn" id="info-hide-presence-btn" style="width:100%;padding:10px;text-align:center;font-size:12px"
+        onclick="toggleContactHidePresence(_infoFp)">🙈 Скрыть статус от этого контакта</button>
+    </div>
     <div class="modal-row">
       <button class="btn" onclick="closeInfoModal()">Закрыть</button>
     </div>
@@ -1066,6 +1136,7 @@ textarea::placeholder{color:var(--mu)}
 
 <!-- Таб-бар -->
 <div class="tabbar" id="tabbar">
+  <div id="tab-pill"></div>
   <button class="tab act" id="tab-connect" onclick="showTab('connect')">
     <span>Подключение</span>
   </button>
@@ -1082,10 +1153,6 @@ textarea::placeholder{color:var(--mu)}
 
 <!-- Groups list screen -->
 <div class="scr" id="sgrp">
-  <div class="grp-header">
-    <span class="grp-title">ГРУППЫ</span>
-    <span style="font-size:10px;color:var(--mu);letter-spacing:.5px">P2P · кольцо · E2E</span>
-  </div>
   <div class="grp-section">
     <div class="grp-section-label">Создать группу</div>
     <input id="grp-new-name" class="grp-name-input" placeholder="Название группы (необязательно)..." maxlength="40"
@@ -1112,7 +1179,7 @@ textarea::placeholder{color:var(--mu)}
   <div class="grp-chat-hdr">
     <button class="grp-chat-back" onclick="showTab('sgrp');grpRenderGroupList()">←</button>
     <div class="grp-chat-title-wrap">
-      <div class="grp-chat-name" id="grp-chat-title">Группа</div>
+      <div class="grp-chat-name" id="grp-chat-title"></div>
       <div class="grp-chat-status" id="grp-chat-status">○ не подключено</div>
     </div>
     <div class="grp-key-badge" id="grp-key-badge" style="display:none">🔒 e2e</div>
@@ -1265,6 +1332,7 @@ async function idbQuota(){
   return 0;
 }
 let myPrivKey=null,myPubKeyRaw=null,myFingerprint='';
+let myPubKeyHex=''; // hex публичного Ed25519 ключа, нужен для _fpToPairPid
 // P-256 ключевая пара для шифрования push уведомлений
 let _pushPrivKey=null, _pushPubKeyRaw=null;
 let currentPeerFp=null; // fingerprint of active chat peer
@@ -1539,8 +1607,11 @@ async function initIdentity(){
     myFingerprint=bytesToFingerprint(hash);
     // Hex первых 24 байт хеша → presence peer ID
     myPresenceId = await sha256hex(myPubKeyRaw, 24);
+    myPubKeyHex  = Array.from(myPubKeyRaw).map(b=>b.toString(16).padStart(2,'0')).join('');
     // Обновляем кнопку группы — теперь идентификация готова
     if(_grpActive) _grpUpdateStatus(_grpActive);
+    // Инициализируем UI невидимки
+    _updateGlobalHiddenUI();
     // Сохраняем hex публичного ключа для ntfy (читается из IIFE после загрузки)
     const _myPubHex = Array.from(myPubKeyRaw).map(b=>b.toString(16).padStart(2,'0')).join('');
     localStorage.setItem('_myPubHex', _myPubHex);
@@ -1906,6 +1977,7 @@ async function saveEditModal(){
   await saveContacts(contacts);
   closeEditModal();
   renderContacts();
+  _refreshPairBeacons(); // [FIX BUG9] создаём парный маяк для нового/обновлённого контакта
   if(currentPeerFp===fp){
     showPeerIdentity(fp,true,name);
     toast(isNew?'Контакт сохранён':'Контакт обновлён');
@@ -1938,6 +2010,7 @@ async function deleteContact(fp,ev){
   delete h[fp];
   await idbSet('history','all',h);
   renderContacts();
+  _refreshPairBeacons(); // [FIX BUG8] убираем парный маяк удалённого контакта
   toast('Контакт удалён');
 }
 
@@ -2027,6 +2100,14 @@ let contactsSubScreen='sk'; // 'sk' | 'sh' | 'sfav'
 let contactsScrollTop=0;
 
 function showTab(tab){
+  // Move sliding pill to the target tab
+  const tabIdMap = {
+    connect:'tab-connect', sk:'tab-contacts', sh:'tab-contacts',
+    sfav:'tab-contacts', sc:'tab-contacts', sn:'tab-net',
+    sgrp:'tab-grp', sgrpc:'tab-grp'
+  };
+  const targetTabId = tabIdMap[tab] || 'tab-connect';
+  movePill(targetTabId);
   // Save contacts scroll before leaving
   if(activeTab==='contacts'){
     if($('sk').classList.contains('on')) contactsScrollTop=$('sk').scrollTop;
@@ -2034,6 +2115,7 @@ function showTab(tab){
 
   const isContactsArea = tab==='sk'||tab==='sh'||tab==='sfav'||tab==='sc';
   const isNetArea = tab==='sn';
+  if (isNetArea && typeof _refreshInviteList === 'function') _refreshInviteList();
   const isGrpArea = tab==='sgrp'||tab==='sgrpc';
   const isConnect = !isContactsArea && !isNetArea && !isGrpArea;
 
@@ -2088,6 +2170,7 @@ function showTab(tab){
     activeTab='sn';
     show('sn');
     updateStorageBar();
+    renderPresenceContactList(); _updateGlobalHiddenUI();
     initStorageLimitUI();
     // Не трогаем signaling при открытии вкладки
 
@@ -2253,6 +2336,8 @@ async function openInfoModal(fp){
   $('info-note').textContent=c.note||'—';
   $('info-pubkey').textContent=c.pubKeyHex||'—';
   $('info-modal').style.display='flex';
+  // Обновляем кнопку скрытия
+  _updateHidePresenceBtnUI(fp, !!c.hidePresence);
 }
 
 function closeInfoModal(){
@@ -2532,7 +2617,13 @@ async function sendFav(){
   inp.style.height='auto';
   inp.focus();
   cancelFavReply();
-  await renderFavMsgs();
+  // Добавляем только новое сообщение без полного перерендера
+  const container=$('fav-msgs');
+  const contacts=await getContacts();
+  const node=await buildFavNode(entry,contacts);
+  // column-reverse: prepend = визуально внизу (самое новое)
+  container.prepend(node);
+  _favTotal=(msgs.length);
   await updateFavLast();
   checkStorageAndNotify();
 }
@@ -2604,16 +2695,20 @@ async function sha256hex(bytes, sliceBytes = null) {
 // ── Серверы ───────────────────────────────────────────────────────────────────
 // Объявлены здесь — до первого использования в currentSrv() и _startIncomingListener()
 const SIGNALING_SERVERS = [
-  { host: '0.peerjs.com',                   port: 443, path: '/', secure: true, name: 'Основной',            slow: false },
-  { host: 'peerjs-server-lwcm.onrender.com', port: 443, path: '/', secure: true, name: 'Резервный (Render)', slow: true  },
-  { host: 'broken.peerjs.invalid',           port: 443, path: '/', secure: true, name: 'Тестовый',           slow: false },
+  { host: 'peerjs-server-lwcm.onrender.com', port: 443, path: '/', secure: true, name: 'Основной (Render)', slow: true  },
+  { host: 'broken.peerjs.invalid',           port: 443, path: '/', secure: true, name: 'Тестовый',          slow: false },
 ];
 const SRV_IDX_KEY = 'pj_server_idx';
 const _savedSrvIdx = localStorage.getItem(SRV_IDX_KEY);
-if (_savedSrvIdx === null) { localStorage.setItem(SRV_IDX_KEY, '1'); }
-let _serverIndex = _savedSrvIdx !== null
-  ? Math.min(parseInt(_savedSrvIdx, 10), SIGNALING_SERVERS.length - 1)
-  : 1;
+// Миграция: старые клиенты хранили index=1 для Render, теперь Render — index=0.
+// Принудительно сбрасываем на 0 если сохранено значение >= длины нового списка.
+if (_savedSrvIdx === null || parseInt(_savedSrvIdx, 10) >= SIGNALING_SERVERS.length) {
+  localStorage.setItem(SRV_IDX_KEY, '0');
+}
+let _serverIndex = Math.min(
+  parseInt(localStorage.getItem(SRV_IDX_KEY) || '0', 10),
+  SIGNALING_SERVERS.length - 1
+);
 
 // myPresenceId — здесь же, используется в _startIncomingListener() на строке ~3000
 let myPresenceId = '';
@@ -2630,6 +2725,75 @@ let _presenceCacheTime    = {};
 let _presencePubKeyCache  = {};
 let _presenceHbRunning    = false;
 let _presenceLastHbAt     = 0;
+
+// ── Видимость присутствия (presence visibility) ───────────────────────────────
+// _presenceGlobalHidden: глобальная «невидимка» — скрываемся от всех контактов.
+// При включении маяк продолжает работать (мы видим других), но не регистрируется
+// в парных комнатах контактов (они нас не находят).
+let _presenceGlobalHidden = false;
+
+// Загружаем глобальную невидимку из localStorage при старте
+try { _presenceGlobalHidden = localStorage.getItem('presence_global_hidden') === '1'; } catch(_) {}
+
+function _setGlobalHidden(val) {
+  _presenceGlobalHidden = !!val;
+  try { localStorage.setItem('presence_global_hidden', val ? '1' : '0'); } catch(_) {}
+  _updateGlobalHiddenUI();
+  toast(_presenceGlobalHidden ? '👻 Невидимка включена' : '👁 Вы снова видимы');
+
+  // [FIX BUG5] Сначала сносим парные маяки синхронно, затем перезапускаем маяк.
+  // Задержка 50ms гарантирует что destroy завершится до создания нового пира.
+  for(const [, peer] of _pairBeacons) safePeerDestroy(peer);
+  _pairBeacons.clear();
+  _beaconVersion++;
+  safePeerDestroy(_presencePeer); _presencePeer = null;
+  _presenceBeaconReady = false;
+  setTimeout(initMasterPeer, 50);
+}
+
+// Рендер списка контактов для управления видимостью (в настройках)
+async function renderPresenceContactList() {
+  const el = document.getElementById('presence-contact-list');
+  if(!el) return;
+  const contacts = await getContacts();
+  const fps = Object.keys(contacts).filter(fp => !contacts[fp]._stranger);
+  if(fps.length === 0){
+    el.innerHTML = '<div style="padding:12px 14px;font-size:11px;color:var(--mu)">Нет контактов</div>';
+    return;
+  }
+  el.innerHTML = fps.map(fp => {
+    const c = contacts[fp];
+    const name = esc(c.name || 'Неизвестный');
+    const hidden = !!c.hidePresence;
+    const icon = hidden ? '🙈' : '👁';
+    const color = hidden ? 'var(--w)' : 'var(--mu)';
+    // [FIX BUG7] fp передаётся через data-атрибут — безопасно для любых значений
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--bd)" id="pcl-${esc(fp)}">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
+        <div style="font-size:10px;color:${color};margin-top:2px">${hidden ? 'статус скрыт' : 'статус виден'}</div>
+      </div>
+      <button data-fp="${esc(fp)}"
+        onclick="toggleContactHidePresence(this.dataset.fp).then(()=>renderPresenceContactList())"
+        style="background:none;border:1px solid var(--bd);border-radius:8px;padding:5px 10px;font-size:13px;cursor:pointer;flex-shrink:0;transition:border-color .15s"
+        title="${hidden ? 'Показать статус' : 'Скрыть статус'}">${icon}</button>
+    </div>`;
+  }).join('');
+}
+
+function _updateGlobalHiddenUI() {
+  const btn = document.getElementById('global-hidden-btn');
+  if (!btn) return;
+  if (_presenceGlobalHidden) {
+    btn.textContent = '👻 Невидимка: ВКЛ';
+    btn.style.borderColor = 'rgba(229,192,123,.4)';
+    btn.style.color = 'var(--w)';
+  } else {
+    btn.textContent = '👁 Невидимка: ВЫКЛ';
+    btn.style.borderColor = 'var(--bd)';
+    btn.style.color = 'var(--mu)';
+  }
+}
 
 // Группы
 let _grpAll     = {};    // code → groupRecord  (persist)
@@ -4695,10 +4859,9 @@ function _sendNotifConn(callerName, callerFp){
   if(document.hasFocus()) return;
   if(_notifPermission !== 'granted') return;
   try{
-    const icon = _getNotifIcon();
     const opts = {
       body: 'Хочет соединиться — нажмите чтобы принять',
-      icon, badge: icon, silent: false,
+      silent: false,
       tag: 'tovsa-conn', renotify: true,
       actions: [{ action: 'accept', title: '✓ Принять' }],
       data: { callerFp, action: 'accept-call' }
@@ -4725,6 +4888,28 @@ if('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('message', e => {
     if(e.data?.action === 'accept-call'){ window.focus(); acceptCall(); }
     if(e.data?.action === 'open-chat'){ window.focus(); showTab('sc'); }
+    if(e.data?.action === 'contact-request'){
+      window.focus();
+      if(e.data.autoAccept){
+        // Пользователь нажал «Добавить» прямо в уведомлении — принимаем без confirm
+        (async()=>{
+          try{
+            const fp = await _pubHexToFp(e.data.requesterPubHex);
+            const contacts = await getContacts();
+            if(!contacts[fp]){
+              contacts[fp] = { pubKeyHex: e.data.requesterPubHex, name: e.data.name||'Пользователь' };
+              await saveContacts(contacts);
+              renderContacts();
+              toast((e.data.name||'Пользователь') + ' добавлен в контакты ✓');
+            }
+          }catch(err){ console.warn('[contact-req]', err); }
+        })();
+      } else {
+        // Пользователь открыл приложение через уведомление — показываем confirm
+        if(typeof _handleContactRequest === 'function')
+          _handleContactRequest({ requesterPubHex: e.data.requesterPubHex, name: e.data.name });
+      }
+    }
     if(e.data?.action === 'sw-updated'){
       // Показываем только если SW уже был установлен раньше (не первый запуск)
       if(localStorage.getItem('sw-installed')){
@@ -4741,9 +4926,8 @@ function _sendNotif(title, body, onClick){
   if(document.hasFocus()) return; // приложение активно — не мешаем
   if(_notifPermission !== 'granted') return;
   try{
-    const icon = _getNotifIcon();
     const opts = {
-      body, icon, badge: icon, silent: false,
+      body, silent: false,
       tag: 'tovsa-msg', renotify: true,
       vibrate: [200, 100, 200],
       data: { action: onClick ? 'open-chat' : 'open' }
@@ -4754,13 +4938,13 @@ function _sendNotif(title, body, onClick){
         reg.showNotification(title, opts)
       ).catch(()=>{
         if(!document.hidden && 'Notification' in window){
-          const n = new Notification(title, { body, icon, badge: icon, silent: false });
+          const n = new Notification(title, { body, silent: false });
           n.onclick = () => { window.focus(); if(onClick) onClick(); n.close(); };
           setTimeout(() => n.close(), 6000);
         }
       });
     } else if(!document.hidden && 'Notification' in window){
-      const n = new Notification(title, { body, icon, badge: icon, silent: false });
+      const n = new Notification(title, { body, silent: false });
       n.onclick = () => { window.focus(); if(onClick) onClick(); n.close(); };
       setTimeout(() => n.close(), 6000);
     }
@@ -5740,11 +5924,10 @@ let _presenceBeaconReady = false;
 // _presencePubKeyCache — объявлена выше
 const PRESENCE_TTL         = 60000; // мс — как долго считаем статус актуальным
 const PRESENCE_MIN_INTERVAL = 60000; // мс — троттл кнопки ↺ статусы
-const PRESENCE_HB_INTERVAL  = 15000; // мс — период автопроверки heartbeat
+const PRESENCE_HB_INTERVAL  = 30000; // мс — период автопроверки (WebRTC-only, увеличен)
 let _presenceLastRefresh = 0;       // время последнего ручного обновления
 let _presenceHbTimer = null;        // таймер heartbeat (только у лидера)
 // _presenceHbRunning — объявлена выше
-let _presenceRestSupported = null;  // null=неизвестно, true/false — кэш /peers
 // _presenceLastHbAt — объявлена выше
 
 // ── Серверы (объявлены выше, рядом с currentSrv) ──────────────────────────────
@@ -5835,11 +6018,101 @@ let _autoReconnectAttempts = 0;
 
 // ── Маяк: подключение пира к серверу ─────────────────────────────────────────
 // ctx — контекст сессии: { srv, idx, gone, fail, wake, isStable, wakeAttempts, reconnects, stableAt, idSuffix, _done }
+// ── Список парных маяков (по одному Peer на каждый контакт) ──────────────────
+// _pairBeacons: Map<fp, Peer> — активные парные маяки
+let _pairBeacons = new Map();
+let _syncPairBeaconsRunning = false; // [FIX BUG2] защита от параллельных вызовов
+
+// Регистрируем/обновляем парные маяки для всех контактов
+async function _syncPairBeacons() {
+  if(!_pjOk || !myPubKeyHex) return;
+  if(_syncPairBeaconsRunning) return; // уже выполняется — пропускаем
+  _syncPairBeaconsRunning = true;
+  try { await _syncPairBeaconsInner(); } finally { _syncPairBeaconsRunning = false; }
+}
+async function _syncPairBeaconsInner() {
+  if(!_pjOk || !myPubKeyHex) return;
+  const contacts = await getContacts();
+  const fps = Object.keys(contacts).filter(fp =>
+    !contacts[fp]._stranger && contacts[fp].pubKeyHex
+  );
+
+  // Удаляем маяки для удалённых контактов
+  for(const [fp, peer] of _pairBeacons) {
+    if(!fps.includes(fp)) {
+      safePeerDestroy(peer);
+      _pairBeacons.delete(fp);
+    }
+  }
+
+  if(_presenceGlobalHidden) {
+    // Невидимка: убираем все парные маяки
+    for(const [fp, peer] of _pairBeacons) {
+      safePeerDestroy(peer);
+    }
+    _pairBeacons.clear();
+    return;
+  }
+
+  for(const fp of fps) {
+    if(contacts[fp].hidePresence) {
+      // Скрыты от этого контакта — убираем его маяк
+      if(_pairBeacons.has(fp)) {
+        safePeerDestroy(_pairBeacons.get(fp));
+        _pairBeacons.delete(fp);
+      }
+      continue;
+    }
+    if(_pairBeacons.has(fp)) continue; // уже зарегистрирован
+    const pairId = await _fpToPairPid(contacts[fp].pubKeyHex);
+    if(!pairId) continue;
+    try{
+      const peer = new Peer(pairId, { ...buildPeerConfig(currentSrv()) });
+      peer.on('open', () => {
+        _pairBeacons.set(fp, peer);
+      });
+      peer.on('connection', conn => {
+        conn.on('open', () => { setTimeout(() => safeConnClose(conn), 1500); });
+        conn.on('error', () => {});
+      });
+      peer.on('error', e => {
+        // [FIX BUG3] unavailable-id: парный ID уже занят (другая вкладка/инстанс) — ок,
+        // но убираем из Map чтобы не держать мёртвый peer
+        if(e.type === 'unavailable-id') { _pairBeacons.delete(fp); return; }
+        _pairBeacons.delete(fp);
+        safePeerDestroy(peer);
+      });
+      peer.on('disconnected', () => {
+        // [FIX BUG4] При потере соединения — удаляем и планируем пересоздание
+        _pairBeacons.delete(fp);
+        safePeerDestroy(peer);
+        if(_pjOk) setTimeout(_refreshPairBeacons, 5000);
+      });
+      peer.on('close', () => {
+        _pairBeacons.delete(fp);
+        if(_pjOk) setTimeout(_refreshPairBeacons, 5000);
+      });
+      _pairBeacons.set(fp, peer); // регистрируем до open для дедупликации
+    }catch(e){}
+  }
+}
+
+// При изменении глобальной или контактной видимости — пересинхронизируем
+function _refreshPairBeacons() {
+  _syncPairBeacons().catch(e => console.warn('[pairBeacon]', e));
+}
+
 function _beaconConnect(ctx){
   if(ctx.gone()) return;
   const { srv, idx } = ctx;
   try{
-    const peerId = 'fpvp-' + myPresenceId + ctx.idSuffix;
+    // [FIX BUG1] При невидимке — регистрируемся на случайном ID, который никто не знает.
+    // Маяк всё равно подключается к signaling (можно проверять других),
+    // но нас не находят ни по публичному, ни по парным ID.
+    const _hiddenSuffix = _presenceGlobalHidden
+      ? '-ghost-' + Math.random().toString(36).slice(2, 10)
+      : '';
+    const peerId = 'fpvp-' + myPresenceId + ctx.idSuffix + _hiddenSuffix;
     const p = new Peer(peerId, { ...buildPeerConfig(srv) });
     _presencePeer = p;
 
@@ -5856,6 +6129,7 @@ function _beaconConnect(ctx){
       _autoReconnectAttempts = 0;
       _onPjStatusChange(true);
       _requestNotifPermission();
+      _syncPairBeacons(); // регистрируем парные маяки для каждого контакта
       const shortName = srv.host.replace('.onrender.com','').replace('.com','').replace('.','');
       _setSrvRow(idx, 'ok', 'доступен');
       _setSrvHeader('ok', shortName);
@@ -6199,10 +6473,22 @@ function _releaseCheckPeer(){
   }
 }
 
-// Вычислить presence peer-id по pubKeyHex
+// Вычислить presence peer-id контакта (для проверки — только его ключ)
+// Используется при опросе: мы знаем публичный ID контакта и ищем его
 async function _fpToPid(pubKeyHex){
   const pubKeyBytes = new Uint8Array(pubKeyHex.match(/.{2}/g).map(h=>parseInt(h,16)));
   return 'fpvp-' + await sha256hex(pubKeyBytes, 24);
+}
+
+// Вычислить парный presence peer-id для маяка (только контакт с pubKeyHex видит нас)
+// ID = sha256(min(myPubHex,contactPubHex) + max(myPubHex,contactPubHex)) — детерминирован для пары
+// Маяк регистрируется на этом ID → только данный контакт знает куда смотреть
+async function _fpToPairPid(contactPubKeyHex){
+  if(!myPubKeyHex) return null;
+  const a = myPubKeyHex < contactPubKeyHex ? myPubKeyHex : contactPubKeyHex;
+  const b = myPubKeyHex < contactPubKeyHex ? contactPubKeyHex : myPubKeyHex;
+  const combined = new TextEncoder().encode(a + ':' + b);
+  return 'fpvpp-' + await sha256hex(combined, 24);
 }
 
 // Применить результат проверки одного контакта
@@ -6262,6 +6548,34 @@ async function _onPeerCameOnline(fp){
   // 3. Никого не ждали — просто обновляем UI
 }
 
+// ── Управление видимостью для конкретного контакта ──────────────────────────
+async function toggleContactHidePresence(fp) {
+  if(!fp) return; // [FIX BUG6] защита от null _infoFp
+  const contacts = await getContacts();
+  if(!contacts[fp]) return;
+  contacts[fp].hidePresence = !contacts[fp].hidePresence;
+  await saveContacts(contacts);
+  _refreshPairBeacons();
+  const hidden = contacts[fp].hidePresence;
+  toast(hidden ? '🙈 Скрыты от этого контакта' : '👁 Снова видимы для контакта');
+  // Обновляем UI кнопки в info-modal если открыт
+  _updateHidePresenceBtnUI(fp, hidden);
+}
+
+function _updateHidePresenceBtnUI(fp, hidden) {
+  const btn = document.getElementById('info-hide-presence-btn');
+  if(!btn) return;
+  if(hidden) {
+    btn.textContent = '👁 Показывать статус этому контакту';
+    btn.style.borderColor = 'rgba(229,192,123,.4)';
+    btn.style.color = 'var(--w)';
+  } else {
+    btn.textContent = '🙈 Скрыть статус от этого контакта';
+    btn.style.borderColor = 'var(--bd)';
+    btn.style.color = 'var(--mu)';
+  }
+}
+
 // Позвать собеседника онлайн — отправляем push и начинаем следить за presence
 async function callPeerOnline(){
   if(!currentPeerFp){ toast('Нет активного чата'); return; }
@@ -6301,38 +6615,8 @@ async function inviteFromHistory(){
     setTimeout(()=>{ btn.textContent='📣 позвать'; btn.disabled=false; }, 30000); }
 }
 
-// ── Метод 1: REST API — один запрос, нет нагрузки на WebSocket маяка ──
-// GET /peers возвращает JSON-массив всех активных peer-id на сервере.
-// Сравниваем со списком наших контактов — никаких WebRTC-соединений не создаётся.
-async function _refreshPresenceViaRest(fps, fpToPid){
-  const srv = currentSrv();
-  if(!srv) return false;
-
-  const url = buildServerUrl(srv, '/peers');
-
-  try{
-    const res = await fetchWithTimeout(url, 8000);
-    if(!res.ok) return false;
-    const onlinePidsList = await res.json();
-    const onlinePids = new Set(onlinePidsList);
-    // Также строим префиксный индекс — маяк может быть зарегистрирован с суффиксом (unavailable-id fallback)
-    const onlinePidPrefixes = new Set(onlinePidsList.map(p => p.replace(/-[a-z0-9]{4}$/, '')));
-    const pidOnline = pid => onlinePids.has(pid) || onlinePidPrefixes.has(pid);
-
-    // Помечаем всех контактов по результату
-    for(const [fp, pid] of Object.entries(fpToPid)){
-      _applyPresenceResult(fp, pidOnline(pid) ? 'online' : 'offline');
-    }
-    return true;
-  }catch(e){
-    console.warn('[presence] REST failed:', e.message);
-    return false;
-  }
-}
-
-// ── Метод 2: WebRTC-connect (fallback) — по одному, с паузой между ──
-// Используется только если REST недоступен (сервер запрещает /peers).
-// Батч = 2, пауза 600мс между батчами — не перегружает WebSocket маяка.
+// ── WebRTC-connect — единственный метод проверки присутствия ──
+// /peers на сервере закрыт — проверяем только через попытку подключения.
 async function _refreshPresenceViaWebRTC(fps, fpToPid, checkPeer){
   // Временный пир изолирован от маяка — можно делать все проверки параллельно.
   // Единственное ограничение: не более 8 одновременных connect() чтобы не флудить сервер.
@@ -6400,29 +6684,24 @@ async function refreshPresence(){
     if(dot){ dot.className = 'ci-presence-dot checking'; dot.title = 'проверяем...'; }
   });
 
-  // Вычисляем peer-id для каждого контакта заранее (async, параллельно)
+  // Вычисляем парный peer-id для каждого контакта (только он знает наш парный ID)
   const fpToPid = {};
   await Promise.all(fps.map(async fp => {
     const pubKeyHex = getPubKeyHex(fp, contacts);
     if(!pubKeyHex) return;
-    try{ fpToPid[fp] = await _fpToPid(pubKeyHex); }catch(e){}
+    try{ fpToPid[fp] = await _fpToPairPid(pubKeyHex); }catch(e){}
   }));
 
-  // Пробуем быстрый REST-метод (один HTTP-запрос, нет нагрузки на маяк)
-  const restOk = await _refreshPresenceViaRest(fps, fpToPid);
-
-  if(!restOk){
-    // Fallback: WebRTC-connect по одному с паузами
-    let peer;
-    try{ peer = await _getCheckPeer(); }
-    catch(e){
-      fps.forEach(fp => _applyPresenceResult(fp, 'offline'));
-      if(btn) btn.classList.remove('spin');
-      return;
-    }
-    await _refreshPresenceViaWebRTC(fps, fpToPid, peer);
-    _releaseCheckPeer();
+  // Единственный метод: WebRTC-connect к парному ID контакта
+  let peer;
+  try{ peer = await _getCheckPeer(); }
+  catch(e){
+    fps.forEach(fp => _applyPresenceResult(fp, 'offline'));
+    if(btn) btn.classList.remove('spin');
+    return;
   }
+  await _refreshPresenceViaWebRTC(fps, fpToPid, peer);
+  _releaseCheckPeer();
 
   if(btn) btn.classList.remove('spin');
 
@@ -6482,7 +6761,11 @@ function _startPresenceHeartbeat(){
 function _stopPresenceHeartbeat(){
   if(_presenceHbTimer){ clearInterval(_presenceHbTimer); _presenceHbTimer = null; }
   _presenceHbRunning = false;
-  _presenceRestSupported = null; // сбрасываем кэш при остановке
+  // Останавливаем парные маяки при потере signaling
+  for(const [fp, peer] of _pairBeacons) {
+    safePeerDestroy(peer);
+  }
+  _pairBeacons.clear();
 }
 
 async function _presenceHeartbeatTick(){
@@ -6498,47 +6781,21 @@ async function _presenceHeartbeatTick(){
     const fps = Object.keys(contacts).filter(fp => !contacts[fp]._stranger && contacts[fp].pubKeyHex);
     if(!fps.length) return;
 
+    // Вычисляем парные ID — /peers закрыт, проверяем только через WebRTC
     const fpToPid = {};
     await Promise.all(fps.map(async fp => {
-      try{ fpToPid[fp] = await _fpToPid(contacts[fp].pubKeyHex); }catch(_){}
+      try{ fpToPid[fp] = await _fpToPairPid(contacts[fp].pubKeyHex); }catch(_){}
     }));
 
-    const srv = currentSrv();
-    if(!srv) return;
-    const url = buildServerUrl(srv, '/peers');
+    let checkPeer;
+    try{ checkPeer = await _getCheckPeer(); }
+    catch(e){ _dbgPush('warn', ['[presence] checkPeer: ' + e.message]); return; }
 
-    let res;
-    if(_presenceRestSupported === false){
-      res = { ok: false, status: 0 };
-    } else {
-      res = await fetchWithTimeout(url, 5000);
-      if(res.ok) _presenceRestSupported = true;
-      else if(res.status === 404) _presenceRestSupported = false;
-    }
-
-    let changed = false;
-
-    if(res.ok){
-      const onlinePidsList = await res.json();
-      const onlinePidsSet  = new Set(onlinePidsList);
-      const onlinePrefixes = new Set(onlinePidsList.map(p => p.replace(/-[a-z0-9]{4}$/, '')));
-      const pidOnline = pid => onlinePidsSet.has(pid) || onlinePrefixes.has(pid);
-      for(const fp of fps){
-        const pid = fpToPid[fp];
-        if(!pid) continue;
-        const newState = pidOnline(pid) ? 'online' : 'offline';
-        if(_presenceCache[fp] !== newState){ _applyPresenceResult(fp, newState); changed = true; }
-      }
-    } else {
-      let checkPeer;
-      try{ checkPeer = await _getCheckPeer(); }
-      catch(e){ _dbgPush('warn', ['[presence] checkPeer: ' + e.message]); return; }
-      const fpsWithPid = fps.filter(fp => fpToPid[fp]);
-      const cacheBefore = fpsWithPid.map(fp => _presenceCache[fp]);
-      await _refreshPresenceViaWebRTC(fpsWithPid, fpToPid, checkPeer);
-      _releaseCheckPeer();
-      changed = fpsWithPid.some((fp, i) => _presenceCache[fp] !== cacheBefore[i]);
-    }
+    const fpsWithPid = fps.filter(fp => fpToPid[fp]);
+    const cacheBefore = fpsWithPid.map(fp => _presenceCache[fp]);
+    await _refreshPresenceViaWebRTC(fpsWithPid, fpToPid, checkPeer);
+    _releaseCheckPeer();
+    const changed = fpsWithPid.some((fp, i) => _presenceCache[fp] !== cacheBefore[i]);
 
     if(changed) renderContacts();
 
@@ -7038,6 +7295,7 @@ async function importContact(){
   };
   await saveContacts(contacts);
   renderContacts();
+  _refreshPairBeacons(); // [FIX BUG10] создаём парный маяк для нового контакта
   toast('Контакт добавлен: ' + (payload.name || payload.fp.slice(0,12) + '...'));
   $('add-contact-form').style.display = 'none';
   $('add-contact-input').value = '';
@@ -7051,15 +7309,15 @@ function runWsDiag(){
   function log(line){ results.push(line); out.textContent = results.join('\n'); }
 
   // 1. HTTP доступность
-  log('1. HTTP → https://0.peerjs.com ...');
-  fetch('https://0.peerjs.com', {mode:'cors'})
+  log('1. HTTP → https://peerjs-server-lwcm.onrender.com ...');
+  fetch('https://peerjs-server-lwcm.onrender.com', {mode:'cors'})
     .then(r => log('   ✓ HTTP ответ: ' + r.status))
     .catch(e => log('   ✗ HTTP ошибка: ' + e.message));
 
   // 2. WebSocket напрямую
-  log('2. WebSocket → wss://0.peerjs.com ...');
+  log('2. WebSocket → wss://peerjs-server-lwcm.onrender.com ...');
   try{
-    const ws = new WebSocket('wss://0.peerjs.com/peerjs?key=peerjs&id=diag' + Math.random().toString(36).slice(2) + '&token=diag');
+    const ws = new WebSocket('wss://peerjs-server-lwcm.onrender.com/peerjs?key=peerjs&id=diag' + Math.random().toString(36).slice(2) + '&token=diag');
     const wsTimer = setTimeout(()=>{ log('   ✗ WebSocket таймаут (5с)'); ws.close(); }, 5000);
     ws.onopen = ()=>{ clearTimeout(wsTimer); log('   ✓ WebSocket открылся'); ws.close(); };
     ws.onerror = ()=>{ clearTimeout(wsTimer); log('   ✗ WebSocket ошибка соединения'); };
@@ -8910,6 +9168,19 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('').slice(0, 24);
   }
 
+  // Подписываем запрос к воркеру Ed25519 ключом пользователя
+  // message = произвольная строка (уникальная для каждого эндпоинта)
+  async function _signForWorker(message) {
+    if (!myPrivKey || !myPubKeyRaw) throw new Error('ключ не готов');
+    const ts = Math.floor(Date.now() / 1000);
+    const msg = new TextEncoder().encode(message.replace('{ts}', ts));
+    const sigBuf = await crypto.subtle.sign('Ed25519', myPrivKey, msg);
+    const sig = btoa(String.fromCharCode(...new Uint8Array(sigBuf)))
+      .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    const pubKeyHex = Array.from(myPubKeyRaw).map(b=>b.toString(16).padStart(2,'0')).join('');
+    return { sig, pubKeyHex, ts };
+  }
+
   // Подписаться на push через Cloudflare Worker
   window._ntfySubscribe = async function() {
     if (!PUSH_SERVER || PUSH_SERVER.includes('ВАШ')) return false;
@@ -8937,10 +9208,11 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
       });
 
       const fp  = await _pubHexToFp(myHex);
+      const authFields = await _signForWorker(`subscribe:${fp}:{ts}`);
       const res = await fetch(PUSH_SERVER + '/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fingerprint: fp, subscription: sub.toJSON(), pubKeyHex: myHex })
+        body: JSON.stringify({ fingerprint: fp, subscription: sub.toJSON(), ...authFields })
       });
       if (!res.ok) throw new Error('subscribe: ' + res.status);
 
@@ -9030,11 +9302,14 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     try {
       const fp = localStorage.getItem('_pushFp');
       if (fp) {
-        await fetch(PUSH_SERVER + '/push/unsubscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fingerprint: fp })
-        });
+        try {
+          const authFields = await _signForWorker(`unsubscribe:${fp}:{ts}`);
+          await fetch(PUSH_SERVER + '/push/unsubscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fingerprint: fp, ...authFields })
+          });
+        } catch(_) { /* подпись не удалась — всё равно чистим локально */ }
         localStorage.removeItem('_pushFp');
       }
       // Отменяем браузерную подписку
@@ -9044,6 +9319,268 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
       console.log('[push] отписка успешна');
     } catch(e) { console.warn('[push] unsubscribe error:', e); }
   };
+
+  // ════════════════════════════════════════════════════════════════════
+  // INVITE LINKS
+  // ════════════════════════════════════════════════════════════════════
+
+  // Подписать строку вида "invite:create:{ts}" нашим Ed25519 ключом
+  async function _signInvite(tpl) {
+    const ts = Math.floor(Date.now() / 1000);
+    const msg = new TextEncoder().encode(tpl.replace('{ts}', ts));
+    const sigBuf = await crypto.subtle.sign('Ed25519', myPrivKey, msg);
+    const sig = btoa(String.fromCharCode(...new Uint8Array(sigBuf)))
+      .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    const pubKeyHex = Array.from(myPubKeyRaw).map(b=>b.toString(16).padStart(2,'0')).join('');
+    return { sig, pubKeyHex, ts };
+  }
+
+  // Создать инвайт-ссылку (maxUses=0 → безлимит, expiresIn=0 → бессрочно)
+  window._createInvite = async function({ maxUses = 1, expiresIn = 604800, name } = {}) {
+    if (!myPrivKey) throw new Error('ключ не готов');
+    const auth = await _signInvite('invite:create:{ts}');
+    const myName = name || localStorage.getItem('_myName') || 'Пользователь';
+    const res = await fetch(PUSH_SERVER + '/invite/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ maxUses, expiresIn, name: myName, ...auth })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.status);
+    return data; // { ok, token, expiresAt, maxUses }
+  };
+
+  // Получить информацию о ссылке (публично, без авторизации)
+  window._getInviteInfo = async function(token) {
+    const res = await fetch(PUSH_SERVER + '/invite/' + encodeURIComponent(token));
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.status);
+    return data; // { ownerName, ownerPubHex, remaining, expiresAt }
+  };
+
+  // Использовать ссылку — добавить владельца в контакты
+  window._useInvite = async function(token) {
+    if (!myPrivKey) throw new Error('ключ не готов');
+    const auth = await _signInvite(`invite:use:${token}:{ts}`);
+    const myName = localStorage.getItem('_myName') || 'Пользователь';
+    const res = await fetch(PUSH_SERVER + '/invite/use', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, name: myName, ...auth })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.status);
+    // Сохраняем владельца в контакты
+    const { ownerPubHex, ownerName, alreadyUsed } = data;
+    const ownerFp = await _pubHexToFp(ownerPubHex);
+    if (!alreadyUsed) {
+      const contacts = await getContacts();
+      if (!contacts[ownerFp]) {
+        contacts[ownerFp] = { pubKeyHex: ownerPubHex, name: ownerName || 'Пользователь' };
+        await saveContacts(contacts);
+        renderContacts();
+      }
+    }
+    return { ownerFp, ownerPubHex, ownerName, alreadyUsed };
+  };
+
+  // Список своих ссылок
+  window._listInvites = async function() {
+    if (!myPrivKey) throw new Error('ключ не готов');
+    const auth = await _signInvite('invite:list:{ts}');
+    const res = await fetch(PUSH_SERVER + '/invite/list', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...auth })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.status);
+    return data.invites; // [{ token, createdAt, expiresAt, maxUses, usedCount }]
+  };
+
+  // Отозвать ссылку
+  window._revokeInvite = async function(token) {
+    if (!myPrivKey) throw new Error('ключ не готов');
+    const auth = await _signInvite(`invite:revoke:${token}:{ts}`);
+    const res = await fetch(PUSH_SERVER + '/invite/revoke', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, ...auth })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.status);
+    return data;
+  };
+
+  // Обработать входящий contact-request из push-уведомления
+  // Вызывается из SW при action='contact-request' или при открытии приложения с ?action=contact-request
+  window._handleContactRequest = async function({ requesterPubHex, name }) {
+    if (!requesterPubHex) return;
+    const fp = await _pubHexToFp(requesterPubHex);
+    const contacts = await getContacts();
+    if (contacts[fp]) return; // уже есть
+    const safeName = (name || 'Пользователь').slice(0, 64);
+    // Показываем диалог подтверждения
+    const ok = confirm(`👤 ${safeName} хочет добавиться в контакты.\nДобавить?`);
+    if (!ok) return;
+    contacts[fp] = { pubKeyHex: requesterPubHex, name: safeName };
+    await saveContacts(contacts);
+    renderContacts();
+    toast(`${safeName} добавлен в контакты ✓`);
+  };
+
+  // ── Invite UI ──────────────────────────────────────────────────────────────
+
+  // Создать ссылку и показать модалку с ней
+  window.inviteCreateAndShow = async function() {
+    const btn = document.getElementById('invite-create-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '...'; }
+    try {
+      const { token } = await _createInvite({ maxUses: 30, expiresIn: 604800 });
+      const link = location.origin + location.pathname + '?invite=' + token;
+      // Показываем модалку
+      let modal = document.getElementById('invite-modal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'invite-modal';
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+        modal.innerHTML = `
+          <div style="background:var(--bg2);border-radius:16px;padding:24px;max-width:360px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.4)">
+            <div style="font-size:15px;font-weight:700;margin-bottom:8px">Ссылка-приглашение</div>
+            <div style="font-size:11px;color:var(--mu);margin-bottom:14px">Действует 7 дней · до 30 использований</div>
+            <div id="invite-link-text" style="font-size:11px;word-break:break-all;background:var(--bg);padding:10px;border-radius:8px;border:1px solid var(--bd);color:var(--a);margin-bottom:14px"></div>
+            <div style="display:flex;gap:8px">
+              <button class="action-btn" style="flex:1" onclick="inviteCopyLink()">📋 скопировать</button>
+              <button class="action-btn" style="flex:1" onclick="inviteShare()">↗ поделиться</button>
+              <button class="action-btn" onclick="inviteCloseModal()" style="color:var(--mu);border-color:var(--bd)">✕</button>
+            </div>
+          </div>`;
+        document.body.appendChild(modal);
+        modal.addEventListener('click', e => { if (e.target === modal) inviteCloseModal(); });
+      }
+      document.getElementById('invite-link-text').textContent = link;
+      window._currentInviteLink = link;
+      modal.style.display = 'flex';
+      await _refreshInviteList();
+    } catch(e) {
+      toast('Ошибка: ' + e.message);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '+ создать ссылку'; }
+    }
+  };
+
+  window.inviteCopyLink = function() {
+    const link = window._currentInviteLink;
+    if (!link) return;
+    navigator.clipboard.writeText(link).then(() => toast('Ссылка скопирована ✓')).catch(() => {
+      // Fallback для Safari
+      const ta = document.createElement('textarea');
+      ta.value = link; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+      document.body.removeChild(ta); toast('Ссылка скопирована ✓');
+    });
+  };
+
+  window.inviteShare = function() {
+    const link = window._currentInviteLink;
+    if (!link) return;
+    if (navigator.share) {
+      navigator.share({ title: 'Tovsa', text: 'Добавь меня в Tovsa', url: link }).catch(()=>{});
+    } else {
+      inviteCopyLink();
+    }
+  };
+
+  window.inviteCloseModal = function() {
+    const modal = document.getElementById('invite-modal');
+    if (modal) modal.style.display = 'none';
+  };
+
+  // Список ссылок в настройках
+  async function _refreshInviteList() {
+    const wrap = document.getElementById('invite-list-wrap');
+    if (!wrap) return;
+    wrap.innerHTML = '<div style="font-size:11px;color:var(--mu);padding:6px 0">загрузка...</div>';
+    try {
+      const invites = await _listInvites();
+      if (!invites || !invites.length) {
+        wrap.innerHTML = '<div style="font-size:11px;color:var(--mu);padding:6px 0">нет активных ссылок</div>';
+        return;
+      }
+      const now = Math.floor(Date.now() / 1000);
+      wrap.innerHTML = invites.map(inv => {
+        const exp = inv.expiresAt > 0
+          ? new Date(inv.expiresAt * 1000).toLocaleDateString('ru', { day:'numeric', month:'short' })
+          : '∞';
+        const uses = inv.maxUses > 0
+          ? `${inv.usedCount}/${inv.maxUses}`
+          : `${inv.usedCount}/∞`;
+        const expired = inv.expiresAt > 0 && now > inv.expiresAt;
+        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bd)">
+          <div>
+            <span style="font-size:11px;font-family:monospace;color:var(--a)">${inv.token.slice(0,8)}…</span>
+            <span style="font-size:10px;color:var(--mu);margin-left:8px">${uses} · до ${exp}${expired ? ' (истекла)' : ''}</span>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="action-btn" style="padding:3px 8px;font-size:10px" onclick="inviteCopyToken('${inv.token}')">📋</button>
+            <button class="action-btn" style="padding:3px 8px;font-size:10px;color:var(--e);border-color:var(--e)" onclick="inviteRevoke('${inv.token}', this)">✕</button>
+          </div>
+        </div>`;
+      }).join('');
+    } catch(e) {
+      wrap.innerHTML = `<div style="font-size:11px;color:var(--e);padding:6px 0">${e.message}</div>`;
+    }
+  }
+
+  window.inviteCopyToken = function(token) {
+    const link = location.origin + location.pathname + '?invite=' + token;
+    navigator.clipboard.writeText(link).then(() => toast('Ссылка скопирована ✓')).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = link; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+      document.body.removeChild(ta); toast('Ссылка скопирована ✓');
+    });
+  };
+
+  window.inviteRevoke = async function(token, btn) {
+    if (!confirm('Отозвать эту ссылку?')) return;
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    try {
+      await _revokeInvite(token);
+      toast('Ссылка отозвана');
+      await _refreshInviteList();
+    } catch(e) {
+      toast('Ошибка: ' + e.message);
+      if (btn) { btn.disabled = false; btn.textContent = '✕'; }
+    }
+  };
+
+  // Обработка ?invite=TOKEN при открытии приложения
+  async function _checkInviteParam() {
+    const token = new URLSearchParams(location.search).get('invite');
+    if (!token) return;
+    history.replaceState(null, '', location.pathname); // убираем из URL
+    // Ждём инициализации ключей
+    let waited = 0;
+    while (!myPrivKey && waited < 5000) {
+      await new Promise(r => setTimeout(r, 200));
+      waited += 200;
+    }
+    if (!myPrivKey) { toast('Не удалось загрузить ключ'); return; }
+    try {
+      const info = await _getInviteInfo(token);
+      const ok = confirm(`👤 ${info.ownerName} приглашает вас в Tovsa.\nДобавить в контакты?`);
+      if (!ok) return;
+      const result = await _useInvite(token);
+      if (result.alreadyUsed) {
+        toast(`${result.ownerName} уже есть в контактах`);
+      } else {
+        toast(`${result.ownerName} добавлен в контакты ✓`);
+      }
+    } catch(e) {
+      toast('Ссылка недействительна: ' + e.message);
+    }
+  }
 
   // ── Notifications UI ───────────────────────────────────────────────────────
   function _updateNotifUI() {
@@ -9112,6 +9649,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
   document.addEventListener('DOMContentLoaded', () => {
     _updateNotifUI();
     _checkPersist();
+    _checkInviteParam();
     // Если initIdentity уже завершился (ключ в localStorage) — подписываемся
     if(localStorage.getItem('_myPubHex') &&
        'Notification' in window && Notification.permission === 'granted') {
@@ -9126,6 +9664,26 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     if(urlAction === 'open-chat'){
       history.replaceState(null, '', location.pathname);
       setTimeout(() => { if(typeof showTab === 'function') showTab('sc'); }, 500);
+    }
+    if(urlAction === 'contact-request'){
+      history.replaceState(null, '', location.pathname);
+      const pubHex = new URLSearchParams(location.search).get('pubHex') || '';
+      const cname  = new URLSearchParams(location.search).get('name')   || 'Пользователь';
+      if(pubHex) setTimeout(async () => {
+        // Ждём инициализации ключей и getContacts
+        let waited = 0;
+        while(typeof getContacts !== 'function' && waited < 5000){
+          await new Promise(r=>setTimeout(r,200)); waited+=200;
+        }
+        const fp = await _pubHexToFp(pubHex);
+        const contacts = await getContacts();
+        if(!contacts[fp]){
+          contacts[fp] = { pubKeyHex: pubHex, name: cname };
+          await saveContacts(contacts);
+          renderContacts();
+          toast(cname + ' добавлен в контакты ✓');
+        }
+      }, 1000);
     }
 
     // Обработка шорткатов PWA: ?tab=contacts, ?tab=connect
@@ -9472,6 +10030,22 @@ function _attachSwipeReply(el, text, sender, ts, fp){
   function getActiveScroller(){
     if(typeof activeTab === 'undefined') return null;
 
+    // Экран подключения — обновить NAT и переподключиться к signaling
+    if(activeTab === 'connect'){
+      const el = document.querySelector('#ss.on') || document.querySelector('#sr.on');
+      return {
+        el,
+        label: '↓ потяните чтобы переподключиться',
+        labelReady: '↑ отпустите',
+        labelDoing: 'переподключаемся...',
+        onRefresh: async () => {
+          if(typeof rerunAll === 'function') await rerunAll();
+          if(typeof sigConnect === 'function') sigConnect();
+          await new Promise(r => setTimeout(r, 1200));
+        }
+      };
+    }
+
     // Список контактов
     if(activeTab === 'contacts'){
       if(typeof contactsSubScreen === 'undefined') return null;
@@ -9506,7 +10080,8 @@ function _attachSwipeReply(el, text, sender, ts, fp){
   document.addEventListener('touchstart', e => {
     const info = getActiveScroller();
     if(!info) return;
-    if(info.el && info.el.scrollTop === 0){
+    const scrollTop = info.el ? info.el.scrollTop : 0;
+    if(scrollTop === 0){
       startY = e.touches[0].clientY;
       pulling = true;
     }
@@ -9520,8 +10095,11 @@ function _attachSwipeReply(el, text, sender, ts, fp){
       const h = Math.round(progress * 44);
       ptrEl.style.height = h + 'px';
       ptrEl.classList.toggle('visible', h > 10);
+      const info = getActiveScroller();
       document.getElementById('ptr-label').textContent =
-        dy >= THRESHOLD ? '↑ отпустите' : '↓ потяните чтобы обновить';
+        dy >= THRESHOLD
+          ? (info?.labelReady  || '↑ отпустите')
+          : (info?.label       || '↓ потяните чтобы обновить');
     }
   }, { passive: true });
 
@@ -9536,9 +10114,9 @@ function _attachSwipeReply(el, text, sender, ts, fp){
       vibrate(20);
       ptrEl.classList.add('visible', 'refreshing');
       document.getElementById('ptr-spinner').style.display = '';
-      document.getElementById('ptr-label').textContent = 'обновляем...';
-
       const info = getActiveScroller();
+      document.getElementById('ptr-label').textContent = info?.labelDoing || 'обновляем...';
+
       if(info) await info.onRefresh();
 
       ptrEl.classList.remove('visible', 'refreshing');
@@ -9554,6 +10132,34 @@ function _attachSwipeReply(el, text, sender, ts, fp){
 // END GESTURES MODULE
 // ══════════════════════════════════════════════════════════════════════════════
 })();
+</script>
+
+<script>
+// ── SLIDING PILL ──────────────────────────────────────────────────────────────
+function movePill(activeTabId){
+  const pill = document.getElementById('tab-pill');
+  const tabbar = document.getElementById('tabbar');
+  const tab = document.getElementById(activeTabId);
+  if(!pill || !tabbar || !tab) return;
+  const barRect = tabbar.getBoundingClientRect();
+  const tabRect = tab.getBoundingClientRect();
+  const left = tabRect.left - barRect.left;
+  pill.style.left = left + 'px';
+  pill.style.width = tabRect.width + 'px';
+}
+
+// Init pill position on load (after layout)
+requestAnimationFrame(()=>{
+  // find which tab has .act
+  const actTab = document.querySelector('.tabbar .tab.act');
+  if(actTab) movePill(actTab.id);
+});
+
+// Reposition pill on resize
+window.addEventListener('resize', ()=>{
+  const actTab = document.querySelector('.tabbar .tab.act');
+  if(actTab) movePill(actTab.id);
+});
 </script>
 
 <!-- Pin scope modal -->

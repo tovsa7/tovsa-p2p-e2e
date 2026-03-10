@@ -2897,7 +2897,7 @@ function buildServerUrl(srv, endpoint = '') {
 
 const RECONNECT_DELAYS_MS  = [1_000, 2_000, 5_000, 10_000, 30_000];
 const CALL_TIMEOUT_MS      = 30_000;
-const ICE_TIMEOUT_MS       = 10_000;
+const ICE_TIMEOUT_MS       = 3_000;  // должен быть меньше таймаута presence-проверки
 const DC_LABEL             = 'tovsa';
 
 class TovSaConn {
@@ -7207,7 +7207,7 @@ async function _refreshPresenceViaWebRTC(fps, fpToPid, checkPeer){
         return new Promise(resolve => {
           let done = false;
           let conn;
-          const timer = setTimeout(()=> finish('offline'), 5000);
+          const timer = setTimeout(()=> finish('offline'), 8000);
 
           function finish(result){
             if(done) return; done = true;
@@ -7370,6 +7370,7 @@ async function _presenceHeartbeatTick(){
   try{
     const contacts = await getContacts();
     const fps = Object.keys(contacts).filter(fp => !contacts[fp]._stranger && contacts[fp].pubKeyHex);
+    _dbgPush('log', ['[presence] hb tick fps=' + fps.length + ' myPubKeyHex=' + (myPubKeyHex?myPubKeyHex.slice(0,8):'EMPTY')]);
     if(!fps.length) return;
 
     // Вычисляем ID маяка каждого контакта (направленный: их маяк для нас)
@@ -7377,6 +7378,7 @@ async function _presenceHeartbeatTick(){
     await Promise.all(fps.map(async fp => {
       try{ fpToPid[fp] = await _fpToContactPairPid(contacts[fp].pubKeyHex); }catch(_){}
     }));
+    _dbgPush('log', ['[presence] fpToPid=' + JSON.stringify(Object.fromEntries(Object.entries(fpToPid).map(([k,v])=>[k.slice(0,8), v?v.slice(0,16):'null'])))]);
 
     let checkPeer;
     try{ checkPeer = await _getCheckPeer(); }

@@ -2965,20 +2965,29 @@ class TovSaSignaling {
       const ws = new WebSocket(this._url);
       this._ws = ws;
       ws.onopen = () => {
+        _dbgPush('info', ['[sig] onopen id=' + this._peerId.slice(0,16)]);
         // Fallback: если сервер не прислал HELLO_REQ за 3с — шлём HELLO сами.
-        // Это защита от рассинхронизации версий сервера и клиента.
         this._helloFallbackTimer = setTimeout(() => {
-          if (!this._open) this._wsSend({ type: 'HELLO', id: this._peerId, v: TovSaSignaling.PROTO_VERSION });
+          if (!this._open) {
+            _dbgPush('warn', ['[sig] fallback HELLO (no HELLO_REQ) id=' + this._peerId.slice(0,16)]);
+            this._wsSend({ type: 'HELLO', id: this._peerId, v: TovSaSignaling.PROTO_VERSION });
+          }
         }, 3000);
       };
-      ws.onmessage = (e) => { let msg; try { msg = JSON.parse(e.data); } catch { return; } this._handleMsg(msg).catch(err => this._onError(err)); };
-      ws.onclose = () => {
+      ws.onmessage = (e) => {
+        let msg; try { msg = JSON.parse(e.data); } catch { return; }
+        if (msg.type !== 'PING' && msg.type !== 'PONG')
+          _dbgPush('log', ['[sig] ← ' + msg.type + ' id=' + this._peerId.slice(0,16)]);
+        this._handleMsg(msg).catch(err => this._onError(err));
+      };
+      ws.onclose = (ev) => {
+        _dbgPush('warn', ['[sig] close code=' + ev.code + ' id=' + this._peerId.slice(0,16)]);
         this._open = false; this._ws = null;
         for (const [, p] of this._pending) { clearTimeout(p.timer); p.reject(new Error('Signaling disconnected')); }
         this._pending.clear();
         if (!this._destroyed) { this._onClose(); this._scheduleReconnect(); }
       };
-      ws.onerror = () => {};
+      ws.onerror = () => { _dbgPush('error', ['[sig] ws error id=' + this._peerId.slice(0,16)]); };
     } catch(_) { if (!this._destroyed) this._scheduleReconnect(); }
   }
   _scheduleReconnect() {

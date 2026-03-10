@@ -4,13 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <!--
-  FIX CSP: Content-Security-Policy ограничивает допустимые источники ресурсов.
+  CSP: Content-Security-Policy ограничивает допустимые источники ресурсов.
   Примечания:
   - 'unsafe-inline' для style нужен для динамических стилей (toast, status badges)
-  - blob: в connect-src нужен для WebRTC DataChannel и PeerJS
-  - wss: в connect-src для WebSocket сигналинга
+  - blob: в connect-src нужен для WebRTC DataChannel
+  - wss: в connect-src для WebSocket сигналинга (кастомный протокол, без PeerJS)
   - fonts.googleapis.com / fonts.gstatic.com — для JetBrains Mono
-  - cdnjs.cloudflare.com — для PeerJS
+  - cdnjs.cloudflare.com — только для QRCode (PeerJS удалён, сигналинг встроен)
   Если используется самохостинг с другим доменом — обновить signaling.tovsa.deno.net
 -->
 <meta http-equiv="Content-Security-Policy" content="
@@ -2864,6 +2864,8 @@ async function fetchWithTimeout(url, ms) {
   return fetch(url, { signal: AbortSignal.timeout ? AbortSignal.timeout(ms) : undefined });
 }
 
+// buildPeerConfig — не используется для нового сигналинга (заменён buildWsUrl).
+// Оставлен на случай других вызовов.
 function buildPeerConfig(srv) {
   return { host: srv.host, port: srv.port, path: srv.path, secure: srv.secure, debug: 0 };
 }
@@ -2877,185 +2879,393 @@ function buildServerUrl(srv, endpoint = '') {
   return `${proto}://${srv.host}${port}${path}${endpoint}`;
 }
 
-// ── Аутентификация пира на signaling-сервере (Ed25519 challenge-response) ──────
-// Сервер шлёт { type: "CHALLENGE", payload: { nonce } } вместо OPEN.
-// Мы подписываем "tovsa-auth:{nonce}:{peerId}" своим Ed25519 ключом и отвечаем AUTH.
-// Сервер проверяет подпись + соответствие peer ID ключу → шлёт OPEN → PeerJS эмитит 'open'.
-// Анонимные ID (chk-, grp-pchk-, diag-, grpv2_, fpvpp-) — сервер шлёт OPEN сразу.
-//
-// Везде вместо new Peer(id, cfg) используем createAuthPeer(id, cfg).
-// Возвращает тот же Peer-объект; вся логика .on('open'/'error') не меняется.
-async function _signAuthChallenge(nonce, peerId) {
-  if (!myPrivKey || !myPubKeyRaw) throw new Error('Identity not ready');
-  const message = new TextEncoder().encode('tovsa-auth:' + nonce + ':' + peerId);
-  const sig = new Uint8Array(await crypto.subtle.sign('Ed25519', myPrivKey, message));
-  const payload = { pub: Array.from(myPubKeyRaw), sig: Array.from(sig) };
-  // Для grpv2_*_{24hex} передаём sessionSalt — сервер верифицирует эфемерный суффикс
+// ══════════════════════════════════════════════════════════════════════════════
+// TovSaSignaling — кастомный сигналинг без PeerJS
+// (полный код класса; заменяет PeerJS + cdnjs зависимость)
+// ══════════════════════════════════════════════════════════════════════════════
+
+const RECONNECT_DELAYS_MS  = [1_000, 2_000, 5_000, 10_000, 30_000];
+const CALL_TIMEOUT_MS      = 30_000;
+const ICE_TIMEOUT_MS       = 10_000;
+const DC_LABEL             = 'tovsa';
+
+class TovSaConn {
+  constructor(peerId, pc) { this.peerId = peerId; this._pc = pc; this._dc = null; this._listeners = new Map(); this._open = false; this._closed = false; }
+  on(event, handler) { if (!this._listeners.has(event)) this._listeners.set(event, []); this._listeners.get(event).push(handler); return this; }
+  _emit(event, ...args) { for (const h of this._listeners.get(event) ?? []) { try { h(...args); } catch(e) { console.error('[TovSaConn]', e); } } }
+  _attachDc(dc) {
+    this._dc = dc; dc.binaryType = 'arraybuffer';
+    dc.onopen  = () => { this._open = true;  this._emit('open'); };
+    dc.onclose = () => { this._open = false; if (!this._closed) { this._closed = true; this._emit('close'); } };
+    dc.onerror = (e) => this._emit('error', e);
+    dc.onmessage = (e) => this._emit('data', e.data);
+  }
+  send(data) { if (!this._open || !this._dc) throw new Error('Connection not open'); this._dc.send(data); }
+  close() { if (this._closed) return; this._closed = true; try { this._dc?.close(); } catch(_){} try { this._pc.close(); } catch(_){} this._emit('close'); }
+  get open()   { return this._open; }
+  get closed() { return this._closed; }
+}
+
+class TovSaSignaling {
+  constructor(opts) {
+    this._url = opts.url; this._peerId = opts.peerId; this._privKey = opts.privKey;
+    this._pubKey = opts.pubKey; this._iceServers = opts.iceServers ?? []; this._salt = opts.salt;
+    this._onPeer  = opts.onPeer  ?? (() => {}); this._onOpen  = opts.onOpen  ?? (() => {});
+    this._onClose = opts.onClose ?? (() => {}); this._onError = opts.onError ?? (() => {});
+    this._ws = null; this._open = false; this._destroyed = false;
+    this._reconnectIdx = 0; this._reconnTimer = null;
+    this._pending = new Map(); this._pcs = new Map();
+  }
+  async connect() { if (this._destroyed) throw new Error('Signaling destroyed'); this._doConnect(); }
+  async call(remotePeerId) {
+    if (!this._open) throw new Error('Not connected to signaling server');
+    if (this._pcs.has(remotePeerId)) throw new Error(`Already connecting to ${remotePeerId}`);
+    const { pc, conn } = this._createPc(remotePeerId);
+    const dc = pc.createDataChannel(DC_LABEL, { ordered: true });
+    conn._attachDc(dc);
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await this._waitIce(remotePeerId);
+    this._sendRelay(remotePeerId, 'offer', pc.localDescription);
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this._pending.delete(remotePeerId); this._cleanupPc(remotePeerId);
+        reject(new Error(`call() timeout for ${remotePeerId}`));
+      }, CALL_TIMEOUT_MS);
+      this._pending.set(remotePeerId, { resolve, reject, timer });
+    });
+  }
+  destroy() {
+    this._destroyed = true;
+    if (this._reconnTimer !== null) clearTimeout(this._reconnTimer);
+    for (const [pid] of this._pcs) this._cleanupPc(pid);
+    this._ws?.close(); this._ws = null;
+  }
+  queryPresence(reqId, ids) { if (!this._open) return; this._wsSend({ type: 'PRESENCE', reqId, ids }); }
+  get connected() { return this._open; }
+
+  _doConnect() {
+    if (this._destroyed) return;
+    try {
+      const ws = new WebSocket(`${this._url}?id=${encodeURIComponent(this._peerId)}`);
+      this._ws = ws;
+      ws.onopen = () => {};
+      ws.onmessage = (e) => { let msg; try { msg = JSON.parse(e.data); } catch { return; } this._handleMsg(msg); };
+      ws.onclose = () => {
+        this._open = false; this._ws = null;
+        for (const [, p] of this._pending) { clearTimeout(p.timer); p.reject(new Error('Signaling disconnected')); }
+        this._pending.clear();
+        if (!this._destroyed) { this._onClose(); this._scheduleReconnect(); }
+      };
+      ws.onerror = () => {};
+    } catch(_) { if (!this._destroyed) this._scheduleReconnect(); }
+  }
+  _scheduleReconnect() {
+    if (this._destroyed) return;
+    const delay = RECONNECT_DELAYS_MS[Math.min(this._reconnectIdx, RECONNECT_DELAYS_MS.length - 1)];
+    this._reconnectIdx++;
+    this._reconnTimer = setTimeout(() => this._doConnect(), delay);
+  }
+  async _handleMsg(msg) {
+    switch (msg.type) {
+      case 'CHALLENGE': await this._respondChallenge(msg.nonce); break;
+      case 'OPEN': this._open = true; this._reconnectIdx = 0; this._onOpen(); break;
+      case 'ERR': {
+        const FATAL = new Set([4000, 4001, 4002, 4003, 4004]);
+        if (FATAL.has(msg.code)) this._destroyed = true;
+        this._onError(new Error(`[${msg.code}] ${msg.msg}`));
+        break;
+      }
+      case 'PING': this._wsSend({ type: 'PONG' }); break;
+      case 'PONG': break;
+      case 'PRESENCE-RESULT':
+        window.dispatchEvent(new CustomEvent('tovsa-presence-result', { detail: msg }));
+        break;
+      case 'RELAY': await this._handleRelay(msg.from, msg.kind, msg.data); break;
+    }
+  }
+  async _respondChallenge(nonce) {
+    const message  = new TextEncoder().encode(`tovsa-auth:${nonce}:${this._peerId}`);
+    const sigBytes = await crypto.subtle.sign('Ed25519', this._privKey, message);
+    const payload  = { type: 'AUTH', pub: Array.from(this._pubKey), sig: Array.from(new Uint8Array(sigBytes)) };
+    if (this._salt) payload.salt = this._salt;
+    this._wsSend(payload);
+  }
+  _createPc(remotePeerId) {
+    const pc = new RTCPeerConnection({ iceServers: this._iceServers });
+    const conn = new TovSaConn(remotePeerId, pc);
+    this._pcs.set(remotePeerId, { pc, conn });
+    pc.ondatachannel = (e) => { if (e.channel.label === DC_LABEL) conn._attachDc(e.channel); };
+    pc.oniceconnectionstatechange = () => { const s = pc.iceConnectionState; if (s === 'failed' || s === 'closed') this._cleanupPc(remotePeerId); };
+    pc.onconnectionstatechange   = () => { if (pc.connectionState === 'failed') this._cleanupPc(remotePeerId); };
+    return { pc, conn };
+  }
+  _waitIce(remotePeerId) {
+    const state = this._pcs.get(remotePeerId);
+    if (!state) return Promise.resolve();
+    const pc = state.pc;
+    if (pc.iceGatheringState === 'complete') return Promise.resolve();
+    return new Promise((resolve) => {
+      const done = () => { clearTimeout(timer); resolve(); };
+      const timer = setTimeout(done, ICE_TIMEOUT_MS);
+      pc.onicegatheringstatechange = () => { if (pc.iceGatheringState === 'complete') done(); };
+    });
+  }
+  _cleanupPc(remotePeerId) {
+    const state = this._pcs.get(remotePeerId);
+    if (!state) return;
+    try { state.pc.close(); } catch(_) {}
+    this._pcs.delete(remotePeerId);
+    const pending = this._pending.get(remotePeerId);
+    if (pending) { clearTimeout(pending.timer); pending.reject(new Error(`Connection to ${remotePeerId} closed`)); this._pending.delete(remotePeerId); }
+  }
+  async _handleRelay(from, kind, data) {
+    switch (kind) {
+      case 'offer':  await this._handleOffer(from, data);  break;
+      case 'answer': await this._handleAnswer(from, data); break;
+      case 'ice':    await this._handleIce(from, data);    break; // зарезервировано для trickle ICE
+      case 'leave':  this._cleanupPc(from);                break;
+    }
+  }
+  async _handleOffer(from, sdp) {
+    if (this._pcs.has(from)) this._cleanupPc(from);
+    const { pc, conn } = this._createPc(from);
+    await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    await this._waitIce(from);
+    this._sendRelay(from, 'answer', pc.localDescription);
+    this._onPeer(conn);
+  }
+  async _handleAnswer(from, sdp) {
+    const state = this._pcs.get(from);
+    if (!state) return;
+    await state.pc.setRemoteDescription(new RTCSessionDescription(sdp));
+    const pending = this._pending.get(from);
+    if (pending) { clearTimeout(pending.timer); pending.resolve(state.conn); this._pending.delete(from); }
+  }
+  async _handleIce(from, candidate) {
+    const state = this._pcs.get(from);
+    if (!state) return;
+    try { await state.pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch(_) {}
+  }
+  _sendRelay(to, kind, data) { this._wsSend({ type: 'RELAY', to, kind, data }); }
+  _wsSend(msg) { if (this._ws?.readyState === WebSocket.OPEN) { try { this._ws.send(JSON.stringify(msg)); } catch(_) {} } }
+}
+
+// ── PeerJS-совместимый шим поверх TovSaSignaling ─────────────────────────────
+// FakeConn и FakePeer воспроизводят API DataConnection и Peer из PeerJS.
+// Весь остальной код приложения остаётся нетронутым.
+
+/** WS URL сервера из конфига (аналог buildPeerConfig для нового протокола) */
+function buildWsUrl(srv) {
+  const proto = srv.secure ? 'wss' : 'ws';
+  const isDefault = (srv.secure && srv.port === 443) || (!srv.secure && srv.port === 80);
+  return `${proto}://${srv.host}${isDefault ? '' : ':' + srv.port}/signal`;
+}
+
+/**
+ * FakeConn — аналог PeerJS DataConnection.
+ * Создаётся синхронно в connect(); 'open' эмитируется когда TovSaConn готов.
+ */
+class FakeConn {
+  constructor(peerId) {
+    this.peer = peerId; // ← PeerJS-совместимое имя поля
+    this._listeners = new Map();
+    this._open = false;
+    this._closed = false;
+    this._innerConn = null;
+  }
+  on(event, handler) {
+    if (!this._listeners.has(event)) this._listeners.set(event, []);
+    this._listeners.get(event).push(handler);
+    return this;
+  }
+  off(event, handler) {
+    const arr = this._listeners.get(event);
+    if (arr) { const i = arr.indexOf(handler); if (i !== -1) arr.splice(i, 1); }
+    return this;
+  }
+  _emit(event, ...args) {
+    for (const h of this._listeners.get(event) ?? []) {
+      try { h(...args); } catch(e) { console.error('[FakeConn]', e); }
+    }
+  }
+  /** Связывает FakeConn с реальным TovSaConn после установки соединения */
+  _bind(innerConn) {
+    this._innerConn = innerConn;
+    // Входящие данные: строки→JSON.parse (PeerJS всегда десериализовал объекты)
+    innerConn.on('data', raw => {
+      let parsed = raw;
+      if (typeof raw === 'string') { try { parsed = JSON.parse(raw); } catch(_) {} }
+      this._emit('data', parsed);
+    });
+    innerConn.on('close', () => { this._open = false; this._closed = true; this._emit('close'); });
+    innerConn.on('error', e  => this._emit('error', e));
+  }
+  send(data) {
+    if (!this._innerConn || !this._open) return;
+    // PeerJS отправлял объекты напрямую; новый протокол требует строки
+    const raw = typeof data === 'string' ? data : JSON.stringify(data);
+    this._innerConn.send(raw);
+  }
+  close() {
+    if (this._closed) return;
+    this._closed = true; this._open = false;
+    try { this._innerConn?.close(); } catch(_) {}
+    this._emit('close');
+  }
+  get open()   { return this._open; }
+  get closed() { return this._closed; }
+}
+
+/**
+ * FakePeer — аналог PeerJS Peer.
+ * Оборачивает TovSaSignaling, сохраняя события 'open'/'connection'/'error'/'disconnected'/'close'.
+ */
+class FakePeer {
+  constructor(peerId, wsUrl, opts = {}) {
+    this._listeners = new Map();
+    this._destroyed = false;
+    this.connections = {}; // peerId → FakeConn[]  (для _getPeerCount)
+
+    this._sig = new TovSaSignaling({
+      url:        wsUrl,
+      peerId,
+      privKey:    opts.privKey,
+      pubKey:     opts.pubKey,
+      salt:       opts.salt,
+      iceServers: opts.iceServers ?? [],
+      onOpen:  () => this._emit('open'),
+      onClose: () => { if (!this._destroyed) this._emit('disconnected'); },
+      onError: (err) => {
+        const msg = err.message || '';
+        let type = 'network';
+        if      (msg.includes('4001')) type = 'unavailable-id';
+        else if (msg.includes('4003') || msg.includes('4004')) type = 'auth-failed';
+        else if (msg.includes('4000')) type = 'invalid-id';
+        else if (msg.includes('4002')) type = 'server-error';
+        this._emit('error', Object.assign(new Error(msg), { type }));
+      },
+      onPeer: (innerConn) => {
+        const fake = new FakeConn(innerConn.peerId);
+        fake._bind(innerConn);
+        if (!this.connections[innerConn.peerId]) this.connections[innerConn.peerId] = [];
+        this.connections[innerConn.peerId].push(fake);
+        fake.on('close', () => {
+          const arr = this.connections[innerConn.peerId];
+          if (arr) { const i = arr.indexOf(fake); if (i !== -1) arr.splice(i, 1); }
+        });
+        // 'connection' сначала, 'open' — в следующем микрозадании
+        // (чтобы обработчики внутри 'connection' успели зарегистрироваться)
+        this._emit('connection', fake);
+        Promise.resolve().then(() => { if (!fake._closed) { fake._open = true; fake._emit('open'); } });
+      },
+    });
+
+    // Хук для UI: сигнал что идёт аутентификация (устанавливается снаружи как p._onAuthStart)
+    const origRC = this._sig._respondChallenge.bind(this._sig);
+    this._sig._respondChallenge = (nonce) => {
+      if (typeof this._onAuthStart === 'function') this._onAuthStart();
+      return origRC(nonce);
+    };
+
+    this._sig.connect();
+  }
+
+  on(event, handler) {
+    if (!this._listeners.has(event)) this._listeners.set(event, []);
+    this._listeners.get(event).push(handler);
+    return this;
+  }
+  off(event, handler) {
+    const arr = this._listeners.get(event);
+    if (arr) { const i = arr.indexOf(handler); if (i !== -1) arr.splice(i, 1); }
+    return this;
+  }
+  _emit(event, ...args) {
+    for (const h of this._listeners.get(event) ?? []) {
+      try { h(...args); } catch(e) { console.error('[FakePeer]', e); }
+    }
+  }
+
+  /**
+   * Синхронный аналог PeerJS peer.connect().
+   * FakeConn возвращается немедленно; 'open' эмитируется когда WebRTC DataChannel готов.
+   */
+  connect(remotePeerId) {
+    const fake = new FakeConn(remotePeerId);
+    if (!this.connections[remotePeerId]) this.connections[remotePeerId] = [];
+    this.connections[remotePeerId].push(fake);
+
+    this._sig.call(remotePeerId).then(innerConn => {
+      if (fake._closed) { innerConn.close(); return; }
+      fake._bind(innerConn);
+      fake._open = true;
+      fake._emit('open');
+    }).catch(err => {
+      const arr = this.connections[remotePeerId];
+      if (arr) { const i = arr.indexOf(fake); if (i !== -1) arr.splice(i, 1); }
+      // Маппируем в peer-unavailable — PeerJS использовал именно этот тип
+      const msg = `Could not connect to peer ${remotePeerId}`;
+      this._emit('error', Object.assign(new Error(msg), { type: 'peer-unavailable', message: msg }));
+    });
+
+    return fake;
+  }
+
+  /** Отправить PRESENCE-запрос через WS маяка (используется _wsPresenceQuery) */
+  queryPresence(reqId, ids) { this._sig.queryPresence(reqId, ids); }
+
+  destroy() {
+    if (this._destroyed) return;
+    this._destroyed = true;
+    this._sig.destroy();
+    this._emit('close');
+  }
+  reconnect() { /* TovSaSignaling реконнектится автоматически — ничего не делаем */ }
+  get destroyed() { return this._destroyed; }
+  /** PeerJS-совместимый геттер: true если WS-соединение с сервером открыто */
+  get open() { return this._sig._open; }
+}
+
+/** Создать аутентифицированный пир — замена new Peer(peerId, cfg) */
+function createAuthPeer(peerId, _cfg) {
+  // _cfg (buildPeerConfig) больше не нужен — WS URL строим из currentSrv()
+  const srv = currentSrv();
+  const wsUrl = buildWsUrl(srv);
+
+  // grpv2_CODE_{24hex} — требует sessionSalt для верификации эфемерного суффикса
+  let salt;
   if (peerId.startsWith('grpv2_')) {
     const lastU = peerId.lastIndexOf('_');
     const suffix = peerId.slice(lastU + 1);
-    if (suffix.length === 24 && /^[0-9a-f]{24}$/.test(suffix)) {
-      payload.salt = SESSION_SALT;
-    }
+    if (suffix.length === 24 && /^[0-9a-f]{24}$/.test(suffix)) salt = SESSION_SALT;
   }
-  return payload;
+
+  return new FakePeer(peerId, wsUrl, {
+    privKey:    myPrivKey,
+    pubKey:     myPubKeyRaw,
+    salt,
+    iceServers: getIce(),
+  });
 }
 
-function createAuthPeer(peerId, cfg) {
-  const p = new Peer(peerId, cfg);
-
-  // peer.socket создаётся синхронно в конструкторе PeerJS и доступен сразу.
-  // Если недоступен (Render / старый сервер без auth) — OPEN придёт штатно без нас.
-  const sock = p.socket;
-  if (!sock) return p;
-
-  const _origEmitIncoming = sock.emit.bind(sock);
-  let _authHandled = false;
-
-  // ── Перехват входящих: CHALLENGE / AUTH-FAIL ──
-  sock.emit = function(event, ...args) {
-    if (event === 'message' && !_authHandled) {
-      const msg = args[0];
-      if (msg && msg.type === 'CHALLENGE' && msg.payload && msg.payload.nonce) {
-        _authHandled = true;
-        sock.emit = _origEmitIncoming; // дальнейшие входящие идут штатно
-        // Сообщаем UI что идёт аутентификация — хук устанавливается при _beaconConnect
-        if (typeof p._onAuthStart === 'function') p._onAuthStart();
-        const { nonce } = msg.payload;
-        _signAuthChallenge(nonce, peerId).then(payload => {
-          try { sock.send({ type: 'AUTH', payload }); }
-          catch(e) {
-            p.emit('error', Object.assign(new Error('auth-send-failed'), { type: 'auth-send-failed' }));
-          }
-        }).catch(() => {
-          p.emit('error', Object.assign(new Error('auth-sign-failed'), { type: 'auth-sign-failed' }));
-        });
-        return; // CHALLENGE не передаём в PeerJS
-      }
-      if (msg && msg.type === 'AUTH-FAIL') {
-        sock.emit = _origEmitIncoming;
-        p.emit('error', Object.assign(new Error('auth-failed'), { type: 'auth-failed' }));
-        return;
-      }
-      // ── PRESENCE-RESULT: ответ сервера на PRESENCE-QUERY ──
-      if (msg && msg.type === 'PRESENCE-RESULT') {
-        _handlePresenceResult(msg);
-        return; // не передаём в PeerJS — он не знает этот тип
-      }
-      // ── Верификация входящих OFFER/ANSWER ──
-      if (msg && (msg.type === 'OFFER' || msg.type === 'ANSWER')) {
-        _verifyRelayMsg(msg).then(ok => {
-          if (!ok) {
-            console.warn('[relay] signature verification FAILED for', msg.type, 'from', msg.src);
-            // Отклоняем — не передаём в PeerJS
-            return;
-          }
-          _origEmitIncoming(event, ...args);
-        }).catch(() => {
-          // При ошибке верификации — принимаем (graceful degradation)
-          _origEmitIncoming(event, ...args);
-        });
-        return; // асинхронная проверка — задерживаем оригинальный emit
-      }
-    }
-    return _origEmitIncoming(event, ...args);
-  };
-
-  // ── Перехват исходящих: подписываем OFFER/ANSWER ──
-  const _origSend = sock.send.bind(sock);
-  sock.send = function(msg) {
-    if (msg && (msg.type === 'OFFER' || msg.type === 'ANSWER')) {
-      // Подписываем асинхронно, затем шлём
-      _signRelayMsg(msg).then(() => _origSend(msg)).catch(() => _origSend(msg));
-      return;
-    }
-    return _origSend(msg);
-  };
-
-  return p;
-}
-
-
-
-// ── Signed relay: верификация OFFER/ANSWER независимо от сервера ──────────────
-// Отправитель подписывает исходящие OFFER и ANSWER своим Ed25519 ключом.
-// Получатель верифицирует подпись через публичный ключ, включённый в сообщение.
-// Это гарантирует что OFFER/ANSWER пришли от владельца указанного peer ID,
-// даже если signaling-сервер скомпрометирован.
-//
-// CANDIDATE не подписываются: подмена ICE не позволяет расшифровать E2E-данные.
-
-const RELAY_SIGN_TYPES = new Set(['OFFER', 'ANSWER']);
-const RELAY_SIG_WINDOW = 60; // секунд — допустимое расхождение часов
-
-/**
- * Подписывает исходящее relay-сообщение.
- * Добавляет поля _ts, _pub, _sig в объект (мутирует).
- */
-async function _signRelayMsg(msg) {
-  if (!myPrivKey || !myPubKeyRaw) return; // ключи ещё не готовы — пропускаем
-  if (!RELAY_SIGN_TYPES.has(msg.type)) return; // подписываем только OFFER и ANSWER
-  const ts = Math.floor(Date.now() / 1000);
-  const text = `tovsa-relay:${msg.type}:${msg.src || ''}:${msg.dst || ''}:${ts}`;
-  const sigBytes = new Uint8Array(
-    await crypto.subtle.sign('Ed25519', myPrivKey, new TextEncoder().encode(text))
-  );
-  msg._ts  = ts;
-  msg._pub = Array.from(myPubKeyRaw);
-  msg._sig = Array.from(sigBytes);
-}
-
-/**
- * Верифицирует входящее relay-сообщение.
- * Возвращает true если подпись верна или тип не требует проверки.
- * Возвращает false если подпись неверна / истекла / pub не соответствует src.
- */
-async function _verifyRelayMsg(msg) {
-  if (!RELAY_SIGN_TYPES.has(msg.type)) return true; // CANDIDATE и прочие — пропускаем
-  // Если поля подписи отсутствуют — сообщение от Render или старого сервера
-  // В этом случае принимаем (graceful degradation), но логируем предупреждение
-  if (msg._ts === undefined || !msg._pub || !msg._sig) {
-    console.warn('[relay] unsigned', msg.type, 'from', msg.src, '— server may not support signed relay');
-    return true;
-  }
-  const now = Math.floor(Date.now() / 1000);
-  if (Math.abs(now - msg._ts) > RELAY_SIG_WINDOW) return false; // replay / clock skew
-
-  const pubKeyRaw = new Uint8Array(msg._pub);
-  const sigBytes  = new Uint8Array(msg._sig);
-  if (pubKeyRaw.length !== 32 || sigBytes.length !== 64) return false;
-
-  // Проверяем что pubKey соответствует src peer ID
-  const srcId = msg.src || '';
-  const hash    = await crypto.subtle.digest('SHA-256', pubKeyRaw);
-  const hashHex = Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
-  let idOk = false;
-  if (srcId.startsWith('fpvp-')) {
-    idOk = hashHex.startsWith(srcId.slice(5, 5 + 48));
-  } else if (srcId.startsWith('grpv2_')) {
-    const lastU = srcId.lastIndexOf('_');
-    const suffix = srcId.slice(lastU + 1);
-    idOk = (suffix.length === 24 && /^[0-9a-f]{24}$/.test(suffix))
-      ? hashHex.startsWith(suffix)
-      : true; // rv/rvt — анонимные, pubKey не привязан → принимаем
-  } else {
-    idOk = true; // анонимный тип — не проверяем
-  }
-  if (!idOk) return false;
-
-  const text = `tovsa-relay:${msg.type}:${srcId}:${msg.dst || ''}:${msg._ts}`;
-  try {
-    const pubKey = await crypto.subtle.importKey('raw', pubKeyRaw, {name:'Ed25519'}, false, ['verify']);
-    return await crypto.subtle.verify('Ed25519', pubKey, sigBytes, new TextEncoder().encode(text));
-  } catch(_) { return false; }
-}
-
-
-// ── WS Presence Query: проверка присутствия через существующий WS маяка ────────
-// Presence-запросы идут через WS-фрейм — не видны в access logs (в отличие от HTTP).
-// Используется вместо GET /peers?ids= для группового присутствия.
+// ── WS Presence Query: проверка присутствия через WS маяка ────────────────────
+// Presence-запросы идут через WS-фрейм — не видны в access logs.
 
 const _presenceWsCallbacks = new Map(); // reqId → { resolve, timer }
+
+// PRESENCE-RESULT от TovSaSignaling приходит через CustomEvent
+window.addEventListener('tovsa-presence-result', e => {
+  const msg = e.detail;
+  if (!msg || typeof msg.reqId !== 'string') return;
+  const cb = _presenceWsCallbacks.get(msg.reqId);
+  if (!cb) return;
+  clearTimeout(cb.timer);
+  _presenceWsCallbacks.delete(msg.reqId);
+  cb.resolve(Array.isArray(msg.online) ? msg.online : []);
+});
 
 /**
  * Запрашивает у сервера какие из ids сейчас online.
@@ -3064,8 +3274,6 @@ const _presenceWsCallbacks = new Map(); // reqId → { resolve, timer }
  */
 async function _wsPresenceQuery(ids, timeoutMs = 5000) {
   if (!_presencePeer || _presencePeer.destroyed) return null;
-  const sock = _presencePeer.socket;
-  if (!sock) return null;
 
   const reqId = Math.random().toString(36).slice(2, 14);
   return new Promise(resolve => {
@@ -3075,24 +3283,13 @@ async function _wsPresenceQuery(ids, timeoutMs = 5000) {
     }, timeoutMs);
     _presenceWsCallbacks.set(reqId, { resolve, timer });
     try {
-      sock.send({ type: 'PRESENCE-QUERY', payload: { reqId, ids } });
+      _presencePeer.queryPresence(reqId, ids);
     } catch(_) {
       clearTimeout(timer);
       _presenceWsCallbacks.delete(reqId);
       resolve(null);
     }
   });
-}
-
-/** Вызывается из обработчика входящих WS сообщений маяка */
-function _handlePresenceResult(msg) {
-  const p = msg.payload;
-  if (!p || typeof p.reqId !== 'string') return;
-  const cb = _presenceWsCallbacks.get(p.reqId);
-  if (!cb) return;
-  clearTimeout(cb.timer);
-  _presenceWsCallbacks.delete(p.reqId);
-  cb.resolve(Array.isArray(p.online) ? p.online : []);
 }
 
 // Безопасное уничтожение PeerJS-объекта (peer или conn)
@@ -6597,14 +6794,12 @@ function initMasterPeer(){
     _setSrvRow(idx, 'spin', ''); _beaconConnect(ctx);
   };
 
-  if(typeof Peer !== 'undefined'){
+  if(typeof TovSaSignaling !== 'undefined'){
     start();
   } else {
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js';
-    s.onload  = start;
-    s.onerror = ()=> ctx.fail('peerjs-load-failed');
-    document.head.appendChild(s);
+    // TovSaSignaling должен быть определён inline — этот блок не должен достигаться
+    console.error('[tovsa] TovSaSignaling не найден');
+    ctx.fail('signaling-not-loaded');
   }
 }
 
@@ -7652,27 +7847,19 @@ function runWsDiag(){
     .then(r => log('   ✓ HTTP ответ: ' + r.status))
     .catch(e => log('   ✗ HTTP ошибка: ' + e.message));
 
-  // 2. WebSocket напрямую
-  log('2. WebSocket → wss://' + _srvHost + ' ...');
+  // 2. WebSocket напрямую (новый протокол /signal)
+  log('2. WebSocket → wss://' + _srvHost + '/signal ...');
   try{
-    const ws = new WebSocket('wss://' + _srvHost + '/peerjs?key=peerjs&id=diag' + Math.random().toString(36).slice(2) + '&token=diag');
+    const diagId = 'diag' + Math.random().toString(36).slice(2);
+    const ws = new WebSocket('wss://' + _srvHost + '/signal?id=' + diagId);
     const wsTimer = setTimeout(()=>{ log('   ✗ WebSocket таймаут (5с)'); ws.close(); }, 5000);
     ws.onopen = ()=>{ clearTimeout(wsTimer); log('   ✓ WebSocket открылся'); ws.close(); };
     ws.onerror = ()=>{ clearTimeout(wsTimer); log('   ✗ WebSocket ошибка соединения'); };
     ws.onclose = e=>{ log('   — WebSocket закрыт (code=' + e.code + (e.reason?' reason='+e.reason:'') + ')'); };
   }catch(e){ log('   ✗ WebSocket исключение: ' + e.message); }
 
-  // 3. Проверка через альтернативный хост PeerJS
-  log('3. WebSocket → wss://peerjs.com ...');
-  try{
-    const ws2 = new WebSocket('wss://peerjs.com/peerjs?key=peerjs&id=diag' + Math.random().toString(36).slice(2) + '&token=diag');
-    const ws2Timer = setTimeout(()=>{ log('   ✗ peerjs.com таймаут (5с)'); ws2.close(); }, 5000);
-    ws2.onopen = ()=>{ clearTimeout(ws2Timer); log('   ✓ peerjs.com открылся'); ws2.close(); };
-    ws2.onerror = ()=>{ clearTimeout(ws2Timer); log('   ✗ peerjs.com ошибка'); };
-  }catch(e){ log('   ✗ peerjs.com исключение: ' + e.message); }
-
-  // 4. Общая проверка WS
-  log('4. WebSocket echo тест → wss://echo.websocket.org ...');
+  // 3. WebSocket echo тест
+  log('3. WebSocket echo тест → wss://echo.websocket.org ...');
   try{
     const ws3 = new WebSocket('wss://echo.websocket.org');
     const ws3Timer = setTimeout(()=>{ log('   ✗ echo таймаут (5с) — WebSocket заблокирован глобально'); ws3.close(); }, 5000);

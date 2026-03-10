@@ -3020,6 +3020,7 @@ class TovSaSignaling {
       case 'RELAY': await this._handleRelay(msg.from, msg.kind, msg.data); break;
       // v4: сервер подтверждает доставку — delivered=false означает что получатель офлайн
       case 'RELAY-ACK':
+        _dbgPush('log', ['[sig] ← RELAY-ACK kind=' + msg.kind + ' delivered=' + msg.delivered + ' id=' + this._peerId.slice(0,16)]);
         window.dispatchEvent(new CustomEvent('tovsa-relay-ack', { detail: {
           to: msg.to, kind: msg.kind, delivered: msg.delivered
         }}));
@@ -3106,7 +3107,7 @@ class TovSaSignaling {
     if (!state) return;
     try { await state.pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch(_) {}
   }
-  _sendRelay(to, kind, data) { this._wsSend({ type: 'RELAY', to, kind, data }); }
+  _sendRelay(to, kind, data) { _dbgPush('log', ['[sig] → RELAY ' + kind + ' to=' + to.slice(0,16) + ' id=' + this._peerId.slice(0,16)]); this._wsSend({ type: 'RELAY', to, kind, data }); }
   _wsSend(msg) { if (this._ws?.readyState === WebSocket.OPEN) { try { this._ws.send(JSON.stringify(msg)); } catch(_) {} } }
 }
 TovSaSignaling.PROTO_VERSION = 4; // должна совпадать с PROTO_VERSION на сервере

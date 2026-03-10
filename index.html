@@ -797,24 +797,7 @@ textarea::placeholder{color:var(--mu)}
         <div class="stunarr">▼</div>
       </div>
       <div class="stunbody" id="pj-body" style="flex-direction:column">
-        <div class="pjrow" id="pj-row-0" onclick="onSrvSelect(0)" style="cursor:pointer">
-          <div class="srv-radio" id="pj-en-0"></div>
-          <div class="pjinfo">
-            <div class="pjname">Основной</div>
-            <div class="pjdesc">peerjs-server-lwcm.onrender.com</div>
-          </div>
-          <div class="pjdot" id="pj-dot-0"></div>
-          <div class="pjstat" id="pj-stat-0">—</div>
-        </div>
-        <div class="pjrow" id="pj-row-1" onclick="onSrvSelect(1)" style="cursor:pointer;border-top:1px solid var(--bd)">
-          <div class="srv-radio" id="pj-en-1"></div>
-          <div class="pjinfo">
-            <div class="pjname">Тестовый (нерабочий)</div>
-            <div class="pjdesc">broken.peerjs.invalid</div>
-          </div>
-          <div class="pjdot" id="pj-dot-1"></div>
-          <div class="pjstat" id="pj-stat-1">—</div>
-        </div>
+        <!-- заполняется динамически из SIGNALING_SERVERS в _initSrvUI() -->
         <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--bd);background:var(--bg)">
           <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--mu)">
             <span>Соединений:</span>
@@ -5986,12 +5969,30 @@ function _refreshPeerCount(){
 
 // Применяет сохранённый выбор сервера в DOM при загрузке
 (function _initSrvUI(){
-  SIGNALING_SERVERS.forEach((s, i) => {
-    const radio = $('pj-en-' + i);
-    const row   = $('pj-row-' + i);
-    if(radio) radio.classList.toggle('sel', i === _serverIndex);
-    if(row)   row.classList.toggle('chk', i === _serverIndex);
-  });
+  // Генерируем строки серверов динамически из SIGNALING_SERVERS
+  const body = $('pj-body');
+  if(body){
+    const footer = body.querySelector('div[style*="justify-content:space-between"]');
+    // Удаляем старые строки если есть (оставляем только footer)
+    [...body.children].forEach(el => { if(el !== footer) el.remove(); });
+    SIGNALING_SERVERS.forEach((s, i) => {
+      const row = document.createElement('div');
+      row.className = 'pjrow';
+      row.id = 'pj-row-' + i;
+      row.style.cssText = 'cursor:pointer' + (i > 0 ? ';border-top:1px solid var(--bd)' : '');
+      row.setAttribute('onclick', `onSrvSelect(${i})`);
+      row.innerHTML = `
+        <div class="srv-radio${i === _serverIndex ? ' sel' : ''}" id="pj-en-${i}"></div>
+        <div class="pjinfo">
+          <div class="pjname">${esc(s.name)}</div>
+          <div class="pjdesc">${esc(s.host)}</div>
+        </div>
+        <div class="pjdot" id="pj-dot-${i}"></div>
+        <div class="pjstat" id="pj-stat-${i}">—</div>`;
+      if(footer) body.insertBefore(row, footer);
+      else body.appendChild(row);
+    });
+  }
 })();
 function _updatePjUI(state){
   // Только лидер управляет строками серверов — не-лидер обновляет только общий статус

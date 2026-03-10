@@ -2915,6 +2915,7 @@ class TovSaSignaling {
     this._ws = null; this._open = false; this._destroyed = false;
     this._reconnectIdx = 0; this._reconnTimer = null;
     this._pending = new Map(); this._pcs = new Map();
+    this._serverProtoVersion = 0; // заполняется при получении OPEN
   }
   async connect() { if (this._destroyed) throw new Error('Signaling destroyed'); this._doConnect(); }
   async call(remotePeerId) {
@@ -2947,7 +2948,9 @@ class TovSaSignaling {
   _doConnect() {
     if (this._destroyed) return;
     try {
-      const ws = new WebSocket(`${this._url}?id=${encodeURIComponent(this._peerId)}`);
+      // v3: ID не передаётся в URL — только в первом WS-фрейме (HELLO),
+      // чтобы не попадать в access logs платформы.
+      const ws = new WebSocket(this._url);
       this._ws = ws;
       ws.onopen = () => {};
       ws.onmessage = (e) => { let msg; try { msg = JSON.parse(e.data); } catch { return; } this._handleMsg(msg).catch(err => this._onError(err)); };
@@ -2969,12 +2972,17 @@ class TovSaSignaling {
   async _handleMsg(msg) {
     if (this._destroyed) return; // WS закрыт, но сообщение ещё в полёте
     switch (msg.type) {
+      // v3: сервер запрашивает ID — отправляем его в первом фрейме,
+      // а не в URL, чтобы не попадать в access logs платформы.
+      case 'HELLO_REQ': this._wsSend({ type: 'HELLO', id: this._peerId, v: TovSaSignaling.PROTO_VERSION }); break;
       case 'CHALLENGE': await this._respondChallenge(msg.nonce); break;
-      case 'OPEN': this._open = true; this._reconnectIdx = 0; this._onOpen(); break;
+      case 'OPEN': this._open = true; this._reconnectIdx = 0; this._serverProtoVersion = msg.v ?? 1; this._onOpen(); break;
       case 'ERR': {
-        const FATAL = new Set([4000, 4001, 4002, 4003, 4004]);
+        const FATAL = new Set([4000, 4001, 4002, 4003, 4004, 4005]);
         if (FATAL.has(msg.code)) this._destroyed = true;
-        this._onError(new Error(`[${msg.code}] ${msg.msg}`));
+        const err = new Error(`[${msg.code}] ${msg.msg}`);
+        if (msg.retryAfter) err.retryAfter = msg.retryAfter;
+        this._onError(err);
         break;
       }
       case 'PING': this._wsSend({ type: 'PONG' }); break;
@@ -2983,6 +2991,12 @@ class TovSaSignaling {
         window.dispatchEvent(new CustomEvent('tovsa-presence-result', { detail: msg }));
         break;
       case 'RELAY': await this._handleRelay(msg.from, msg.kind, msg.data); break;
+      // v4: сервер подтверждает доставку — delivered=false означает что получатель офлайн
+      case 'RELAY-ACK':
+        window.dispatchEvent(new CustomEvent('tovsa-relay-ack', { detail: {
+          to: msg.to, kind: msg.kind, delivered: msg.delivered
+        }}));
+        break;
     }
   }
   async _respondChallenge(nonce) {
@@ -3057,6 +3071,7 @@ class TovSaSignaling {
   _sendRelay(to, kind, data) { this._wsSend({ type: 'RELAY', to, kind, data }); }
   _wsSend(msg) { if (this._ws?.readyState === WebSocket.OPEN) { try { this._ws.send(JSON.stringify(msg)); } catch(_) {} } }
 }
+TovSaSignaling.PROTO_VERSION = 4; // должна совпадать с PROTO_VERSION на сервере
 
 // ── PeerJS-совместимый шим поверх TovSaSignaling ─────────────────────────────
 // FakeConn и FakePeer воспроизводят API DataConnection и Peer из PeerJS.
@@ -3148,6 +3163,7 @@ class FakePeer {
         let type = 'network';
         if      (msg.includes('4001')) type = 'unavailable-id';
         else if (msg.includes('4003') || msg.includes('4004')) type = 'auth-failed';
+        else if (msg.includes('4005')) type = 'hello-timeout';
         else if (msg.includes('4000')) type = 'invalid-id';
         else if (msg.includes('4002')) type = 'server-error';
         this._emit('error', Object.assign(new Error(msg), { type }));
@@ -7852,13 +7868,24 @@ function runWsDiag(){
     .then(r => log('   ✓ HTTP ответ: ' + r.status))
     .catch(e => log('   ✗ HTTP ошибка: ' + e.message));
 
-  // 2. WebSocket напрямую (новый протокол /signal)
+  // 2. WebSocket напрямую (новый протокол /signal, v3: без ?id= в URL)
   log('2. WebSocket → wss://' + _srvHost + '/signal ...');
   try{
     const diagId = 'diag' + Math.random().toString(36).slice(2);
-    const ws = new WebSocket('wss://' + _srvHost + '/signal?id=' + diagId);
+    // v3: ID не в URL — отправляется в первом WS-фрейме после HELLO_REQ
+    const ws = new WebSocket('wss://' + _srvHost + '/signal');
     const wsTimer = setTimeout(()=>{ log('   ✗ WebSocket таймаут (5с)'); ws.close(); }, 5000);
-    ws.onopen = ()=>{ clearTimeout(wsTimer); log('   ✓ WebSocket открылся'); ws.close(); };
+    ws.onopen = ()=>{ clearTimeout(wsTimer); log('   ✓ WebSocket открылся'); };
+    ws.onmessage = (e)=>{
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'HELLO_REQ') {
+          ws.send(JSON.stringify({ type: 'HELLO', id: diagId }));
+          log('   ✓ HELLO отправлен (ID скрыт от URL/логов)');
+          ws.close();
+        }
+      } catch(_) {}
+    };
     ws.onerror = ()=>{ clearTimeout(wsTimer); log('   ✗ WebSocket ошибка соединения'); };
     ws.onclose = e=>{ log('   — WebSocket закрыт (code=' + e.code + (e.reason?' reason='+e.reason:'') + ')'); };
   }catch(e){ log('   ✗ WebSocket исключение: ' + e.message); }

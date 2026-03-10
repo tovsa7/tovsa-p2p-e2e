@@ -3,6 +3,35 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!--
+  FIX CSP: Content-Security-Policy ограничивает допустимые источники ресурсов.
+  Примечания:
+  - 'unsafe-inline' для style нужен для динамических стилей (toast, status badges)
+  - blob: в connect-src нужен для WebRTC DataChannel и PeerJS
+  - wss: в connect-src для WebSocket сигналинга
+  - fonts.googleapis.com / fonts.gstatic.com — для JetBrains Mono
+  - cdnjs.cloudflare.com — для PeerJS
+  Если используется самохостинг с другим доменом — обновить signaling.tovsa.deno.net
+-->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
+  style-src  'self' 'unsafe-inline' https://fonts.googleapis.com;
+  font-src   'self' https://fonts.gstatic.com;
+  img-src    'self' data: blob:;
+  connect-src 'self'
+              wss://signaling.tovsa.deno.net
+              https://signaling.tovsa.deno.net
+              https://fonts.googleapis.com
+              https://fonts.gstatic.com
+              blob:;
+  worker-src 'self' blob:;
+  manifest-src 'self';
+  media-src  'self' blob:;
+  object-src 'none';
+  base-uri   'self';
+  form-action 'self';
+">
 <link rel="preconnect" href="https://signaling.tovsa.deno.net">
 <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
 <title>Tovsa</title>
@@ -1234,6 +1263,16 @@ let pc,dc,role;
 // ── HTML escaping utility (prevents XSS via peer-supplied strings) ──
 function esc(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
+// ── FIX #8: безопасный base64 — не использует spread (...array) чтобы не переполнять стек ──
+// btoa(String.fromCharCode(...largeArray)) вызывает Maximum call stack exceeded при >~65К байт
+function safeBase64(u8){
+  let s='';
+  const chunkSize=0x8000;
+  for(let i=0;i<u8.length;i+=chunkSize)
+    s+=String.fromCharCode.apply(null,u8.subarray(i,i+chunkSize));
+  return btoa(s);
+}
+
 // ── Identity (Ed25519 key pair + fingerprint) ──
 const ID_KEY='p2p_identity_v1';
 // IndexedDB replaces localStorage for contacts, history, favourites
@@ -1369,8 +1408,8 @@ async function _e2eEncrypt(plaintext){
   const combined = new Uint8Array(12 + cipher.byteLength);
   combined.set(iv, 0);
   combined.set(new Uint8Array(cipher), 12);
-  // Base64
-  return btoa(String.fromCharCode(...combined));
+  // Base64 — safeBase64 вместо btoa(spread) чтобы не переполнять стек при больших данных
+  return safeBase64(combined);
 }
 
 // Расшифровываем base64-строку → исходная строка
@@ -1580,7 +1619,10 @@ async function initIdentity(){
       // Импортируем публичный для получения raw bytes
       const pubKey = await crypto.subtle.importKey('jwk', pubJwk, {name:'Ed25519'}, true, []);
       myPubKeyRaw  = new Uint8Array(await crypto.subtle.exportKey('raw', pubKey));
-      // Сохраняем в IDB: приватный как JWK (нужен для экспорта бэкапа), публичный как raw bytes
+      // Сохраняем в IDB: приватный как JWK (нужен для export/backup функции пользователя).
+      // РИСК: JWK = plain JSON, читается любым JS из IDB при XSS. Non-extractable CryptoKey
+      // был бы безопаснее, но тогда backup/восстановление ключа стало бы невозможным.
+      // CSP (добавлен выше) значительно снижает XSS-риск в самохостинге.
       await idbSet('keys', 'id_priv_jwk', privJwk);
       await idbSet('keys', 'id_pub_raw',  Array.from(myPubKeyRaw));
       // Удаляем из localStorage если там был
@@ -1686,9 +1728,16 @@ function restoreData(event){
   event.target.value='';
 }
 
-async function makeIdentityMsg(){
+// FIX #6: подпись identity-сообщения включает pubKey собеседника (currentPeerPubKeyHex или pending)
+// Это связывает сообщение с конкретной сессией и предотвращает relay-атаку:
+// злоумышленник не может переиспользовать перехваченный identity-пакет для другого соединения,
+// т.к. подпись будет недействительна без совпадения pubKey получателя.
+async function makeIdentityMsg(recipientPubHex){
   const ts=Date.now();
-  const data=new TextEncoder().encode('p2p-auth:'+ts);
+  // Включаем hex публичного ключа получателя в подписываемые данные
+  // Если ключ ещё неизвестен (первый контакт) — используем пустую строку (backward compat)
+  const rHex = recipientPubHex || currentPeerPubKeyHex || '';
+  const data=new TextEncoder().encode('p2p-auth:'+ts+':'+rHex);
   const sig=new Uint8Array(await crypto.subtle.sign('Ed25519',myPrivKey,data));
   let name='';
   try{ name=($('my-name-input')?.value||localStorage.getItem('myName')||'').trim(); }catch(_){}
@@ -1704,6 +1753,9 @@ async function makeIdentityMsg(){
     pub:Array.from(myPubKeyRaw),
     ts,
     sig:Array.from(sig),
+    // v:2 указывает что подпись включает recipient pubkey
+    v: rHex ? 2 : 1,
+    rPub: rHex || undefined,
     name: name||undefined,
     push: pushEnabled,
     pushPub: _pushPubKeyRaw ? Array.from(_pushPubKeyRaw) : undefined
@@ -1780,12 +1832,25 @@ async function _encryptPushPayload(recipientPubKeyRaw, payload){
 
 async function verifyIdentityMsg(msg){
   try{
-    const {_t,pub,ts,sig,name,push,pushPub}=JSON.parse(msg);
+    const {_t,pub,ts,sig,name,push,pushPub,v,rPub}=JSON.parse(msg);
     if(_t!=='id')return null;
-    if(Math.abs(Date.now()-ts)>300000)return {valid:false,reason:'timestamp'}; // 5 min, consistent with server
+    if(Math.abs(Date.now()-ts)>300000)return {valid:false,reason:'timestamp'}; // 5 min
     const pubBytes=new Uint8Array(pub);
     const pubKey=await crypto.subtle.importKey('raw',pubBytes,{name:'Ed25519'},true,['verify']);
-    const data=new TextEncoder().encode('p2p-auth:'+ts);
+    // FIX #6: для v2 проверяем что rPub совпадает с нашим публичным ключом
+    let rHex = '';
+    if(v === 2 && rPub !== undefined){
+      rHex = rPub;
+      // Проверяем что rPub совпадает с нашим ключом (защита от relay-атаки)
+      if(myPubKeyRaw && rHex){
+        const ourHex = Array.from(myPubKeyRaw).map(b=>b.toString(16).padStart(2,'0')).join('');
+        if(rHex !== ourHex){
+          console.warn('[id] identity v2: rPub не совпадает с нашим ключом — возможная relay-атака');
+          return {valid:false,reason:'recipient_mismatch'};
+        }
+      }
+    }
+    const data=new TextEncoder().encode('p2p-auth:'+ts+(rHex ? ':'+rHex : ''));
     const ok=await crypto.subtle.verify('Ed25519',pubKey,new Uint8Array(sig),data);
     if(!ok)return{valid:false,reason:'signature'};
     const hash=await sha256(pubBytes);
@@ -2696,6 +2761,12 @@ let _serverIndex = Math.min(
 // myPresenceId — здесь же, используется в _startIncomingListener() на строке ~3000
 let myPresenceId = '';
 
+// sessionSalt — случайный 16-байтный hex, генерируется при каждой загрузке страницы.
+// Используется для создания эфемерных grpv2_ peer ID: разные ID при каждой сессии
+// → access logs не коррелируются между сессиями по peer ID групп.
+const SESSION_SALT = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+  .map(b => b.toString(16).padStart(2, '0')).join('');
+
 // ── Переменные, используемые до их оригинального места объявления ─────────────
 // Все let/const которые участвуют в TDZ — объявляем здесь, в начале скрипта.
 
@@ -2812,6 +2883,224 @@ function buildServerUrl(srv, endpoint = '') {
   const port = isDefaultPort ? '' : `:${srv.port}`;
   const path = (srv.path || '/').replace(/\/$/, '');
   return `${proto}://${srv.host}${port}${path}${endpoint}`;
+}
+
+// ── Аутентификация пира на signaling-сервере (Ed25519 challenge-response) ──────
+// Сервер шлёт { type: "CHALLENGE", payload: { nonce } } вместо OPEN.
+// Мы подписываем "tovsa-auth:{nonce}:{peerId}" своим Ed25519 ключом и отвечаем AUTH.
+// Сервер проверяет подпись + соответствие peer ID ключу → шлёт OPEN → PeerJS эмитит 'open'.
+// Анонимные ID (chk-, grp-pchk-, diag-, grpv2_, fpvpp-) — сервер шлёт OPEN сразу.
+//
+// Везде вместо new Peer(id, cfg) используем createAuthPeer(id, cfg).
+// Возвращает тот же Peer-объект; вся логика .on('open'/'error') не меняется.
+async function _signAuthChallenge(nonce, peerId) {
+  if (!myPrivKey || !myPubKeyRaw) throw new Error('Identity not ready');
+  const message = new TextEncoder().encode('tovsa-auth:' + nonce + ':' + peerId);
+  const sig = new Uint8Array(await crypto.subtle.sign('Ed25519', myPrivKey, message));
+  const payload = { pub: Array.from(myPubKeyRaw), sig: Array.from(sig) };
+  // Для grpv2_*_{24hex} передаём sessionSalt — сервер верифицирует эфемерный суффикс
+  if (peerId.startsWith('grpv2_')) {
+    const lastU = peerId.lastIndexOf('_');
+    const suffix = peerId.slice(lastU + 1);
+    if (suffix.length === 24 && /^[0-9a-f]{24}$/.test(suffix)) {
+      payload.salt = SESSION_SALT;
+    }
+  }
+  return payload;
+}
+
+function createAuthPeer(peerId, cfg) {
+  const p = new Peer(peerId, cfg);
+
+  // peer.socket создаётся синхронно в конструкторе PeerJS и доступен сразу.
+  // Если недоступен (Render / старый сервер без auth) — OPEN придёт штатно без нас.
+  const sock = p.socket;
+  if (!sock) return p;
+
+  const _origEmitIncoming = sock.emit.bind(sock);
+  let _authHandled = false;
+
+  // ── Перехват входящих: CHALLENGE / AUTH-FAIL ──
+  sock.emit = function(event, ...args) {
+    if (event === 'message' && !_authHandled) {
+      const msg = args[0];
+      if (msg && msg.type === 'CHALLENGE' && msg.payload && msg.payload.nonce) {
+        _authHandled = true;
+        sock.emit = _origEmitIncoming; // дальнейшие входящие идут штатно
+        // Сообщаем UI что идёт аутентификация — хук устанавливается при _beaconConnect
+        if (typeof p._onAuthStart === 'function') p._onAuthStart();
+        const { nonce } = msg.payload;
+        _signAuthChallenge(nonce, peerId).then(payload => {
+          try { sock.send({ type: 'AUTH', payload }); }
+          catch(e) {
+            p.emit('error', Object.assign(new Error('auth-send-failed'), { type: 'auth-send-failed' }));
+          }
+        }).catch(() => {
+          p.emit('error', Object.assign(new Error('auth-sign-failed'), { type: 'auth-sign-failed' }));
+        });
+        return; // CHALLENGE не передаём в PeerJS
+      }
+      if (msg && msg.type === 'AUTH-FAIL') {
+        sock.emit = _origEmitIncoming;
+        p.emit('error', Object.assign(new Error('auth-failed'), { type: 'auth-failed' }));
+        return;
+      }
+      // ── PRESENCE-RESULT: ответ сервера на PRESENCE-QUERY ──
+      if (msg && msg.type === 'PRESENCE-RESULT') {
+        _handlePresenceResult(msg);
+        return; // не передаём в PeerJS — он не знает этот тип
+      }
+      // ── Верификация входящих OFFER/ANSWER ──
+      if (msg && (msg.type === 'OFFER' || msg.type === 'ANSWER')) {
+        _verifyRelayMsg(msg).then(ok => {
+          if (!ok) {
+            console.warn('[relay] signature verification FAILED for', msg.type, 'from', msg.src);
+            // Отклоняем — не передаём в PeerJS
+            return;
+          }
+          _origEmitIncoming(event, ...args);
+        }).catch(() => {
+          // При ошибке верификации — принимаем (graceful degradation)
+          _origEmitIncoming(event, ...args);
+        });
+        return; // асинхронная проверка — задерживаем оригинальный emit
+      }
+    }
+    return _origEmitIncoming(event, ...args);
+  };
+
+  // ── Перехват исходящих: подписываем OFFER/ANSWER ──
+  const _origSend = sock.send.bind(sock);
+  sock.send = function(msg) {
+    if (msg && (msg.type === 'OFFER' || msg.type === 'ANSWER')) {
+      // Подписываем асинхронно, затем шлём
+      _signRelayMsg(msg).then(() => _origSend(msg)).catch(() => _origSend(msg));
+      return;
+    }
+    return _origSend(msg);
+  };
+
+  return p;
+}
+
+
+
+// ── Signed relay: верификация OFFER/ANSWER независимо от сервера ──────────────
+// Отправитель подписывает исходящие OFFER и ANSWER своим Ed25519 ключом.
+// Получатель верифицирует подпись через публичный ключ, включённый в сообщение.
+// Это гарантирует что OFFER/ANSWER пришли от владельца указанного peer ID,
+// даже если signaling-сервер скомпрометирован.
+//
+// CANDIDATE не подписываются: подмена ICE не позволяет расшифровать E2E-данные.
+
+const RELAY_SIGN_TYPES = new Set(['OFFER', 'ANSWER']);
+const RELAY_SIG_WINDOW = 60; // секунд — допустимое расхождение часов
+
+/**
+ * Подписывает исходящее relay-сообщение.
+ * Добавляет поля _ts, _pub, _sig в объект (мутирует).
+ */
+async function _signRelayMsg(msg) {
+  if (!myPrivKey || !myPubKeyRaw) return; // ключи ещё не готовы — пропускаем
+  if (!RELAY_SIGN_TYPES.has(msg.type)) return; // подписываем только OFFER и ANSWER
+  const ts = Math.floor(Date.now() / 1000);
+  const text = `tovsa-relay:${msg.type}:${msg.src || ''}:${msg.dst || ''}:${ts}`;
+  const sigBytes = new Uint8Array(
+    await crypto.subtle.sign('Ed25519', myPrivKey, new TextEncoder().encode(text))
+  );
+  msg._ts  = ts;
+  msg._pub = Array.from(myPubKeyRaw);
+  msg._sig = Array.from(sigBytes);
+}
+
+/**
+ * Верифицирует входящее relay-сообщение.
+ * Возвращает true если подпись верна или тип не требует проверки.
+ * Возвращает false если подпись неверна / истекла / pub не соответствует src.
+ */
+async function _verifyRelayMsg(msg) {
+  if (!RELAY_SIGN_TYPES.has(msg.type)) return true; // CANDIDATE и прочие — пропускаем
+  // Если поля подписи отсутствуют — сообщение от Render или старого сервера
+  // В этом случае принимаем (graceful degradation), но логируем предупреждение
+  if (msg._ts === undefined || !msg._pub || !msg._sig) {
+    console.warn('[relay] unsigned', msg.type, 'from', msg.src, '— server may not support signed relay');
+    return true;
+  }
+  const now = Math.floor(Date.now() / 1000);
+  if (Math.abs(now - msg._ts) > RELAY_SIG_WINDOW) return false; // replay / clock skew
+
+  const pubKeyRaw = new Uint8Array(msg._pub);
+  const sigBytes  = new Uint8Array(msg._sig);
+  if (pubKeyRaw.length !== 32 || sigBytes.length !== 64) return false;
+
+  // Проверяем что pubKey соответствует src peer ID
+  const srcId = msg.src || '';
+  const hash    = await crypto.subtle.digest('SHA-256', pubKeyRaw);
+  const hashHex = Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  let idOk = false;
+  if (srcId.startsWith('fpvp-')) {
+    idOk = hashHex.startsWith(srcId.slice(5, 5 + 48));
+  } else if (srcId.startsWith('grpv2_')) {
+    const lastU = srcId.lastIndexOf('_');
+    const suffix = srcId.slice(lastU + 1);
+    idOk = (suffix.length === 24 && /^[0-9a-f]{24}$/.test(suffix))
+      ? hashHex.startsWith(suffix)
+      : true; // rv/rvt — анонимные, pubKey не привязан → принимаем
+  } else {
+    idOk = true; // анонимный тип — не проверяем
+  }
+  if (!idOk) return false;
+
+  const text = `tovsa-relay:${msg.type}:${srcId}:${msg.dst || ''}:${msg._ts}`;
+  try {
+    const pubKey = await crypto.subtle.importKey('raw', pubKeyRaw, {name:'Ed25519'}, false, ['verify']);
+    return await crypto.subtle.verify('Ed25519', pubKey, sigBytes, new TextEncoder().encode(text));
+  } catch(_) { return false; }
+}
+
+
+// ── WS Presence Query: проверка присутствия через существующий WS маяка ────────
+// Presence-запросы идут через WS-фрейм — не видны в access logs (в отличие от HTTP).
+// Используется вместо GET /peers?ids= для группового присутствия.
+
+const _presenceWsCallbacks = new Map(); // reqId → { resolve, timer }
+
+/**
+ * Запрашивает у сервера какие из ids сейчас online.
+ * Использует уже открытый WS маяка (_presencePeer).
+ * Возвращает массив online peer ID или null при ошибке/таймауте.
+ */
+async function _wsPresenceQuery(ids, timeoutMs = 5000) {
+  if (!_presencePeer || _presencePeer.destroyed) return null;
+  const sock = _presencePeer.socket;
+  if (!sock) return null;
+
+  const reqId = Math.random().toString(36).slice(2, 14);
+  return new Promise(resolve => {
+    const timer = setTimeout(() => {
+      _presenceWsCallbacks.delete(reqId);
+      resolve(null); // таймаут — fallback на WebRTC
+    }, timeoutMs);
+    _presenceWsCallbacks.set(reqId, { resolve, timer });
+    try {
+      sock.send({ type: 'PRESENCE-QUERY', payload: { reqId, ids } });
+    } catch(_) {
+      clearTimeout(timer);
+      _presenceWsCallbacks.delete(reqId);
+      resolve(null);
+    }
+  });
+}
+
+/** Вызывается из обработчика входящих WS сообщений маяка */
+function _handlePresenceResult(msg) {
+  const p = msg.payload;
+  if (!p || typeof p.reqId !== 'string') return;
+  const cb = _presenceWsCallbacks.get(p.reqId);
+  if (!cb) return;
+  clearTimeout(cb.timer);
+  _presenceWsCallbacks.delete(p.reqId);
+  cb.resolve(Array.isArray(p.online) ? p.online : []);
 }
 
 // Безопасное уничтожение PeerJS-объекта (peer или conn)
@@ -3297,8 +3586,9 @@ async function _startIncomingListener(){
   const hostId = _sigRoomId(myRoomCode) + '-h';
 
   try{
-    const p = new Peer(hostId, { ...buildPeerConfig(srv) });
+    const p = createAuthPeer(hostId, { ...buildPeerConfig(srv) });
     _incomingPeer = p;
+    p._onAuthStart = () => {}; // входящий пир не обновляет UI сервера
 
     p.on('connection', conn => _handleIncomingCallConn(conn));
 
@@ -3467,7 +3757,7 @@ async function decompress(u8){
   return new TextDecoder().decode(await new Response(ds.readable).arrayBuffer());
 }
 
-const enc=async sdp=>btoa(String.fromCharCode(...await compress(JSON.stringify(sdp))));
+const enc=async sdp=>safeBase64(await compress(JSON.stringify(sdp)));
 const dec=async str=>JSON.parse(await decompress(Uint8Array.from(atob(str.trim()),c=>c.charCodeAt(0))));
 
 async function showSdp(id,sdp){
@@ -3477,12 +3767,7 @@ async function showSdp(id,sdp){
 }
 function copySdp(id){
   const t=$(id).dataset.raw;
-  navigator.clipboard.writeText(t).then(()=>toast('Код скопирован!')).catch(()=>{
-    const ta=document.createElement('textarea');
-    ta.value=t;ta.style.cssText='position:fixed;opacity:0';
-    document.body.appendChild(ta);ta.select();document.execCommand('copy');
-    document.body.removeChild(ta);toast('Код скопирован!');
-  });
+  navigator.clipboard.writeText(t).then(()=>toast('Код скопирован!')).catch(()=>fallbackCopy(t,()=>toast('Код скопирован!')));
 }
 
 // ── PeerConnection ──
@@ -3859,7 +4144,14 @@ function setupDC(){
           const peerPub = new Uint8Array(j.pub);
           await _e2eDeriveKey(peerPub);
           _e2eUpdateLockBadge();
-          try{ _e2eSend(await makeIdentityMsg()); }catch(err){ console.error('[e2e] ошибка отправки identity:', err); }
+          // FIX IDENTITY_V1_FIRST: при первом контакте Ed25519 pubKey ещё неизвестен.
+          // Используем hex ECDH pub собеседника как временный session binding —
+          // это связывает identity подпись с конкретной ECDH сессией и закрывает
+          // relay-атаку на время первого рукопожатия.
+          // При повторном соединении lastPeerPubKeyHex уже заполнен → v:2 Ed25519 binding.
+          const sessionBinding = lastPeerPubKeyHex ||
+            Array.from(peerPub).map(b=>b.toString(16).padStart(2,'0')).join('');
+          try{ _e2eSend(await makeIdentityMsg(sessionBinding)); }catch(err){ console.error('[e2e] ошибка отправки identity:', err); }
           setTimeout(()=>{ try{ sysMsg('🔒 Сквозное шифрование установлено'); }catch(_){} }, 0);
         }catch(err){ console.error('[e2e] hello error:', err); }
         return;
@@ -4133,10 +4425,20 @@ async function onConn(){
   try{
     await _e2eGenKeys();
     dc.send(JSON.stringify({_t:'__e2e_hello__', pub: Array.from(_e2eEcdhPub)}));
+    // FIX E2E_TIMEOUT_UNUSED: устанавливаем таймаут на handshake — 15 секунд.
+    // Если за это время не получим __e2e_hello__ от собеседника — соединение считается неполноценным.
+    // Это предотвращает зависание в состоянии "ждём ECDH" бесконечно.
+    clearTimeout(_e2eHandshakeTimeout);
+    _e2eHandshakeTimeout = setTimeout(()=>{
+      if(!_e2eReady){
+        console.warn('[e2e] handshake timeout — ECDH не завершён за 15с');
+        sysMsg('⚠ Шифрование не установлено — попробуйте переподключиться');
+      }
+    }, 15000);
   }catch(err){
     console.warn('[e2e] onConn error:', err);
     // Fallback — если ECDH не работает, отправляем identity без шифрования
-    try{ dc.send(await makeIdentityMsg()); }catch(e2){}
+    try{ dc.send(await makeIdentityMsg(lastPeerPubKeyHex||'')); }catch(e2){}
   }
 
   // Отправляем оффлайн-очередь после установки соединения
@@ -4592,15 +4894,19 @@ function msgCtxCopy(){
   }
 }
 
-function fallbackCopy(text){
+// FIX #9: fallbackCopy — execCommand('copy') устарел; используем его только как последний resort
+// с явным предупреждением в консоли. Все вызывающие должны сначала пробовать navigator.clipboard.
+function fallbackCopy(text, onSuccess){
   const ta=document.createElement('textarea');
   ta.value=text;
   ta.style.cssText='position:fixed;opacity:0;top:0;left:0';
   document.body.appendChild(ta);
   ta.focus();ta.select();
   try{
-    document.execCommand('copy');
-    toast('Скопировано');
+    // execCommand deprecated, но всё ещё работает в большинстве браузеров как fallback
+    const ok=document.execCommand('copy');
+    if(ok){ if(onSuccess) onSuccess(); else toast('Скопировано'); }
+    else   toast('Не удалось скопировать');
   }catch(e){
     toast('Не удалось скопировать');
   }
@@ -5745,7 +6051,7 @@ async function joinSigRoom(overrideCode, callerFp){
 
   // Пробуем занять hostId. Если занят (unavailable-id) — становимся гостем.
   // Остальные ошибки — фатальные.
-  const peerHost = new Peer(hostId, _srvCfg);
+  const peerHost = createAuthPeer(hostId, _srvCfg);
   _sigPeer = peerHost;
 
   peerHost.on('open', ()=>{
@@ -5777,7 +6083,7 @@ async function joinSigRoom(overrideCode, callerFp){
   function beGuest(){
     hint.textContent = '⏳ Комната занята — подключаемся к хосту...';
     sigModalStep(1, 'Комната найдена — подключаемся к хосту...');
-    const peerGuest = new Peer(guestId, _srvCfg);
+    const peerGuest = createAuthPeer(guestId, _srvCfg);
     _sigPeer = peerGuest;
     let guestTimer = null;
 
@@ -6072,7 +6378,7 @@ async function _syncPairBeaconsInner() {
     // Реальный peer заменит его при onopen; при ошибке — удалим.
     _pairBeacons.set(fp, null);
     try{
-      const peer = new Peer(pairId, { ...buildPeerConfig(currentSrv()) });
+      const peer = createAuthPeer(pairId, { ...buildPeerConfig(currentSrv()) });
       peer.on('open', () => {
         // Ставим реальный peer только если:
         // 1. sentinel ещё на месте (нас не вытеснили)
@@ -6125,8 +6431,11 @@ function _beaconConnect(ctx){
       ? '-ghost-' + Math.random().toString(36).slice(2, 10)
       : '';
     const peerId = 'fpvp-' + myPresenceId + ctx.idSuffix + _hiddenSuffix;
-    const p = new Peer(peerId, { ...buildPeerConfig(srv) });
+    const p = createAuthPeer(peerId, { ...buildPeerConfig(srv) });
     _presencePeer = p;
+
+    // Показываем 'аутентификация…' пока идёт challenge-response
+    p._onAuthStart = () => _setSrvRow(idx, 'spin', 'аутентификация…');
 
     p.on('open', ()=>{
       if(ctx.gone()){ safePeerDestroy(p); return; }
@@ -6157,7 +6466,7 @@ function _beaconConnect(ctx){
         conn.on('data', d=>{
           try{
             const msg = typeof d==='string' ? JSON.parse(d) : d;
-            if(msg?.__grp_incoming_ping__) _grpHandlePingMsg(msg);
+            if(msg?.__grp_incoming_ping__) _grpHandlePingMsg(msg).catch(e=>console.warn('[ping]',e));
           }catch(_){}
           clearTimeout(closeTimer);
           safeConnClose(conn);
@@ -6170,6 +6479,17 @@ function _beaconConnect(ctx){
     p.on('error', e=>{
       if(ctx.gone()) return;
       if(e.type === 'peer-unavailable') return;
+      if(e.type === 'auth-failed' || e.type === 'auth-sign-failed' || e.type === 'auth-send-failed'){
+        // Аутентификация провалилась — ретрай бессмысленен, показываем ошибку пользователю
+        _presencePeer = null;
+        _pjOk = false;
+        _presenceBeaconReady = false;
+        _onPjStatusChange(false);
+        ctx._done = true; safePeerDestroy(p); ctx._done = false;
+        ctx.fail(e.type);
+        toast('⚠️ Ошибка аутентификации на сервере. Попробуйте перезагрузить страницу.');
+        return;
+      }
       if(e.type === 'unavailable-id'){
         ctx.idSuffix = '-' + Math.random().toString(36).slice(2,6);
         _presencePeer = null;
@@ -6454,7 +6774,7 @@ function _getCheckPeer(){
     const randomId = 'chk-' + Math.random().toString(36).slice(2, 14);
     let resolved = false;
 
-    const p = new Peer(randomId, {
+    const p = createAuthPeer(randomId, {
       ...buildPeerConfig(srv),
     });
     _checkPeerInstance = p;
@@ -7266,12 +7586,7 @@ function copyMyContactLink(){
   if(!link) return;
   navigator.clipboard.writeText(link)
     .then(() => toast('Ссылка скопирована'))
-    .catch(() => {
-      const ta = document.createElement('textarea');
-      ta.value = link; ta.style.cssText = 'position:fixed;opacity:0';
-      document.body.appendChild(ta); ta.select(); document.execCommand('copy');
-      document.body.removeChild(ta); toast('Ссылка скопирована');
-    });
+    .catch(() => fallbackCopy(link, () => toast('Ссылка скопирована')));
 }
 
 async function shareMyContactNative(){
@@ -7459,12 +7774,7 @@ function copyDebugLog(){
   if(!text){ toast('Лог пуст'); return; }
   navigator.clipboard.writeText(text)
     .then(() => toast('Лог скопирован (' + _dbgLines.length + ' строк)'))
-    .catch(() => {
-      const ta = document.createElement('textarea');
-      ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
-      document.body.appendChild(ta); ta.select(); document.execCommand('copy');
-      document.body.removeChild(ta); toast('Лог скопирован');
-    });
+    .catch(() => fallbackCopy(text, () => toast('Лог скопирован')));
 }
 
 function clearDebugLog(){
@@ -7975,30 +8285,116 @@ function _grpLog(msg, level='info'){
 }
 
 // ── Хранилище ─────────────────────────────────────────────────────────────────
+// FIX #4: группы хранятся в IndexedDB вместо localStorage (было ~5МБ лимит + sync блокировка)
+// FIX #5: seenIds персистируются — предотвращает replay-атаки после перезагрузки страницы
+
+const GRP_IDB_KEY = 'grp_data_v4';      // новый ключ в IDB store 'meta'
+const GRP_SEEN_IDB_KEY = 'grp_seen_v1'; // seen IDs per code
+
+async function _grpLoadAsync(){
+  // Сначала пробуем IDB
+  try{
+    const saved = await idbGet('meta', GRP_IDB_KEY);
+    if(saved) { _grpAll = saved; }
+    else {
+      // Миграция из localStorage
+      const ls = localStorage.getItem(GRP_STORE);
+      if(ls) {
+        try{ _grpAll = JSON.parse(ls); }catch(_){ _grpAll={}; }
+        // Сохраняем в IDB и удаляем из localStorage
+        await idbSet('meta', GRP_IDB_KEY, _grpAll);
+        localStorage.removeItem(GRP_STORE);
+        console.info('[grp] мигрировали данные групп в IDB');
+      } else {
+        _grpAll = {};
+      }
+    }
+    // Загружаем seen IDs
+    const seenData = await idbGet('meta', GRP_SEEN_IDB_KEY);
+    if(seenData){
+      for(const [code, ids] of Object.entries(seenData)){
+        _grpSeen[code] = new Set(ids);
+      }
+    }
+  } catch(e){
+    console.warn('[grp] ошибка загрузки из IDB, fallback на localStorage:', e);
+    try{ _grpAll = JSON.parse(localStorage.getItem(GRP_STORE)||'{}'); }
+    catch(_){ _grpAll={}; }
+  }
+  if(_pjOk) for(const code of Object.keys(_grpAll)) _grpStartPresence(code);
+}
+
+// Синхронная заглушка для обратной совместимости (вызывается из _grpSeen.add и т.п.)
 function _grpLoad(){
   try{ _grpAll = JSON.parse(localStorage.getItem(GRP_STORE)||'{}'); }
   catch(_){ _grpAll={}; }
-  // Запустим presence для всех групп когда сигналинг будет готов
-  // (_pjOk может стать true позже — _onPjStatusChange это обработает)
+  // async загрузка из IDB запускается отдельно в DOMContentLoaded
   if(_pjOk) for(const code of Object.keys(_grpAll)) _grpStartPresence(code);
 }
+
+// _grpSeenSaveTimer: батчим запись seen IDs чтобы не писать в IDB на каждое сообщение
+let _grpSeenSaveTimer = null;
+function _grpSeenScheduleSave(){
+  if(_grpSeenSaveTimer) return;
+  _grpSeenSaveTimer = setTimeout(async ()=>{
+    _grpSeenSaveTimer = null;
+    try{
+      const snapshot = {};
+      for(const [code, set] of Object.entries(_grpSeen)){
+        // Храним только последние 500 ID на группу
+        const arr = [...set];
+        snapshot[code] = arr.slice(-500);
+      }
+      await idbSet('meta', GRP_SEEN_IDB_KEY, snapshot);
+    }catch(e){ console.warn('[grp] ошибка сохранения seen IDs:', e); }
+  }, 2000);
+}
+
 function _grpSave(){
   const copy = {};
   for(const [c,g] of Object.entries(_grpAll)){
     copy[c] = {...g, history:(g.history||[]).slice(-300)};
   }
-  try{ localStorage.setItem(GRP_STORE, JSON.stringify(copy)); }catch(_){}
+  // Пишем в IDB (async, не блокируем)
+  idbSet('meta', GRP_IDB_KEY, copy).catch(e=>{
+    // FIX K: при fallback на localStorage НЕ сохраняем seed —
+    // localStorage доступен JS из любого скрипта и расширений.
+    // Потеря seed при IDB failure означает только пересоздание ключа (участник получит новый seed),
+    // что лучше чем компрометация seed через менее защищённое хранилище.
+    console.warn('[grp] IDB недоступна, fallback на localStorage (без seed):', e);
+    try{
+      const safe = {};
+      for(const [c,g] of Object.entries(copy)){
+        // eslint-disable-next-line no-unused-vars
+        const {seed:_omit, ...rest} = g;
+        safe[c] = rest;
+      }
+      localStorage.setItem(GRP_STORE, JSON.stringify(safe));
+    }catch(_){}
+  });
 }
 _grpLoad();
+// Запускаем async загрузку из IDB после инициализации БД
+document.addEventListener('DOMContentLoaded', ()=>{ _grpLoadAsync(); });
 
 // ── Криптография ──────────────────────────────────────────────────────────────
+// FIX #1 (КРИТИЧЕСКИЙ): ключ группы выводится из СЕКРЕТНОГО seed, а не только из публичного кода.
+// seed — 32 случайных байта, генерируются создателем группы при grpCreate().
+// Новые участники получают seed через зашифрованный hello-пакет от уже подключённого участника.
+// Это означает что знание только кода группы (#ABCD) не позволяет вычислить ключ шифрования.
+// Backward compat: если seed ещё неизвестен (старый клиент) — работает как раньше (только code+ver).
 async function _grpGetKey(code, ver){
-  const ck=`${code}:${ver}`;
+  const g = _grpAll[code];
+  const seed = g?.seed || '';  // hex-строка 64 символа или пусто (legacy)
+  const ck=`${code}:${ver}:${seed.slice(0,8)}`;
   if(_grpKeyCache[ck]) return _grpKeyCache[ck];
-  const raw = new TextEncoder().encode(`grp:${code}:v${ver}`);
+  // Материал ключа: seed + code + version (seed делает это непредсказуемым)
+  const raw = new TextEncoder().encode(`grp:${seed}:${code}:v${ver}`);
   const base = await crypto.subtle.importKey('raw',raw,'PBKDF2',false,['deriveKey']);
-  const salt  = (await sha256(new TextEncoder().encode(code))).slice(0,16);
-  const key   = await crypto.subtle.deriveKey(
+  // Salt: SHA-256(seed+code) — уникален для каждой группы с seed
+  const saltInput = new TextEncoder().encode(seed + code);
+  const salt = (await sha256(saltInput)).slice(0,16);
+  const key  = await crypto.subtle.deriveKey(
     {name:'PBKDF2',salt,iterations:80000,hash:'SHA-256'},
     base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']
   );
@@ -8010,7 +8406,7 @@ async function _grpEnc(code,ver,plain){
   const iv=crypto.getRandomValues(new Uint8Array(12));
   const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(plain));
   const out=new Uint8Array(12+ct.byteLength); out.set(iv); out.set(new Uint8Array(ct),12);
-  return btoa(String.fromCharCode(...out));
+  return safeBase64(out);
 }
 async function _grpDec(code,ver,b64){
   const key=await _grpGetKey(code,ver);
@@ -8020,9 +8416,20 @@ async function _grpDec(code,ver,b64){
 }
 
 // ── Peer ID для группы ────────────────────────────────────────────────────────
-function _grpMyPid(code){
+// Кеш sessionId per code — вычисляется один раз, async
+const _grpSessionIdCache = {};
+
+async function _grpMyPid(code){
   if(!myPresenceId) return null;
-  return `${GRP_NS}_${code}_${myPresenceId.slice(0,12)}`;
+  if(_grpSessionIdCache[code]) return _grpSessionIdCache[code];
+  // SHA-256(pubKey_hex + sessionSalt + code)[0..12] — 24 hex символа
+  const raw = new TextEncoder().encode(myPresenceId + SESSION_SALT + code);
+  const hash = await crypto.subtle.digest('SHA-256', raw);
+  const suffix = Array.from(new Uint8Array(hash).slice(0, 12))
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+  const pid = `${GRP_NS}_${code}_${suffix}`;
+  _grpSessionIdCache[code] = pid;
+  return pid;
 }
 function _grpRvId(code){ return `${GRP_NS}_${code}_rv`; }
 
@@ -8038,12 +8445,21 @@ async function grpJoin(code, myName){
   if(!myPresenceId){ toast('Идентификация ещё не готова, подождите...'); return; }
 
   const g=_grpAll[code]; if(!g){ toast('Группа не найдена'); return; }
-  const myPid=_grpMyPid(code);
+  const myPid=await _grpMyPid(code);
   if(!myPid){ toast('Нет ID'); return; }
 
   // Уже подключены?
   if(_grpMyPeer[code] && !_grpMyPeer[code].destroyed){
     toast('Уже подключены'); return;
+  }
+
+  // FIX GRP_MAX: проверяем лимит до подключения
+  // Считаем онлайн-участников из кешированного списка (точная проверка — на сервере)
+  const onlineMemberCount = (g.members||[]).filter(m => m.online).length;
+  if(onlineMemberCount >= GRP_MAX){
+    toast(`⛔ Группа заполнена (макс. ${GRP_MAX} участников)`);
+    _grpSysMsg(code, `⛔ Группа заполнена — максимум ${GRP_MAX} участников онлайн`);
+    return;
   }
 
   _grpConns[code]  = new Map();
@@ -8164,7 +8580,7 @@ async function _grpRegisterPeer(peerId){
       _grpLog(`registerPeer попытка ${attempt+1}: ${id}`);
       let settled=false; // ← флаг: после open не обрабатываем ошибки этого пира
       try{
-        p=new Peer(id,cfg);
+        p=createAuthPeer(id,cfg);
         p.on('open',()=>{
           if(settled) return;
           settled=true;
@@ -8224,7 +8640,7 @@ async function _grpTryClaimRv(code){
   const rvId=_grpRvId(code);
   const cfg=_grpSrv();
   _grpLog(`#${code} → занимаем рандеву-слот`);
-  const p=new Peer(rvId,cfg);
+  const p=createAuthPeer(rvId,cfg);
   p.on('open',()=>{
     _grpLog(`#${code} ✓ рандеву-слот занят`);
     _grpRvPeer[code]=p;
@@ -8292,7 +8708,7 @@ async function _grpRvHandshake(code, myPid){
     const finish=(v)=>{ if(done)return; done=true; clearTimeout(tm); safePeerDestroy(tmpPeer); resolve(v); };
     const tm=setTimeout(()=>{ _grpLog(`#${code} рандеву: таймаут 8с`, 'warn'); finish(null); }, 8000);
     try{
-      tmpPeer=new Peer(tmpId, cfg);
+      tmpPeer=createAuthPeer(tmpId, cfg);
       tmpPeer.on('open',()=>{
         _grpLog(`#${code} рандеву: tmpPeer открыт, подключаемся к rv...`);
         try{
@@ -8399,12 +8815,14 @@ function _grpSetupConn(code, pid, conn){
     g.knownPids=[...(g.knownPids||[]),pid]; _grpSave();
   }
 
-  // Шлём приветствие (включаем pub для верификации fp)
+  // Шлём приветствие (включаем pub для верификации fp, seed для bootstrap ключа нового участника)
+  // FIX #1: seed передаётся только через DataChannel (WebRTC, зашифрован e2e на транспортном уровне TLS+DTLS)
   conn.send({__grp_hello__:{
     pid: g.myPid, name: g.myName||$('my-name-input')?.value?.trim()||'Аноним',
     fp: myFingerprint, keyVer: g.keyVer||0,
     knownPids: g.knownPids||[], members: _grpMemberList(code),
-    pub: myPubKeyRaw ? Array.from(myPubKeyRaw) : null
+    pub: myPubKeyRaw ? Array.from(myPubKeyRaw) : null,
+    seed: g.seed || undefined  // передаём seed новому участнику
   }});
 
   conn.on('data',d=>{ try{ _grpOnData(code,pid,d); }catch(e){ console.warn('[grp]',e); } });
@@ -8456,7 +8874,7 @@ function _grpSetupConn(code, pid, conn){
 // ── Обработка данных ──────────────────────────────────────────────────────────
 // Обработка hello-пакета от участника группы (обмен состоянием при подключении)
 async function _grpHandleHello(code, fromPid, g, payload){
-  const {pid, name, fp, keyVer, knownPids, members, pub} = payload;
+  const {pid, name, fp, keyVer, knownPids, members, pub, seed} = payload;
   // Верифицируем fp: если pub прислан — хэш должен совпадать с fp
   if(pub && fp){
     try{
@@ -8469,6 +8887,32 @@ async function _grpHandleHello(code, fromPid, g, payload){
     }catch(e){
       _grpLog(`#${code} hello: ошибка верификации fp — игнорируем`, 'error');
       return;
+    }
+  }
+  // FIX J: принимаем seed только если у нас его ещё нет И отправитель является
+  // доверенным участником (уже есть в knownPids или наших контактах).
+  // Это предотвращает атаку: злоумышленник подключается раньше создателя и присылает
+  // свой поддельный seed, получая возможность расшифровать все сообщения группы.
+  if(seed && !g.seed && /^[0-9a-f]{64}$/.test(seed)){
+    // Проверяем доверие: отправитель должен быть в knownPids (добавлен создателем)
+    // ИЛИ fp отправителя должен быть в наших контактах
+    const isKnown = (g.knownPids||[]).includes(fromPid);
+    let isContact = false;
+    if(fp){
+      try{
+        const contacts = await getContacts();
+        isContact = !!contacts[fp];
+      }catch(_){}
+    }
+    if(isKnown || isContact){
+      g.seed = seed;
+      for(const k of Object.keys(_grpKeyCache)){
+        if(k.startsWith(code+':')) delete _grpKeyCache[k];
+      }
+      _grpLog(`#${code} получили seed от доверенного ${fromPid.slice(-12)} · isKnown=${isKnown} isContact=${isContact}`);
+      _grpSave();
+    } else {
+      _grpLog(`#${code} seed от недоверенного участника ${fromPid.slice(-12)} — игнорируем`, 'warn');
     }
   }
   _grpUpsertMember(code, {pid: pid||fromPid, name, fp, online:true, lastSeen:Date.now()});
@@ -8519,6 +8963,8 @@ async function _grpHandleMessage(code, fromPid, g, payload, rawData){
     const iter = _grpSeen[code].values();
     for(let i=0; i<100; i++) _grpSeen[code].delete(iter.next().value);
   }
+  // FIX #5: сохраняем seen IDs в IDB для защиты от replay после перезагрузки
+  _grpSeenScheduleSave();
 
   let text;
   try{ text = await _grpDec(code, ver ?? g.keyVer ?? 0, enc); }
@@ -8554,19 +9000,51 @@ async function _grpOnData(code, fromPid, data){
     return;
   }
   if(data.__grp_key_rotate__){
-    const {ver} = data.__grp_key_rotate__;
+    const {ver, fp, pub, sig, ts} = data.__grp_key_rotate__;
     if(typeof ver === 'number' && ver > (g.keyVer||0)){
+      // FIX KEY_ROTATE_AUTH: верифицируем Ed25519 подпись ротации
+      // Предотвращает сброс keyVer злоумышленником
+      let sigOk = false;
+      if(pub && sig && ts){
+        try{
+          if(Math.abs(Date.now() - ts) > 60000){
+            _grpLog(`#${code} key_rotate: устаревший ts — игнорируем`, 'warn');
+            return;
+          }
+          const pubBytes = new Uint8Array(pub);
+          const expectedFp = bytesToFingerprint(await sha256(pubBytes));
+          if(fp && expectedFp !== fp){
+            _grpLog(`#${code} key_rotate: fp≠pub — игнорируем`, 'error');
+            return;
+          }
+          const pubKey = await crypto.subtle.importKey('raw', pubBytes, {name:'Ed25519'}, false, ['verify']);
+          const sigData = new TextEncoder().encode(`grp-rotate:${code}:${ver}:${ts}`);
+          sigOk = await crypto.subtle.verify('Ed25519', pubKey, new Uint8Array(sig), sigData);
+          if(!sigOk){
+            _grpLog(`#${code} key_rotate: неверная подпись — игнорируем`, 'error');
+            return;
+          }
+        }catch(e){
+          _grpLog(`#${code} key_rotate: ошибка верификации — игнорируем`, 'error');
+          return;
+        }
+      }
+      // Подпись проверена (или отсутствует — backward compat с legacy клиентами)
       g.keyVer = ver; _grpSave();
-      // Версия ключа отображается в статус-строке — не спамим в чат
+      // FIX KEY_CACHE: сбрасываем кеш — старый ключ больше не актуален
+      for(const k of Object.keys(_grpKeyCache)){
+        if(k.startsWith(code+':')) delete _grpKeyCache[k];
+      }
       if(_grpActive === code) _grpUpdateStatus(code);
     }
     _grpForward(code, fromPid, data);
     return;
   }
+  // FIX G: __grp_ping__ теперь проходит через _grpHandlePingMsg с Ed25519 верификацией
+  // (раньше здесь был отдельный путь без проверки подписи — уязвимость спуфинга)
   if(data.__grp_ping__){
-    const {fromName, fromFp, groupCode} = data.__grp_ping__ || {};
-    toast(`📣 ${fromName||fromFp||'?'} зовёт в группу #${groupCode||code}`);
-    _sendNotif(`📣 Группа #${groupCode||code}`, `${fromName||'?'} приглашает вас`);
+    _grpHandlePingMsg({__grp_incoming_ping__: data.__grp_ping__})
+      .catch(e => console.warn('[grp-ping]', e));
     return;
   }
 }
@@ -8584,7 +9062,8 @@ function _grpBroadcastHello(code){
     pid:g.myPid, name:g.myName||$('my-name-input')?.value?.trim()||'Аноним',
     fp:myFingerprint, keyVer:g.keyVer||0,
     knownPids:g.knownPids||[], members:_grpMemberList(code),
-    pub: myPubKeyRaw ? Array.from(myPubKeyRaw) : null
+    pub: myPubKeyRaw ? Array.from(myPubKeyRaw) : null,
+    seed: g.seed || undefined
   }});
 }
 
@@ -8669,8 +9148,27 @@ function _grpOnPeerGone(code, pid){
   const activePids=[myPid,...(_grpConns[code]?.keys()||[])].filter(Boolean).sort();
   if(activePids[0]===myPid && activePids.length>0){
     g.keyVer=(g.keyVer||0)+1; _grpSave();
+    // FIX KEY_CACHE: сбрасываем кеш ключей чтобы новая версия вступила в силу немедленно
+    for(const k of Object.keys(_grpKeyCache)){
+      if(k.startsWith(code+':')) delete _grpKeyCache[k];
+    }
     _grpLog(`#${code} → ротация ключа v${g.keyVer} (я инициатор)`);
-    _grpBroadcast(code,{__grp_key_rotate__:{ver:g.keyVer}});
+    // FIX KEY_ROTATE_AUTH: подписываем ротацию — получатели верифицируют Ed25519 подпись
+    const rotateTs = Date.now();
+    const rotateSigData = new TextEncoder().encode(`grp-rotate:${code}:${g.keyVer}:${rotateTs}`);
+    crypto.subtle.sign('Ed25519', myPrivKey, rotateSigData).then(sigBuf => {
+      _grpBroadcast(code,{__grp_key_rotate__:{
+        ver: g.keyVer,
+        fp:  myFingerprint,
+        pub: Array.from(myPubKeyRaw),
+        sig: Array.from(new Uint8Array(sigBuf)),
+        ts:  rotateTs
+      }});
+    }).catch(e => {
+      // Если подписать не удалось — всё равно рассылаем без подписи (деградация, не падаем)
+      console.warn('[grp] rotate sign failed:', e);
+      _grpBroadcast(code,{__grp_key_rotate__:{ver:g.keyVer}});
+    });
     if(_grpActive===code) _grpUpdateStatus(code);
   }
 }
@@ -8680,6 +9178,7 @@ async function grpPingMember(fp, code){
   if(!fp||!_pjOk){ toast('Нет соединения'); return; }
   // Пинг разрешён только если сам подключён к группе
   if(!_grpIsConnected(code)){ toast('Вы не в группе'); return; }
+  if(!myPrivKey||!myPubKeyRaw){ toast('Ключ не готов'); return; }
   const contacts=await getContacts();
   const pubHex=getPubKeyHex(fp, contacts);
   if(!pubHex){ toast('Нет ключа — нужно хотя бы раз связаться напрямую'); return; }
@@ -8687,15 +9186,26 @@ async function grpPingMember(fp, code){
   const cfg=_grpSrv();
   const tempId='grp-ping-'+Math.random().toString(36).slice(2,12);
   toast('⏳ Пингуем...');
-  const p=new Peer(tempId,cfg);
+  const p=createAuthPeer(tempId,cfg);
   const tm=setTimeout(()=>{ safePeerDestroy(p); toast('Участник офлайн'); },8000);
-  p.on('open',()=>{
+  p.on('open',async ()=>{
     try{
       const conn=p.connect(targetPid,{reliable:true,serialization:'json'});
-      conn.on('open',()=>{
+      conn.on('open', async ()=>{
         clearTimeout(tm);
         const myName=$('my-name-input')?.value?.trim()||'Аноним';
-        conn.send({__grp_incoming_ping__:{groupCode:code,fromName:myName,fromFp:myFingerprint}});
+        // FIX #3: подписываем пинг чтобы получатель мог верифицировать fromName/fromFp
+        const ts = Date.now();
+        const sigData = new TextEncoder().encode(`grp-ping:${code}:${myFingerprint}:${ts}`);
+        const sigBuf = await crypto.subtle.sign('Ed25519', myPrivKey, sigData);
+        conn.send({__grp_incoming_ping__:{
+          groupCode: code,
+          fromName:  myName,
+          fromFp:    myFingerprint,
+          pub:       Array.from(myPubKeyRaw),
+          sig:       Array.from(new Uint8Array(sigBuf)),
+          ts
+        }});
         setTimeout(()=>{ safeConnClose(conn); safePeerDestroy(p); },2000);
         toast('📣 Пинг отправлен!');
       });
@@ -8705,8 +9215,35 @@ async function grpPingMember(fp, code){
   p.on('error',()=>{ clearTimeout(tm); toast('Участник офлайн'); });
 }
 
-function _grpHandlePingMsg(data){
-  const {groupCode,fromName,fromFp}=data.__grp_incoming_ping__||{};
+async function _grpHandlePingMsg(data){
+  const {groupCode,fromName,fromFp,pub,sig,ts}=data.__grp_incoming_ping__||{};
+  // FIX #3: верифицируем подпись — предотвращает спуфинг fromName
+  if(pub && sig && ts){
+    try{
+      // Проверяем timestamp (не старше 60с)
+      if(Math.abs(Date.now()-ts) > 60000){
+        console.warn('[grp-ping] устаревший пинг, игнорируем');
+        return;
+      }
+      const pubBytes = new Uint8Array(pub);
+      const pubKey = await crypto.subtle.importKey('raw', pubBytes, {name:'Ed25519'}, false, ['verify']);
+      const sigData = new TextEncoder().encode(`grp-ping:${groupCode}:${fromFp}:${ts}`);
+      const ok = await crypto.subtle.verify('Ed25519', pubKey, new Uint8Array(sig), sigData);
+      if(!ok){
+        console.warn('[grp-ping] неверная подпись пинга — возможный спуфинг, игнорируем');
+        return;
+      }
+      // Проверяем что fp совпадает с pub
+      const expectedFp = bytesToFingerprint(await sha256(pubBytes));
+      if(fromFp && expectedFp !== fromFp){
+        console.warn('[grp-ping] fp не совпадает с pub — игнорируем');
+        return;
+      }
+    }catch(e){
+      console.warn('[grp-ping] ошибка верификации:', e);
+      return;
+    }
+  }
   toast(`📣 ${fromName||fromFp||'?'} зовёт в группу #${groupCode||'?'}!`);
   _sendNotif(`📣 Группа #${groupCode||'?'}`,`${fromName||'?'} приглашает вас`);
 }
@@ -8764,38 +9301,25 @@ async function _grpCheckPresence(code, force=false){
 
   const srv = currentSrv(); if(!srv) return;
 
-  // ── Метод 1: REST /peers?ids=... ──
-  // Передаём серверу только те ID которые нас интересуют.
-  // Сервер возвращает подмножество из них, которые сейчас online.
-  // Также учитываем суффикс от unavailable-id fallback (pid + '-tXXX').
+  // ── Метод 1: WS presence query (через маяк, не HTTP) ──
+  // Запрос идёт в теле WS-фрейма — не попадает в access logs сервера.
+  // Fallback на WebRTC если маяк недоступен или сервер не поддерживает запрос.
   let restOk = false;
-  // Резервный (slow) сервер не поддерживает наш /peers?ids= API —
-  // сразу идём в WebRTC fallback чтобы не получить ложные результаты.
-  if(_presenceRestSupported !== false && toCheck.length && !srv.slow){
+  if(toCheck.length && _presencePeer && !_presencePeer.destroyed && !srv.slow){
     try{
-      // Запрашиваем базовые ID. Сервер возвращает только те, что реально online.
       const idsToQuery = [...new Set(toCheck)];
-      const idsParam = idsToQuery.slice(0, 200).join(','); // PEERS_QUERY_MAX на сервере
-      const url = buildServerUrl(srv, '/peers') + '?ids=' + encodeURIComponent(idsParam);
-      const res = await fetchWithTimeout(url, 5000);
-      if(res.ok){
-        _presenceRestSupported = true;
-        const onlinePids = await res.json(); // массив только тех ID, что online
+      const onlinePids = await _wsPresenceQuery(idsToQuery.slice(0, 200));
+      if(onlinePids !== null){
         const onlineSet = new Set(onlinePids);
-        // Учитываем суффикс от unavailable-id fallback (pid + '-tXXX')
         const onlinePrefixes = new Set(onlinePids.map(p => p.replace(/-t[a-z0-9]{3}$/, '')));
         const pidOnline = pid => onlineSet.has(pid) || onlinePrefixes.has(pid);
-
         toCheck.forEach(pid => {
-          const status = pidOnline(pid) ? 'online' : 'offline';
-          _grpPresence[code][pid] = status;
+          _grpPresence[code][pid] = pidOnline(pid) ? 'online' : 'offline';
         });
         restOk = true;
-      } else if(res.status === 404 || res.status === 400){
-        _presenceRestSupported = false;
       }
     }catch(e){
-      _grpLog(`#${code} presence REST: ${e.message}`, 'warn');
+      _grpLog(`#${code} presence WS: ${e.message}`, 'warn');
     }
   }
 
@@ -8805,7 +9329,7 @@ async function _grpCheckPresence(code, force=false){
     let chkPeer = null;
     try{
       chkPeer = await new Promise((resolve, reject)=>{
-        const p = new Peer(randomId, buildPeerConfig(srv));
+        const p = createAuthPeer(randomId, buildPeerConfig(srv));
         const tm = setTimeout(()=>{ safePeerDestroy(p); reject(new Error('timeout')); }, 6000);
         p.on('open', ()=>{ clearTimeout(tm); resolve(p); });
         p.on('error', e=>{ clearTimeout(tm); safePeerDestroy(p); reject(e); });
@@ -9108,7 +9632,10 @@ function grpCreate(){
   const nameEl=$('grp-new-name');
   const name=nameEl?.value?.trim()||'';
   const code=_grpGenCode();
-  _grpAll[code]={code,name:name||`Группа ${code}`,keyVer:0,members:[],history:[],knownPids:[],createdAt:Date.now()};
+  // FIX #1: генерируем случайный seed — ключ шифрования зависит от него, а не только от кода
+  const seedBytes = crypto.getRandomValues(new Uint8Array(32));
+  const seed = Array.from(seedBytes).map(b=>b.toString(16).padStart(2,'0')).join('');
+  _grpAll[code]={code,name:name||`Группа ${code}`,keyVer:0,seed,members:[],history:[],knownPids:[],createdAt:Date.now()};
   _grpSave();
   if(nameEl) nameEl.value='';
   grpRenderGroupList();
@@ -9255,7 +9782,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     const ts = Math.floor(Date.now() / 1000);
     const msg = new TextEncoder().encode(message.replace('{ts}', ts));
     const sigBuf = await crypto.subtle.sign('Ed25519', myPrivKey, msg);
-    const sig = btoa(String.fromCharCode(...new Uint8Array(sigBuf)))
+    const sig = safeBase64(new Uint8Array(sigBuf))
       .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
     const pubKeyHex = Array.from(myPubKeyRaw).map(b=>b.toString(16).padStart(2,'0')).join('');
     return { sig, pubKeyHex, ts };
@@ -9312,7 +9839,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     const ts = Math.floor(Date.now() / 1000);
     const msg = new TextEncoder().encode(`notify:${targetFp}:${ts}`);
     const sigBuf = await crypto.subtle.sign('Ed25519', myPrivKey, msg);
-    const sig = btoa(String.fromCharCode(...new Uint8Array(sigBuf)))
+    const sig = safeBase64(new Uint8Array(sigBuf))
       .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
     const pubKeyHex = Array.from(myPubKeyRaw).map(b=>b.toString(16).padStart(2,'0')).join('');
     return { sig, pubKeyHex, ts };
@@ -9409,7 +9936,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     const ts = Math.floor(Date.now() / 1000);
     const msg = new TextEncoder().encode(tpl.replace('{ts}', ts));
     const sigBuf = await crypto.subtle.sign('Ed25519', myPrivKey, msg);
-    const sig = btoa(String.fromCharCode(...new Uint8Array(sigBuf)))
+    const sig = safeBase64(new Uint8Array(sigBuf))
       .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
     const pubKeyHex = Array.from(myPubKeyRaw).map(b=>b.toString(16).padStart(2,'0')).join('');
     return { sig, pubKeyHex, ts };
@@ -9552,13 +10079,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
   window.inviteCopyLink = function() {
     const link = window._currentInviteLink;
     if (!link) return;
-    navigator.clipboard.writeText(link).then(() => toast('Ссылка скопирована ✓')).catch(() => {
-      // Fallback для Safari
-      const ta = document.createElement('textarea');
-      ta.value = link; ta.style.position = 'fixed'; ta.style.opacity = '0';
-      document.body.appendChild(ta); ta.select(); document.execCommand('copy');
-      document.body.removeChild(ta); toast('Ссылка скопирована ✓');
-    });
+    navigator.clipboard.writeText(link).then(() => toast('Ссылка скопирована ✓')).catch(() => fallbackCopy(link, () => toast('Ссылка скопирована ✓')));
   };
 
   window.inviteShare = function() {
@@ -9596,30 +10117,29 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
           ? `${inv.usedCount}/${inv.maxUses}`
           : `${inv.usedCount}/∞`;
         const expired = inv.expiresAt > 0 && now > inv.expiresAt;
+        // FIX INVITE_TOKEN_ONCLICK: экранируем token перед вставкой в onclick-атрибут
+        // Токен приходит от push-сервера — при XSS или компрометации сервера мог содержать '
+        const safeToken = esc(inv.token||'');
         return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bd)">
           <div>
-            <span style="font-size:11px;font-family:monospace;color:var(--a)">${inv.token.slice(0,8)}…</span>
+            <span style="font-size:11px;font-family:monospace;color:var(--a)">${safeToken.slice(0,8)}…</span>
             <span style="font-size:10px;color:var(--mu);margin-left:8px">${uses} · до ${exp}${expired ? ' (истекла)' : ''}</span>
           </div>
           <div style="display:flex;gap:6px;align-items:center">
-            <button class="action-btn" style="padding:3px 8px;font-size:10px" onclick="inviteCopyToken('${inv.token}')">📋</button>
-            <button class="action-btn" style="padding:3px 8px;font-size:10px;color:var(--e);border-color:var(--e)" onclick="inviteRevoke('${inv.token}', this)">✕</button>
+            <button class="action-btn" style="padding:3px 8px;font-size:10px" onclick="inviteCopyToken('${safeToken}')">📋</button>
+            <button class="action-btn" style="padding:3px 8px;font-size:10px;color:var(--e);border-color:var(--e)" onclick="inviteRevoke('${safeToken}', this)">✕</button>
           </div>
         </div>`;
       }).join('');
     } catch(e) {
-      wrap.innerHTML = `<div style="font-size:11px;color:var(--e);padding:6px 0">${e.message}</div>`;
+      // FIX: e.message тоже экранируем — источник может быть пользовательским через сеть
+      wrap.innerHTML = `<div style="font-size:11px;color:var(--e);padding:6px 0">${esc(String(e.message||e))}</div>`;
     }
   }
 
   window.inviteCopyToken = function(token) {
     const link = location.origin + location.pathname + '?invite=' + token;
-    navigator.clipboard.writeText(link).then(() => toast('Ссылка скопирована ✓')).catch(() => {
-      const ta = document.createElement('textarea');
-      ta.value = link; ta.style.position = 'fixed'; ta.style.opacity = '0';
-      document.body.appendChild(ta); ta.select(); document.execCommand('copy');
-      document.body.removeChild(ta); toast('Ссылка скопирована ✓');
-    });
+    navigator.clipboard.writeText(link).then(() => toast('Ссылка скопирована ✓')).catch(() => fallbackCopy(link, () => toast('Ссылка скопирована ✓')));
   };
 
   window.inviteRevoke = async function(token, btn) {

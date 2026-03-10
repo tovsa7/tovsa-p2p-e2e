@@ -2743,20 +2743,12 @@ async function sha256hex(bytes, sliceBytes = null) {
 // ── Серверы ───────────────────────────────────────────────────────────────────
 // Объявлены здесь — до первого использования в currentSrv() и _startIncomingListener()
 const SIGNALING_SERVERS = [
-  { host: 'signaling.tovsa.deno.net',    port: 443, path: '/', secure: true, name: 'Основной (Deno)',   slow: false },
-  { host: 'peerjs-server-lwcm.onrender.com', port: 443, path: '/', secure: true, name: 'Резервный (Render)', slow: true  },
+  { host: 'signaling.tovsa.deno.net', port: 443, path: '/', secure: true, name: 'Основной (Deno)', slow: false },
 ];
 const SRV_IDX_KEY = 'pj_server_idx';
-const _savedSrvIdx = localStorage.getItem(SRV_IDX_KEY);
-// Миграция: старые клиенты хранили index=1 для Render, теперь Render — index=0.
-// Принудительно сбрасываем на 0 если сохранено значение >= длины нового списка.
-if (_savedSrvIdx === null || parseInt(_savedSrvIdx, 10) >= SIGNALING_SERVERS.length) {
-  localStorage.setItem(SRV_IDX_KEY, '0');
-}
-let _serverIndex = Math.min(
-  parseInt(localStorage.getItem(SRV_IDX_KEY) || '0', 10),
-  SIGNALING_SERVERS.length - 1
-);
+// Всегда сбрасываем на 0 — единственный сервер.
+localStorage.setItem(SRV_IDX_KEY, '0');
+let _serverIndex = 0;
 
 // myPresenceId — здесь же, используется в _startIncomingListener() на строке ~3000
 let myPresenceId = '';
@@ -6325,7 +6317,7 @@ let _autoReconnectTimer    = null;
 let _autoReconnectAttempts = 0;
 
 // ── Маяк: подключение пира к серверу ─────────────────────────────────────────
-// ctx — контекст сессии: { srv, idx, gone, fail, wake, isStable, wakeAttempts, reconnects, stableAt, idSuffix, _done }
+// ctx — контекст сессии: { srv, idx, gone, fail, isStable, reconnects, stableAt, idSuffix, _done }
 // ── Список парных маяков (по одному Peer на каждый контакт) ──────────────────
 // _pairBeacons: Map<fp, Peer> — активные парные маяки
 let _pairBeacons = new Map();
@@ -6440,7 +6432,6 @@ function _beaconConnect(ctx){
     p.on('open', ()=>{
       if(ctx.gone()){ safePeerDestroy(p); return; }
       ctx.stableAt   = Date.now();
-      ctx.wakeAttempts = 0;
       ctx.reconnects   = 0;
       _pjOk = true;
       _pjChecked = true;
@@ -6451,7 +6442,7 @@ function _beaconConnect(ctx){
       _onPjStatusChange(true);
       _requestNotifPermission();
       _syncPairBeacons(); // регистрируем парные маяки для каждого контакта
-      const shortName = srv.host.replace('.onrender.com','').replace('.com','').replace('.','');
+      const shortName = srv.host.replace('.com','').replace('.','');
       _setSrvRow(idx, 'ok', 'доступен');
       _setSrvHeader('ok', shortName);
       updateSigState();
@@ -6502,14 +6493,8 @@ function _beaconConnect(ctx){
       _presenceBeaconReady = false;
       _onPjStatusChange(false);
 
-      if(srv.slow && !ctx.isStable() && ctx.wakeAttempts < ctx.MAX_WAKE){
-        ctx.stableAt = 0;
-        ctx._done = true; safePeerDestroy(p); ctx._done = false;
-        setTimeout(()=>_beaconWake(ctx), 1500);
-      } else {
-        ctx._done = true; safePeerDestroy(p); ctx._done = false;
-        ctx.fail(e.type);
-      }
+      ctx._done = true; safePeerDestroy(p); ctx._done = false;
+      ctx.fail(e.type);
     });
 
     p.on('disconnected', ()=>{
@@ -6518,14 +6503,6 @@ function _beaconConnect(ctx){
       _pjOk = false;
       _onPjStatusChange(false);
       _setSrvRow(idx, 'spin');
-
-      if(srv.slow && !ctx.isStable() && ctx.wakeAttempts < ctx.MAX_WAKE){
-        ctx.stableAt = 0;
-        _presencePeer = null;
-        ctx._done = true; safePeerDestroy(p); ctx._done = false;
-        setTimeout(()=>_beaconWake(ctx), 1500);
-        return;
-      }
 
       if(ctx.reconnects < 5){
         ctx.reconnects++;
@@ -6551,33 +6528,10 @@ function _beaconConnect(ctx){
     });
 
   }catch(e){
-    if(srv.slow && !_pjChecked && ctx.wakeAttempts < ctx.MAX_WAKE){
-      setTimeout(()=>_beaconWake(ctx), 1500);
-    } else {
-      ctx.fail('exception');
-    }
+    ctx.fail('exception');
   }
 }
 
-// ── Маяк: пробуждение slow-сервера (Render) перед подключением ────────────────
-function _beaconWake(ctx){
-  if(ctx.gone()) return;
-  ctx.wakeAttempts++;
-  const text = ctx.wakeAttempts === 1 ? 'пробуждение...' : `попытка ${ctx.wakeAttempts}...`;
-  _setSrvRow(ctx.idx, 'spin', text);
-
-  fetchWithTimeout(`https://${ctx.srv.host}`, 12000).then(r => {
-    if(ctx.gone()) return;
-    if(r.status < 500){
-      _setSrvRow(ctx.idx, 'spin', 'подключение...');
-      setTimeout(()=>_beaconConnect(ctx), 200);
-    } else {
-      setTimeout(()=>_beaconWake(ctx), 2000);
-    }
-  }).catch(() => {
-    if(!ctx.gone()) setTimeout(()=>_beaconWake(ctx), 3000);
-  });
-}
 
 // ── Маяк: инициализация сессии ────────────────────────────────────────────────
 function initMasterPeer(){
@@ -6603,7 +6557,7 @@ function initMasterPeer(){
   _setSrvRow(idx, 'spin');
   updateSigState();
 
-  // Контекст сессии — передаётся между _beaconConnect и _beaconWake
+  // Контекст сессии — передаётся в _beaconConnect
   let _done = false;
   const ctx = {
     srv, idx,
@@ -6611,8 +6565,6 @@ function initMasterPeer(){
     get _done(){ return _done; },
     set _done(v){ _done = v; },
     reconnects: 0,
-    wakeAttempts: 0,
-    MAX_WAKE: 20,
     stableAt: 0,
     idSuffix: '',
     isStable(){ return this.stableAt > 0 && (Date.now() - this.stableAt) >= 5000; },
@@ -6642,8 +6594,7 @@ function initMasterPeer(){
   };
 
   const start = () => {
-    if(srv.slow){ _beaconWake(ctx); }
-    else { _setSrvRow(idx, 'spin', ''); _beaconConnect(ctx); }
+    _setSrvRow(idx, 'spin', ''); _beaconConnect(ctx);
   };
 
   if(typeof Peer !== 'undefined'){
@@ -6705,7 +6656,7 @@ function _updateLeaderBtn(){
 
   if(_isLeader){
     const srv = currentSrv();
-    const srvName = srv ? srv.host.replace('.onrender.com','').replace('.com','') : '—';
+    const srvName = srv ? srv.host.replace('.com','') : '—';
 
     if(_pjOk){
       badge.className = 'natbadge ok';
@@ -9305,7 +9256,7 @@ async function _grpCheckPresence(code, force=false){
   // Запрос идёт в теле WS-фрейма — не попадает в access logs сервера.
   // Fallback на WebRTC если маяк недоступен или сервер не поддерживает запрос.
   let restOk = false;
-  if(toCheck.length && _presencePeer && !_presencePeer.destroyed && !srv.slow){
+  if(toCheck.length && _presencePeer && !_presencePeer.destroyed){
     try{
       const idsToQuery = [...new Set(toCheck)];
       const onlinePids = await _wsPresenceQuery(idsToQuery.slice(0, 200));

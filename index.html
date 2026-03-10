@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="preconnect" href="https://peerjs-server-lwcm.onrender.com">
+<link rel="preconnect" href="https://signaling.tovsa.deno.net">
 <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
 <title>Tovsa</title>
 <link rel="manifest" href="./manifest.json">
@@ -2695,8 +2695,8 @@ async function sha256hex(bytes, sliceBytes = null) {
 // ── Серверы ───────────────────────────────────────────────────────────────────
 // Объявлены здесь — до первого использования в currentSrv() и _startIncomingListener()
 const SIGNALING_SERVERS = [
-  { host: 'peerjs-server-lwcm.onrender.com', port: 443, path: '/', secure: true, name: 'Основной (Render)', slow: true  },
-  { host: 'broken.peerjs.invalid',           port: 443, path: '/', secure: true, name: 'Тестовый',          slow: false },
+  { host: 'signaling.tovsa.deno.net',    port: 443, path: '/', secure: true, name: 'Основной (Deno)',   slow: false },
+  { host: 'peerjs-server-lwcm.onrender.com', port: 443, path: '/', secure: true, name: 'Резервный (Render)', slow: true  },
 ];
 const SRV_IDX_KEY = 'pj_server_idx';
 const _savedSrvIdx = localStorage.getItem(SRV_IDX_KEY);
@@ -7377,15 +7377,16 @@ function runWsDiag(){
   function log(line){ results.push(line); out.textContent = results.join('\n'); }
 
   // 1. HTTP доступность
-  log('1. HTTP → https://peerjs-server-lwcm.onrender.com ...');
-  fetch('https://peerjs-server-lwcm.onrender.com', {mode:'cors'})
+  const _srvHost = SIGNALING_SERVERS[0]?.host || 'tovsa-signaling.deno.dev';
+  log('1. HTTP → https://' + _srvHost + ' ...');
+  fetch('https://' + _srvHost, {mode:'cors'})
     .then(r => log('   ✓ HTTP ответ: ' + r.status))
     .catch(e => log('   ✗ HTTP ошибка: ' + e.message));
 
   // 2. WebSocket напрямую
-  log('2. WebSocket → wss://peerjs-server-lwcm.onrender.com ...');
+  log('2. WebSocket → wss://' + _srvHost + ' ...');
   try{
-    const ws = new WebSocket('wss://peerjs-server-lwcm.onrender.com/peerjs?key=peerjs&id=diag' + Math.random().toString(36).slice(2) + '&token=diag');
+    const ws = new WebSocket('wss://' + _srvHost + '/peerjs?key=peerjs&id=diag' + Math.random().toString(36).slice(2) + '&token=diag');
     const wsTimer = setTimeout(()=>{ log('   ✗ WebSocket таймаут (5с)'); ws.close(); }, 5000);
     ws.onopen = ()=>{ clearTimeout(wsTimer); log('   ✓ WebSocket открылся'); ws.close(); };
     ws.onerror = ()=>{ clearTimeout(wsTimer); log('   ✗ WebSocket ошибка соединения'); };

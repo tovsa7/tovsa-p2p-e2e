@@ -2725,6 +2725,7 @@ let _presenceCacheTime    = {};
 let _presencePubKeyCache  = {};
 let _presenceHbRunning    = false;
 let _presenceLastHbAt     = 0;
+let _presenceRestSupported = null; // null=неизвестно, true/false — кэш /peers (для групп)
 
 // ── Видимость присутствия (presence visibility) ───────────────────────────────
 // _presenceGlobalHidden: глобальная «невидимка» — скрываемся от всех контактов.
@@ -2743,6 +2744,7 @@ function _setGlobalHidden(val) {
 
   // [FIX BUG5] Сначала сносим парные маяки синхронно, затем перезапускаем маяк.
   // Задержка 50ms гарантирует что destroy завершится до создания нового пира.
+  _syncPairBeaconsRunning = false; // сбрасываем флаг чтобы следующий _syncPairBeacons прошёл
   for(const [, peer] of _pairBeacons) safePeerDestroy(peer);
   _pairBeacons.clear();
   _beaconVersion++;
@@ -6063,37 +6065,47 @@ async function _syncPairBeaconsInner() {
       }
       continue;
     }
-    if(_pairBeacons.has(fp)) continue; // уже зарегистрирован
+    if(_pairBeacons.has(fp)) continue; // уже зарегистрирован (готовый или pending)
     const pairId = await _fpToPairPid(contacts[fp].pubKeyHex);
     if(!pairId) continue;
+    // [FIX БАГ3] Сразу ставим sentinel-значение чтобы повторный вызов не создавал дубль.
+    // Реальный peer заменит его при onopen; при ошибке — удалим.
+    _pairBeacons.set(fp, null);
     try{
       const peer = new Peer(pairId, { ...buildPeerConfig(currentSrv()) });
       peer.on('open', () => {
-        _pairBeacons.set(fp, peer);
+        // Ставим реальный peer только если:
+        // 1. sentinel ещё на месте (нас не вытеснили)
+        // 2. глобальная невидимка не включена
+        // 3. hidePresence для этого контакта не выставлен (читаем свежо)
+        getContacts().then(cts => {
+          const hide = _presenceGlobalHidden || !!cts[fp]?.hidePresence;
+          if(_pairBeacons.get(fp) === null && !hide)
+            _pairBeacons.set(fp, peer);
+          else safePeerDestroy(peer);
+        }).catch(() => safePeerDestroy(peer));
       });
       peer.on('connection', conn => {
         conn.on('open', () => { setTimeout(() => safeConnClose(conn), 1500); });
         conn.on('error', () => {});
       });
       peer.on('error', e => {
-        // [FIX BUG3] unavailable-id: парный ID уже занят (другая вкладка/инстанс) — ок,
-        // но убираем из Map чтобы не держать мёртвый peer
-        if(e.type === 'unavailable-id') { _pairBeacons.delete(fp); return; }
-        _pairBeacons.delete(fp);
+        if(_pairBeacons.get(fp) === null || _pairBeacons.get(fp) === peer)
+          _pairBeacons.delete(fp);
+        // unavailable-id: другая вкладка/инстанс уже держит этот ID — это нормально,
+        // тот инстанс будет видимым вместо нас. Peer всё равно уничтожаем — он нефункционален.
         safePeerDestroy(peer);
       });
       peer.on('disconnected', () => {
-        // [FIX BUG4] При потере соединения — удаляем и планируем пересоздание
-        _pairBeacons.delete(fp);
+        if(_pairBeacons.get(fp) === peer) _pairBeacons.delete(fp);
         safePeerDestroy(peer);
         if(_pjOk) setTimeout(_refreshPairBeacons, 5000);
       });
       peer.on('close', () => {
-        _pairBeacons.delete(fp);
+        if(_pairBeacons.get(fp) === peer) _pairBeacons.delete(fp);
         if(_pjOk) setTimeout(_refreshPairBeacons, 5000);
       });
-      _pairBeacons.set(fp, peer); // регистрируем до open для дедупликации
-    }catch(e){}
+    }catch(e){ _pairBeacons.delete(fp); }
   }
 }
 
@@ -6433,6 +6445,9 @@ function _getCheckPeer(){
     const srv = currentSrv();
     if(!srv){ reject(new Error('no server')); return; }
 
+    // Уничтожаем предыдущий инстанс если не был освобождён
+    if(_checkPeerInstance){ safePeerDestroy(_checkPeerInstance); _checkPeerInstance = null; }
+
     // Случайный ID — не конфликтует с маяком и не регистрирует нас публично
     const randomId = 'chk-' + Math.random().toString(36).slice(2, 14);
     let resolved = false;
@@ -6480,14 +6495,23 @@ async function _fpToPid(pubKeyHex){
   return 'fpvp-' + await sha256hex(pubKeyBytes, 24);
 }
 
-// Вычислить парный presence peer-id для маяка (только контакт с pubKeyHex видит нас)
-// ID = sha256(min(myPubHex,contactPubHex) + max(myPubHex,contactPubHex)) — детерминирован для пары
-// Маяк регистрируется на этом ID → только данный контакт знает куда смотреть
+// Вычислить ID маяка — направленный: "мой маяк для конкретного контакта"
+// sha256("beacon:" + myKey + ":" + contactKey)
+// Контакт ищет нас: он вызывает _fpToPairPid(myPubKeyHex) со своей стороны
+//   → sha256("beacon:" + myKey + ":" + contactKey) — тот же ID ✓
+// Мы ищем контакта: _fpToPairPid(contactPubKeyHex)
+//   → sha256("beacon:" + contactKey + ":" + myKey) — другой ID (маяк контакта) ✓
 async function _fpToPairPid(contactPubKeyHex){
   if(!myPubKeyHex) return null;
-  const a = myPubKeyHex < contactPubKeyHex ? myPubKeyHex : contactPubKeyHex;
-  const b = myPubKeyHex < contactPubKeyHex ? contactPubKeyHex : myPubKeyHex;
-  const combined = new TextEncoder().encode(a + ':' + b);
+  const combined = new TextEncoder().encode('beacon:' + myPubKeyHex + ':' + contactPubKeyHex);
+  return 'fpvpp-' + await sha256hex(combined, 24);
+}
+
+// Вычислить ID маяка контакта для проверки его присутствия
+// sha256("beacon:" + contactKey + ":" + myKey)
+async function _fpToContactPairPid(contactPubKeyHex){
+  if(!myPubKeyHex) return null;
+  const combined = new TextEncoder().encode('beacon:' + contactPubKeyHex + ':' + myPubKeyHex);
   return 'fpvpp-' + await sha256hex(combined, 24);
 }
 
@@ -6618,46 +6642,71 @@ async function inviteFromHistory(){
 // ── WebRTC-connect — единственный метод проверки присутствия ──
 // /peers на сервере закрыт — проверяем только через попытку подключения.
 async function _refreshPresenceViaWebRTC(fps, fpToPid, checkPeer){
-  // Временный пир изолирован от маяка — можно делать все проверки параллельно.
-  // Единственное ограничение: не более 8 одновременных connect() чтобы не флудить сервер.
+  // peer-unavailable приходит на checkPeer.on('error'), не на conn.on('error').
+  // Храним Map pid → finish чтобы маппировать ошибку на нужный контакт.
   const BATCH = 8;
   const BATCH_DELAY = 300;
 
-  for(let i = 0; i < fps.length; i += BATCH){
-    if(checkPeer.destroyed){
-      fps.slice(i).forEach(fp => _applyPresenceResult(fp, 'offline'));
-      break;
+  // Глобальный обработчик peer-unavailable на checkPeer
+  const pendingByPid = new Map(); // pid → finish
+  const puHandler = e => {
+    if(e.type !== 'peer-unavailable') return;
+    // PeerJS: e.message = "Could not connect to peer <pid>"
+    for(const [pid, finish] of pendingByPid){
+      if(e.message && e.message.includes(pid)){
+        pendingByPid.delete(pid);
+        finish('offline');
+        return;
+      }
     }
+  };
+  checkPeer.on('error', puHandler);
 
-    await Promise.all(fps.slice(i, i + BATCH).map(fp => {
-      const pid = fpToPid[fp];
-      if(!pid){ _applyPresenceResult(fp, 'offline'); return Promise.resolve(); }
+  try{
+    for(let i = 0; i < fps.length; i += BATCH){
+      if(checkPeer.destroyed){
+        fps.slice(i).forEach(fp => _applyPresenceResult(fp, 'offline'));
+        break;
+      }
 
-      return new Promise(resolve => {
-        let done = false;
-        let conn;
-        const timer = setTimeout(()=> finish('offline'), 5000);
+      await Promise.all(fps.slice(i, i + BATCH).map(fp => {
+        const pid = fpToPid[fp];
+        if(!pid){ _applyPresenceResult(fp, 'offline'); return Promise.resolve(); }
 
-        function finish(result){
-          if(done) return; done = true;
-          clearTimeout(timer);
-          try{ if(conn) conn.close(); }catch(e){}
-          _applyPresenceResult(fp, result);
-          resolve();
-        }
+        return new Promise(resolve => {
+          let done = false;
+          let conn;
+          const timer = setTimeout(()=> finish('offline'), 5000);
 
-        try{
-          conn = checkPeer.connect(pid, { reliable: false, serialization: 'json' });
-          conn.on('open',  ()=> finish('online'));
-          conn.on('close', ()=> finish('offline'));
-          conn.on('error', ()=> finish('offline'));
-        }catch(e){ finish('offline'); }
-      });
-    }));
+          function finish(result){
+            if(done) return; done = true;
+            clearTimeout(timer);
+            pendingByPid.delete(pid);
+            try{ if(conn) conn.close(); }catch(e){}
+            _applyPresenceResult(fp, result);
+            resolve();
+          }
 
-    if(i + BATCH < fps.length){
-      await new Promise(r => setTimeout(r, BATCH_DELAY));
+          // Если pid уже в ожидании (дубль контакта с тем же ключом) —
+          // завершаем предыдущий как offline чтобы он не завис
+          if(pendingByPid.has(pid)){ pendingByPid.get(pid)('offline'); }
+          pendingByPid.set(pid, finish);
+
+          try{
+            conn = checkPeer.connect(pid, { reliable: false, serialization: 'json' });
+            conn.on('open',  ()=> finish('online'));
+            conn.on('close', ()=> finish('offline'));
+            conn.on('error', ()=> finish('offline'));
+          }catch(e){ finish('offline'); }
+        });
+      }));
+
+      if(i + BATCH < fps.length){
+        await new Promise(r => setTimeout(r, BATCH_DELAY));
+      }
     }
+  } finally {
+    checkPeer.off('error', puHandler);
   }
 }
 
@@ -6684,26 +6733,36 @@ async function refreshPresence(){
     if(dot){ dot.className = 'ci-presence-dot checking'; dot.title = 'проверяем...'; }
   });
 
-  // Вычисляем парный peer-id для каждого контакта (только он знает наш парный ID)
+  // Вычисляем ID маяка каждого контакта (направленный: их маяк для нас)
   const fpToPid = {};
   await Promise.all(fps.map(async fp => {
     const pubKeyHex = getPubKeyHex(fp, contacts);
     if(!pubKeyHex) return;
-    try{ fpToPid[fp] = await _fpToPairPid(pubKeyHex); }catch(e){}
+    try{ fpToPid[fp] = await _fpToContactPairPid(pubKeyHex); }catch(e){}
   }));
 
   // Единственный метод: WebRTC-connect к парному ID контакта
+  // [FIX БАГ5] Контакты без ключа → офлайн сразу, не гоняем их через WebRTC
+  fps.filter(fp => !fpToPid[fp]).forEach(fp => _applyPresenceResult(fp, 'offline'));
+  const fpsWithPid = fps.filter(fp => fpToPid[fp]);
+
+  if(!fpsWithPid.length){ if(btn) btn.classList.remove('spin'); return; }
+
   let peer;
   try{ peer = await _getCheckPeer(); }
   catch(e){
-    fps.forEach(fp => _applyPresenceResult(fp, 'offline'));
+    fpsWithPid.forEach(fp => _applyPresenceResult(fp, 'offline'));
     if(btn) btn.classList.remove('spin');
     return;
   }
-  await _refreshPresenceViaWebRTC(fps, fpToPid, peer);
-  _releaseCheckPeer();
-
-  if(btn) btn.classList.remove('spin');
+  try{
+    await _refreshPresenceViaWebRTC(fpsWithPid, fpToPid, peer);
+  } catch(e){
+    console.warn('[presence] refreshPresence error:', e.message);
+  } finally {
+    _releaseCheckPeer();
+    if(btn) btn.classList.remove('spin');
+  }
 
   // Обновляем список контактов — кнопки → связь появятся у онлайн-контактов
   renderContacts();
@@ -6761,9 +6820,10 @@ function _startPresenceHeartbeat(){
 function _stopPresenceHeartbeat(){
   if(_presenceHbTimer){ clearInterval(_presenceHbTimer); _presenceHbTimer = null; }
   _presenceHbRunning = false;
+  _syncPairBeaconsRunning = false; // [FIX БАГ4] сбрасываем флаг при остановке
   // Останавливаем парные маяки при потере signaling
   for(const [fp, peer] of _pairBeacons) {
-    safePeerDestroy(peer);
+    if(peer) safePeerDestroy(peer);
   }
   _pairBeacons.clear();
 }
@@ -6781,25 +6841,34 @@ async function _presenceHeartbeatTick(){
     const fps = Object.keys(contacts).filter(fp => !contacts[fp]._stranger && contacts[fp].pubKeyHex);
     if(!fps.length) return;
 
-    // Вычисляем парные ID — /peers закрыт, проверяем только через WebRTC
+    // Вычисляем ID маяка каждого контакта (направленный: их маяк для нас)
     const fpToPid = {};
     await Promise.all(fps.map(async fp => {
-      try{ fpToPid[fp] = await _fpToPairPid(contacts[fp].pubKeyHex); }catch(_){}
+      try{ fpToPid[fp] = await _fpToContactPairPid(contacts[fp].pubKeyHex); }catch(_){}
     }));
 
     let checkPeer;
     try{ checkPeer = await _getCheckPeer(); }
-    catch(e){ _dbgPush('warn', ['[presence] checkPeer: ' + e.message]); return; }
+    catch(e){
+      // [FIX БАГ9] Освобождаем инстанс даже если не смогли подключиться
+      _releaseCheckPeer();
+      _dbgPush('warn', ['[presence] checkPeer: ' + e.message]);
+      return;
+    }
 
     const fpsWithPid = fps.filter(fp => fpToPid[fp]);
     const cacheBefore = fpsWithPid.map(fp => _presenceCache[fp]);
-    await _refreshPresenceViaWebRTC(fpsWithPid, fpToPid, checkPeer);
-    _releaseCheckPeer();
+    try{
+      await _refreshPresenceViaWebRTC(fpsWithPid, fpToPid, checkPeer);
+    } finally {
+      _releaseCheckPeer();
+    }
     const changed = fpsWithPid.some((fp, i) => _presenceCache[fp] !== cacheBefore[i]);
 
     if(changed) renderContacts();
 
   }catch(e){
+    _releaseCheckPeer(); // страховка если бросило до внутреннего try
     _dbgPush('warn', ['[presence] hb error: ' + e.message]);
   }finally{
     _presenceHbRunning = false;

@@ -6430,6 +6430,8 @@ function sigConnect(){
   _presenceBeaconReady = false;
   _pjOk = false;
   _pjChecked = false;
+  // Сбрасываем кэш REST-поддержки — новый сервер может иметь другие возможности
+  _presenceRestSupported = null;
   initMasterPeer();
 }
 
@@ -8762,20 +8764,26 @@ async function _grpCheckPresence(code, force=false){
 
   const srv = currentSrv(); if(!srv) return;
 
-  // ── Метод 1: REST /peers ──
-  // PeerJS-ID участников группы начинаются с `grpv2_CODE_`
-  // REST возвращает все активные peer-id на сервере — фильтруем по префиксу
+  // ── Метод 1: REST /peers?ids=... ──
+  // Передаём серверу только те ID которые нас интересуют.
+  // Сервер возвращает подмножество из них, которые сейчас online.
+  // Также учитываем суффикс от unavailable-id fallback (pid + '-tXXX').
   let restOk = false;
-  if(_presenceRestSupported !== false){
+  // Резервный (slow) сервер не поддерживает наш /peers?ids= API —
+  // сразу идём в WebRTC fallback чтобы не получить ложные результаты.
+  if(_presenceRestSupported !== false && toCheck.length && !srv.slow){
     try{
-      const url = buildServerUrl(srv, '/peers');
+      // Запрашиваем базовые ID. Сервер возвращает только те, что реально online.
+      const idsToQuery = [...new Set(toCheck)];
+      const idsParam = idsToQuery.slice(0, 200).join(','); // PEERS_QUERY_MAX на сервере
+      const url = buildServerUrl(srv, '/peers') + '?ids=' + encodeURIComponent(idsParam);
       const res = await fetchWithTimeout(url, 5000);
       if(res.ok){
         _presenceRestSupported = true;
-        const allPids = await res.json();
-        const onlineSet = new Set(allPids);
+        const onlinePids = await res.json(); // массив только тех ID, что online
+        const onlineSet = new Set(onlinePids);
         // Учитываем суффикс от unavailable-id fallback (pid + '-tXXX')
-        const onlinePrefixes = new Set(allPids.map(p => p.replace(/-t[a-z0-9]{3}$/, '')));
+        const onlinePrefixes = new Set(onlinePids.map(p => p.replace(/-t[a-z0-9]{3}$/, '')));
         const pidOnline = pid => onlineSet.has(pid) || onlinePrefixes.has(pid);
 
         toCheck.forEach(pid => {
@@ -8783,7 +8791,7 @@ async function _grpCheckPresence(code, force=false){
           _grpPresence[code][pid] = status;
         });
         restOk = true;
-      } else if(res.status === 404){
+      } else if(res.status === 404 || res.status === 400){
         _presenceRestSupported = false;
       }
     }catch(e){

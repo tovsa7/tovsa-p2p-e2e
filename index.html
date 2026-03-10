@@ -1799,7 +1799,7 @@ async function verifyIdentityMsg(msg){
   try{
     const {_t,pub,ts,sig,name,push,pushPub}=JSON.parse(msg);
     if(_t!=='id')return null;
-    if(Math.abs(Date.now()-ts)>86400000)return {valid:false,reason:'timestamp'};
+    if(Math.abs(Date.now()-ts)>300000)return {valid:false,reason:'timestamp'}; // 5 min, consistent with server
     const pubBytes=new Uint8Array(pub);
     const pubKey=await crypto.subtle.importKey('raw',pubBytes,{name:'Ed25519'},true,['verify']);
     const data=new TextEncoder().encode('p2p-auth:'+ts);
@@ -4993,7 +4993,6 @@ function _showShadowMsg(text){
     m.appendChild(_shadowEl);
   }
   const safe = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  _shadowEl.textContent = text; // textContent сохраняет переносы с pre-wrap
   _shadowEl.innerHTML = safe;
   m.scrollTop = m.scrollHeight;
 }
@@ -5138,7 +5137,7 @@ async function buildFileBubble(meta,blobOrNull,msgType){
   const isImage=meta.mime&&meta.mime.startsWith('image/')&&!isGif;
   const isVideo=meta.mime&&meta.mime.startsWith('video/');
   const isAudio=meta.mime&&meta.mime.startsWith('audio/');
-  const safeName=(meta.name||'').replace(/</g,'&lt;');
+  const safeName=esc(meta.name||''); // esc() handles &, <, >, ", ' — not just <
   // jsName — безопасная JS-строка для onclick-атрибутов (JSON.stringify экранирует всё)
   const jsName=JSON.stringify(meta.name||'file');
   // safeNameTitle — для HTML-атрибута title
@@ -9232,6 +9231,8 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
 
   // Стабильный ID пользователя для сервера (sha256 от pubKey, hex)
   async function _pubHexToFp(pubKeyHex) {
+    if (typeof pubKeyHex !== 'string' || pubKeyHex.length !== 64 || !/^[0-9a-fA-F]{64}$/.test(pubKeyHex))
+      throw new Error('_pubHexToFp: invalid pubKeyHex');
     const bytes = new Uint8Array(pubKeyHex.match(/.{2}/g).map(h => parseInt(h, 16)));
     const hash  = await crypto.subtle.digest('SHA-256', bytes);
     return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('').slice(0, 24);

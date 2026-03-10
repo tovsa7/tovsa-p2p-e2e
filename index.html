@@ -3014,6 +3014,17 @@ class TovSaSignaling {
         window.dispatchEvent(new CustomEvent('tovsa-relay-ack', { detail: {
           to: msg.to, kind: msg.kind, delivered: msg.delivered
         }}));
+        // Если offer не доставлен — получатель офлайн: сразу реджектим pending call
+        // вместо ожидания CALL_TIMEOUT_MS (30с). Это восстанавливает быструю presence-проверку.
+        if (!msg.delivered && msg.kind === 'offer') {
+          const pending = this._pending.get(msg.to);
+          if (pending) {
+            clearTimeout(pending.timer);
+            this._pending.delete(msg.to);
+            this._cleanupPc(msg.to);
+            pending.reject(new Error(`peer-unavailable: ${msg.to}`));
+          }
+        }
         break;
     }
   }

@@ -794,6 +794,16 @@ textarea::placeholder{color:var(--mu)}
       <div style="font-size:10px;color:var(--mu);letter-spacing:1px">ВЕРСИЯ</div>
       <div style="font-size:11px;color:var(--a);letter-spacing:1px">1.2.0</div>
     </div>
+    <!-- Update button — скрыт, показывается когда SW сигнализирует об обновлении -->
+    <div id="sn-update-wrap" style="display:none;padding:0 0 4px 0">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--ad);border:1px solid rgba(0,255,157,.2);border-radius:10px">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--a)">Доступно обновление</div>
+          <div style="font-size:10px;color:var(--mu);margin-top:2px">Новая версия готова к установке</div>
+        </div>
+        <button class="action-btn" onclick="location.reload()" style="color:var(--a);border-color:var(--a)">обновить</button>
+      </div>
+    </div>
   </div>
   <div class="sn-section">
     <div style="display:flex;align-items:center;justify-content:space-between">
@@ -5424,6 +5434,9 @@ if('serviceWorker' in navigator){
       if(localStorage.getItem('sw-installed')){
         const b = document.getElementById('update-banner');
         if(b) b.style.display = 'flex';
+        // Также показываем кнопку в настройках — остаётся доступна после закрытия баннера
+        const s = document.getElementById('sn-update-wrap');
+        if(s) s.style.display = 'block';
       }
       localStorage.setItem('sw-installed', '1');
     }
@@ -9885,6 +9898,8 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
         if(reg.waiting && localStorage.getItem('sw-installed')) {
           const b = document.getElementById('update-banner');
           if(b) b.style.display = 'flex';
+          const s = document.getElementById('sn-update-wrap');
+          if(s) s.style.display = 'block';
         }
 
         // Новый SW скачался пока страница открыта
@@ -9895,6 +9910,8 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
               if(localStorage.getItem('sw-installed')) {
                 const b = document.getElementById('update-banner');
                 if(b) b.style.display = 'flex';
+                const s = document.getElementById('sn-update-wrap');
+                if(s) s.style.display = 'block';
               }
               localStorage.setItem('sw-installed', '1');
             }

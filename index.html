@@ -3026,13 +3026,17 @@ class TovSaSignaling {
         }}));
         // Если offer не доставлен — получатель офлайн: сразу реджектим pending call
         // вместо ожидания CALL_TIMEOUT_MS (30с). Это восстанавливает быструю presence-проверку.
-        if (!msg.delivered && msg.kind === 'offer') {
+        if (msg.kind === 'offer') {
           const pending = this._pending.get(msg.to);
           if (pending) {
-            clearTimeout(pending.timer);
-            this._pending.delete(msg.to);
-            this._cleanupPc(msg.to);
-            pending.reject(new Error(`peer-unavailable: ${msg.to}`));
+            if (!msg.delivered) {
+              // Получатель офлайн — сразу реджектим, не ждём CALL_TIMEOUT_MS
+              clearTimeout(pending.timer);
+              this._pending.delete(msg.to);
+              this._cleanupPc(msg.to);
+              pending.reject(new Error(`peer-unavailable: ${msg.to}`));
+            }
+            // delivered=true: offer доставлен, ждём answer через RELAY — не трогаем pending
           }
         }
         break;
@@ -7228,6 +7232,22 @@ async function _refreshPresenceViaWebRTC(fps, fpToPid, checkPeer){
             conn.on('open',  ()=> finish('online'));
             conn.on('close', ()=> finish('offline'));
             conn.on('error', ()=> finish('offline'));
+            // v4: RELAY-ACK delivered=true означает что offer дошёл — контакт онлайн.
+            // Не ждём DataChannel open (это требует полного ICE+DTLS handshake).
+            const ackHandler = e => {
+              if(e.detail.to === pid && e.detail.kind === 'offer') {
+                window.removeEventListener('tovsa-relay-ack', ackHandler);
+                if(e.detail.delivered) finish('online');
+                // delivered=false уже обработан через peer-unavailable reject
+              }
+            };
+            window.addEventListener('tovsa-relay-ack', ackHandler);
+            // Чистим обработчик если finish вызван по другой причине
+            const origFinish = finish;
+            finish = (result) => {
+              window.removeEventListener('tovsa-relay-ack', ackHandler);
+              origFinish(result);
+            };
           }catch(e){ finish('offline'); }
         });
       }));

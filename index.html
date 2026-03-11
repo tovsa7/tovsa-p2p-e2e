@@ -3480,7 +3480,6 @@ let _shadowEl = null;
 initIdentity();
 initMyContactCard();
 initShadowToggle();
-_applyHintsToggleUI(); // применяем сохранённое состояние переключателя подсказок
 // Загружаем офлайн-очередь из IDB (могла пережить перезагрузку страницы)
 idbGet('meta','offlineQueue').then(saved=>{
   if(Array.isArray(saved) && saved.length){
@@ -6512,6 +6511,7 @@ function _applyHintsToggleUI(){
   if(track) track.style.background = _hintsEnabled ? 'var(--a)' : 'var(--bd)';
   if(thumb) thumb.style.transform   = _hintsEnabled ? 'translateX(18px)' : '';
 }
+_applyHintsToggleUI(); // применяем сохранённое состояние переключателя подсказок
 
 function showInfoBanner(key, overrideText){
   if(!_hintsEnabled) return;          // подсказки выключены пользователем

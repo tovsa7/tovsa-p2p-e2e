@@ -8051,8 +8051,10 @@ async function shareMyContact(){
 
     await _renderQR(link, myName);
   } catch(e){
-    if(metaEl) metaEl.textContent = '⚠ ' + (e.message || 'ошибка создания ссылки');
-    toast('Не удалось создать ссылку: ' + e.message);
+    console.error('[invite] create failed:', e);
+    const msg = e?.message || String(e) || 'неизвестная ошибка';
+    if(metaEl) metaEl.textContent = '⚠ ' + msg;
+    toast('Не удалось создать ссылку: ' + msg);
   }
 }
 
@@ -10542,7 +10544,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
   window._createInvite = async function({ maxUses = 1, expiresIn = 604800, name } = {}) {
     if (!myPrivKey) throw new Error('ключ не готов');
     const auth = await _signInvite('invite:create:{ts}');
-    const myName = name || localStorage.getItem('_myName') || 'Пользователь';
+    const myName = name || localStorage.getItem('myName') || 'Пользователь';
     const res = await fetch(PUSH_SERVER + '/invite/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -10565,7 +10567,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
   window._requestViaInvite = async function(token) {
     if (!myPrivKey) throw new Error('ключ не готов');
     const auth = await _signInvite(`invite:use:${token}:{ts}`);
-    const myName = localStorage.getItem('_myName') || 'Пользователь';
+    const myName = localStorage.getItem('myName') || 'Пользователь';
     const res = await fetch(PUSH_SERVER + '/invite/request', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -10599,7 +10601,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     const sigBuf = await crypto.subtle.sign('Ed25519', myPrivKey, msg);
     const sig = safeBase64(new Uint8Array(sigBuf)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
     const pubKeyHex = Array.from(myPubKeyRaw).map(b=>b.toString(16).padStart(2,'0')).join('');
-    const myName = localStorage.getItem('_myName') || 'Пользователь';
+    const myName = localStorage.getItem('myName') || 'Пользователь';
     const res = await fetch(PUSH_SERVER + '/invite/requests/respond', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -10660,7 +10662,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
   window._createInvite = async function({ maxUses = 1, expiresIn = 604800, name } = {}) {
     if (!myPrivKey) throw new Error('ключ не готов');
     const auth = await _signInvite('invite:create:{ts}');
-    const myName = name || localStorage.getItem('_myName') || 'Пользователь';
+    const myName = name || localStorage.getItem('myName') || 'Пользователь';
     const res = await fetch(PUSH_SERVER + '/invite/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

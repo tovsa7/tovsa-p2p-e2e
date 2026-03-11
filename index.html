@@ -2768,7 +2768,7 @@ async function sha256hex(bytes, sliceBytes = null) {
 // ── Серверы ───────────────────────────────────────────────────────────────────
 // Объявлены здесь — до первого использования в currentSrv() и _startIncomingListener()
 const SIGNALING_SERVERS = [
-  { host: 'signaling-pa4q.onrender.com', port: 443, path: '/', secure: true, name: 'Основной (Render)', slow: false },
+  { host: 'tovsa-signaling.onrender.com', port: 443, path: '/', secure: true, name: 'Основной (Render)', slow: false },
 ];
 const SRV_IDX_KEY = 'pj_server_idx';
 // Всегда сбрасываем на 0 — единственный сервер.

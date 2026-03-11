@@ -2768,7 +2768,7 @@ async function sha256hex(bytes, sliceBytes = null) {
 // ── Серверы ───────────────────────────────────────────────────────────────────
 // Объявлены здесь — до первого использования в currentSrv() и _startIncomingListener()
 const SIGNALING_SERVERS = [
-  { host: 'signaling.tovsa.deno.net', port: 443, path: '/', secure: true, name: 'Основной (Deno)', slow: false },
+  { host: 'signaling-pa4q.onrender.com', port: 443, path: '/', secure: true, name: 'Основной (Render)', slow: false },
 ];
 const SRV_IDX_KEY = 'pj_server_idx';
 // Всегда сбрасываем на 0 — единственный сервер.
@@ -7106,6 +7106,25 @@ function sigConnect(){
   _presenceRestSupported = null;
   initMasterPeer();
 }
+
+// ── Keepalive пинг сервера (антизасыпание для Render и аналогов) ──────────────
+// Раз в 10 минут делаем GET / на сигналинг-сервер.
+// Пока хоть один пользователь онлайн — сервер не засыпает.
+// Работает только на лидер-вкладке чтобы не множить запросы.
+let _srvKeepaliveTimer = null;
+function _startSrvKeepalive() {
+  if (_srvKeepaliveTimer) return; // уже запущен
+  _srvKeepaliveTimer = setInterval(async () => {
+    if (!_isLeader) return; // только лидер пингует
+    const srv = currentSrv();
+    if (!srv) return;
+    try {
+      await fetchWithTimeout(buildServerUrl(srv, '/'), 5000);
+    } catch(_) { /* тихо — это просто антизасыпание, не диагностика */ }
+  }, 10 * 60 * 1000); // каждые 10 минут
+}
+// Запускаем при загрузке страницы
+document.addEventListener('DOMContentLoaded', _startSrvKeepalive);
 
 // Presence-проверки используют ОТДЕЛЬНЫЙ временный пир — маяк не трогается совсем.
 // Исходящие connect() через маяк роняют его WebSocket-соединение с сервером,

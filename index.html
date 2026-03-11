@@ -2128,6 +2128,7 @@ function _buildContactEl(fp, c, h, isConnected){
   }
 
   const pinHtml     = c.pinned ? `<span class="cipin" style="font-size:9px;opacity:.6">pin</span>` : '';
+  const unconfHtml  = c._unconfirmed ? `<span style="font-size:9px;color:var(--w);margin-left:5px;opacity:.8">ожидает</span>` : '';
   const activeClass = isActivePeer ? ' active-peer' : (c.pinned ? ' pinned' : '');
   const onlineDot   = isActivePeer ? `<div class="ci-online-dot"></div>` : '';
   const presenceState = _presenceCache[fp];
@@ -2143,7 +2144,7 @@ function _buildContactEl(fp, c, h, isConnected){
   return `<div class="citem${activeClass}" data-fp="${fp}" onclick="openHistory('${fp}')" ${ctxAttr}>
     ${onlineDot}${presenceDot}
     <div class="ciinfo">
-      <div class="ciname">${nameHtml}${pinHtml}</div>
+      <div class="ciname">${nameHtml}${pinHtml}${unconfHtml}</div>
       ${fpHint}
       ${lastHtml}
     </div>
@@ -2233,6 +2234,8 @@ function showTab(tab){
     renderContacts();
     show('sk');
     requestAnimationFrame(()=>{ $('sk').scrollTop=contactsScrollTop; });
+    // Синхронизируем заявки при открытии вкладки
+    if(typeof window._syncContactRequests === 'function') window._syncContactRequests();
     // Обновляем статусы при заходе на вкладку, но не чаще чем раз в 10 секунд
     if(_pjOk && !_presenceHbRunning){
       const sinceLastTick = Date.now() - (_presenceLastHbAt||0);
@@ -5646,25 +5649,23 @@ if('serviceWorker' in navigator){
     if(e.data?.action === 'open-chat'){ window.focus(); showTab('sc'); }
     if(e.data?.action === 'contact-request'){
       window.focus();
-      if(e.data.autoAccept){
-        // Пользователь нажал «Добавить» прямо в уведомлении — принимаем без confirm
-        (async()=>{
-          try{
-            const fp = await _pubHexToFp(e.data.requesterPubHex);
-            const contacts = await getContacts();
-            if(!contacts[fp]){
-              contacts[fp] = { pubKeyHex: e.data.requesterPubHex, name: e.data.name||'Пользователь' };
-              await saveContacts(contacts);
-              renderContacts();
-              toast((e.data.name||'Пользователь') + ' добавлен в контакты ✓');
-            }
-          }catch(err){ console.warn('[contact-req]', err); }
-        })();
-      } else {
-        // Пользователь открыл приложение через уведомление — показываем confirm
-        if(typeof _handleContactRequest === 'function')
-          _handleContactRequest({ requesterPubHex: e.data.requesterPubHex, name: e.data.name });
-      }
+      // П1 получил push о входящей заявке — синхронизируем с сервером
+      if(typeof window._syncContactRequests === 'function')
+        setTimeout(() => window._syncContactRequests(), 500);
+      if(typeof showTab === 'function') showTab('sk');
+    }
+    if(e.data?.action === 'contact-accepted'){
+      window.focus();
+      // П2 получил push о принятии — синхронизируем (добавит П1 в контакты)
+      if(typeof window._syncContactRequests === 'function')
+        setTimeout(() => window._syncContactRequests(), 500);
+      if(typeof showTab === 'function') showTab('sk');
+    }
+    if(e.data?.action === 'contact-confirmed'){
+      window.focus();
+      // П1 получил push что П2 подтвердил
+      if(typeof window._syncContactRequests === 'function')
+        setTimeout(() => window._syncContactRequests(), 500);
     }
     if(e.data?.action === 'sw-updated'){
       // Показываем только если SW уже был установлен раньше (не первый запуск)
@@ -10523,7 +10524,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
   };
 
   // ════════════════════════════════════════════════════════════════════
-  // INVITE LINKS
+  // INVITE & CONTACT REQUESTS
   // ════════════════════════════════════════════════════════════════════
 
   // Подписать строку вида "invite:create:{ts}" нашим Ed25519 ключом
@@ -10560,28 +10561,122 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     return data; // { ownerName, ownerPubHex, remaining, expiresAt }
   };
 
-  // Использовать ссылку — добавить владельца в контакты
-  window._useInvite = async function(token) {
+  // Использовать ссылку — подать заявку владельцу
+  window._requestViaInvite = async function(token) {
     if (!myPrivKey) throw new Error('ключ не готов');
     const auth = await _signInvite(`invite:use:${token}:{ts}`);
     const myName = localStorage.getItem('_myName') || 'Пользователь';
-    const res = await fetch(PUSH_SERVER + '/invite/use', {
+    const res = await fetch(PUSH_SERVER + '/invite/request', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token, name: myName, ...auth })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || res.status);
-    // Сохраняем владельца в контакты (alreadyUsed убран — сервер не хранит usedBy)
-    const { ownerPubHex, ownerName } = data;
-    const ownerFp = await _pubHexToFp(ownerPubHex);
-    const contacts = await getContacts();
-    if (!contacts[ownerFp]) {
-      contacts[ownerFp] = { pubKeyHex: ownerPubHex, name: ownerName || 'Пользователь' };
-      await saveContacts(contacts);
-      renderContacts();
-    }
-    return { ownerFp, ownerPubHex, ownerName };
+    return data; // { ok, ownerName }
+  };
+
+  // ── П1: получить входящие заявки ──────────────────────────────────────────
+  window._fetchIncomingRequests = async function() {
+    if (!myPrivKey || !PUSH_SERVER || PUSH_SERVER.includes('ВАШ')) return [];
+    const auth = await _signInvite('invite:requests:incoming:{ts}');
+    const res = await fetch(PUSH_SERVER + '/invite/requests/incoming', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...auth })
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.requests || [];
+  };
+
+  // ── П1: принять или отклонить заявку ─────────────────────────────────────
+  window._respondToRequest = async function(requesterFp, accept) {
+    if (!myPrivKey) throw new Error('ключ не готов');
+    const action = accept ? 'accept' : 'decline';
+    const ts = Math.floor(Date.now() / 1000);
+    const msg = new TextEncoder().encode(`invite:respond:${requesterFp}:${action}:${ts}`);
+    const sigBuf = await crypto.subtle.sign('Ed25519', myPrivKey, msg);
+    const sig = safeBase64(new Uint8Array(sigBuf)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    const pubKeyHex = Array.from(myPubKeyRaw).map(b=>b.toString(16).padStart(2,'0')).join('');
+    const myName = localStorage.getItem('_myName') || 'Пользователь';
+    const res = await fetch(PUSH_SERVER + '/invite/requests/respond', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requesterFp, accept, ownerName: myName, sig, pubKeyHex, ts })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.status);
+    return data;
+  };
+
+  // ── П2: получить статус своих заявок + принятые ───────────────────────────
+  window._fetchOutgoingRequests = async function() {
+    if (!myPrivKey || !PUSH_SERVER || PUSH_SERVER.includes('ВАШ')) return { requests: [], accepted: [] };
+    const auth = await _signInvite('invite:requests:outgoing:{ts}');
+    const res = await fetch(PUSH_SERVER + '/invite/requests/outgoing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...auth })
+    });
+    if (!res.ok) return { requests: [], accepted: [] };
+    const data = await res.json();
+    return { requests: data.requests || [], accepted: data.accepted || [] };
+  };
+
+  // ── П2: подтвердить добавление принятого контакта ────────────────────────
+  window._confirmContact = async function(ownerFp) {
+    if (!myPrivKey) return;
+    const ts = Math.floor(Date.now() / 1000);
+    const msg = new TextEncoder().encode(`invite:confirm:${ownerFp}:${ts}`);
+    const sigBuf = await crypto.subtle.sign('Ed25519', myPrivKey, msg);
+    const sig = safeBase64(new Uint8Array(sigBuf)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    const pubKeyHex = Array.from(myPubKeyRaw).map(b=>b.toString(16).padStart(2,'0')).join('');
+    await fetch(PUSH_SERVER + '/invite/requests/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ownerFp, sig, pubKeyHex, ts })
+    });
+  };
+
+  // ── П2: отменить заявку ───────────────────────────────────────────────────
+  window._cancelRequest = async function(ownerFp) {
+    if (!myPrivKey) return;
+    const ts = Math.floor(Date.now() / 1000);
+    const msg = new TextEncoder().encode(`invite:cancel:${ownerFp}:${ts}`);
+    const sigBuf = await crypto.subtle.sign('Ed25519', myPrivKey, msg);
+    const sig = safeBase64(new Uint8Array(sigBuf)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    const pubKeyHex = Array.from(myPubKeyRaw).map(b=>b.toString(16).padStart(2,'0')).join('');
+    const res = await fetch(PUSH_SERVER + '/invite/requests/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ownerFp, sig, pubKeyHex, ts })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.status);
+  };
+
+  // Создать инвайт-ссылку
+  window._createInvite = async function({ maxUses = 1, expiresIn = 604800, name } = {}) {
+    if (!myPrivKey) throw new Error('ключ не готов');
+    const auth = await _signInvite('invite:create:{ts}');
+    const myName = name || localStorage.getItem('_myName') || 'Пользователь';
+    const res = await fetch(PUSH_SERVER + '/invite/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ maxUses, expiresIn, name: myName, ...auth })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.status);
+    return data;
+  };
+
+  // Получить информацию о ссылке (публично)
+  window._getInviteInfo = async function(token) {
+    const res = await fetch(PUSH_SERVER + '/invite/' + encodeURIComponent(token));
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.status);
+    return data;
   };
 
   // Список своих ссылок
@@ -10595,7 +10690,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || res.status);
-    return data.invites; // [{ token, createdAt, expiresAt, maxUses, usedCount }]
+    return data.invites;
   };
 
   // Отозвать ссылку
@@ -10612,59 +10707,203 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     return data;
   };
 
-  // Получить и применить pending контакты (fallback если push отключён)
-  // Вызывается при старте приложения — забирает у сервера список всех кто принял наш инвайт
-  window._fetchPendingContacts = async function() {
-    if (!myPrivKey || !PUSH_SERVER || PUSH_SERVER.includes('ВАШ')) return;
-    try {
-      const auth = await _signInvite('invite:pending:{ts}');
-      const res = await fetch(PUSH_SERVER + '/invite/pending', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...auth })
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      const pending = data.pending;
-      if (!Array.isArray(pending) || !pending.length) return;
+  // ══ CONTACT REQUESTS UI ════════════════════════════════════════════════════
 
-      const contacts = await getContacts();
-      let added = 0;
-      for (const entry of pending) {
-        if (!entry.pubKeyHex) continue;
-        const fp = await _pubHexToFp(entry.pubKeyHex);
-        if (contacts[fp]) continue; // уже есть
-        contacts[fp] = {
-          pubKeyHex: entry.pubKeyHex,
-          name: (entry.name || 'Контакт').slice(0, 64),
-          addedAt: Date.now()
-        };
-        added++;
-      }
-      if (added > 0) {
-        await saveContacts(contacts);
-        renderContacts();
-        if (typeof _refreshPairBeacons === 'function') _refreshPairBeacons();
-        toast(`👤 ${added === 1 ? pending.find(p=>p.pubKeyHex)?.name || 'Контакт' : added + ' новых контакта'} добавлен${added > 1 ? 'о' : ''} ✓`);
-      }
-    } catch(e) { /* silent — не критично */ }
+  // Рендерит секцию заявок в списке контактов
+  // incoming — массив входящих (для П1), outgoing — массив исходящих (для П2)
+  window._renderContactRequests = function(incoming, outgoing) {
+    const containerId = 'contact-requests-section';
+    let section = document.getElementById(containerId);
+
+    // Фильтруем: только pending для входящих, только pending/accepted для исходящих
+    const pendingIn  = (incoming  || []).filter(r => r.status === 'pending');
+    const pendingOut = (outgoing  || []).filter(r => r.status === 'pending');
+
+    if (!pendingIn.length && !pendingOut.length) {
+      if (section) section.remove();
+      return;
+    }
+
+    if (!section) {
+      section = document.createElement('div');
+      section.id = containerId;
+      section.style.cssText = 'border-bottom:1px solid var(--bd)';
+      // Вставляем в самый верх sk-list
+      const list = document.getElementById('sk-list');
+      if (list) list.prepend(section);
+    }
+
+    let html = `<div style="padding:10px 16px 4px;font-size:10px;color:var(--mu);letter-spacing:1.5px;text-transform:uppercase">Заявки</div>`;
+
+    // Входящие заявки (П1 видит)
+    for (const req of pendingIn) {
+      const safeName = esc(req.name || 'Пользователь');
+      const safeFp   = esc(req.fp);
+      const safePub  = esc(req.pubKeyHex);
+      const timeStr  = new Date(req.ts * 1000).toLocaleDateString('ru', { day:'numeric', month:'short' });
+      html += `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--ad);border-bottom:1px solid var(--bd)" id="req-in-${safeFp}">
+          <div style="width:36px;height:36px;border-radius:50%;background:var(--sf);border:1px solid var(--a);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">👤</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700;color:var(--tx)">${safeName}</div>
+            <div style="font-size:10px;color:var(--mu);margin-top:1px">хочет добавить вас · ${timeStr}</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            <button onclick="acceptContactRequest('${safeFp}','${safePub}','${safeName}')" style="padding:6px 12px;background:var(--a);border:none;border-radius:8px;color:#000;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer">✓</button>
+            <button onclick="declineContactRequest('${safeFp}')" style="padding:6px 10px;background:none;border:1px solid var(--bd);border-radius:8px;color:var(--mu);font-family:inherit;font-size:11px;cursor:pointer">✕</button>
+          </div>
+        </div>`;
+    }
+
+    // Исходящие заявки (П2 видит)
+    for (const req of pendingOut) {
+      const safeName  = esc(req.ownerName || 'Пользователь');
+      const safeOwner = esc(req.ownerFp);
+      const timeStr   = new Date(req.ts * 1000).toLocaleDateString('ru', { day:'numeric', month:'short' });
+      html += `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--bd)" id="req-out-${safeOwner}">
+          <div style="width:36px;height:36px;border-radius:50%;background:var(--sf);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;opacity:.6">👤</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700;color:var(--tx)">${safeName}</div>
+            <div style="font-size:10px;color:var(--mu);margin-top:1px">заявка отправлена · ${timeStr}</div>
+          </div>
+          <button onclick="cancelContactRequest('${safeOwner}', this)" style="padding:6px 10px;background:none;border:1px solid var(--bd);border-radius:8px;color:var(--mu);font-family:inherit;font-size:10px;cursor:pointer">отменить</button>
+        </div>`;
+    }
+
+    section.innerHTML = html;
   };
 
-  // Обработать входящий contact-request из push-уведомления
-  // Вызывается из SW при action='contact-request' или при открытии приложения с ?action=contact-request
-  window._handleContactRequest = async function({ requesterPubHex, name }) {
-    if (!requesterPubHex) return;
-    const fp = await _pubHexToFp(requesterPubHex);
-    const contacts = await getContacts();
-    if (contacts[fp]) return; // уже есть
-    const safeName = (name || 'Пользователь').slice(0, 64);
-    // Показываем диалог подтверждения
-    const ok = confirm(`👤 ${safeName} хочет добавиться в контакты.\nДобавить?`);
-    if (!ok) return;
-    contacts[fp] = { pubKeyHex: requesterPubHex, name: safeName };
-    await saveContacts(contacts);
-    renderContacts();
-    toast(`${safeName} добавлен в контакты ✓`);
+  // П1: принять заявку
+  window.acceptContactRequest = async function(requesterFp, requesterPubHex, requesterName) {
+    try {
+      await window._respondToRequest(requesterFp, true);
+
+      // Добавляем П2 в неподтверждённые контакты (confirmed станет true когда П2 подтвердит)
+      const contacts = await getContacts();
+      if (!contacts[requesterFp]) {
+        contacts[requesterFp] = {
+          pubKeyHex:   requesterPubHex,
+          name:        requesterName || 'Пользователь',
+          _unconfirmed: true,
+          savedAt:     Date.now()
+        };
+        await saveContacts(contacts);
+      }
+
+      // Убираем карточку заявки
+      const el = document.getElementById(`req-in-${requesterFp}`);
+      if (el) {
+        el.style.transition = 'opacity .3s';
+        el.style.opacity = '0';
+        setTimeout(() => { el.remove(); _cleanRequestsSection(); }, 300);
+      }
+
+      toast(`${esc(requesterName)} принят — ожидаем подтверждения`);
+      renderContacts();
+    } catch(e) {
+      toast('Ошибка: ' + e.message);
+    }
+  };
+
+  // П1: отклонить заявку
+  window.declineContactRequest = async function(requesterFp) {
+    try {
+      await window._respondToRequest(requesterFp, false);
+      const el = document.getElementById(`req-in-${requesterFp}`);
+      if (el) {
+        el.style.transition = 'opacity .3s';
+        el.style.opacity = '0';
+        setTimeout(() => { el.remove(); _cleanRequestsSection(); }, 300);
+      }
+    } catch(e) {
+      toast('Ошибка: ' + e.message);
+    }
+  };
+
+  // П2: отменить исходящую заявку
+  window.cancelContactRequest = async function(ownerFp, btn) {
+    if (btn) btn.disabled = true;
+    try {
+      await window._cancelRequest(ownerFp);
+      const el = document.getElementById(`req-out-${ownerFp}`);
+      if (el) {
+        el.style.transition = 'opacity .3s';
+        el.style.opacity = '0';
+        setTimeout(() => { el.remove(); _cleanRequestsSection(); }, 300);
+      }
+      toast('Заявка отменена');
+    } catch(e) {
+      if (btn) btn.disabled = false;
+      toast('Ошибка: ' + e.message);
+    }
+  };
+
+  function _cleanRequestsSection() {
+    const section = document.getElementById('contact-requests-section');
+    if (!section) return;
+    // Если внутри только заголовок — убираем всю секцию
+    const cards = section.querySelectorAll('[id^="req-in-"], [id^="req-out-"]');
+    if (!cards.length) section.remove();
+  }
+
+  // Опрашиваем сервер при открытии вкладки контактов и при старте
+  window._syncContactRequests = async function() {
+    if (!myPrivKey || !PUSH_SERVER || PUSH_SERVER.includes('ВАШ')) return;
+    try {
+      const [incoming, { requests: outgoing, accepted }] = await Promise.all([
+        window._fetchIncomingRequests(),
+        window._fetchOutgoingRequests(),
+      ]);
+
+      // П2: обрабатываем принятые заявки — добавляем в контакты и подтверждаем серверу
+      for (const acc of (accepted || [])) {
+        if (!acc.ownerPubHex) continue;
+        const fp = await _pubHexToFp(acc.ownerPubHex);
+        const contacts = await getContacts();
+        if (!contacts[fp]) {
+          contacts[fp] = {
+            pubKeyHex:  acc.ownerPubHex,
+            name:       acc.ownerName || 'Пользователь',
+            savedAt:    Date.now()
+          };
+          await saveContacts(contacts);
+          renderContacts();
+          if (typeof _refreshPairBeacons === 'function') _refreshPairBeacons();
+          toast(`✓ ${esc(acc.ownerName || 'Контакт')} добавил вас — вы теперь в контактах`);
+        } else if (contacts[fp]._unconfirmed) {
+          // Уже есть как неподтверждённый — подтверждаем
+          delete contacts[fp]._unconfirmed;
+          await saveContacts(contacts);
+          renderContacts();
+        }
+        // Подтверждаем серверу — убирает из req_resp
+        await window._confirmContact(fp);
+        // Убираем из исходящих заявок в UI
+        const outEl = document.getElementById(`req-out-${acc.ownerFp}`);
+        if (outEl) outEl.remove();
+      }
+
+      // П1: снимаем _unconfirmed с контактов которые подтвердили (статус confirmed в incoming)
+      const confirmedIn = (incoming || []).filter(r => r.status === 'confirmed');
+      if (confirmedIn.length) {
+        const contacts = await getContacts();
+        let changed = false;
+        for (const req of confirmedIn) {
+          if (contacts[req.fp]?._unconfirmed) {
+            delete contacts[req.fp]._unconfirmed;
+            changed = true;
+          }
+        }
+        if (changed) {
+          await saveContacts(contacts);
+          renderContacts();
+        }
+      }
+
+      // Рендерим секцию заявок
+      window._renderContactRequests(incoming, outgoing);
+    } catch(e) { /* silent */ }
   };
 
   // ── Invite UI ──────────────────────────────────────────────────────────────
@@ -10676,16 +10915,15 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     try {
       const { token } = await _createInvite({ maxUses: 30, expiresIn: 604800 });
       const link = (window._safeOrigin ? window._safeOrigin() : location.origin) + location.pathname + '?invite=' + token;
-      // Показываем модалку
       let modal = document.getElementById('invite-modal');
       if (!modal) {
         modal = document.createElement('div');
         modal.id = 'invite-modal';
         modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
         modal.innerHTML = `
-          <div style="background:var(--bg2);border-radius:16px;padding:24px;max-width:360px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.4)">
+          <div style="background:var(--sf);border:1px solid var(--bd);border-radius:16px;padding:24px;max-width:360px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.4)">
             <div style="font-size:15px;font-weight:700;margin-bottom:8px">Ссылка-приглашение</div>
-            <div style="font-size:11px;color:var(--mu);margin-bottom:14px">Действует 7 дней · до 30 использований</div>
+            <div style="font-size:11px;color:var(--mu);margin-bottom:14px">Действует 7 дней · до 30 использований · добавление по подтверждению</div>
             <div id="invite-link-text" style="font-size:11px;word-break:break-all;background:var(--bg);padding:10px;border-radius:8px;border:1px solid var(--bd);color:var(--a);margin-bottom:14px"></div>
             <div style="display:flex;gap:8px">
               <button class="action-btn" style="flex:1" onclick="inviteCopyLink()">📋 скопировать</button>
@@ -10728,7 +10966,6 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     if (modal) modal.style.display = 'none';
   };
 
-  // Список ссылок в настройках
   async function _refreshInviteList() {
     const wrap = document.getElementById('invite-list-wrap');
     if (!wrap) return;
@@ -10748,8 +10985,6 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
           ? `${inv.usedCount}/${inv.maxUses}`
           : `${inv.usedCount}/∞`;
         const expired = inv.expiresAt > 0 && now > inv.expiresAt;
-        // FIX INVITE_TOKEN_ONCLICK: экранируем token перед вставкой в onclick-атрибут
-        // Токен приходит от push-сервера — при XSS или компрометации сервера мог содержать '
         const safeToken = esc(inv.token||'');
         return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bd)">
           <div>
@@ -10763,7 +10998,6 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
         </div>`;
       }).join('');
     } catch(e) {
-      // FIX: e.message тоже экранируем — источник может быть пользовательским через сеть
       wrap.innerHTML = `<div style="font-size:11px;color:var(--e);padding:6px 0">${esc(String(e.message||e))}</div>`;
     }
   }
@@ -10778,7 +11012,6 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     if (btn) { btn.disabled = true; btn.textContent = '…'; }
     try {
       await _revokeInvite(token);
-      toast('Ссылка отозвана');
       await _refreshInviteList();
     } catch(e) {
       toast('Ошибка: ' + e.message);
@@ -10786,7 +11019,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     }
   };
 
-  // Обработка ?invite=TOKEN при открытии приложения
+  // ── Обработка ?invite= при открытии ──────────────────────────────────────
   async function _checkInviteParam() {
     const token = new URLSearchParams(location.search).get('invite');
     if (!token) return;
@@ -10802,6 +11035,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     try {
       const info = await _getInviteInfo(token);
 
+      // Красивый диалог подтверждения
       const ok = await new Promise(resolve => {
         const overlay = document.createElement('div');
         overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
@@ -10811,11 +11045,11 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
             <div style="font-size:32px">👤</div>
             <div>
               <div style="font-size:15px;font-weight:700;color:var(--tx);margin-bottom:6px">${safeName}</div>
-              <div style="font-size:12px;color:var(--mu);line-height:1.5">приглашает вас в Tovsa.<br>Оба контакта добавятся взаимно.</div>
+              <div style="font-size:12px;color:var(--mu);line-height:1.5">приглашает вас в Tovsa.<br>Отправить заявку на добавление?</div>
             </div>
             <div style="display:flex;gap:8px">
               <button id="_inv_cancel" style="flex:1;padding:12px;background:transparent;border:1px solid var(--bd);border-radius:10px;color:var(--mu);font-family:inherit;font-size:12px;cursor:pointer">Отмена</button>
-              <button id="_inv_accept" style="flex:1;padding:12px;background:var(--a);border:none;border-radius:10px;color:#000;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">Добавить</button>
+              <button id="_inv_accept" style="flex:1;padding:12px;background:var(--a);border:none;border-radius:10px;color:#000;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">Отправить заявку</button>
             </div>
           </div>`;
         document.body.appendChild(overlay);
@@ -10826,9 +11060,12 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
 
       if (!ok) return;
 
-      const result = await _useInvite(token);
-      toast(`${result.ownerName || 'Контакт'} добавлен ✓`);
+      await window._requestViaInvite(token);
+      toast(`Заявка отправлена — ждём подтверждения от ${esc(info.ownerName || 'владельца')}`);
       if(typeof showTab === 'function') setTimeout(() => showTab('sk'), 600);
+
+      // Сразу показываем исходящую заявку в UI
+      await window._syncContactRequests();
 
     } catch(e) {
       const msg = e.message || 'ошибка';
@@ -10913,11 +11150,10 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
        'Notification' in window && Notification.permission === 'granted') {
       window._ntfySubscribe();
     }
-    // Проверяем pending контакты (кто принял наш инвайт пока push не было)
-    // Запускаем с задержкой чтобы ключи успели инициализироваться
+    // Синхронизируем заявки при старте
     setTimeout(async () => {
-      if(typeof window._fetchPendingContacts === 'function') {
-        await window._fetchPendingContacts();
+      if(typeof window._syncContactRequests === 'function') {
+        await window._syncContactRequests();
       }
     }, 3000);
     // Обработка URL параметра от SW (открытие через уведомление с action)

@@ -124,6 +124,14 @@ textarea::placeholder{color:var(--mu)}
 
 .msgs::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
 .msg{max-width:80%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.5;animation:pop .22s ease;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:opacity .15s,transform .15s;-webkit-tap-highlight-color:transparent;white-space:pre-wrap;word-break:break-word}
+.msg.msg-media{padding:3px;max-width:72%;white-space:normal}
+.msg-media-wrap{position:relative;display:block;border-radius:10px;overflow:hidden;background:#000}
+.msg-media-wrap img,.msg-media-wrap video{display:block;width:100%;max-height:320px;object-fit:cover;border-radius:10px;cursor:pointer}
+.msg-media-meta{position:absolute;bottom:6px;right:8px;font-size:10px;color:#fff;background:rgba(0,0,0,.45);padding:1px 5px;border-radius:6px;pointer-events:none;backdrop-filter:blur(2px)}
+.msg-media-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.msg-media-play-btn{width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.52);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.msg-media-play-btn svg{width:20px;height:20px;fill:#fff;margin-left:3px}
+.msg-media-dur{position:absolute;bottom:6px;left:8px;font-size:10px;color:#fff;background:rgba(0,0,0,.45);padding:1px 5px;border-radius:6px;pointer-events:none;backdrop-filter:blur(2px)}
 @keyframes pop{0%{transform:scale(.88) translateY(6px);opacity:0}60%{transform:scale(1.02) translateY(-1px);opacity:1}100%{transform:scale(1) translateY(0);opacity:1}}
 @keyframes reactionPop{0%{transform:scale(1) translateY(0);opacity:1}30%{transform:scale(1.8) translateY(-15px);opacity:1}100%{transform:scale(1.4) translateY(-50px);opacity:0}}
 .msg.out{align-self:flex-end;background:var(--sn);border:1px solid rgba(0,255,157,.2);border-bottom-right-radius:4px}
@@ -140,6 +148,18 @@ textarea::placeholder{color:var(--mu)}
 .msg-file-dl:hover{text-decoration:underline}
 .file-progress{height:3px;background:var(--bd);border-radius:2px;margin-top:6px;overflow:hidden}
 .file-progress-bar{height:100%;background:var(--a);border-radius:2px;transition:width .1s}
+.msg-xfer{display:flex;align-items:center;gap:6px;min-width:0;max-width:100%}
+.msg-xfer-icon{font-size:15px;flex-shrink:0;line-height:1;opacity:.8}
+.msg-xfer-body{flex:1;min-width:0}
+.msg-xfer-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;max-width:160px}
+.msg-xfer-status{font-size:10px;color:var(--mu);line-height:1.3;margin-top:1px;white-space:nowrap}
+.msg-xfer-bar{height:2px;background:var(--bd);border-radius:2px;margin-top:4px;overflow:hidden}
+.msg-xfer-bar-fill{height:100%;background:var(--a);border-radius:2px;transition:width .15s}
+.msg-xfer-cancel{background:none;border:none;cursor:pointer;font-size:13px;color:var(--mu);padding:0 2px;opacity:.5;flex-shrink:0;line-height:1;transition:opacity .15s}
+.msg-xfer-cancel:hover{opacity:1}
+.msg-xfer-dl{background:var(--bd);border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;color:var(--tx);padding:5px 9px;flex-shrink:0;line-height:1;transition:background .15s}
+.msg-xfer-dl:hover{background:var(--a);color:#000}
+.msg.msg-file-bubble{padding:6px 8px;max-width:fit-content;white-space:normal;line-height:1}
 .sysmsg{align-self:center;font-size:11px;color:var(--mu);padding:4px 12px;background:var(--sf);border-radius:20px}
 .msg-quote{border-left:3px solid var(--a);padding:4px 8px;margin-bottom:6px;border-radius:0 4px 4px 0;background:rgba(0,255,157,.07);font-size:11px;color:var(--mu);line-height:1.4;cursor:pointer}
 .msg-quote-sender{font-size:10px;font-weight:700;color:var(--a);margin-bottom:2px}
@@ -5166,12 +5186,16 @@ function attachMsgLongPress(el, text, sender, ts, fp) {
   let moved = false;
   let doubleTapped = false;
   let pickerFired = false;
+  let startX = 0, startY = 0;
   const isHistory = () => contactsSubScreen === 'sh';
 
   el.addEventListener('touchstart', e => {
-    e.preventDefault();
+    // НЕ вызываем e.preventDefault() здесь — это блокирует скролл.
+    // Браузерное выделение текста блокируем через CSS (user-select:none на .msg).
     moved = false;
     pickerFired = false;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
     const now = Date.now();
 
     // Двойной тап — последняя реакция
@@ -5214,7 +5238,7 @@ function attachMsgLongPress(el, text, sender, ts, fp) {
         openMsgCtx(e, text, sender, ts, fp, el);
       }
     }, 500);
-  }, { passive: false });
+  }, { passive: true });
 
   el.addEventListener('touchend', () => {
     el.classList.remove('pressing');
@@ -5223,12 +5247,17 @@ function attachMsgLongPress(el, text, sender, ts, fp) {
     // НЕ сбрасываем lastTapTime — он нужен для определения двойного тапа в следующем touchstart
   }, { passive: true });
 
-  el.addEventListener('touchmove', () => {
-    el.classList.remove('pressing');
-    clearTimeout(pressTimer);
-    clearTimeout(pickerTimer);
-    moved = true;
-    lastTapTime = 0;
+  el.addEventListener('touchmove', e => {
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    // Считаем движением если сдвинулись больше 8px по любой оси
+    if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+      el.classList.remove('pressing');
+      clearTimeout(pressTimer);
+      clearTimeout(pickerTimer);
+      moved = true;
+      lastTapTime = 0;
+    }
   }, { passive: true });
 
   el.addEventListener('contextmenu', e => {
@@ -5895,45 +5924,145 @@ async function buildFileBubble(meta,blobOrNull,msgType){
   const isImage=meta.mime&&meta.mime.startsWith('image/')&&!isGif;
   const isVideo=meta.mime&&meta.mime.startsWith('video/');
   const isAudio=meta.mime&&meta.mime.startsWith('audio/');
-  const safeName=esc(meta.name||''); // esc() handles &, <, >, ", ' — not just <
-  // jsName — безопасная JS-строка для onclick-атрибутов (JSON.stringify экранирует всё)
-  const jsName=JSON.stringify(meta.name||'file');
-  // safeNameTitle — для HTML-атрибута title
+  const safeName=esc(meta.name||'');
   const safeNameTitle=esc(meta.name||'');
+  const name=meta.name||'file';
   const gifId='gif-'+Math.random().toString(36).slice(2);
+
+  // Вспомогательная функция: сохраняет позицию скролла при изменении высоты элемента
+  function _keepScroll(el){
+    const m=$('msgs');
+    if(!m) return;
+    const atBottom=m.scrollHeight-m.scrollTop-m.clientHeight<120;
+    el.addEventListener('load',()=>{
+      if(atBottom) m.scrollTop=m.scrollHeight;
+    },{once:true});
+    // для video — слушаем loadedmetadata
+    if(el.tagName==='VIDEO'){
+      el.addEventListener('loadedmetadata',()=>{
+        if(atBottom) m.scrollTop=m.scrollHeight;
+      },{once:true});
+    }
+  }
+
   let inner='';
-  if(isGif&&url){
-    inner=`<div style="position:relative;display:inline-block;margin-bottom:6px;max-width:100%">
-      <img id="${gifId}" src="${url}" style="max-width:100%;max-height:260px;border-radius:8px;display:block;cursor:pointer" onclick="openImageViewer('${url}','gif')" title="${safeNameTitle}">
-      <span style="position:absolute;bottom:6px;left:6px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;pointer-events:none;letter-spacing:.5px">GIF</span>
-    </div>`;
-  } else if(isImage&&url){
-    inner=`<img src="${url}" style="max-width:100%;max-height:220px;border-radius:8px;display:block;cursor:pointer;margin-bottom:6px" onclick="openImageViewer('${url}')" title="${safeNameTitle}">`;
-  } else if(isVideo&&url){
-    inner=`<video src="${url}" style="max-width:100%;max-height:220px;border-radius:8px;display:block;margin-bottom:6px;cursor:pointer;background:#000" preload="metadata" onclick="openVideoViewer('${url}',${jsName})"></video>`;
+  const isMedia = (isGif || isImage || isVideo) && url;
+
+  if(isMedia){
+    d.classList.add('msg-media');
+    const durId='vdur-'+Math.random().toString(36).slice(2);
+
+    if(isVideo){
+      inner=`<div class="msg-media-wrap" data-media="video">
+        <video src="${url}" preload="metadata" style="width:100%;max-height:320px;object-fit:cover;border-radius:10px;display:block"></video>
+        <div class="msg-media-play"><div class="msg-media-play-btn"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div></div>
+        <span class="msg-media-dur" id="${durId}">🎬</span>
+        <span class="msg-media-meta">${t}</span>
+      </div>`;
+    } else if(isGif){
+      inner=`<div class="msg-media-wrap" data-media="gif">
+        <img src="${url}" style="width:100%;max-height:320px;object-fit:cover;border-radius:10px;display:block" title="${safeNameTitle}">
+        <span style="position:absolute;bottom:6px;left:8px;background:rgba(0,0,0,.52);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;pointer-events:none;letter-spacing:.5px;backdrop-filter:blur(2px)">GIF</span>
+        <span class="msg-media-meta">${t}</span>
+      </div>`;
+    } else {
+      inner=`<div class="msg-media-wrap" data-media="image">
+        <img src="${url}" style="width:100%;max-height:320px;object-fit:cover;border-radius:10px;display:block" title="${safeNameTitle}">
+        <span class="msg-media-meta">${t}</span>
+      </div>`;
+    }
+    d.innerHTML=inner;
+
+    const wrap=d.querySelector('.msg-media-wrap');
+    if(wrap){
+      if(isVideo){
+        const vid=wrap.querySelector('video');
+        if(vid){
+          _keepScroll(vid);
+          vid.addEventListener('loadedmetadata',()=>{
+            const s=vid.duration;
+            if(isFinite(s)){
+              const mm=Math.floor(s/60),ss=Math.floor(s%60);
+              const durSpan=d.querySelector('#'+durId);
+              if(durSpan) durSpan.textContent=mm+':'+(ss<10?'0':'')+ss;
+            }
+          },{once:true});
+        }
+        wrap.addEventListener('click',()=>openVideoViewer(url,name));
+      } else {
+        const img=wrap.querySelector('img');
+        if(img) _keepScroll(img);
+        wrap.addEventListener('click',()=>{
+          if(isGif) openImageViewer(url,'gif',name);
+          else openImageViewer(url,null,name);
+        });
+      }
+    }
+
   } else if(isAudio&&url){
     inner=`<audio src="${url}" controls style="width:100%;margin-bottom:6px;accent-color:var(--a)"></audio>`;
+    inner+=`<div class="mmeta">${t}</div>`;
+    d.innerHTML=inner;
+  } else {
+    d.classList.add('msg-file-bubble');
+    const hasDl = !!url;
+    inner=`<div class="msg-xfer">
+      <div class="msg-xfer-icon">${fileIcon(meta.mime||'')}</div>
+      <div class="msg-xfer-body">
+        <div class="msg-xfer-name">${safeName}</div>
+        <div class="msg-xfer-status">${fmtSize(meta.size||0)}${url?' · ✓':' · недоступен'} · ${t}</div>
+      </div>
+      ${hasDl?`<button class="msg-xfer-dl" data-action="download" title="Скачать">↓</button>`:''}
+    </div>`;
+    d.innerHTML=inner;
+    const dlBtn=d.querySelector('[data-action="download"]');
+    if(dlBtn) dlBtn.addEventListener('click',()=>downloadFile(url,name));
   }
-  const dlBtn=url?`<span class="msg-file-dl" onclick="downloadFile('${url}',${jsName})">↓ скачать</span>`:'';
-  const playBtn=(isVideo&&url)?`<span class="msg-file-dl" onclick="openVideoViewer('${url}',${jsName})" style="margin-left:8px">▶ смотреть</span>`:'';
-  const statusText=url?'сохранено':'файл недоступен';
-  inner+=`<div class="msg-file">
-    <div class="msg-file-icon">${fileIcon(meta.mime||'')}</div>
-    <div class="msg-file-info">
-      <div class="msg-file-name">${safeName}</div>
-      <div class="msg-file-size">${fmtSize(meta.size||0)} · ${statusText}</div>
-      ${dlBtn}${playBtn}
-    </div>
-  </div><div class="mmeta">${t}</div>`;
-  d.innerHTML=inner;
   return d;
 }
 
-function downloadFile(url,name){
-  const a=document.createElement('a');a.href=url;a.download=name;a.click();
+function downloadFile(url, name){
+  // Показываем bottom-sheet с подтверждением
+  let ov = document.getElementById('dl-confirm');
+  if(ov) ov.remove();
+  ov = document.createElement('div');
+  ov.id = 'dl-confirm';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9998;display:flex;flex-direction:column;justify-content:flex-end';
+
+  const backdrop = document.createElement('div');
+  backdrop.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,.5)';
+  backdrop.onclick = () => ov.remove();
+  ov.appendChild(backdrop);
+
+  const sheet = document.createElement('div');
+  sheet.style.cssText = 'position:relative;background:var(--sf);border-radius:16px 16px 0 0;padding:16px;display:flex;flex-direction:column;gap:10px;animation:ctxpop .18s ease';
+
+  const fname = document.createElement('div');
+  fname.style.cssText = 'font-size:12px;color:var(--mu);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 8px';
+  fname.textContent = name || 'файл';
+  sheet.appendChild(fname);
+
+  const dlBtn = document.createElement('button');
+  dlBtn.textContent = '↓ Скачать';
+  dlBtn.style.cssText = 'width:100%;padding:13px;background:var(--a);border:none;border-radius:10px;color:#000;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer';
+  dlBtn.onclick = () => {
+    ov.remove();
+    const a = document.createElement('a');
+    a.href = url; a.download = name; a.click();
+  };
+  sheet.appendChild(dlBtn);
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = 'Отмена';
+  cancelBtn.style.cssText = 'width:100%;padding:13px;background:var(--bg);border:1px solid var(--bd);border-radius:10px;color:var(--tx);font-family:inherit;font-size:14px;cursor:pointer';
+  cancelBtn.onclick = () => ov.remove();
+  sheet.appendChild(cancelBtn);
+
+  ov.appendChild(sheet);
+  document.body.appendChild(ov);
 }
 
-function openImageViewer(url, type){
+function openImageViewer(url, type, name){
   let ov=document.getElementById('img-viewer');
   if(ov) ov.remove();
   ov=document.createElement('div');
@@ -5942,9 +6071,25 @@ function openImageViewer(url, type){
 
   const img=document.createElement('img');
   img.src=url;
-  img.style.cssText='max-width:95vw;max-height:85vh;border-radius:8px;object-fit:contain;cursor:zoom-out';
+  img.style.cssText='max-width:95vw;max-height:82vh;border-radius:8px;object-fit:contain;cursor:zoom-out';
   img.onclick=()=>ov.remove();
   ov.appendChild(img);
+
+  // Нижняя панель: название + скачать
+  const bar=document.createElement('div');
+  bar.style.cssText='display:flex;align-items:center;gap:12px;max-width:95vw';
+  if(name){
+    const nameEl=document.createElement('span');
+    nameEl.style.cssText='color:#fff;font-size:11px;opacity:.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0';
+    nameEl.textContent=name;
+    bar.appendChild(nameEl);
+  }
+  const dlBtn=document.createElement('button');
+  dlBtn.textContent='↓ скачать';
+  dlBtn.style.cssText='background:rgba(255,255,255,.15);border:none;color:#fff;padding:6px 16px;border-radius:20px;font-size:12px;cursor:pointer;flex-shrink:0';
+  dlBtn.onclick=(e)=>{e.stopPropagation();downloadFile(url,name||'image');};
+  bar.appendChild(dlBtn);
+  ov.appendChild(bar);
 
   if(type==='gif'){
     let paused=false;
@@ -5956,7 +6101,6 @@ function openImageViewer(url, type){
     btn.onclick=(e)=>{
       e.stopPropagation();
       if(!paused){
-        // Замораживаем: рисуем текущий кадр на canvas, скрываем img
         const c=document.createElement('canvas');
         c.width=img.naturalWidth;
         c.height=img.naturalHeight;
@@ -5969,17 +6113,14 @@ function openImageViewer(url, type){
         btn.textContent='▶ Играть';
         paused=true;
       } else {
-        // Восстанавливаем анимацию
         if(frozenCanvas){frozenCanvas.remove();frozenCanvas=null;}
         img.style.display='';
-        // Перезапускаем GIF через смену src
         const s=img.src;img.src='';img.src=s;
         btn.textContent='⏸ Пауза';
         paused=false;
       }
     };
-    ov.appendChild(btn);
-    // Закрытие по клику на фон (не на кнопку или картинку)
+    ov.insertBefore(btn, bar);
     ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
   } else {
     ov.onclick=()=>ov.remove();
@@ -6163,12 +6304,40 @@ function openVideoViewer(url,name){
   if(ov) ov.remove();
   ov=document.createElement('div');
   ov.id='img-viewer';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px';
-  const title=name?`<div style="color:#fff;font-size:11px;opacity:.5;max-width:90vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</div>`:'';
-  ov.innerHTML=`${title}<video src="${url}" controls autoplay style="max-width:95vw;max-height:88vh;border-radius:8px;outline:none" onclick="event.stopPropagation()"></video><div style="font-size:11px;color:#fff;opacity:.4;cursor:pointer" onclick="this.closest('#img-viewer').remove()">✕ закрыть</div>`;
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px';
+
+  const video=document.createElement('video');
+  video.src=url;
+  video.controls=true;
+  video.autoplay=true;
+  video.style.cssText='max-width:95vw;max-height:82vh;border-radius:8px;outline:none';
+  video.addEventListener('click',e=>e.stopPropagation());
+  ov.appendChild(video);
+
+  // Нижняя панель: название + скачать + закрыть
+  const bar=document.createElement('div');
+  bar.style.cssText='display:flex;align-items:center;gap:12px;max-width:95vw';
+  if(name){
+    const nameEl=document.createElement('span');
+    nameEl.style.cssText='color:#fff;font-size:11px;opacity:.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0';
+    nameEl.textContent=name;
+    bar.appendChild(nameEl);
+  }
+  const dlBtn=document.createElement('button');
+  dlBtn.textContent='↓ скачать';
+  dlBtn.style.cssText='background:rgba(255,255,255,.15);border:none;color:#fff;padding:6px 16px;border-radius:20px;font-size:12px;cursor:pointer;flex-shrink:0';
+  dlBtn.onclick=(e)=>{e.stopPropagation();downloadFile(url,name||'video');};
+  bar.appendChild(dlBtn);
+  const closeBtn=document.createElement('button');
+  closeBtn.textContent='✕';
+  closeBtn.style.cssText='background:none;border:none;color:#fff;opacity:.4;font-size:16px;cursor:pointer;flex-shrink:0;padding:4px 8px';
+  closeBtn.onclick=()=>ov.remove();
+  bar.appendChild(closeBtn);
+  ov.appendChild(bar);
+
   ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
   document.body.appendChild(ov);
-  ov.querySelector('video').focus();
+  video.focus();
 }
 
 // Отправка зашифрованного JSON-пакета через DataChannel
@@ -6181,20 +6350,18 @@ async function _sendFilePkt(obj){
 // DOM-пузырь отправляемого файла (прогресс-бар)
 function _createFileSendBubble(file, ts){
   const d = document.createElement('div');
-  d.className = 'msg out';
+  d.className = 'msg out msg-file-bubble';
   d.dataset.fileSend = ts;
-  d.innerHTML = `<div class="msg-file">
-    <div class="msg-file-icon">${fileIcon(file.type)}</div>
-    <div class="msg-file-info">
-      <div class="msg-file-name">${esc(file.name)}</div>
-      <div class="msg-file-size" id="fsize-${ts}">${fmtSize(file.size)} · <span id="fspeed-${ts}">отправка...</span></div>
-      <div class="file-progress"><div class="file-progress-bar" id="fp-${ts}" style="width:0%"></div></div>
+  const t = new Date(ts).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
+  d.innerHTML = `<div class="msg-xfer">
+    <div class="msg-xfer-icon">${fileIcon(file.type)}</div>
+    <div class="msg-xfer-body">
+      <div class="msg-xfer-name">${esc(file.name)}</div>
+      <div class="msg-xfer-status" id="fspeed-${ts}" data-t="${t}">0% · ${t}</div>
+      <div class="msg-xfer-bar"><div class="msg-xfer-bar-fill" id="fp-${ts}" style="width:0%"></div></div>
     </div>
-    <button onclick="cancelSendFile(${ts})" id="fcancel-${ts}" style="
-      background:none;border:none;cursor:pointer;font-size:16px;
-      color:var(--mu);padding:4px;opacity:.7;flex-shrink:0;align-self:center;
-      transition:opacity .15s" title="Отменить">✕</button>
-  </div><div class="mmeta">${new Date(ts).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'})}</div>`;
+    <button id="fcancel-${ts}" class="msg-xfer-cancel" title="Отменить" onclick="cancelSendFile(${ts})">✕</button>
+  </div>`;
   $('msgs').appendChild(d);
   $('msgs').scrollTop = $('msgs').scrollHeight;
   return d;
@@ -6223,7 +6390,7 @@ function _setupFlowControl(){
 }
 
 // Таймер скорости отправки/приёма
-function _startSpeedTimer(ts, getBytes){
+function _startSpeedTimer(ts, getBytes, getProgress){
   let speedBytes = 0;
   let speedTs = Date.now();
   const add = n => { speedBytes += n; };
@@ -6235,9 +6402,14 @@ function _startSpeedTimer(ts, getBytes){
       speedBytes = 0;
       speedTs = now;
       const el = document.getElementById('fspeed-' + ts);
-      if(el) el.textContent = bps < 1024*1024
-        ? Math.round(bps/1024) + ' KB/s'
-        : (bps/1024/1024).toFixed(1) + ' MB/s';
+      if(el){
+        const pct = getProgress ? Math.round(getProgress() * 100) + '% · ' : '';
+        const spd = bps < 1024*1024
+          ? Math.round(bps/1024) + ' KB/s'
+          : (bps/1024/1024).toFixed(1) + ' MB/s';
+        const t = el.dataset.t || '';
+        el.textContent = pct + spd + (t ? ' · ' + t : '');
+      }
     }
   }, 500);
   return { add, stop: () => clearInterval(interval) };
@@ -6264,7 +6436,12 @@ async function _finishFileSend(file, ts, allChunks, d){
   }
   buildFileBubble({name:file.name, size:file.size, mime:file.type||'application/octet-stream', fileId:ts, ts}, blob, 'out')
     .then(nb => {
-      if(d.parentNode) d.parentNode.replaceChild(nb, d);
+      if(d.parentNode){
+        const m=$('msgs');
+        const atBottom=m.scrollHeight-m.scrollTop-m.clientHeight<120;
+        d.parentNode.replaceChild(nb, d);
+        if(atBottom) m.scrollTop=m.scrollHeight;
+      }
       attachMsgLongPress(nb, '[файл] ' + file.name, 'Вы', ts, currentPeerFp);
     });
 }
@@ -6287,7 +6464,7 @@ async function sendFile(input){
   const chunks     = _sliceFileChunks(fileBuffer);
   const allChunks  = [];
   const flow       = _setupFlowControl();
-  const speed      = _startSpeedTimer(ts);
+  const speed      = _startSpeedTimer(ts, null, () => sent / file.size);
 
   const encrypted = new Array(chunks.length);
   let encIdx = 0, sendIdx = 0;
@@ -6361,21 +6538,19 @@ function handleIncomingFile(data){
         const ts=Date.now();
         _incomingFile.ts=ts;
         const d=document.createElement('div');
-        d.className='msg in';
+        d.className='msg in msg-file-bubble';
         d.dataset.fileRecv=ts;
         _getCachedPeerName(currentPeerFp).then(peerName=>{
-          d.innerHTML=`<div class="msender">${esc(peerName)}</div><div class="msg-file">
-            <div class="msg-file-icon">${fileIcon(j.type)}</div>
-            <div class="msg-file-info">
-              <div class="msg-file-name">${esc(j.name)}</div>
-              <div class="msg-file-size" id="fsize-${ts}">${fmtSize(j.size)} · <span id="fspeed-${ts}">получение...</span></div>
-              <div class="file-progress"><div class="file-progress-bar" id="fp-${ts}" style="width:0%"></div></div>
+          const t2=new Date(ts).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
+          d.innerHTML=`<div class="msg-xfer">
+            <div class="msg-xfer-icon">${fileIcon(j.type)}</div>
+            <div class="msg-xfer-body">
+              <div class="msg-xfer-name">${esc(j.name)}</div>
+              <div class="msg-xfer-status" id="fspeed-${ts}" data-t="${t2}">0% · ${t2}</div>
+              <div class="msg-xfer-bar"><div class="msg-xfer-bar-fill" id="fp-${ts}" style="width:0%"></div></div>
             </div>
-            <button onclick="cancelRecvFile()" id="fcancel-recv-${ts}" style="
-              background:none;border:none;cursor:pointer;font-size:16px;
-              color:var(--mu);padding:4px;opacity:.7;flex-shrink:0;align-self:center;
-              transition:opacity .15s" title="Отменить">✕</button>
-          </div><div class="mmeta">${new Date(ts).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'})}</div>`;
+            <button id="fcancel-recv-${ts}" class="msg-xfer-cancel" title="Отменить" onclick="cancelRecvFile()">✕</button>
+          </div>`;
           _incomingFile.el=d;
         });
         _incomingFile.el=d;
@@ -6391,9 +6566,14 @@ function handleIncomingFile(data){
             _incomingFile.speedBytes = 0;
             _incomingFile.speedTs = now;
             const el = document.getElementById('fspeed-'+_incomingFile.elId);
-            if(el) el.textContent = bps < 1024*1024
-              ? Math.round(bps/1024) + ' KB/s'
-              : (bps/1024/1024).toFixed(1) + ' MB/s';
+            if(el){
+              const pct = _incomingFile.size > 0
+                ? Math.round(_incomingFile.received / _incomingFile.size * 100) + '% · '
+                : '';
+              el.textContent = pct + (bps < 1024*1024
+                ? Math.round(bps/1024) + ' KB/s'
+                : (bps/1024/1024).toFixed(1) + ' MB/s');
+            }
           }
         }, 500);
 
@@ -6427,7 +6607,12 @@ function handleIncomingFile(data){
         _getCachedPeerName(currentPeerFp).then(peerName=>{
           buildFileBubble({name:inf.name,size:inf.size,mime:inf.type,fileId:ts,ts},blob,'in').then(nb=>{
             nb.innerHTML=`<div class="msender">${esc(peerName)}</div>`+nb.innerHTML;
-            if(inf.el&&inf.el.parentNode)inf.el.parentNode.replaceChild(nb,inf.el);
+            if(inf.el&&inf.el.parentNode){
+              const m=$('msgs');
+              const atBottom=m.scrollHeight-m.scrollTop-m.clientHeight<120;
+              inf.el.parentNode.replaceChild(nb,inf.el);
+              if(atBottom) m.scrollTop=m.scrollHeight;
+            }
             attachMsgLongPress(nb,'[файл] '+inf.name,peerName,ts,currentPeerFp);
             _sendNotif(peerName, '📎 ' + inf.name, ()=>showTab('sc'));
           });
@@ -6491,12 +6676,17 @@ const INFO_TIPS = {
 // Ключи подсказок, которые НЕ являются обучающими (всегда показываются)
 const INFO_TIPS_CONN = new Set(['sig-status']); // только статусы signaling (из sig-hint)
 
-let _infoBannerDismissed = false;
+let _infoBannerDismissed = localStorage.getItem('hintsDismissed') === 'true';
 let _hintsEnabled = localStorage.getItem('hintsEnabled') !== 'false'; // default: on
 
 function setHintsEnabled(val){
   _hintsEnabled = !!val;
   localStorage.setItem('hintsEnabled', _hintsEnabled ? 'true' : 'false');
+  // При повторном включении — сбрасываем dismissed чтобы подсказки показались заново
+  if(_hintsEnabled){
+    _infoBannerDismissed = false;
+    localStorage.removeItem('hintsDismissed');
+  }
   const track = document.getElementById('hints-track');
   const thumb = document.getElementById('hints-thumb');
   if(track) track.style.background = _hintsEnabled ? 'var(--a)' : 'var(--bd)';
@@ -6531,6 +6721,7 @@ function hideInfoBanner(){
   const el = document.getElementById('info-banner');
   if(el) el.classList.remove('on');
   _infoBannerDismissed = true;
+  localStorage.setItem('hintsDismissed', 'true');
 }
 
 // Зеркалируем изменения sig-hint в info-banner (для статусов подключения через signaling)

@@ -586,6 +586,10 @@ textarea::placeholder{color:var(--mu)}
 
 <!-- Роль -->
 <div class="scr on" id="sr">
+  <div id="null-origin-warn" style="display:none;margin:16px 16px 0;padding:12px 14px;background:rgba(224,108,117,.1);border:1px solid rgba(224,108,117,.35);border-radius:12px;font-size:11px;color:var(--e);line-height:1.6">
+    ⚠️ Файл открыт напрямую (не через веб-сервер). Signaling и push-уведомления не работают в этом режиме.<br>
+    <span style="color:var(--mu)">Сохраните файл на устройство и откройте через браузер, или разместите на веб-сервере.</span>
+  </div>
   <div style="margin:16px 16px 0;border:1px solid var(--bd);border-radius:14px;overflow:hidden;background:var(--sf)">
   <div class="netstatus" id="netstatus" onclick="showTab('sn')" style="margin:0;border:none;border-radius:0;border-bottom:1px solid var(--bd)">
     <div class="netstatus-dot spin" id="nsdot"></div>
@@ -2703,6 +2707,12 @@ function showPeerIdentity(fp,known,name){
     $('peer-fp').style.display='';
     $('peer-fp').textContent=fp||'';
   }
+  // Открываем чат после верификации identity (если ждали)
+  if($('sc').dataset.waitingIdentity === '1'){
+    $('sc').dataset.waitingIdentity = '';
+    showTab('sc');
+    setTimeout(() => { try{ $('mi').focus(); }catch(_){} }, 100);
+  }
   // Сбрасываем бейдж при смене собеседника
   _showPeerPushBadge(null);
   updateActiveBanner();
@@ -2942,7 +2952,7 @@ class TovSaSignaling {
     conn._attachDc(dc);
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    await this._waitIce(remotePeerId);
+    // Trickle ICE: offer шлём немедленно, кандидаты придут через onicecandidate
     this._sendRelay(remotePeerId, 'offer', pc.localDescription);
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -2970,12 +2980,12 @@ class TovSaSignaling {
       this._ws = ws;
       ws.onopen = () => {
         _dbgPush('info', ['[sig] open ' + this._peerId.slice(0,14)]);
-        // Fallback: если сервер не прислал HELLO_REQ за 3с — шлём HELLO сами.
+        // Fallback: если сервер не прислал HELLO_REQ за 500ms — шлём HELLO сами.
         this._helloFallbackTimer = setTimeout(() => {
           if (!this._open) {
             this._wsSend({ type: 'HELLO', id: this._peerId, v: TovSaSignaling.PROTO_VERSION });
           }
-        }, 7000);
+        }, 500);
       };
       ws.onmessage = (e) => {
         let msg; try { msg = JSON.parse(e.data); } catch { return; }
@@ -3068,6 +3078,10 @@ class TovSaSignaling {
     pc.ondatachannel = (e) => { if (e.channel.label === DC_LABEL) conn._attachDc(e.channel); };
     pc.oniceconnectionstatechange = () => { const s = pc.iceConnectionState; if (s === 'failed' || s === 'closed') this._cleanupPc(remotePeerId); };
     pc.onconnectionstatechange   = () => { if (pc.connectionState === 'failed') this._cleanupPc(remotePeerId); };
+    // Trickle ICE: кандидаты шлём по мере появления, не ждём complete
+    pc.onicecandidate = (e) => {
+      if (e.candidate) this._sendRelay(remotePeerId, 'ice', e.candidate.toJSON());
+    };
     return { pc, conn };
   }
   _waitIce(remotePeerId) {
@@ -3101,9 +3115,17 @@ class TovSaSignaling {
     if (this._pcs.has(from)) this._cleanupPc(from);
     const { pc, conn } = this._createPc(from);
     await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+    // Дренируем буферизованные ICE-кандидаты, пришедшие до offer
+    const state = this._pcs.get(from);
+    if (state?._iceBuf) {
+      for (const c of state._iceBuf) {
+        try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch(_) {}
+      }
+      delete state._iceBuf;
+    }
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
-    await this._waitIce(from);
+    // Trickle ICE: answer шлём немедленно, кандидаты придут через onicecandidate
     this._sendRelay(from, 'answer', pc.localDescription);
     this._onPeer(conn);
   }
@@ -3111,12 +3133,25 @@ class TovSaSignaling {
     const state = this._pcs.get(from);
     if (!state) return;
     await state.pc.setRemoteDescription(new RTCSessionDescription(sdp));
+    // Дренируем буферизованные ICE-кандидаты, пришедшие до answer
+    if (state._iceBuf) {
+      for (const c of state._iceBuf) {
+        try { await state.pc.addIceCandidate(new RTCIceCandidate(c)); } catch(_) {}
+      }
+      delete state._iceBuf;
+    }
     const pending = this._pending.get(from);
     if (pending) { clearTimeout(pending.timer); pending.resolve(state.conn); this._pending.delete(from); }
   }
   async _handleIce(from, candidate) {
     const state = this._pcs.get(from);
     if (!state) return;
+    // Буферизуем кандидат если remoteDescription ещё не установлен
+    if (!state.pc.remoteDescription) {
+      if (!state._iceBuf) state._iceBuf = [];
+      state._iceBuf.push(candidate);
+      return;
+    }
     try { await state.pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch(_) {}
   }
   _sendRelay(to, kind, data) { this._wsSend({ type: 'RELAY', to, kind, data }); }
@@ -3857,15 +3892,15 @@ async function _startIncomingListener(){
     p.on('error', e =>{
       _incomingPeer = null;
       if(stale()) return;
-      const delay = e.type === 'unavailable-id' ? 15000 : 15000;
+      const delay = e.type === 'unavailable-id' ? 2000 : 3000;
       setTimeout(()=>{ if(!stale()) _startIncomingListener(); }, delay);
     });
 
     p.on('disconnected', ()=>{ if(!p.destroyed && !stale()) try{ p.reconnect(); }catch(_){} });
     p.on('close', ()=>{
       _incomingPeer = null;
-      // Ждём 8с — сервер должен освободить ID после закрытия соединения
-      if(!stale()) setTimeout(()=>{ if(!stale()) _startIncomingListener(); }, 8000);
+      // Ждём 1с — сервер должен освободить ID после закрытия соединения
+      if(!stale()) setTimeout(()=>{ if(!stale()) _startIncomingListener(); }, 1000);
     });
 
   }catch(e){}
@@ -3896,9 +3931,7 @@ async function acceptCall(){
   // Показываем UI получателя — через модаль, без переброса на экран шагов
   role = 'r';
   hideAlert();
-  $('dot').className = 'dot act';
-  setStat('устанавливаем соединение...');
-  sigModalShow(null, req.callerFp || null);
+    sigModalShow(null, req.callerFp || null);
   sigModalStep(2, 'Принимаем соединение...');
 
   async function processOffer(offerMsg){
@@ -3914,8 +3947,7 @@ async function acceptCall(){
       await waitIce();
       sigConn.send({ type: 'answer', sdp: pc.localDescription });
       sigModalStep(3, 'Answer отправлен — устанавливаем соединение...');
-      setStat('соединяемся...');
-      scheduleCleanup();
+            scheduleCleanup();
     }catch(e){
       console.warn('[acceptCall] error:', e);
       sigModalError('Ошибка при установке соединения');
@@ -4701,13 +4733,14 @@ async function onConn(){
   role=null;
   updateActiveBanner();
   if(!wasReconnect){
+    // Чат откроется после верификации identity в showPeerIdentity
     contactsSubScreen='sk';
-    showTab('sc');
+    $('sc').dataset.waitingIdentity = '1';
   } else {
-    // Реконнект — остаёмся в чате, только обновляем статус
     contactsSubScreen='sc';
+    $('sc').dataset.waitingIdentity = '';
   }
-  $('mi').focus();
+  if(!($('sc').dataset.waitingIdentity === '1')) $('mi').focus();
   _e2eUpdateLockBadge();
 
   // Скрываем кнопку "позвать онлайн" — уже подключены
@@ -4845,7 +4878,7 @@ function waitIce(){
     };
     const onState=()=>{if(pc.iceGatheringState==='complete')finish();};
     if(pc.iceGatheringState==='complete'){res();return;}
-    const hardTm=setTimeout(finish,45000);
+    const hardTm=setTimeout(finish,4000);
     pc.addEventListener('icecandidate',onCand);
     pc.addEventListener('icegatheringstatechange',onState);
     if(pc.iceGatheringState==='complete')finish();
@@ -6459,26 +6492,18 @@ async function joinSigRoom(overrideCode, callerFp){
 async function _handleSigConnRelay(sig, peerId, role, offerSdp, scheduleCleanup){
   _dbgPush('log', ['[p2p] _handleSigConnRelay role=' + role + ' peer=' + peerId.slice(0,14)]);
   hideAlert();
-  $('dot').className = 'dot act';
-
   if(role === 'i'){
     // Инициатор: создаём offer, шлём через RELAY
-    setStat('генерируем offer...');
-    sigModalStep(2, 'Формируем offer (ICE-кандидаты)...');
-    createPC();
+        createPC();
     dc = pc.createDataChannel('chat', { reliable: true });
     setupDC();
     await pc.setLocalDescription(await pc.createOffer());
     await waitIce();    sig._wsSend({ type: 'RELAY', to: peerId, kind: 'offer', data: pc.localDescription });
-    sigModalStep(3, 'Offer отправлен — ждём ответ собеседника...');
-    setStat('ожидаем ответ...');
-    scheduleCleanup();
+        scheduleCleanup();
 
   } else if(role === 'r'){
     // Получатель: применяем offer, создаём answer, шлём через RELAY
-    setStat('генерируем answer...');
-    sigModalStep(3, 'Формируем answer...');
-    createPC();
+        createPC();
     pc.ondatachannel = e => {
       dc = e.channel;
       setupDC();
@@ -6486,16 +6511,12 @@ async function _handleSigConnRelay(sig, peerId, role, offerSdp, scheduleCleanup)
     await pc.setRemoteDescription(new RTCSessionDescription(offerSdp));
     await pc.setLocalDescription(await pc.createAnswer());
     await waitIce();    sig._wsSend({ type: 'RELAY', to: peerId, kind: 'answer', data: pc.localDescription });
-    sigModalStep(3, 'Answer отправлен — устанавливаем соединение...');
-    setStat('соединяемся...');
-    scheduleCleanup();
+        scheduleCleanup();
 
   } else if(role === 'i_answer'){
     // Инициатор получил answer: применяем
     await pc.setRemoteDescription(new RTCSessionDescription(offerSdp));
-    sigModalStep(3, 'Answer получен — устанавливаем соединение...');
-    setStat('соединяемся...');
-    scheduleCleanup();
+        scheduleCleanup();
   }
 }
 
@@ -6792,8 +6813,8 @@ function _beaconConnect(ctx){
       _setSrvHeader('ok', shortName);
       updateSigState();
       _notifyStatus();
-      // Задержка 10с — дать серверу освободить старый ID (и парным маякам открыться)
-      setTimeout(() => _startIncomingListener(), 10000);
+      // Задержка 1с — небольшой буфер для регистрации парных маяков
+      setTimeout(() => _startIncomingListener(), 1000);
     });
 
     p.on('connection', conn =>{
@@ -7446,10 +7467,7 @@ async function connectToContact(fp, opts={}){
   // После второго await — снова проверяем
   if(opts.stayInChat && _p2pReconnectStopped) return;
 
-  // Если не в режиме "остаться в чате" — переходим на вкладку подключения
-  if(!opts.stayInChat){
-    showTab('connect');
-  }
+  // Подключаемся в фоне, не переходим на вкладку подключения
   // При авто-реконнекте (stayInChat) не показываем stunwrap при отсутствии STUN
   if(opts.stayInChat && !STUNS.some((s,i)=>s.on&&$(`ss${i}`).classList.contains('ok'))){
     // STUN недоступен — откладываем, следующая попытка сама разберётся
@@ -7648,56 +7666,15 @@ const PROG_STEPS = [60, 110, 150, 165]; // stroke-dashoffset values (170 = 0%, 0
 function sigModalShow(code, callerFp){
   _sigModalCode = code;
   _sigModalCallerFp = callerFp || null;
-  const m = $('sig-modal');
-  // reset
-  $('sig-modal-title').textContent = 'Устанавливаем соединение';
-  $('sig-modal-status').textContent = 'Подключаемся к signaling-серверу...';
-  $('sig-modal-icon').textContent = '📡';
-  $('sig-modal-ring').className = 'sig-modal-ring';
-  $('sig-modal-prog').style.strokeDashoffset = '170';
-  $('sig-modal-retry').style.display = 'none';
-  $('sig-modal-cancel').textContent = 'Отменить';
-  SIG_STEPS.forEach((id,i) => {
-    const el = $(id);
-    el.className = 'sig-modal-step' + (i===0 ? ' active' : '');
-  });
-  m.classList.add('on');
+  // Модал скрыт — подключение в фоне
 }
 
-function sigModalStep(idx, status){
-  SIG_STEPS.forEach((id, i) => {
-    const el = $(id);
-    if(i < idx) el.className = 'sig-modal-step done';
-    else if(i === idx) el.className = 'sig-modal-step active';
-    else el.className = 'sig-modal-step';
-  });
-  if(status) $('sig-modal-status').textContent = status;
-  $('sig-modal-prog').style.strokeDashoffset = String(PROG_STEPS[idx] ?? 20);
-}
+function sigModalStep(idx, status){ /* no-op */ }
 
-function sigModalSuccess(){
-  SIG_STEPS.forEach(id => $(id).className = 'sig-modal-step done');
-  $('sig-modal-prog').style.strokeDashoffset = '0';
-  $('sig-modal-ring').className = 'sig-modal-ring ok';
-  $('sig-modal-icon').textContent = '✓';
-  $('sig-modal-title').textContent = 'Соединение установлено';
-  $('sig-modal-status').textContent = 'Переходим в чат...';
-  $('sig-modal-cancel').style.display = 'none';
-  setTimeout(() => sigModalHide(), 600);
-}
+function sigModalSuccess(){ sigModalHide(); }
 
 function sigModalError(msg){
-  $('sig-modal-ring').className = 'sig-modal-ring err';
-  $('sig-modal-icon').textContent = '✕';
-  $('sig-modal-title').textContent = 'Не удалось подключиться';
-  $('sig-modal-status').textContent = msg || 'Проверьте соединение и попробуйте снова.';
-  // Mark current active step as error
-  SIG_STEPS.forEach(id => {
-    const el = $(id);
-    if(el.classList.contains('active')) el.className = 'sig-modal-step err';
-  });
-  $('sig-modal-retry').style.display = 'block';
-  $('sig-modal-cancel').textContent = 'Закрыть';
+  if(msg) toast('⚠ ' + msg);
 }
 
 function sigModalHide(){
@@ -7817,7 +7794,7 @@ async function shareMyContact(){
   const pubHex = Array.from(myPubKeyRaw).map(b => b.toString(16).padStart(2,'0')).join('');
   // Короткий формат: pubHex:имя — меньше модулей в QR
   const shortCode = myName ? pubHex + ':' + encodeURIComponent(myName) : pubHex;
-  const link = location.origin + location.pathname + '?add=' + shortCode;
+  const link = (window._safeOrigin ? window._safeOrigin() : location.origin) + location.pathname + '?add=' + shortCode;
 
   // Полный payload для обратной совместимости (копирование кода)
   const payload = {
@@ -10066,7 +10043,16 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
   // Manifest — реальный файл, не blob (иначе PWA не работает корректно)
 
   // ── Service Worker ────────────────────────────────────────────────────────
-  if('serviceWorker' in navigator) {
+  const _isNullOrigin = location.protocol === 'null:' || location.origin === 'null' || location.protocol === 'content:' || location.protocol === 'file:';
+  window._isNullOrigin = _isNullOrigin;
+  // Возвращает реальный origin или пустую строку при null-origin (file/content)
+  window._safeOrigin = () => _isNullOrigin ? '' : location.origin;
+  if(_isNullOrigin){
+    console.warn('[pwa] null origin — SW, push и ссылки-приглашения недоступны. Откройте файл через веб-сервер или HTTPS.');
+    const warn = document.getElementById('null-origin-warn');
+    if(warn) warn.style.display = 'block';
+  }
+  if('serviceWorker' in navigator && !_isNullOrigin) {
     navigator.serviceWorker.register('./sw.js')
       .then(reg => {
         window._swReg = reg;
@@ -10414,7 +10400,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     if (btn) { btn.disabled = true; btn.textContent = '...'; }
     try {
       const { token } = await _createInvite({ maxUses: 30, expiresIn: 604800 });
-      const link = location.origin + location.pathname + '?invite=' + token;
+      const link = (window._safeOrigin ? window._safeOrigin() : location.origin) + location.pathname + '?invite=' + token;
       // Показываем модалку
       let modal = document.getElementById('invite-modal');
       if (!modal) {
@@ -10508,7 +10494,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
   }
 
   window.inviteCopyToken = function(token) {
-    const link = location.origin + location.pathname + '?invite=' + token;
+    const link = (window._safeOrigin ? window._safeOrigin() : location.origin) + location.pathname + '?invite=' + token;
     navigator.clipboard.writeText(link).then(() => toast('Ссылка скопирована ✓')).catch(() => fallbackCopy(link, () => toast('Ссылка скопирована ✓')));
   };
 
@@ -10831,10 +10817,11 @@ function _attachSwipeReply(el, text, sender, ts, fp){
           setTimeout(()=>{ const i=document.getElementById('fav-input'); i&&i.focus(); }, 50);
         }
       } else {
-        window._replyText = text;
-        window._replySender = sender || '';
-        window._replyIsOut = el.classList.contains('out');
-        window._replyTs = ts || null;
+        // Используем те же переменные что и msgCtxReply (module-level let, не window.*)
+        _replyText = text;
+        _replySender = sender || '';
+        _replyIsOut = el.classList.contains('out');
+        _replyTs = ts || null;
         const bar = document.getElementById('reply-bar');
         const barSender = document.getElementById('reply-bar-sender');
         const barText = document.getElementById('reply-bar-text');

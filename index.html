@@ -3923,7 +3923,11 @@ async function _startIncomingListener(){
     _incomingPeer = p;
     p._onAuthStart = () => {}; // входящий пир не обновляет UI сервера
 
-    p.on('connection', conn => _handleIncomingCallConn(conn));
+    // Перехватываем RELAY-offer напрямую — не используем старый DataChannel-flow
+    p._sig._handleRelay = async (from, kind, data) => {
+      if(kind === 'offer'){ await _handleIncomingRelayOffer(p._sig, from, data); return; }
+      // ice-кандидаты, которые могут прийти до offer — игнорируем (используем full-ICE SDP)
+    };
 
     p.on('error', e =>{
       _incomingPeer = null;
@@ -3942,6 +3946,46 @@ async function _startIncomingListener(){
   }catch(e){}
 }
 
+// Обработчик входящего RELAY-offer (новый путь — без DataChannel-exchange)
+async function _handleIncomingRelayOffer(sig, from, offerData){
+  // Уже есть активный чат или ожидающий запрос — отклоняем
+  if($('sc').dataset.active === '1' && dc && dc.readyState === 'open'){
+    try{ sig._wsSend({ type:'RELAY', to:from, kind:'leave', data:null }); }catch(_){}
+    return;
+  }
+  if(_pendingRequest){
+    try{ sig._wsSend({ type:'RELAY', to:from, kind:'leave', data:null }); }catch(_){}
+    return;
+  }
+
+  // Извлекаем callerFp и чистый SDP
+  let callerFp = '';
+  let offerSdp  = offerData;
+  if(offerData && offerData._callerFp !== undefined){
+    callerFp = offerData._callerFp || '';
+    offerSdp = { type: offerData.type, sdp: offerData.sdp };
+  }
+
+  let callerName = 'Неизвестный';
+  if(callerFp){
+    try{
+      const contacts = await getContacts();
+      if(contacts[callerFp]?.name) callerName = contacts[callerFp].name;
+    }catch(_){}
+  }
+
+  const req = { _relay:true, sig, from, offerSdp, conn:null, offer:null, callerName, callerFp, shown:false };
+  _pendingRequest = req;
+  clearTimeout(_incomingTimer);
+  _incomingTimer = setTimeout(()=> _dismissRequest(), 30000);
+
+  $('call-who').textContent = callerName;
+  $('call-sub').textContent = callerFp ? 'fp: ' + callerFp : 'запрос на соединение';
+  $('call-banner').classList.add('on');
+  try{ if(navigator.vibrate) navigator.vibrate([150, 80, 150]); }catch(_){}
+  _sendNotifConn(callerName, callerFp);
+}
+
 function _dismissRequest(){
   clearTimeout(_incomingTimer);
   $('call-banner').classList.remove('on');
@@ -3949,7 +3993,13 @@ function _dismissRequest(){
 }
 
 function declineCall(){
-  if(_pendingRequest){ try{ _pendingRequest.conn.close(); }catch(_){} }
+  if(_pendingRequest){
+    if(_pendingRequest._relay){
+      try{ _pendingRequest.sig._wsSend({ type:'RELAY', to:_pendingRequest.from, kind:'leave', data:null }); }catch(_){}
+    } else {
+      try{ _pendingRequest.conn.close(); }catch(_){}
+    }
+  }
   _dismissRequest();
 }
 
@@ -3958,6 +4008,23 @@ async function acceptCall(){
   if(!req){ _dismissRequest(); return; }
   _dismissRequest(); // убираем баннер
 
+  // ── Новый путь: RELAY-based (контакты через signaling) ────────────────────
+  if(req._relay){
+    role = 'r';
+    hideAlert();
+    sigModalShow(null, req.callerFp || null);
+    sigModalStep(2, 'Принимаем соединение...');
+    try{
+      await _handleSigConnRelay(req.sig, req.from, 'r', req.offerSdp, ()=>{});
+    }catch(e){
+      console.warn('[acceptCall relay] error:', e);
+      sigModalError('Ошибка при установке соединения');
+      toast('Ошибка при установке соединения');
+    }
+    return;
+  }
+
+  // ── Старый путь: DataChannel-based ───────────────────────────────────────
   const sigConn = req.conn;
 
   function scheduleCleanup(){
@@ -6512,7 +6579,8 @@ async function joinSigRoom(overrideCode, callerFp){
       // Гость = инициатор: создаём offer и шлём через RELAY
       _dbgPush('log', ['[room] guest: creating offer for hostId=' + hostId.slice(0,14)]);
       _handleSigConnRelay(guestSig, hostId, 'i', null, () => {
-        setTimeout(() => { safePeerDestroy(peerGuest); _sigPeer = null; }, 5000);
+        // Держим WS открытым 25с — получатель может читать баннер перед тем как принять
+        setTimeout(() => { safePeerDestroy(peerGuest); _sigPeer = null; }, 25000);
       }).catch(e => { clearTimeout(guestTimer); onFail('Ошибка P2P: ' + e.message); });
     });
 
@@ -6529,22 +6597,28 @@ async function _handleSigConnRelay(sig, peerId, role, offerSdp, scheduleCleanup)
   _dbgPush('log', ['[p2p] _handleSigConnRelay role=' + role + ' peer=' + peerId.slice(0,14)]);
   hideAlert();
   if(role === 'i'){
-    // Инициатор: создаём offer, шлём через RELAY
+    // Инициатор: создаём offer, шлём через RELAY (включаем callerFp для баннера получателя)
         createPC();
     dc = pc.createDataChannel('chat', { reliable: true });
     setupDC();
     await pc.setLocalDescription(await pc.createOffer());
-    await waitIce();    sig._wsSend({ type: 'RELAY', to: peerId, kind: 'offer', data: pc.localDescription });
+    await waitIce();
+    const offerWithFp = { type: pc.localDescription.type, sdp: pc.localDescription.sdp, _callerFp: myFingerprint || '' };
+    sig._wsSend({ type: 'RELAY', to: peerId, kind: 'offer', data: offerWithFp });
         scheduleCleanup();
 
   } else if(role === 'r'){
     // Получатель: применяем offer, создаём answer, шлём через RELAY
+    // offerSdp может содержать _callerFp — убираем лишнее перед передачей в RTCSessionDescription
+    const cleanSdp = (offerSdp && offerSdp._callerFp !== undefined)
+      ? { type: offerSdp.type, sdp: offerSdp.sdp }
+      : offerSdp;
         createPC();
     pc.ondatachannel = e => {
       dc = e.channel;
       setupDC();
     };
-    await pc.setRemoteDescription(new RTCSessionDescription(offerSdp));
+    await pc.setRemoteDescription(new RTCSessionDescription(cleanSdp));
     await pc.setLocalDescription(await pc.createAnswer());
     await waitIce();    sig._wsSend({ type: 'RELAY', to: peerId, kind: 'answer', data: pc.localDescription });
         scheduleCleanup();

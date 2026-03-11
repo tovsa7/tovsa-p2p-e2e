@@ -1755,7 +1755,11 @@ async function makeIdentityMsg(recipientPubHex){
   // Проверяем активную push подписку
   let pushEnabled = false;
   try{
-    const reg = await navigator.serviceWorker.ready;
+    // Таймаут 1с — navigator.serviceWorker.ready зависает навсегда при null origin (открытие из файла)
+    const reg = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_,rej) => setTimeout(() => rej(new Error('sw timeout')), 1000))
+    ]);
     const sub = await reg.pushManager.getSubscription();
     pushEnabled = !!sub && !!localStorage.getItem('_pushFp');
   }catch(_){}
@@ -1861,13 +1865,13 @@ async function verifyIdentityMsg(msg){
         }
       }
     }
-    const data=new TextEncoder().encode('p2p-auth:'+ts+(rHex ? ':'+rHex : ''));
+    const data=new TextEncoder().encode('p2p-auth:'+ts+':'+rHex); // всегда с ':' как в makeIdentityMsg
     const ok=await crypto.subtle.verify('Ed25519',pubKey,new Uint8Array(sig),data);
     if(!ok)return{valid:false,reason:'signature'};
     const hash=await sha256(pubBytes);
     const fp=bytesToFingerprint(hash);
     return{valid:true,fp,pubHex:Array.from(pubBytes).map(b=>b.toString(16).padStart(2,'0')).join(''),name:name||'',push:!!push,pushPub:pushPub?new Uint8Array(pushPub):null};
-  }catch(e){return null;}
+  }catch(e){ return null; }
 }
 
 async function getContacts(){
@@ -2896,7 +2900,7 @@ function buildServerUrl(srv, endpoint = '') {
 // ══════════════════════════════════════════════════════════════════════════════
 
 const RECONNECT_DELAYS_MS  = [1_000, 2_000, 5_000, 10_000, 30_000];
-const CALL_TIMEOUT_MS      = 30_000;
+const CALL_TIMEOUT_MS      = 8_000;  // ждём answer после offer; должен быть >= ICE_TIMEOUT_MS*2
 const ICE_TIMEOUT_MS       = 3_000;  // должен быть меньше таймаута presence-проверки
 const DC_LABEL             = 'tovsa';
 
@@ -2965,29 +2969,31 @@ class TovSaSignaling {
       const ws = new WebSocket(this._url);
       this._ws = ws;
       ws.onopen = () => {
-        _dbgPush('info', ['[sig] onopen id=' + this._peerId.slice(0,16)]);
+        _dbgPush('info', ['[sig] open ' + this._peerId.slice(0,14)]);
         // Fallback: если сервер не прислал HELLO_REQ за 3с — шлём HELLO сами.
         this._helloFallbackTimer = setTimeout(() => {
           if (!this._open) {
-            _dbgPush('warn', ['[sig] fallback HELLO (no HELLO_REQ) id=' + this._peerId.slice(0,16)]);
             this._wsSend({ type: 'HELLO', id: this._peerId, v: TovSaSignaling.PROTO_VERSION });
           }
-        }, 3000);
+        }, 7000);
       };
       ws.onmessage = (e) => {
         let msg; try { msg = JSON.parse(e.data); } catch { return; }
-        if (msg.type !== 'PING' && msg.type !== 'PONG')
-          _dbgPush('log', ['[sig] ← ' + msg.type + ' id=' + this._peerId.slice(0,16)]);
+        const t = msg && msg.type;
+        if(t && t !== 'PING' && t !== 'PONG')
+          _dbgPush('log', ['[sig] ← ' + t + (t==='PRESENCE-RESULT'?' online='+JSON.stringify(msg.online):'') + ' ' + this._peerId.slice(0,14)]);
         this._handleMsg(msg).catch(err => this._onError(err));
       };
       ws.onclose = (ev) => {
-        _dbgPush('warn', ['[sig] close code=' + ev.code + ' id=' + this._peerId.slice(0,16)]);
+        _dbgPush('warn', ['[sig] close ' + ev.code + ' ' + this._peerId.slice(0,14)]);
+        // Очищаем fallback-таймер HELLO — WS уже закрыт
+        if (this._helloFallbackTimer !== null) { clearTimeout(this._helloFallbackTimer); this._helloFallbackTimer = null; }
         this._open = false; this._ws = null;
         for (const [, p] of this._pending) { clearTimeout(p.timer); p.reject(new Error('Signaling disconnected')); }
         this._pending.clear();
         if (!this._destroyed) { this._onClose(); this._scheduleReconnect(); }
       };
-      ws.onerror = () => { _dbgPush('error', ['[sig] ws error id=' + this._peerId.slice(0,16)]); };
+      ws.onerror = () => { _dbgPush('error', ['[sig] err ' + this._peerId.slice(0,14)]); };
     } catch(_) { if (!this._destroyed) this._scheduleReconnect(); }
   }
   _scheduleReconnect() {
@@ -3005,7 +3011,7 @@ class TovSaSignaling {
       case 'CHALLENGE': await this._respondChallenge(msg.nonce); break;
       case 'OPEN': this._open = true; this._reconnectIdx = 0; this._serverProtoVersion = msg.v ?? 1; this._onOpen(); break;
       case 'ERR': {
-        const FATAL = new Set([4000, 4001, 4002, 4003, 4004, 4005]);
+        const FATAL = new Set([4000, 4001, 4002, 4003, 4004, 4005, 4029]);
         if (FATAL.has(msg.code)) this._destroyed = true;
         const err = new Error(`[${msg.code}] ${msg.msg}`);
         if (msg.retryAfter) err.retryAfter = msg.retryAfter;
@@ -3017,27 +3023,29 @@ class TovSaSignaling {
       case 'PRESENCE-RESULT':
         window.dispatchEvent(new CustomEvent('tovsa-presence-result', { detail: msg }));
         break;
-      case 'RELAY': await this._handleRelay(msg.from, msg.kind, msg.data); break;
+      case 'RELAY':
+        // Если пришёл answer на наш offer — диспатчим событие для presence-детектора
+        if (msg.kind === 'answer' && this._pending.has(msg.from)) {
+          if(msg.delivered) _dbgPush('log', ['[sig] ACK delivered ' + (msg.kind||'') + ' ' + this._peerId.slice(0,14)]);
+        window.dispatchEvent(new CustomEvent('tovsa-relay-ack', { detail: {
+            to: msg.from, kind: 'offer', delivered: true, viaAnswer: true
+          }}));
+        }
+        await this._handleRelay(msg.from, msg.kind, msg.data);
+        break;
       // v4: сервер подтверждает доставку — delivered=false означает что получатель офлайн
       case 'RELAY-ACK':
-        _dbgPush('log', ['[sig] ← RELAY-ACK kind=' + msg.kind + ' delivered=' + msg.delivered + ' id=' + this._peerId.slice(0,16)]);
+        if(msg.delivered) _dbgPush('log', ['[sig] ACK delivered ' + (msg.kind||'') + ' ' + this._peerId.slice(0,14)]);
         window.dispatchEvent(new CustomEvent('tovsa-relay-ack', { detail: {
           to: msg.to, kind: msg.kind, delivered: msg.delivered
         }}));
         // Если offer не доставлен — получатель офлайн: сразу реджектим pending call
         // вместо ожидания CALL_TIMEOUT_MS (30с). Это восстанавливает быструю presence-проверку.
         if (msg.kind === 'offer') {
-          const pending = this._pending.get(msg.to);
-          if (pending) {
-            if (!msg.delivered) {
-              // Получатель офлайн — сразу реджектим, не ждём CALL_TIMEOUT_MS
-              clearTimeout(pending.timer);
-              this._pending.delete(msg.to);
-              this._cleanupPc(msg.to);
-              pending.reject(new Error(`peer-unavailable: ${msg.to}`));
-            }
-            // delivered=true: offer доставлен, ждём answer через RELAY — не трогаем pending
-          }
+          // delivered=true: offer доставлен локально — контакт точно онлайн на этом инстансе.
+          // delivered=false: offer ушёл через BroadcastChannel — может быть доставлен другим инстансом.
+          //   НЕ реджектим pending — ждём либо answer (RELAY), либо таймаут.
+          //   Таймаут сокращён с 30с до 8с в CALL_TIMEOUT_MS через pending.timer.
         }
         break;
     }
@@ -3111,7 +3119,7 @@ class TovSaSignaling {
     if (!state) return;
     try { await state.pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch(_) {}
   }
-  _sendRelay(to, kind, data) { _dbgPush('log', ['[sig] → RELAY ' + kind + ' to=' + to.slice(0,16) + ' id=' + this._peerId.slice(0,16)]); this._wsSend({ type: 'RELAY', to, kind, data }); }
+  _sendRelay(to, kind, data) { this._wsSend({ type: 'RELAY', to, kind, data }); }
   _wsSend(msg) { if (this._ws?.readyState === WebSocket.OPEN) { try { this._ws.send(JSON.stringify(msg)); } catch(_) {} } }
 }
 TovSaSignaling.PROTO_VERSION = 4; // должна совпадать с PROTO_VERSION на сервере
@@ -3209,6 +3217,7 @@ class FakePeer {
         else if (msg.includes('4005')) type = 'hello-timeout';
         else if (msg.includes('4000')) type = 'invalid-id';
         else if (msg.includes('4002')) type = 'server-error';
+        else if (msg.includes('4029')) type = 'unavailable-id'; // rate-limit ≈ занято
         this._emit('error', Object.assign(new Error(msg), { type }));
       },
       onPeer: (innerConn) => {
@@ -3848,14 +3857,15 @@ async function _startIncomingListener(){
     p.on('error', e =>{
       _incomingPeer = null;
       if(stale()) return;
-      const delay = e.type === 'unavailable-id' ? 10000 : 15000;
+      const delay = e.type === 'unavailable-id' ? 15000 : 15000;
       setTimeout(()=>{ if(!stale()) _startIncomingListener(); }, delay);
     });
 
     p.on('disconnected', ()=>{ if(!p.destroyed && !stale()) try{ p.reconnect(); }catch(_){} });
     p.on('close', ()=>{
       _incomingPeer = null;
-      if(!stale()) setTimeout(()=>{ if(!stale()) _startIncomingListener(); }, 5000);
+      // Ждём 8с — сервер должен освободить ID после закрытия соединения
+      if(!stale()) setTimeout(()=>{ if(!stale()) _startIncomingListener(); }, 8000);
     });
 
   }catch(e){}
@@ -3895,7 +3905,10 @@ async function acceptCall(){
     try{
       sigModalStep(2, 'Формируем answer (ICE-кандидаты)...');
       createPC();
-      pc.ondatachannel = e => { dc = e.channel; setupDC(); };
+      pc.ondatachannel = e => {
+      dc = e.channel;
+      setupDC();
+    };
       await pc.setRemoteDescription(new RTCSessionDescription(offerMsg.sdp));
       await pc.setLocalDescription(await pc.createAnswer());
       await waitIce();
@@ -4035,6 +4048,8 @@ function hideAlert(){$('connalert').classList.remove('on')}
 function createPC(){
   if(pc){try{pc.close()}catch(e){}}
   pc=new RTCPeerConnection({iceServers:getIce()});
+  pc.oniceconnectionstatechange = () => _dbgPush('log', ['[p2p] ICE state: ' + pc.iceConnectionState]);
+  pc.onconnectionstatechange = () => _dbgPush('log', ['[p2p] conn state: ' + pc.connectionState]);
   let srflxCount=0;
   const onCand=e=>{
     if(e.candidate&&e.candidate.candidate.includes('srflx')) srflxCount++;
@@ -4341,22 +4356,41 @@ async function _handleIdentityPacket(data, setIdDone){
 }
 
 // ── Роутер расшифрованных данных ──────────────────────────────────────────────
+// Буфер сообщений до верификации identity
+let _preIdentityBuf = [];
+
 async function _handleDecrypted(data, getIdDone, setIdDone){
   const idDone = getIdDone();
 
   if(typeof data === 'string'){
-    try{
-      const j = JSON.parse(data);
+    let j;
+    try{ j = JSON.parse(data); }catch(_){ j = null; }
+
+    if(j !== null){
+      // Если identity ещё не верифицирована — буферизуем __msg__ и служебные пакеты
+      // чтобы они не попали в verifyIdentityMsg
+      if(!idDone && j._t !== 'id'){
+        _preIdentityBuf.push(data);
+        return;
+      }
       const handled = await _handleServicePacket(j, idDone);
       if(handled) return;
-    }catch(_){}
+    }
   }
 
   // Бинарные файловые чанки — только после identity
   if(idDone && data instanceof ArrayBuffer){ handleIncomingFile(data); return; }
 
   // Identity — только один раз
-  if(!idDone){ await _handleIdentityPacket(data, setIdDone); return; }
+  if(!idDone){
+    await _handleIdentityPacket(data, setIdDone);
+    // Сбрасываем буфер после верификации
+    if(getIdDone() && _preIdentityBuf.length){
+      const buf = _preIdentityBuf.splice(0);
+      for(const d of buf) await _handleDecrypted(d, getIdDone, setIdDone);
+    }
+    return;
+  }
 
   // Fallback: сырое текстовое сообщение
   if(typeof data === 'string') addMsg(data, 'in');
@@ -4393,20 +4427,28 @@ function setupDC(){
       // 1. ECDH hello — единственное незашифрованное сообщение
       if(j._t === '__e2e_hello__'){
         if(_e2eReady) return;
-        try{
-          const peerPub = new Uint8Array(j.pub);
-          await _e2eDeriveKey(peerPub);
-          _e2eUpdateLockBadge();
-          // FIX IDENTITY_V1_FIRST: при первом контакте Ed25519 pubKey ещё неизвестен.
-          // Используем hex ECDH pub собеседника как временный session binding —
-          // это связывает identity подпись с конкретной ECDH сессией и закрывает
-          // relay-атаку на время первого рукопожатия.
-          // При повторном соединении lastPeerPubKeyHex уже заполнен → v:2 Ed25519 binding.
-          const sessionBinding = lastPeerPubKeyHex ||
-            Array.from(peerPub).map(b=>b.toString(16).padStart(2,'0')).join('');
-          try{ _e2eSend(await makeIdentityMsg(sessionBinding)); }catch(err){ console.error('[e2e] ошибка отправки identity:', err); }
-          setTimeout(()=>{ try{ sysMsg('🔒 Сквозное шифрование установлено'); }catch(_){} }, 0);
-        }catch(err){ console.error('[e2e] hello error:', err); }
+        // Если ключи ещё не сгенерированы (onConn ещё в await _e2eGenKeys) —
+        // ждём готовности через небольшой retry
+        const _doHello = async () => {
+          if(!_e2eEcdhPriv){
+            // Ключи ещё не готовы — повторим через 50ms
+            setTimeout(_doHello, 50);
+            return;
+          }
+          if(_e2eReady) return; // уже обработали
+          try{
+            const peerPub = new Uint8Array(j.pub);
+            await _e2eDeriveKey(peerPub);
+            _e2eUpdateLockBadge();
+            // Используем только Ed25519 ключ собеседника (lastPeerPubKeyHex).
+            // ECDH ключ — другой тип, использовать как rPub нельзя — проверка провалится.
+            // При первом контакте (ключ неизвестен) отправляем v:1 без rPub.
+            const sessionBinding = lastPeerPubKeyHex || '';
+            try{ _e2eSend(await makeIdentityMsg(sessionBinding)); }catch(err){ _dbgPush('warn', ['[e2e] identity send error:', err.message]); }
+            setTimeout(()=>{ try{ sysMsg('🔒 Сквозное шифрование установлено'); }catch(_){} }, 0);
+          }catch(err){ _dbgPush('warn', ['[e2e] hello error:', err.message]); }
+        };
+        _doHello();
         return;
       }
 
@@ -4677,7 +4719,17 @@ async function onConn(){
   // Identity будет отправлено из dc.onmessage после получения ответного hello.
   try{
     await _e2eGenKeys();
-    dc.send(JSON.stringify({_t:'__e2e_hello__', pub: Array.from(_e2eEcdhPub)}));
+    // Повторяем hello каждые 300ms пока не получим ответный hello (E2E установится)
+    // Это нужно потому что DC у собеседника может ещё не быть open в момент первой отправки
+    const _helloMsg = JSON.stringify({_t:'__e2e_hello__', pub: Array.from(_e2eEcdhPub)});
+    dc.send(_helloMsg);
+    const _helloInterval = setInterval(() => {
+      if(_e2eReady || !dc || dc.readyState !== 'open'){ clearInterval(_helloInterval); return; }
+      dc.send(_helloMsg);
+    }, 300);
+    // Сбрасываем интервал как только E2E установится (макс 20с)
+    setTimeout(() => clearInterval(_helloInterval), 20000);
+
     // FIX E2E_TIMEOUT_UNUSED: устанавливаем таймаут на handshake — 15 секунд.
     // Если за это время не получим __e2e_hello__ от собеседника — соединение считается неполноценным.
     // Это предотвращает зависание в состоянии "ждём ECDH" бесконечно.
@@ -4689,9 +4741,9 @@ async function onConn(){
       }
     }, 15000);
   }catch(err){
-    console.warn('[e2e] onConn error:', err);
+    _dbgPush('warn', ['[e2e] onConn error:', err.message, 'dc.readyState=' + dc.readyState]);
     // Fallback — если ECDH не работает, отправляем identity без шифрования
-    try{ dc.send(await makeIdentityMsg(lastPeerPubKeyHex||'')); }catch(e2){}
+    try{ dc.send(await makeIdentityMsg(lastPeerPubKeyHex||'')); }catch(e2){ _dbgPush('warn', ['[e2e] fallback identity error:', e2.message]); }
   }
 
   // Отправляем оффлайн-очередь после установки соединения
@@ -5307,7 +5359,12 @@ function cancelFavReply(){
 
 function buildQuoteHtml(sender,text,originTs){
   const s=esc(sender||'');
-  const t=(text||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // Backward compat: replyText могло быть сохранено как JSON-строка {msg,text,...}
+  let plainText = text || '';
+  if(plainText.startsWith('{')){
+    try{ const p=JSON.parse(plainText); if(p.text) plainText=p.text; }catch(_){}
+  }
+  const t=plainText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const clickAttr=originTs?`onclick="scrollToMsg(${originTs})" style="cursor:pointer"`:'';
   return `<div class="msg-quote" ${clickAttr}><div class="msg-quote-sender">${s}</div><div class="msg-quote-text">${t}</div></div>`;
 }
@@ -6268,10 +6325,8 @@ async function joinSigRoom(overrideCode, callerFp){
   const code = overrideCode || $('sig-room-input').value.trim();
   if(!code) return;
 
-  // Проверяем STUN — без него ICE не соберёт srflx кандидаты
   if(!canStart()) return;
 
-  // cleanup previous
   safePeerDestroy(_sigPeer); _sigPeer=null;
 
   const hint = $('sig-hint');
@@ -6280,63 +6335,82 @@ async function joinSigRoom(overrideCode, callerFp){
   hint.textContent = '⏳ Подключаемся к signaling-серверу...';
   sigModalShow(code, callerFp);
 
-  const roomId = _sigRoomId(code);
-  const hostId = roomId + '-h';
+  const roomId  = _sigRoomId(code);
+  const hostId  = roomId + '-h';
   const guestId = roomId + '-g-' + Math.random().toString(36).slice(2,7);
 
   let settled = false;
 
-  // Уничтожаем sigPeer только после завершения ICE gathering
-  function scheduleCleanup(){
-    setTimeout(()=>{
-      safePeerDestroy(_sigPeer); _sigPeer=null;
-    }, 5000);
-  }
-
   function onFail(msg){
-    if(settled) return; settled=true;
-    safePeerDestroy(_sigPeer); _sigPeer=null;
+    if(settled) return; settled = true;
+    if(_sigPeer){ safePeerDestroy(_sigPeer); _sigPeer = null; }
     hint.textContent = '⚠ ' + msg;
     btn.disabled = false;
     sigModalError(msg);
   }
 
-  // Берём активный сигналинг-сервер — тот же что маяк
-  const _srv = currentSrv();
+  const _srv    = currentSrv();
   const _srvCfg = buildPeerConfig(_srv);
 
-  // Пробуем занять hostId. Если занят (unavailable-id) — становимся гостем.
-  // Остальные ошибки — фатальные.
+  // ── Хост ──────────────────────────────────────────────────────────────────────
+  // Занимаем hostId. Получаем offer через RELAY, отвечаем answer через RELAY.
   const peerHost = createAuthPeer(hostId, _srvCfg);
   _sigPeer = peerHost;
 
-  peerHost.on('open', ()=>{
+  peerHost.on('open', () => {
     hint.textContent = '⏳ Ожидаем второго участника...';
     sigModalStep(1, 'Комната создана — ожидаем собеседника...');
-    // Вешаем обработчик входящих соединений ДО того как гость успеет подключиться
-    peerHost.on('connection', conn => {
-      if(settled) return; settled=true;
+
+    // Слушаем входящий RELAY offer через нативный WS сигналинга
+    const hostSig = peerHost._sig;
+    const origOnPeer = hostSig._onPeer;
+    // Перехватываем входящий RELAY offer
+    const _relayHandler = async (from, kind, data) => {
+      if(kind !== 'offer') return;
+      if(settled) return; settled = true;
+      _dbgPush('log', ['[room] host: got offer via RELAY from=' + from.slice(0,14)]);
       hint.textContent = '🔗 Гость подключился, устанавливаем P2P...';
-      sigModalStep(2, 'Собеседник найден — получаем offer...');
-      // Ждём открытия канала перед обменом SDP
-      conn.on('open', () => _handleSigConn(conn, 'r', scheduleCleanup));
-      conn.on('error', e => onFail('Ошибка канала: ' + (e.message||e.type)));
-    });
-    peerHost.on('error', e => onFail('Ошибка сервера: ' + (e.message||e.type)));
+      sigModalStep(2, 'Собеседник найден — обрабатываем offer...');
+
+      // Передаём caller info если есть — через специальный RELAY
+      // (игнорируем — callerFp у хоста не нужен для идентификации)
+
+      // Хост = получатель offer, роль 'r' (ждёт offer, шлёт answer)
+      await _handleSigConnRelay(hostSig, from, 'r', data, () => {
+        setTimeout(() => { safePeerDestroy(peerHost); _sigPeer = null; }, 5000);
+      });
+    };
+    // Патчим _handleRelay чтобы перехватить offer
+    const origHandleRelay = hostSig._handleRelay.bind(hostSig);
+    hostSig._handleRelay = async (from, kind, data) => {
+      await _relayHandler(from, kind, data);
+      // Не вызываем оригинал — иначе TovSaConn тоже попытается обработать
+    };
   });
 
+  let _hostSettled = false;
+  function _tryBeGuest(reason){
+    if(_hostSettled) return; _hostSettled = true;
+    _dbgPush('log', ['[room] → beGuest via ' + reason]);
+    _sigPeer = null;
+    safePeerDestroy(peerHost);
+    beGuest();
+  }
+  peerHost.on('disconnected', () => {
+    _dbgPush('warn', ['[room] peerHost disconnected (destroyed=' + peerHost.destroyed + ')']);
+    if(!peerHost._open) _tryBeGuest('disconnected-before-open');
+  });
   peerHost.on('error', e => {
-    if(e.type === 'unavailable-id'){
-      // Комната уже занята — становимся гостем
-      _sigPeer = null;
-      safePeerDestroy(peerHost);
-      beGuest();
+    _dbgPush('warn', ['[room] peerHost error type=' + e.type]);
+    if(e.type === 'unavailable-id' || e.type === 'network'){
+      _tryBeGuest('error-' + e.type);
     } else {
-      onFail('Ошибка: ' + (e.message||e.type));
+      if(!_hostSettled){ _hostSettled = true; onFail('Ошибка: ' + (e.message||e.type)); }
     }
   });
 
-  function beGuest(){
+  // ── Гость ─────────────────────────────────────────────────────────────────────
+  function beGuest(){ _dbgPush('log', ['[room] beGuest triggered']);
     hint.textContent = '⏳ Комната занята — подключаемся к хосту...';
     sigModalStep(1, 'Комната найдена — подключаемся к хосту...');
     const peerGuest = createAuthPeer(guestId, _srvCfg);
@@ -6346,86 +6420,86 @@ async function joinSigRoom(overrideCode, callerFp){
     peerGuest.on('open', () => {
       hint.textContent = '⏳ Соединяемся с хостом...';
       sigModalStep(2, 'P2P переговоры с хостом...');
-      const conn = peerGuest.connect(hostId, { reliable: true, serialization: 'json' });
 
-      guestTimer = setTimeout(()=>{
+      guestTimer = setTimeout(() => {
         if(!settled) onFail('Хост не ответил — попробуйте ещё раз');
-      }, 15000);
+      }, 20000);
 
-      conn.on('open', () => {
-        clearTimeout(guestTimer);
-        if(settled) return; settled=true;
-        hint.textContent = '🔗 Канал открыт, запускаем P2P...';
-        sigModalStep(3, 'Канал открыт — запускаем P2P...');
-        // Сообщаем получателю кто звонит — до того как придёт offer
-        if(callerFp) conn.send({ _t: 'caller', fp: callerFp });
-        // Гость = тот кто инициировал — шлёт offer, роль 'i'
-        _handleSigConn(conn, 'i', scheduleCleanup);
-      });
-      conn.on('error', e => { clearTimeout(guestTimer); onFail('Ошибка канала: ' + (e.message||e.type)); });
+      // Слушаем answer от хоста через RELAY
+      const guestSig = peerGuest._sig;
+      const origHandleRelay = guestSig._handleRelay.bind(guestSig);
+      guestSig._handleRelay = async (from, kind, data) => {
+        if(kind === 'answer' && from === hostId && !settled){
+          clearTimeout(guestTimer);
+          if(settled) return; settled = true;
+          _dbgPush('log', ['[room] guest: got answer via RELAY from=' + from.slice(0,14)]);
+          await _handleSigConnRelay(guestSig, hostId, 'i_answer', data, () => {
+            setTimeout(() => { safePeerDestroy(peerGuest); _sigPeer = null; }, 5000);
+          });
+        }
+        // Не вызываем оригинал
+      };
+
+      // Гость = инициатор: создаём offer и шлём через RELAY
+      _dbgPush('log', ['[room] guest: creating offer for hostId=' + hostId.slice(0,14)]);
+      _handleSigConnRelay(guestSig, hostId, 'i', null, () => {
+        setTimeout(() => { safePeerDestroy(peerGuest); _sigPeer = null; }, 5000);
+      }).catch(e => { clearTimeout(guestTimer); onFail('Ошибка P2P: ' + e.message); });
     });
 
     peerGuest.on('error', e => { if(guestTimer) clearTimeout(guestTimer); onFail('Ошибка: ' + (e.message||e.type)); });
   }
 }
 
-async function _handleSigConn(sigConn, myRole, scheduleCleanup){
-  // myRole: 'i' = инициатор (хост, шлёт offer), 'r' = получатель (гость, шлёт answer)
-  role = myRole;
+
+// Обмен SDP через RELAY (не через DataChannel).
+// role='i'       — инициатор: создаём offer, шлём через RELAY, ждём answer через callback
+// role='r'       — получатель: принимаем offer (передан как offerSdp), шлём answer через RELAY
+// role='i_answer' — инициатор после получения answer: применяем answer (offerSdp = answer sdp)
+async function _handleSigConnRelay(sig, peerId, role, offerSdp, scheduleCleanup){
+  _dbgPush('log', ['[p2p] _handleSigConnRelay role=' + role + ' peer=' + peerId.slice(0,14)]);
   hideAlert();
   $('dot').className = 'dot act';
-  // Do NOT switch to steps screen — modal handles the UX
 
-  if(myRole === 'i'){
+  if(role === 'i'){
+    // Инициатор: создаём offer, шлём через RELAY
     setStat('генерируем offer...');
     sigModalStep(2, 'Формируем offer (ICE-кандидаты)...');
     createPC();
     dc = pc.createDataChannel('chat', { reliable: true });
     setupDC();
     await pc.setLocalDescription(await pc.createOffer());
-    await waitIce();
-
-    sigConn.send({ type: 'offer', sdp: pc.localDescription });
+    await waitIce();    sig._wsSend({ type: 'RELAY', to: peerId, kind: 'offer', data: pc.localDescription });
     sigModalStep(3, 'Offer отправлен — ждём ответ собеседника...');
     setStat('ожидаем ответ...');
+    scheduleCleanup();
 
-    sigConn.on('data', async data => {
-      try{
-        const msg = typeof data === 'string' ? JSON.parse(data) : data;
-        if(msg.type === 'answer'){
-          await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
-          sigModalStep(3, 'Answer получен — устанавливаем соединение...');
-          setStat('соединяемся...');
-          scheduleCleanup();
-        }
-      }catch(e){ console.warn('sig data err', e); }
-    });
+  } else if(role === 'r'){
+    // Получатель: применяем offer, создаём answer, шлём через RELAY
+    setStat('генерируем answer...');
+    sigModalStep(3, 'Формируем answer...');
+    createPC();
+    pc.ondatachannel = e => {
+      dc = e.channel;
+      setupDC();
+    };
+    await pc.setRemoteDescription(new RTCSessionDescription(offerSdp));
+    await pc.setLocalDescription(await pc.createAnswer());
+    await waitIce();    sig._wsSend({ type: 'RELAY', to: peerId, kind: 'answer', data: pc.localDescription });
+    sigModalStep(3, 'Answer отправлен — устанавливаем соединение...');
+    setStat('соединяемся...');
+    scheduleCleanup();
 
-  } else {
-    setStat('получаем offer...');
-    sigModalStep(2, 'Ожидаем offer от инициатора...');
-
-    sigConn.on('data', async data => {
-      try{
-        const msg = typeof data === 'string' ? JSON.parse(data) : data;
-        if(msg.type === 'offer'){
-          setStat('генерируем answer...');
-          sigModalStep(3, 'Формируем answer...');
-          createPC();
-          pc.ondatachannel = e => { dc = e.channel; setupDC(); };
-          await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
-          await pc.setLocalDescription(await pc.createAnswer());
-          await waitIce();
-
-          sigConn.send({ type: 'answer', sdp: pc.localDescription });
-          sigModalStep(3, 'Answer отправлен — устанавливаем соединение...');
-          setStat('соединяемся...');
-          scheduleCleanup();
-        }
-      }catch(e){ console.warn('sig data err', e); }
-    });
+  } else if(role === 'i_answer'){
+    // Инициатор получил answer: применяем
+    await pc.setRemoteDescription(new RTCSessionDescription(offerSdp));
+    sigModalStep(3, 'Answer получен — устанавливаем соединение...');
+    setStat('соединяемся...');
+    scheduleCleanup();
   }
 }
+
+
 
 
 let _pjChecked = false;
@@ -6618,6 +6692,7 @@ async function _syncPairBeaconsInner() {
     return;
   }
 
+  let _beaconDelay = 0;
   for(const fp of fps) {
     if(contacts[fp].hidePresence) {
       // Скрыты от этого контакта — убираем его маяк
@@ -6633,6 +6708,11 @@ async function _syncPairBeaconsInner() {
     // [FIX БАГ3] Сразу ставим sentinel-значение чтобы повторный вызов не создавал дубль.
     // Реальный peer заменит его при onopen; при ошибке — удалим.
     _pairBeacons.set(fp, null);
+    // Разносим создание маяков во времени чтобы не перегружать сервер burst'ом WS-соединений.
+    // Первый маяк — сразу, каждый следующий — через 400мс.
+    if(_beaconDelay > 0) await new Promise(r => setTimeout(r, _beaconDelay));
+    _beaconDelay = 400;
+    if(!_pjOk) break; // сигналинг упал пока ждали — прерываем
     try{
       const peer = createAuthPeer(pairId, { ...buildPeerConfig(currentSrv()) });
       peer.on('open', () => {
@@ -6700,6 +6780,7 @@ function _beaconConnect(ctx){
       _pjOk = true;
       _pjChecked = true;
       _presenceBeaconReady = true;
+      _presenceBeaconOpenedAt = Date.now(); // для задержки первого presence-тика
       // Сбрасываем авто-реконнект — соединение установлено
       if(_autoReconnectTimer){ clearTimeout(_autoReconnectTimer); _autoReconnectTimer = null; }
       _autoReconnectAttempts = 0;
@@ -6711,7 +6792,8 @@ function _beaconConnect(ctx){
       _setSrvHeader('ok', shortName);
       updateSigState();
       _notifyStatus();
-      _startIncomingListener();
+      // Задержка 10с — дать серверу освободить старый ID (и парным маякам открыться)
+      setTimeout(() => _startIncomingListener(), 10000);
     });
 
     p.on('connection', conn =>{
@@ -7011,6 +7093,18 @@ function _getCheckPeer(){
       reject(new Error('check peer error: ' + e.type));
     });
 
+    // Если WS закрылся до open — reject немедленно, не ждём таймаут
+    const onDisconnect = () => {
+      if(resolved) return;
+      resolved = true;
+      clearTimeout(timeout);
+      if(_checkPeerInstance === p) _checkPeerInstance = null;
+      safePeerDestroy(p);
+      reject(new Error('check peer disconnected'));
+    };
+    p.on('disconnected', onDisconnect);
+    p.on('close',        onDisconnect);
+
     // Входящие соединения на временный пир — просто закрываем
     p.on('connection', conn =>{ try{ conn.close(); }catch(_){} });
   });
@@ -7176,7 +7270,7 @@ async function inviteFromHistory(){
 
 // ── WebRTC-connect — единственный метод проверки присутствия ──
 // /peers на сервере закрыт — проверяем только через попытку подключения.
-async function _refreshPresenceViaWebRTC(fps, fpToPid, checkPeer){
+async function _refreshPresenceViaWebRTC(fps, fpToPid, checkPeer, myGen){
   // peer-unavailable приходит на checkPeer.on('error'), не на conn.on('error').
   // Храним Map pid → finish чтобы маппировать ошибку на нужный контакт.
   const BATCH = 8;
@@ -7218,6 +7312,9 @@ async function _refreshPresenceViaWebRTC(fps, fpToPid, checkPeer){
             clearTimeout(timer);
             pendingByPid.delete(pid);
             try{ if(conn) conn.close(); }catch(e){}
+            if(result === 'online') _dbgPush('log', ['[presence] ONLINE ' + fp]);
+            // Если запустился новый тик — не применяем результаты старого
+            if(myGen !== _presenceHbGen) { resolve(); return; }
             _applyPresenceResult(fp, result);
             resolve();
           }
@@ -7232,13 +7329,14 @@ async function _refreshPresenceViaWebRTC(fps, fpToPid, checkPeer){
             conn.on('open',  ()=> finish('online'));
             conn.on('close', ()=> finish('offline'));
             conn.on('error', ()=> finish('offline'));
-            // v4: RELAY-ACK delivered=true означает что offer дошёл — контакт онлайн.
-            // Не ждём DataChannel open (это требует полного ICE+DTLS handshake).
+            // v4: RELAY-ACK delivered=true → offer дошёл локально, контакт онлайн сразу.
+            // delivered=false → offer ушёл через BroadcastChannel (другой инстанс Deno Deploy).
+            //   В этом случае ждём answer через conn.on('open') или таймаут.
             const ackHandler = e => {
               if(e.detail.to === pid && e.detail.kind === 'offer') {
                 window.removeEventListener('tovsa-relay-ack', ackHandler);
                 if(e.detail.delivered) finish('online');
-                // delivered=false уже обработан через peer-unavailable reject
+                // delivered=false: не делаем ничего — ждём answer или таймаут
               }
             };
             window.addEventListener('tovsa-relay-ack', ackHandler);
@@ -7365,11 +7463,15 @@ async function connectToContact(fp, opts={}){
 function _startPresenceHeartbeat(){
   if(!_isLeader) return;       // только лидер держит таймер
   if(_presenceHbTimer) return; // уже запущен
-  _presenceHbTimer = setInterval(_presenceHeartbeatTick, PRESENCE_HB_INTERVAL);
+  // Первый тик — через 10с (парные маяки успеют подключиться), потом каждые 30с
+  _presenceHbTimer = setTimeout(function firstTick(){
+    _presenceHeartbeatTick();
+    _presenceHbTimer = setInterval(_presenceHeartbeatTick, PRESENCE_HB_INTERVAL);
+  }, 10000);
 }
 
 function _stopPresenceHeartbeat(){
-  if(_presenceHbTimer){ clearInterval(_presenceHbTimer); _presenceHbTimer = null; }
+  if(_presenceHbTimer){ clearInterval(_presenceHbTimer); clearTimeout(_presenceHbTimer); _presenceHbTimer = null; }
   _presenceHbRunning = false;
   _syncPairBeaconsRunning = false; // [FIX БАГ4] сбрасываем флаг при остановке
   // Останавливаем парные маяки при потере signaling
@@ -7379,10 +7481,19 @@ function _stopPresenceHeartbeat(){
   _pairBeacons.clear();
 }
 
+let _presenceHbGen = 0; // увеличивается при каждом новом тике — защита от дублей
+// Минимальное время с открытия маяка до первого presence-тика
+// Даёт парным маякам время зарегистрироваться на сервере
+const PRESENCE_MIN_STABLE_MS = 12_000;
+let _presenceBeaconOpenedAt = 0; // время открытия основного маяка
+
 async function _presenceHeartbeatTick(){
   if(!_pjOk || !_isLeader || document.hidden || _presenceHbRunning) return;
+  // Не проверяем presence пока маяк не открылся и парные маяки не успели стабилизироваться
+  if(!_presenceBeaconOpenedAt || Date.now() - _presenceBeaconOpenedAt < PRESENCE_MIN_STABLE_MS) return;
   _presenceHbRunning = true;
   _presenceLastHbAt = Date.now();
+  const myGen = ++_presenceHbGen;
 
   const dot = $('beacon-dot');
   if(dot) dot.style.animation = 'blink .6s infinite';
@@ -7390,7 +7501,6 @@ async function _presenceHeartbeatTick(){
   try{
     const contacts = await getContacts();
     const fps = Object.keys(contacts).filter(fp => !contacts[fp]._stranger && contacts[fp].pubKeyHex);
-    _dbgPush('log', ['[presence] hb tick fps=' + fps.length + ' myPubKeyHex=' + (myPubKeyHex?myPubKeyHex.slice(0,8):'EMPTY')]);
     if(!fps.length) return;
 
     // Вычисляем ID маяка каждого контакта (направленный: их маяк для нас)
@@ -7398,27 +7508,51 @@ async function _presenceHeartbeatTick(){
     await Promise.all(fps.map(async fp => {
       try{ fpToPid[fp] = await _fpToContactPairPid(contacts[fp].pubKeyHex); }catch(_){}
     }));
-    _dbgPush('log', ['[presence] fpToPid=' + JSON.stringify(Object.fromEntries(Object.entries(fpToPid).map(([k,v])=>[k.slice(0,8), v?v.slice(0,16):'null'])))]);
-
-    let checkPeer;
-    try{ checkPeer = await _getCheckPeer(); }
-    catch(e){
-      // [FIX БАГ9] Освобождаем инстанс даже если не смогли подключиться
-      _releaseCheckPeer();
-      _dbgPush('warn', ['[presence] checkPeer: ' + e.message]);
-      return;
-    }
 
     const fpsWithPid = fps.filter(fp => fpToPid[fp]);
-    const cacheBefore = fpsWithPid.map(fp => _presenceCache[fp]);
-    try{
-      await _refreshPresenceViaWebRTC(fpsWithPid, fpToPid, checkPeer);
-    } finally {
-      _releaseCheckPeer();
-    }
-    const changed = fpsWithPid.some((fp, i) => _presenceCache[fp] !== cacheBefore[i]);
+    if(!fpsWithPid.length) return;
 
-    if(changed) renderContacts();
+    // Ставим всем 'checking' и рендерим чтобы элементы были в DOM
+    fpsWithPid.forEach(fp => {
+      _presenceCache[fp] = 'checking';
+      const dot2 = document.getElementById('pd-' + fp);
+      if(dot2){ dot2.className = 'ci-presence-dot checking'; dot2.title = 'проверяем...'; }
+    });
+    await renderContacts();
+
+    // Метод 1: WS PRESENCE query через маяк (работает cross-instance через KV)
+    const pidList = fpsWithPid.map(fp => fpToPid[fp]);
+    const onlinePids = await _wsPresenceQuery(pidList, 6000);
+
+    if(myGen !== _presenceHbGen) return; // новый тик запустился
+
+    if(onlinePids !== null){
+      // WS ответил — применяем результаты
+      const onlineSet = new Set(onlinePids);
+      fpsWithPid.forEach(fp => {
+        const result = onlineSet.has(fpToPid[fp]) ? 'online' : 'offline';
+        if(result === 'online') _dbgPush('log', ['[presence] ONLINE ' + fp]);
+        _applyPresenceResult(fp, result);
+      });
+    } else {
+      // WS не ответил (маяк недоступен) — fallback на WebRTC
+      let checkPeer;
+      try{ checkPeer = await _getCheckPeer(); }
+      catch(e){
+        _releaseCheckPeer();
+        _dbgPush('warn', ['[presence] checkPeer: ' + e.message]);
+        fpsWithPid.forEach(fp => _applyPresenceResult(fp, 'offline'));
+        return;
+      }
+      try{
+        await _refreshPresenceViaWebRTC(fpsWithPid, fpToPid, checkPeer, myGen);
+      } finally {
+        _releaseCheckPeer();
+      }
+    }
+
+    if(myGen !== _presenceHbGen) return;
+    renderContacts();
 
   }catch(e){
     _releaseCheckPeer(); // страховка если бросило до внутреннего try

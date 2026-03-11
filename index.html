@@ -661,7 +661,7 @@ textarea::placeholder{color:var(--mu)}
     </div>
     <!-- Мой контакт — поделиться (скрыт по умолчанию) -->
     <div id="my-contact-share" style="display:none;flex-direction:column;gap:12px">
-      <!-- QR карточка -->
+      <!-- QR карточка (кодирует invite URL) -->
       <div style="display:flex;justify-content:center;position:relative">
         <div id="my-contact-qr-card" style="background:#0d0d14;border:1px solid rgba(0,255,157,.25);border-radius:16px;padding:20px;display:flex;flex-direction:column;align-items:center;gap:12px;min-width:220px">
           <div style="font-size:11px;color:var(--a);letter-spacing:2px;text-transform:uppercase">Tovsa</div>
@@ -669,17 +669,22 @@ textarea::placeholder{color:var(--mu)}
             <canvas id="my-contact-qr-canvas" width="256" height="256" style="border-radius:10px;display:block;width:220px;height:220px"></canvas>
           </div>
           <div id="my-contact-qr-name" style="font-size:12px;color:var(--tx);font-weight:700;letter-spacing:1px"></div>
-          <div style="font-size:9px;color:var(--mu)">сканируйте для добавления</div>
+          <div style="font-size:9px;color:var(--mu)">сканируйте — оба добавятся в контакты</div>
         </div>
         <button onclick="$('my-contact-share').style.display='none'" style="position:absolute;top:4px;right:4px;background:rgba(30,30,46,.85);border:1px solid var(--bd);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--mu);font-size:16px;line-height:1;transition:color .15s,border-color .15s" onmouseover="this.style.color='var(--tx)';this.style.borderColor='var(--mu)'" onmouseout="this.style.color='var(--mu)';this.style.borderColor='var(--bd)'">×</button>
+      </div>
+      <!-- Предупреждение если push отключены -->
+      <div id="share-push-warn" style="display:none;font-size:10px;color:var(--w);padding:8px 10px;background:rgba(229,192,123,.07);border:1px solid rgba(229,192,123,.2);border-radius:8px;line-height:1.5">
+        ⚠ Уведомления отключены — вы увидите нового контакта только при следующем открытии приложения
       </div>
       <!-- Кнопки действий -->
       <div style="display:flex;gap:8px">
         <button class="btn" style="flex:1;font-size:11px" onclick="shareMyContactNative()" id="share-native-btn">↑ поделиться</button>
-        <button class="action-btn" style="flex:1;justify-content:center" onclick="copyMyContactLink()">🔗 копировать ссылку</button>
+        <button class="action-btn" style="flex:1;justify-content:center" onclick="copyMyContactLink()">🔗 скопировать</button>
         <button class="action-btn" style="justify-content:center" onclick="saveMyQR()" title="Сохранить QR">⬇</button>
       </div>
-      <div class="sdphint">Собеседник откроет ссылку — контакт добавится автоматически</div>
+      <!-- Срок действия -->
+      <div id="share-invite-meta" style="font-size:10px;color:var(--mu);text-align:center"></div>
     </div>
     <!-- Поле ввода чужого кода (скрыто по умолчанию) -->
     <div id="add-contact-form" style="display:none;flex-direction:column;gap:8px">
@@ -769,16 +774,18 @@ textarea::placeholder{color:var(--mu)}
         <button class="action-btn" id="pwa-install-btn" onclick="pwaTriggerInstall()">+ установить</button>
       </div>
     </div>
-    <!-- Invite Links -->
-    <div style="padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px;display:flex;flex-direction:column;gap:10px">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <div>
-          <div style="font-size:13px;font-weight:700">Ссылки-приглашения</div>
-          <div style="font-size:10px;color:var(--mu);margin-top:2px">Поделитесь ссылкой — контакт добавится сам</div>
-        </div>
-        <button class="action-btn" id="invite-create-btn" onclick="inviteCreateAndShow()">+ создать ссылку</button>
+    <!-- Tutorial hints toggle -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px">
+      <div>
+        <div style="font-size:13px;font-weight:700">Обучающие подсказки</div>
+        <div style="font-size:10px;color:var(--mu);margin-top:2px">Плашки с инструкциями при подключении</div>
       </div>
-      <div id="invite-list-wrap" style="font-size:11px;color:var(--mu)">нет активных ссылок</div>
+      <label style="position:relative;width:42px;height:24px;flex-shrink:0">
+        <input type="checkbox" id="hints-toggle" style="opacity:0;width:0;height:0;position:absolute" onchange="setHintsEnabled(this.checked)">
+        <span id="hints-track" style="position:absolute;inset:0;border-radius:12px;background:var(--bd);transition:background .2s;cursor:pointer">
+          <span id="hints-thumb" style="position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s"></span>
+        </span>
+      </label>
     </div>
     <!-- Notifications -->
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px">
@@ -3473,6 +3480,7 @@ let _shadowEl = null;
 initIdentity();
 initMyContactCard();
 initShadowToggle();
+_applyHintsToggleUI(); // применяем сохранённое состояние переключателя подсказок
 // Загружаем офлайн-очередь из IDB (могла пережить перезагрузку страницы)
 idbGet('meta','offlineQueue').then(saved=>{
   if(Array.isArray(saved) && saved.length){
@@ -6480,9 +6488,33 @@ const INFO_TIPS = {
   'b2':      { icon: '📤', text: 'Скопируйте ответный код и отправьте инициатору — соединение завершится автоматически.' },
 };
 
+// Ключи подсказок, которые НЕ являются обучающими (всегда показываются)
+const INFO_TIPS_CONN = new Set(['sig-status']); // только статусы signaling (из sig-hint)
+
 let _infoBannerDismissed = false;
+let _hintsEnabled = localStorage.getItem('hintsEnabled') !== 'false'; // default: on
+
+function setHintsEnabled(val){
+  _hintsEnabled = !!val;
+  localStorage.setItem('hintsEnabled', _hintsEnabled ? 'true' : 'false');
+  const track = document.getElementById('hints-track');
+  const thumb = document.getElementById('hints-thumb');
+  if(track) track.style.background = _hintsEnabled ? 'var(--a)' : 'var(--bd)';
+  if(thumb) thumb.style.transform   = _hintsEnabled ? 'translateX(18px)' : '';
+  if(!_hintsEnabled) hideInfoBanner();
+}
+
+function _applyHintsToggleUI(){
+  const cb    = document.getElementById('hints-toggle');
+  const track = document.getElementById('hints-track');
+  const thumb = document.getElementById('hints-thumb');
+  if(cb)    cb.checked = _hintsEnabled;
+  if(track) track.style.background = _hintsEnabled ? 'var(--a)' : 'var(--bd)';
+  if(thumb) thumb.style.transform   = _hintsEnabled ? 'translateX(18px)' : '';
+}
 
 function showInfoBanner(key, overrideText){
+  if(!_hintsEnabled) return;          // подсказки выключены пользователем
   const el = document.getElementById('info-banner');
   const iconEl = document.getElementById('info-banner-icon');
   const textEl = document.getElementById('info-banner-text');
@@ -7972,6 +8004,7 @@ async function reconnectToPeer(){
 }
 
 // ── Contact sharing ──
+
 async function shareMyContact(){
   const shareDiv = $('my-contact-share');
   const addForm  = $('add-contact-form');
@@ -7987,31 +8020,39 @@ async function shareMyContact(){
   let myName = '';
   try{ myName = ($('my-name-input')?.value || localStorage.getItem('myName') || '').trim(); }catch(_){}
 
-  const pubHex = Array.from(myPubKeyRaw).map(b => b.toString(16).padStart(2,'0')).join('');
-  // Короткий формат: pubHex:имя — меньше модулей в QR
-  const shortCode = myName ? pubHex + ':' + encodeURIComponent(myName) : pubHex;
-  const link = (window._safeOrigin ? window._safeOrigin() : location.origin) + location.pathname + '?add=' + shortCode;
-
-  // Полный payload для обратной совместимости (копирование кода)
-  const payload = {
-    v: 1,
-    fp: myFingerprint,
-    pub: pubHex,
-    name: myName || undefined
-  };
-  const legacyCode = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-
-  // Сохраняем ссылку для копирования
-  shareDiv.dataset.link = link;
-
-  // Скрываем кнопку Web Share если не поддерживается
+  // Показываем блок сразу — QR и ссылка появятся после создания инвайта
+  shareDiv.dataset.link = '';
+  shareDiv.style.display = 'flex';
   const nativeBtn = $('share-native-btn');
   if(nativeBtn) nativeBtn.style.display = navigator.share ? '' : 'none';
+  const metaEl = $('share-invite-meta');
+  if(metaEl) metaEl.textContent = '⏳ создаём ссылку...';
 
-  shareDiv.style.display = 'flex';
+  // Предупреждаем если push отключены
+  const pushWarn = $('share-push-warn');
+  if(pushWarn){
+    const pushOk = ('Notification' in window) && Notification.permission === 'granted';
+    pushWarn.style.display = pushOk ? 'none' : '';
+  }
 
-  // Генерируем QR с именем
-  await _renderQR(link, myName);
+  try {
+    if(typeof window._createInvite !== 'function') throw new Error('модуль не загружен');
+    const { token, expiresAt } = await window._createInvite({ maxUses: 50, expiresIn: 60 * 60 * 24 * 30 });
+    const link = (window._safeOrigin ? window._safeOrigin() : location.origin) + location.pathname + '?invite=' + token;
+    shareDiv.dataset.link = link;
+
+    if(metaEl){
+      const exp = expiresAt > 0
+        ? 'действует до ' + new Date(expiresAt * 1000).toLocaleDateString('ru', { day:'numeric', month:'long' })
+        : '';
+      metaEl.textContent = exp;
+    }
+
+    await _renderQR(link, myName);
+  } catch(e){
+    if(metaEl) metaEl.textContent = '⚠ ' + (e.message || 'ошибка создания ссылки');
+    toast('Не удалось создать ссылку: ' + e.message);
+  }
 }
 
 async function _renderQR(text, name){
@@ -10571,6 +10612,44 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     return data;
   };
 
+  // Получить и применить pending контакты (fallback если push отключён)
+  // Вызывается при старте приложения — забирает у сервера список всех кто принял наш инвайт
+  window._fetchPendingContacts = async function() {
+    if (!myPrivKey || !PUSH_SERVER || PUSH_SERVER.includes('ВАШ')) return;
+    try {
+      const auth = await _signInvite('invite:pending:{ts}');
+      const res = await fetch(PUSH_SERVER + '/invite/pending', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...auth })
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const pending = data.pending;
+      if (!Array.isArray(pending) || !pending.length) return;
+
+      const contacts = await getContacts();
+      let added = 0;
+      for (const entry of pending) {
+        if (!entry.pubKeyHex) continue;
+        const fp = await _pubHexToFp(entry.pubKeyHex);
+        if (contacts[fp]) continue; // уже есть
+        contacts[fp] = {
+          pubKeyHex: entry.pubKeyHex,
+          name: (entry.name || 'Контакт').slice(0, 64),
+          addedAt: Date.now()
+        };
+        added++;
+      }
+      if (added > 0) {
+        await saveContacts(contacts);
+        renderContacts();
+        if (typeof _refreshPairBeacons === 'function') _refreshPairBeacons();
+        toast(`👤 ${added === 1 ? pending.find(p=>p.pubKeyHex)?.name || 'Контакт' : added + ' новых контакта'} добавлен${added > 1 ? 'о' : ''} ✓`);
+      }
+    } catch(e) { /* silent — не критично */ }
+  };
+
   // Обработать входящий contact-request из push-уведомления
   // Вызывается из SW при action='contact-request' или при открытии приложения с ?action=contact-request
   window._handleContactRequest = async function({ requesterPubHex, name }) {
@@ -10711,26 +10790,53 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
   async function _checkInviteParam() {
     const token = new URLSearchParams(location.search).get('invite');
     if (!token) return;
-    history.replaceState(null, '', location.pathname); // убираем из URL
-    // Ждём инициализации ключей
+    history.replaceState(null, '', location.pathname);
+
     let waited = 0;
-    while (!myPrivKey && waited < 5000) {
+    while (!myPrivKey && waited < 8000) {
       await new Promise(r => setTimeout(r, 200));
       waited += 200;
     }
     if (!myPrivKey) { toast('Не удалось загрузить ключ'); return; }
+
     try {
       const info = await _getInviteInfo(token);
-      const ok = confirm(`👤 ${info.ownerName} приглашает вас в Tovsa.\nДобавить в контакты?`);
+
+      const ok = await new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+        const safeName = (info.ownerName || 'Пользователь').replace(/</g,'&lt;');
+        overlay.innerHTML = `
+          <div style="background:var(--sf);border:1px solid var(--bd);border-radius:18px;padding:28px 24px;max-width:340px;width:100%;display:flex;flex-direction:column;gap:16px;text-align:center">
+            <div style="font-size:32px">👤</div>
+            <div>
+              <div style="font-size:15px;font-weight:700;color:var(--tx);margin-bottom:6px">${safeName}</div>
+              <div style="font-size:12px;color:var(--mu);line-height:1.5">приглашает вас в Tovsa.<br>Оба контакта добавятся взаимно.</div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button id="_inv_cancel" style="flex:1;padding:12px;background:transparent;border:1px solid var(--bd);border-radius:10px;color:var(--mu);font-family:inherit;font-size:12px;cursor:pointer">Отмена</button>
+              <button id="_inv_accept" style="flex:1;padding:12px;background:var(--a);border:none;border-radius:10px;color:#000;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">Добавить</button>
+            </div>
+          </div>`;
+        document.body.appendChild(overlay);
+        overlay.querySelector('#_inv_accept').onclick = () => { document.body.removeChild(overlay); resolve(true); };
+        overlay.querySelector('#_inv_cancel').onclick = () => { document.body.removeChild(overlay); resolve(false); };
+        overlay.onclick = e => { if(e.target === overlay){ document.body.removeChild(overlay); resolve(false); } };
+      });
+
       if (!ok) return;
+
       const result = await _useInvite(token);
-      if (result.alreadyUsed) {
-        toast(`${result.ownerName} уже есть в контактах`);
-      } else {
-        toast(`${result.ownerName} добавлен в контакты ✓`);
-      }
+      toast(`${result.ownerName || 'Контакт'} добавлен ✓`);
+      if(typeof showTab === 'function') setTimeout(() => showTab('sk'), 600);
+
     } catch(e) {
-      toast('Ссылка недействительна: ' + e.message);
+      const msg = e.message || 'ошибка';
+      if(msg.includes('истек') || msg.includes('исчерпан') || msg.includes('не найдена')) {
+        toast('Ссылка больше не действует');
+      } else {
+        toast('Ошибка: ' + msg);
+      }
     }
   }
 
@@ -10807,6 +10913,13 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
        'Notification' in window && Notification.permission === 'granted') {
       window._ntfySubscribe();
     }
+    // Проверяем pending контакты (кто принял наш инвайт пока push не было)
+    // Запускаем с задержкой чтобы ключи успели инициализироваться
+    setTimeout(async () => {
+      if(typeof window._fetchPendingContacts === 'function') {
+        await window._fetchPendingContacts();
+      }
+    }, 3000);
     // Обработка URL параметра от SW (открытие через уведомление с action)
     const urlAction = new URLSearchParams(location.search).get('action');
     if(urlAction === 'accept-call'){
@@ -10848,23 +10961,6 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
       }, 500);
     }
 
-    // Обработка ссылки-приглашения ?add=КОД
-    const addCode = new URLSearchParams(location.search).get('add');
-    if(addCode){
-      history.replaceState(null, '', location.pathname);
-      setTimeout(async () => {
-        try{
-          const inp = $('add-contact-input');
-          if(inp){
-            inp.value = addCode; // URLSearchParams уже декодирует %xx
-            if(typeof showTab === 'function') showTab('sk');
-            const addForm = $('add-contact-form');
-            if(addForm) addForm.style.display = 'flex';
-            if(typeof importContact === 'function') await importContact();
-          }
-        } catch(e){ toast('Неверная ссылка-приглашение'); }
-      }, 1500);
-    }
   });
 
 })();

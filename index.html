@@ -2943,7 +2943,26 @@ class TovSaSignaling {
     this._serverProtoVersion = 0; // заполняется при получении OPEN
     this._helloFallbackTimer = null;
   }
-  async connect() { if (this._destroyed) throw new Error('Signaling destroyed'); this._doConnect(); }
+  async connect() {
+    if (this._destroyed) throw new Error('Signaling destroyed');
+    // При восстановлении сети — реконнектимся немедленно если ещё не подключены
+    if (!this._onlineHandler) {
+      this._onlineHandler = () => {
+        if (!this._open && !this._destroyed) {
+          _dbgPush('info', ['[sig] сеть онлайн — переподключаемся']);
+          if (this._reconnTimer) { clearTimeout(this._reconnTimer); this._reconnTimer = null; }
+          this._reconnectIdx = 0;
+          this._doConnect();
+        }
+      };
+      this._offlineHandler = () => {
+        _dbgPush('warn', ['[sig] сеть оффлайн — реконнект приостановлен']);
+      };
+      window.addEventListener('online',  this._onlineHandler);
+      window.addEventListener('offline', this._offlineHandler);
+    }
+    this._doConnect();
+  }
   async call(remotePeerId) {
     if (!this._open) throw new Error('Not connected to signaling server');
     if (this._pcs.has(remotePeerId)) throw new Error(`Already connecting to ${remotePeerId}`);
@@ -2965,6 +2984,8 @@ class TovSaSignaling {
   destroy() {
     this._destroyed = true;
     if (this._reconnTimer !== null) clearTimeout(this._reconnTimer);
+    if (this._onlineHandler)  { window.removeEventListener('online',  this._onlineHandler);  this._onlineHandler  = null; }
+    if (this._offlineHandler) { window.removeEventListener('offline', this._offlineHandler); this._offlineHandler = null; }
     for (const [pid] of this._pcs) this._cleanupPc(pid);
     this._ws?.close(); this._ws = null;
   }
@@ -2973,6 +2994,12 @@ class TovSaSignaling {
 
   _doConnect() {
     if (this._destroyed) return;
+    // Не пытаемся подключиться если браузер явно говорит что сети нет
+    if (typeof navigator.onLine === 'boolean' && !navigator.onLine) {
+      _dbgPush('warn', ['[sig] offline — реконнект отложен']);
+      if (!this._destroyed) this._scheduleReconnect();
+      return;
+    }
     try {
       // v4: ID не передаётся в URL — только в первом WS-фрейме после HELLO_REQ,
       // чтобы не попадать в access logs платформы.
@@ -2995,7 +3022,10 @@ class TovSaSignaling {
         this._handleMsg(msg).catch(err => this._onError(err));
       };
       ws.onclose = (ev) => {
-        _dbgPush('warn', ['[sig] close ' + ev.code + ' ' + this._peerId.slice(0,14)]);
+        const wasOpen = this._open;
+        const reason = ev.reason ? ` "${ev.reason}"` : '';
+        const stage  = wasOpen ? 'после открытия' : 'до открытия (handshake)';
+        _dbgPush('warn', ['[sig] close ' + ev.code + reason + ' · ' + stage + ' · ' + this._peerId.slice(0,14)]);
         // Очищаем fallback-таймер HELLO — WS уже закрыт
         if (this._helloFallbackTimer !== null) { clearTimeout(this._helloFallbackTimer); this._helloFallbackTimer = null; }
         this._open = false; this._ws = null;
@@ -3003,8 +3033,14 @@ class TovSaSignaling {
         this._pending.clear();
         if (!this._destroyed) { this._onClose(); this._scheduleReconnect(); }
       };
-      ws.onerror = () => { _dbgPush('error', ['[sig] err ' + this._peerId.slice(0,14)]); };
-    } catch(_) { if (!this._destroyed) this._scheduleReconnect(); }
+      ws.onerror = (ev) => {
+        // onerror всегда предшествует onclose при 1006 — логируем URL для диагностики
+        _dbgPush('error', ['[sig] err · url=' + this._url + ' · peer=' + this._peerId.slice(0,14)]);
+      };
+    } catch(e) {
+      _dbgPush('error', ['[sig] connect exception: ' + e.message]);
+      if (!this._destroyed) this._scheduleReconnect();
+    }
   }
   _scheduleReconnect() {
     if (this._destroyed) return;

@@ -1367,6 +1367,63 @@ textarea::placeholder{color:var(--mu)}
 
 
 <script>
+/**
+ * Контакт из IndexedDB (store: 'contacts', key: 'all')
+ * Ключ в объекте — fingerprint (hex Ed25519 публичного ключа)
+ * @typedef {{
+ *   name: string,
+ *   pubkey: string,
+ *   note?: string,
+ *   pinned?: boolean,
+ *   hidden?: boolean,
+ *   _unconfirmed?: boolean,
+ *   _stranger?: boolean
+ * }} Contact
+ */
+
+/**
+ * Сообщение из истории (store: 'history', key: 'all')
+ * Хранится как Record<fingerprint, Msg[]>
+ * @typedef {{
+ *   text?: string,
+ *   type?: 'out'|'in'|'system',
+ *   ts: number,
+ *   replyText?: string,
+ *   replySender?: string,
+ *   replyTs?: number,
+ *   __file__?: boolean,
+ *   name?: string,
+ *   size?: number,
+ *   mime?: string
+ * }} Msg
+ */
+
+/**
+ * Участник группы внутри GroupRecord.members
+ * @typedef {{
+ *   pid: string,
+ *   fp?: string,
+ *   name?: string,
+ *   online?: boolean
+ * }} GrpMember
+ */
+
+/**
+ * Запись группы в _grpAll[code]
+ * Персистируется в IndexedDB (store: 'meta', key: GRP_IDB_KEY)
+ * @typedef {{
+ *   code: string,
+ *   name: string,
+ *   keyVer: number,
+ *   seed?: string,
+ *   myPid?: string,
+ *   members: GrpMember[],
+ *   history: Msg[],
+ *   knownPids: string[],
+ *   createdAt: number
+ * }} GroupRecord
+ */
+
 const STUNS=[
   {n:'Cloudflare',    u:'stun:stun.cloudflare.com:3478'},
   {n:'Nextcloud',     u:'stun:stun.nextcloud.com:3478'},
@@ -1386,6 +1443,10 @@ const STUNS=[
   {n:'Voipstunt',     u:'stun:stun.voipstunt.com:3478'},
 ].map(s=>({...s,on:false}));
 
+// ── Ключевое глобальное состояние P2P-сессии ──────────────────────────────────
+// pc  — RTCPeerConnection текущей сессии, null между сессиями
+// dc  — RTCDataChannel ('tovsa'), null до onConn()
+// role — 'i' (инициатор) | 'r' (получатель) | null (нет активной сессии, сбрасывается в onConn)
 let pc,dc,role;
 
 // ── HTML escaping utility (prevents XSS via peer-supplied strings) ──
@@ -1485,8 +1546,11 @@ let myPrivKey=null,myPubKeyRaw=null,myFingerprint='';
 let myPubKeyHex=''; // hex публичного Ed25519 ключа, нужен для _fpToPairPid
 // P-256 ключевая пара для шифрования push уведомлений
 let _pushPrivKey=null, _pushPubKeyRaw=null;
-let currentPeerFp=null; // fingerprint of active chat peer
-let currentPeerOfferedName=null; // имя которое собеседник передал при рукопожатии
+// fingerprint активного собеседника (hex Ed25519), null когда нет соединения.
+// Сохраняется в lastPeerFp после разрыва — для переподключения.
+let currentPeerFp=null;
+// Имя которое собеседник передал при рукопожатии (до верификации из contacts)
+let currentPeerOfferedName=null;
 
 // ── E2E Encryption (ECDH X25519 + AES-256-GCM) ──────────────────────────────
 let _e2eSessionKey = null;      // CryptoKey (AES-GCM), null = шифрование не готово
@@ -1572,6 +1636,8 @@ async function _e2eDecryptBinary(buf){
 }
 
 // Безопасная отправка: шифруем если ключ готов, иначе ставим в очередь
+// Синхронная обёртка — если _e2eReady=false, кладёт в очередь _e2ePendingOut, не отправляет сразу
+/** @param {string|ArrayBuffer} payload */
 function _e2eSend(payload){
   const doSend = async () => {
     try{
@@ -1992,10 +2058,12 @@ async function verifyIdentityMsg(msg){
   }catch(e){ return null; }
 }
 
+/** @returns {Promise<Record<string, Contact>>} */
 async function getContacts(){
   return (await idbGet('contacts','all'))||{};
 }
 
+/** @param {Record<string, Contact>} contacts */
 async function saveContacts(contacts){
   return idbSet('contacts','all',contacts);
 }
@@ -2090,6 +2158,15 @@ async function getHistory(){
   return (await idbGet('history','all'))||{};
 }
 
+/**
+ * @param {string} fp — fingerprint собеседника
+ * @param {string} text
+ * @param {'out'|'in'|'system'} type
+ * @param {number} [ts]
+ * @param {string} [replyText]
+ * @param {string} [replySender]
+ * @param {number} [replyTs]
+ */
 async function saveMsg(fp,text,type,ts,replyText,replySender,replyTs){
   if(await isOverLimit()){toast('Лимит хранилища превышен — сообщение не сохранено');return;}
   const h=await getHistory();
@@ -2221,6 +2298,15 @@ function _sortContacts(entries, history, isConnected){
 }
 
 // HTML одного элемента списка контактов
+/**
+ * Строит HTML строку для одного контакта в списке.
+ * Не читает из БД — history передаётся уже загруженным.
+ * @param {string} fp
+ * @param {Contact} c
+ * @param {Record<string, Msg[]>} h — весь объект истории
+ * @param {boolean} isConnected
+ * @returns {string} HTML
+ */
 function _buildContactEl(fp, c, h, isConnected){
   const msgs = h[fp] || [];
   const lastMsg = msgs.at(-1);
@@ -3017,12 +3103,14 @@ function _updateGlobalHiddenUI() {
 }
 
 // Группы
-let _grpAll     = {};    // code → groupRecord  (persist)
+/** @type {Record<string, GroupRecord>} */
+let _grpAll     = {};    // code → GroupRecord  (persist, сохраняется в IDB)
 let _grpDecRetry= {};    // code → [{fromPid, payload, rawData, ts}] — очередь на повторную расшифровку
-let _grpMyPeer  = {};    // code → Peer
+let _grpMyPeer  = {};    // code → Peer (основной signaling-пир)
+/** @type {Record<string, Map<string, any>>} */
 let _grpConns   = {};    // code → Map<peerId, DataConnection>
 let _grpSeen    = {};    // code → Set<msgId>
-let _grpActive  = null;  // текущий открытый код группы
+let _grpActive  = null;  // code текущего открытого группового чата
 let _grpUnread  = {};    // code → number
 let _grpMemOpen = false;
 let _grpRvPeer  = {};    // code → Peer (рандеву-пир)
@@ -4492,6 +4580,10 @@ function _p2pReconnectStop(){
 // ── Конец P2P авто-реконнект ──────────────────────────────────────────────────
 
 // ── Служебные пакеты от собеседника (typing, shadow, react, pin, file, edit, msg) ──
+// Обрабатывает служебные пакеты поверх E2E-канала.
+// Возвращает true если пакет был распознан и обработан (не надо рендерить как сообщение).
+// idDone — колбэк подтверждения identity-рукопожатия, вызывается когда пир верифицирован.
+/** @param {Object} j — уже распарсенный JSON пакет @param {Function} idDone */
 async function _handleServicePacket(j, idDone){
   if(j.__shadow__ !== undefined){ _showShadowMsg(j.__shadow__); return true; }
   if(j.__typing__ === true){ _showTyping(); return true; }
@@ -4983,6 +5075,9 @@ function setupChatScroll(){
 }
 
 
+// Вызывается когда DataChannel открыт и соединение установлено.
+// Сбрасывает role=null, запускает E2E-хэндшейк, открывает чат-экран.
+// Побочные эффекты: меняет dc.onmessage, currentPeerFp, глобальный UI.
 async function onConn(){
   clearTimeout(pc._connTimeout);
 
@@ -5160,6 +5255,9 @@ function canStart(){
 }
 
 // ── Roles ──
+// Устанавливает role и запускает WebRTC-поток вручную (без signaling).
+// 'i' — создаёт offer и DataChannel; 'r' — ждёт offer от инициатора.
+/** @param {'i'|'r'} r */
 async function startAs(r){
   if(!canStart())return;
   role=r;hideAlert();
@@ -8102,6 +8200,9 @@ async function refreshPresence(){
 }
 
 // Подключиться к контакту напрямую через его presence ID как код комнаты
+// Подключается к контакту через signaling, используя его pubkey для вычисления roomCode.
+// opts.stayInChat=true — тихий авто-реконнект без смены вкладки.
+/** @param {string} fp @param {{stayInChat?: boolean}} [opts] */
 async function connectToContact(fp, opts={}){
   if(!_pjOk){ if(!opts.stayInChat) toast('Signaling недоступен'); return; }
   const pubKeyHex = getPubKeyHex(fp, await getContacts());

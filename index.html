@@ -827,6 +827,14 @@ textarea::placeholder{color:var(--mu)}
       </div>
       <div class="sn-row-arrow">›</div>
     </div>
+    <div class="sn-row" onclick="snOpen('sn-media')">
+      <div class="sn-row-icon">🎙</div>
+      <div class="sn-row-body">
+        <div class="sn-row-title">Звонки и медиа</div>
+        <div class="sn-row-desc" id="sn-media-desc">Качество видео, микрофон, передача файлов</div>
+      </div>
+      <div class="sn-row-arrow">›</div>
+    </div>
     <div class="sn-row" onclick="snOpen('sn-net')">
       <div class="sn-row-icon">📡</div>
       <div class="sn-row-body">
@@ -977,6 +985,182 @@ textarea::placeholder{color:var(--mu)}
           <button class="action-btn" onclick="location.reload()" style="color:var(--a);border-color:var(--a)">обновить</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ══ ПОД-ЭКРАН: Звонки и медиа ══ -->
+  <div class="sn-page" id="sn-media">
+    <div class="sh-back" onclick="snBack()">← назад</div>
+    <div class="sn-section">
+
+      <!-- ── Рекомендации по качеству ── -->
+      <div class="sn-label">📶 Рекомендации по качеству</div>
+      <div style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;overflow:hidden;margin-bottom:4px">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--bd)">
+          <div style="font-size:11px;color:var(--mu);margin-bottom:8px;line-height:1.5">Ваша скорость интернета определяет оптимальный профиль качества. Нажмите кнопку для замера.</div>
+          <button id="media-speedtest-btn" onclick="mediaRunSpeedTest()" style="width:100%;padding:10px;background:var(--ad);border:1px solid rgba(0,255,157,.2);border-radius:8px;color:var(--a);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.5px;transition:opacity .15s">⚡ Проверить скорость соединения</button>
+          <div id="media-speedtest-result" style="display:none;margin-top:10px;padding:10px 12px;background:var(--sf);border:1px solid var(--bd);border-radius:8px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <span style="font-size:11px;color:var(--mu)">Примерная скорость</span>
+              <span id="media-speed-value" style="font-size:13px;font-weight:700;color:var(--a)">—</span>
+            </div>
+            <div id="media-speed-advice" style="font-size:11px;color:var(--tx);line-height:1.6;padding:8px 10px;background:var(--bg);border-radius:6px;border-left:3px solid var(--a)"></div>
+          </div>
+        </div>
+        <!-- Таблица профилей -->
+        <div style="padding:10px 14px">
+          <div style="font-size:10px;color:var(--mu);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">Профили качества</div>
+          <div style="display:flex;flex-direction:column;gap:4px" id="media-profiles-list">
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;background:var(--sf)">
+              <div style="font-size:14px;flex-shrink:0">🐢</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:11px;font-weight:700;color:var(--tx)">Экономный <span style="font-weight:400;color:var(--mu)">— до 5 Мбит/с</span></div>
+                <div style="font-size:10px;color:var(--mu);margin-top:1px">480p · 15 fps · аудио 64 Кбит/с</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;background:var(--sf)">
+              <div style="font-size:14px;flex-shrink:0">🚗</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:11px;font-weight:700;color:var(--tx)">Стандартный <span style="font-weight:400;color:var(--mu)">— 5–20 Мбит/с</span></div>
+                <div style="font-size:10px;color:var(--mu);margin-top:1px">720p · 30 fps · аудио 96 Кбит/с</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;background:var(--sf)">
+              <div style="font-size:14px;flex-shrink:0">🚀</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:11px;font-weight:700;color:var(--tx)">Высокое <span style="font-weight:400;color:var(--mu)">— 20–50 Мбит/с</span></div>
+                <div style="font-size:10px;color:var(--mu);margin-top:1px">1080p · 30 fps · аудио 128 Кбит/с</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;background:var(--sf)">
+              <div style="font-size:14px;flex-shrink:0">🛸</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:11px;font-weight:700;color:var(--tx)">Максимальное <span style="font-weight:400;color:var(--mu)">— 50+ Мбит/с</span></div>
+                <div style="font-size:10px;color:var(--mu);margin-top:1px">1080p · 60 fps · аудио 256 Кбит/с</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Профиль видео ── -->
+      <div class="sn-label">🎥 Качество видеозвонков</div>
+      <div style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;overflow:hidden;margin-bottom:4px">
+        <div style="display:flex;flex-direction:column;gap:0" id="video-profile-list">
+          <label id="vp-eco"   style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .12s" onclick="setVideoProfile('eco')">
+            <div id="vp-eco-radio"   class="srv-radio" style="flex-shrink:0"></div>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:700">🐢 Экономный</div>
+              <div style="font-size:10px;color:var(--mu);margin-top:2px">480p · 15 fps · ~600 Кбит/с — слабый интернет, мобильный трафик</div>
+            </div>
+          </label>
+          <label id="vp-std"  style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .12s" onclick="setVideoProfile('std')">
+            <div id="vp-std-radio"  class="srv-radio" style="flex-shrink:0"></div>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:700">🚗 Стандартный</div>
+              <div style="font-size:10px;color:var(--mu);margin-top:2px">720p · 30 fps · ~1.5 Мбит/с — обычный домашний интернет</div>
+            </div>
+          </label>
+          <label id="vp-high" style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .12s" onclick="setVideoProfile('high')">
+            <div id="vp-high-radio" class="srv-radio" style="flex-shrink:0"></div>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:700">🚀 Высокое</div>
+              <div style="font-size:10px;color:var(--mu);margin-top:2px">1080p · 30 fps · ~3 Мбит/с — хороший broadband</div>
+            </div>
+          </label>
+          <label id="vp-max"  style="display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;transition:background .12s" onclick="setVideoProfile('max')">
+            <div id="vp-max-radio"  class="srv-radio" style="flex-shrink:0"></div>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:700">🛸 Максимальное</div>
+              <div style="font-size:10px;color:var(--mu);margin-top:2px">1080p · 60 fps · ~5 Мбит/с — быстрый Wi-Fi / оптика</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- ── Обработка аудио ── -->
+      <div class="sn-label">🎙 Обработка микрофона</div>
+      <div style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;overflow:hidden;margin-bottom:4px">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--bd)">
+          <div>
+            <div style="font-size:12px;font-weight:700">Шумоподавление</div>
+            <div style="font-size:10px;color:var(--mu);margin-top:2px">Убирает фоновые шумы</div>
+          </div>
+          <label style="position:relative;width:42px;height:24px;flex-shrink:0">
+            <input type="checkbox" id="audio-noise-toggle" style="opacity:0;width:0;height:0;position:absolute" onchange="saveAudioSettings()">
+            <span id="audio-noise-track" style="position:absolute;inset:0;border-radius:12px;background:var(--bd);transition:background .2s;cursor:pointer">
+              <span id="audio-noise-thumb" style="position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s"></span>
+            </span>
+          </label>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--bd)">
+          <div>
+            <div style="font-size:12px;font-weight:700">Эхоподавление</div>
+            <div style="font-size:10px;color:var(--mu);margin-top:2px">Устраняет эхо из динамиков</div>
+          </div>
+          <label style="position:relative;width:42px;height:24px;flex-shrink:0">
+            <input type="checkbox" id="audio-echo-toggle" style="opacity:0;width:0;height:0;position:absolute" onchange="saveAudioSettings()">
+            <span id="audio-echo-track" style="position:absolute;inset:0;border-radius:12px;background:var(--bd);transition:background .2s;cursor:pointer">
+              <span id="audio-echo-thumb" style="position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s"></span>
+            </span>
+          </label>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px">
+          <div>
+            <div style="font-size:12px;font-weight:700">Автонастройка усиления</div>
+            <div style="font-size:10px;color:var(--mu);margin-top:2px">Выравнивает громкость голоса</div>
+          </div>
+          <label style="position:relative;width:42px;height:24px;flex-shrink:0">
+            <input type="checkbox" id="audio-agc-toggle" style="opacity:0;width:0;height:0;position:absolute" onchange="saveAudioSettings()">
+            <span id="audio-agc-track" style="position:absolute;inset:0;border-radius:12px;background:var(--bd);transition:background .2s;cursor:pointer">
+              <span id="audio-agc-thumb" style="position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s"></span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <!-- ── Тест микрофона ── -->
+      <div class="sn-label">🔬 Проверка микрофона</div>
+      <div style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:12px 14px;margin-bottom:4px">
+        <div style="font-size:11px;color:var(--mu);margin-bottom:10px;line-height:1.5">Нажмите, чтобы послушать себя через наушники. Уровень сигнала отображается ниже.</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button id="mic-test-btn" onclick="micTestToggle()" style="flex:1;padding:10px;background:var(--ad);border:1px solid rgba(0,255,157,.2);border-radius:8px;color:var(--a);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:background .15s,border-color .15s">🎙 Начать тест</button>
+        </div>
+        <!-- Уровень сигнала -->
+        <div style="margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mu);margin-bottom:4px">
+            <span>Уровень микрофона</span>
+            <span id="mic-level-pct">0%</span>
+          </div>
+          <div style="height:6px;background:var(--bd);border-radius:3px;overflow:hidden">
+            <div id="mic-level-bar" style="height:100%;width:0%;background:var(--a);border-radius:3px;transition:width .05s"></div>
+          </div>
+        </div>
+        <div id="mic-test-status" style="font-size:10px;color:var(--mu);text-align:center;min-height:14px"></div>
+      </div>
+
+      <!-- ── Передача файлов ── -->
+      <div class="sn-label">📁 Передача файлов</div>
+      <div style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+        <div style="display:flex;flex-direction:column;gap:0" id="file-speed-list">
+          <label style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--bd);cursor:pointer" onclick="setFileProfile('normal')">
+            <div id="fp-normal-radio" class="srv-radio" style="flex-shrink:0"></div>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:700">Обычная</div>
+              <div style="font-size:10px;color:var(--mu);margin-top:2px">Чанки 64 КБ · буфер 1 МБ — стабильно на любом канале</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer" onclick="setFileProfile('turbo')">
+            <div id="fp-turbo-radio" class="srv-radio" style="flex-shrink:0"></div>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:700">Турбо 🚀</div>
+              <div style="font-size:10px;color:var(--mu);margin-top:2px">Чанки 256 КБ · буфер 4 МБ — быстрее на хорошем Wi-Fi / оптике</div>
+            </div>
+          </label>
+        </div>
+        <div style="padding:10px 14px;border-top:1px solid var(--bd);font-size:10px;color:var(--mu);line-height:1.5">⚠ Турбо может вызвать задержки на медленном или нестабильном соединении.</div>
+      </div>
+
     </div>
   </div>
 
@@ -3821,9 +4005,275 @@ let _shadowEnabled = localStorage.getItem('shadowMsg') === '1';
 let _shadowTimer = null;
 let _shadowEl = null;
 
+// ════════════════════════════════════════════════════════════════════════════
+// MEDIA SETTINGS MODULE
+// ════════════════════════════════════════════════════════════════════════════
+
+const MEDIA_SETTINGS_KEY = 'mediaSettings_v1';
+
+const VIDEO_PROFILES = {
+  eco:  { width: 640,  height: 480,  frameRate: 15, videoBitrate: 600_000,   audioBitrate: 64_000  },
+  std:  { width: 1280, height: 720,  frameRate: 30, videoBitrate: 1_500_000, audioBitrate: 96_000  },
+  high: { width: 1920, height: 1080, frameRate: 30, videoBitrate: 3_000_000, audioBitrate: 128_000 },
+  max:  { width: 1920, height: 1080, frameRate: 60, videoBitrate: 5_000_000, audioBitrate: 256_000 },
+};
+
+const FILE_PROFILES = {
+  normal: { chunk: 65536,   buffer: 65536 * 16,  window: 8  },
+  turbo:  { chunk: 262144,  buffer: 262144 * 16, window: 16 },
+};
+
+function _loadMediaSettings() {
+  try {
+    const raw = localStorage.getItem(MEDIA_SETTINGS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch(_) {}
+  return { videoProfile: 'std', fileProfile: 'normal', noise: true, echo: true, agc: true };
+}
+
+function _saveMediaSettings(s) {
+  try { localStorage.setItem(MEDIA_SETTINGS_KEY, JSON.stringify(s)); } catch(_) {}
+}
+
+function getMediaSettings() { return _loadMediaSettings(); }
+
+// ── Геттеры для использования в звонках ──────────────────────────────────────
+function getVideoConstraints(withVideo) {
+  const s = _loadMediaSettings();
+  const p = VIDEO_PROFILES[s.videoProfile] || VIDEO_PROFILES.std;
+  return {
+    audio: { echoCancellation: s.echo, noiseSuppression: s.noise, autoGainControl: s.agc, sampleRate: 48000 },
+    video: withVideo ? { facingMode: 'user', width: { ideal: p.width }, height: { ideal: p.height }, frameRate: { ideal: p.frameRate } } : false,
+  };
+}
+
+function getVideoBitrates() {
+  const s = _loadMediaSettings();
+  const p = VIDEO_PROFILES[s.videoProfile] || VIDEO_PROFILES.std;
+  return { video: p.videoBitrate, audio: p.audioBitrate };
+}
+
+function getFileTransferProfile() {
+  const s = _loadMediaSettings();
+  return FILE_PROFILES[s.fileProfile] || FILE_PROFILES.normal;
+}
+
+// ── Переключалки (вызываются из HTML) ────────────────────────────────────────
+function setVideoProfile(key) {
+  if (!VIDEO_PROFILES[key]) return;
+  const s = _loadMediaSettings();
+  s.videoProfile = key;
+  _saveMediaSettings(s);
+  _renderMediaSettings(s);
+  toast('Профиль видео: ' + { eco:'Экономный', std:'Стандартный', high:'Высокое', max:'Максимальное' }[key]);
+}
+
+function setFileProfile(key) {
+  if (!FILE_PROFILES[key]) return;
+  const s = _loadMediaSettings();
+  s.fileProfile = key;
+  _saveMediaSettings(s);
+  _renderMediaSettings(s);
+  // Применяем немедленно к текущей сессии
+  const fp = FILE_PROFILES[key];
+  if (typeof FILE_CHUNK !== 'undefined') {
+    window._fileProfChunk  = fp.chunk;
+    window._fileProfBuffer = fp.buffer;
+    window._fileProfWindow = fp.window;
+  }
+}
+
+function saveAudioSettings() {
+  const s = _loadMediaSettings();
+  s.noise = !!document.getElementById('audio-noise-toggle')?.checked;
+  s.echo  = !!document.getElementById('audio-echo-toggle')?.checked;
+  s.agc   = !!document.getElementById('audio-agc-toggle')?.checked;
+  _saveMediaSettings(s);
+  _syncToggle('audio-noise', s.noise);
+  _syncToggle('audio-echo',  s.echo);
+  _syncToggle('audio-agc',   s.agc);
+}
+
+// ── Рендер состояния UI ───────────────────────────────────────────────────────
+function _syncToggle(id, val) {
+  const track = document.getElementById(id + '-track');
+  const thumb = document.getElementById(id + '-thumb');
+  const cb    = document.getElementById(id + '-toggle');
+  if (cb)    cb.checked = val;
+  if (track) track.style.background = val ? 'var(--a)' : 'var(--bd)';
+  if (thumb) thumb.style.transform  = val ? 'translateX(18px)' : 'none';
+}
+
+function _renderMediaSettings(s) {
+  // Видео профили — radio
+  ['eco','std','high','max'].forEach(k => {
+    const r = document.getElementById('vp-' + k + '-radio');
+    if (!r) return;
+    r.classList.toggle('sel', s.videoProfile === k);
+    const row = document.getElementById('vp-' + k);
+    if (row) row.style.background = s.videoProfile === k ? 'rgba(0,255,157,.04)' : '';
+  });
+  // Файловые профили — radio
+  ['normal','turbo'].forEach(k => {
+    const r = document.getElementById('fp-' + k + '-radio');
+    if (r) r.classList.toggle('sel', s.fileProfile === k);
+  });
+  // Аудио тоглы
+  _syncToggle('audio-noise', s.noise);
+  _syncToggle('audio-echo',  s.echo);
+  _syncToggle('audio-agc',   s.agc);
+  // Обновляем подпись в главном меню
+  const desc = document.getElementById('sn-media-desc');
+  if (desc) {
+    const vLabel = { eco:'Экономный', std:'Стандартный', high:'Высокое', max:'Максимальное' }[s.videoProfile] || '';
+    const fLabel = s.fileProfile === 'turbo' ? ' · Файлы: Турбо' : '';
+    desc.textContent = 'Видео: ' + vLabel + fLabel;
+  }
+}
+
+function initMediaSettings() {
+  const s = _loadMediaSettings();
+  _renderMediaSettings(s);
+  // Применяем файловый профиль сразу
+  const fp = FILE_PROFILES[s.fileProfile] || FILE_PROFILES.normal;
+  window._fileProfChunk  = fp.chunk;
+  window._fileProfBuffer = fp.buffer;
+  window._fileProfWindow = fp.window;
+}
+
+// ── Тест микрофона ────────────────────────────────────────────────────────────
+let _micTestStream = null;
+let _micTestCtx    = null;
+let _micTestAnim   = null;
+
+async function micTestToggle() {
+  if (_micTestStream) {
+    _micTestStop();
+    return;
+  }
+  const btn    = document.getElementById('mic-test-btn');
+  const status = document.getElementById('mic-test-status');
+  if (btn)    btn.textContent = '⏳ Запрашиваем доступ...';
+  if (status) status.textContent = '';
+  try {
+    const s = _loadMediaSettings();
+    _micTestStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: s.echo, noiseSuppression: s.noise, autoGainControl: s.agc, sampleRate: 48000 },
+      video: false,
+    });
+    _micTestCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const src      = _micTestCtx.createMediaStreamSource(_micTestStream);
+    const analyser = _micTestCtx.createAnalyser();
+    analyser.fftSize = 256;
+    src.connect(analyser);
+    // Loopback — чтобы слышать себя
+    const dest = _micTestCtx.createMediaStreamDestination();
+    src.connect(dest);
+    const audio = new Audio();
+    audio.srcObject = dest.stream;
+    audio.play().catch(()=>{});
+    _micTestStream._loopbackAudio = audio;
+
+    const buf = new Uint8Array(analyser.frequencyBinCount);
+    const bar = document.getElementById('mic-level-bar');
+    const pct = document.getElementById('mic-level-pct');
+    function _draw() {
+      _micTestAnim = requestAnimationFrame(_draw);
+      analyser.getByteFrequencyData(buf);
+      const avg = buf.reduce((a,b) => a+b, 0) / buf.length;
+      const level = Math.min(100, Math.round(avg / 128 * 200));
+      if (bar) { bar.style.width = level + '%'; bar.style.background = level > 70 ? 'var(--e)' : level > 40 ? 'var(--w)' : 'var(--a)'; }
+      if (pct) pct.textContent = level + '%';
+    }
+    _draw();
+    if (btn)    { btn.textContent = '⏹ Остановить тест'; btn.style.background = 'rgba(224,108,117,.12)'; btn.style.borderColor = 'rgba(224,108,117,.3)'; btn.style.color = 'var(--e)'; }
+    if (status) status.textContent = '🔊 Вы слышите себя через наушники';
+  } catch(e) {
+    if (btn)    btn.textContent = '🎙 Начать тест';
+    if (status) status.textContent = '❌ Нет доступа к микрофону';
+  }
+}
+
+function _micTestStop() {
+  if (_micTestAnim) { cancelAnimationFrame(_micTestAnim); _micTestAnim = null; }
+  if (_micTestStream) {
+    if (_micTestStream._loopbackAudio) { _micTestStream._loopbackAudio.pause(); _micTestStream._loopbackAudio.srcObject = null; }
+    _micTestStream.getTracks().forEach(t => t.stop());
+    _micTestStream = null;
+  }
+  if (_micTestCtx) { _micTestCtx.close().catch(()=>{}); _micTestCtx = null; }
+  const btn    = document.getElementById('mic-test-btn');
+  const bar    = document.getElementById('mic-level-bar');
+  const pct    = document.getElementById('mic-level-pct');
+  const status = document.getElementById('mic-test-status');
+  if (btn)    { btn.textContent = '🎙 Начать тест'; btn.style.background = ''; btn.style.borderColor = ''; btn.style.color = ''; }
+  if (bar)    { bar.style.width = '0%'; }
+  if (pct)    pct.textContent = '0%';
+  if (status) status.textContent = '';
+}
+
+// Останавливаем тест при уходе с экрана настроек
+const _origSnBack = window.snBack;
+
+// ── Тест скорости ─────────────────────────────────────────────────────────────
+async function mediaRunSpeedTest() {
+  const btn    = document.getElementById('media-speedtest-btn');
+  const result = document.getElementById('media-speedtest-result');
+  const value  = document.getElementById('media-speed-value');
+  const advice = document.getElementById('media-speed-advice');
+  if (!btn || !result || !value || !advice) return;
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Измеряем...';
+  result.style.display = 'none';
+
+  try {
+    // Загружаем ~500 KB с CDN и измеряем время
+    const testUrl = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+    const t0 = performance.now();
+    const resp = await fetch(testUrl + '?_=' + Date.now(), { cache: 'no-store' });
+    const blob = await resp.blob();
+    const elapsed = (performance.now() - t0) / 1000;
+    const mbps = (blob.size * 8 / 1_000_000 / elapsed);
+
+    value.textContent = mbps.toFixed(1) + ' Мбит/с';
+
+    let rec, emoji;
+    if (mbps < 5) {
+      rec = 'eco'; emoji = '🐢';
+      advice.innerHTML = '<b>' + emoji + ' Рекомендуем: Экономный</b><br>Скорость ' + mbps.toFixed(1) + ' Мбит/с — достаточно для аудио и видео 480p. Турбо-режим файлов лучше не включать.';
+    } else if (mbps < 20) {
+      rec = 'std'; emoji = '🚗';
+      advice.innerHTML = '<b>' + emoji + ' Рекомендуем: Стандартный</b><br>Скорость ' + mbps.toFixed(1) + ' Мбит/с — отлично для видео 720p. Файлы можно передавать в обычном режиме.';
+    } else if (mbps < 50) {
+      rec = 'high'; emoji = '🚀';
+      advice.innerHTML = '<b>' + emoji + ' Рекомендуем: Высокое</b><br>Скорость ' + mbps.toFixed(1) + ' Мбит/с — поддерживает Full HD. Файлы: попробуйте Турбо.';
+    } else {
+      rec = 'max'; emoji = '🛸';
+      advice.innerHTML = '<b>' + emoji + ' Рекомендуем: Максимальное</b><br>Скорость ' + mbps.toFixed(1) + ' Мбит/с — хватит на 1080p 60fps. Файлы: включайте Турбо.';
+    }
+
+    result.style.display = 'block';
+    // Предлагаем переключить профиль
+    advice.innerHTML += '<br><button onclick="setVideoProfile(\'' + rec + '\');mediaRunSpeedTest._applied=true" style="margin-top:8px;padding:5px 12px;background:var(--a);border:none;border-radius:6px;color:#000;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer">Применить ' + emoji + ' профиль</button>';
+  } catch(e) {
+    value.textContent = 'ошибка';
+    advice.textContent = 'Не удалось измерить скорость. Проверьте подключение к интернету.';
+    result.style.display = 'block';
+  }
+
+  btn.disabled = false;
+  btn.textContent = '⚡ Проверить снова';
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// END MEDIA SETTINGS MODULE
+// ════════════════════════════════════════════════════════════════════════════
+
 initIdentity();
 initMyContactCard();
 initShadowToggle();
+initMediaSettings();
 // Загружаем офлайн-очередь из IDB (могла пережить перезагрузку страницы)
 idbGet('meta','offlineQueue').then(saved=>{
   if(Array.isArray(saved) && saved.length){
@@ -5399,7 +5849,7 @@ async function mcallStart(video){
 
   let stream;
   try{
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: video ? {facingMode:'user'} : false });
+    stream = await navigator.mediaDevices.getUserMedia(getVideoConstraints(video));
   }catch(e){
     toast('Нет доступа к ' + (video ? 'камере/микрофону' : 'микрофону'));
     return;
@@ -5415,6 +5865,18 @@ async function mcallStart(video){
 
   // Renegotiation
   await _mcRenegotiate();
+
+  // Устанавливаем битрейт после renegotiation
+  const _br1 = getVideoBitrates();
+  for(const sender of _mc.localSenders){
+    try{
+      const params = sender.getParameters();
+      if(!params.encodings || !params.encodings.length) params.encodings = [{}];
+      const kind = sender.track && sender.track.kind;
+      params.encodings[0].maxBitrate = kind === 'video' ? _br1.video : _br1.audio;
+      await sender.setParameters(params);
+    }catch(e){ /* браузер может не поддерживать */ }
+  }
 
   // Сигнал через E2E DataChannel
   _e2eSend(JSON.stringify({ __mcall__: 'offer', video }));
@@ -5453,7 +5915,7 @@ async function mcallAccept(withVideo){
 
   let stream;
   try{
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo ? {facingMode:'user'} : false });
+    stream = await navigator.mediaDevices.getUserMedia(getVideoConstraints(withVideo));
   }catch(e){
     toast('Нет доступа к ' + (withVideo ? 'камере/микрофону' : 'микрофону'));
     _mcReset();
@@ -5467,6 +5929,19 @@ async function mcallAccept(withVideo){
   _mc.localSenders = stream.getTracks().map(t => pc.addTrack(t, stream));
 
   await _mcRenegotiate();
+
+  // Устанавливаем битрейт после renegotiation
+  const _br2 = getVideoBitrates();
+  for(const sender of _mc.localSenders){
+    try{
+      const params = sender.getParameters();
+      if(!params.encodings || !params.encodings.length) params.encodings = [{}];
+      const kind = sender.track && sender.track.kind;
+      params.encodings[0].maxBitrate = kind === 'video' ? _br2.video : _br2.audio;
+      await sender.setParameters(params);
+    }catch(e){ /* браузер может не поддерживать */ }
+  }
+
   _e2eSend(JSON.stringify({ __mcall__: 'accept', video: withVideo }));
 
   _mcStartTimer();
@@ -5723,7 +6198,7 @@ async function startAs(r){
     setStat('генерируем код...');
     showStep('a1');
     showInfoBanner('a1');
-    createPC();dc=pc.createDataChannel('chat',{reliable:true});setupDC();
+    createPC();dc=pc.createDataChannel('chat',{ordered:true});setupDC();
     await pc.setLocalDescription(await pc.createOffer());
     await waitIce();
     $('a1s').style.display='none';
@@ -6578,9 +7053,13 @@ async function addMsg(text,type,replyText,replySender,replyTs,forcedTs){
 }
 
 // ── File transfer ──
-const FILE_CHUNK = 16384; // 16 KB — оптимально для DataChannel: меньше overhead на AES-GCM, лучше flow control
-const FILE_BUFFER_THRESHOLD = FILE_CHUNK * 8; // 128 KB — останавливаемся раньше чтобы не давить получателя
-const FILE_SEND_WINDOW = 4; // меньше параллельных задач шифрования — меньше burst
+const FILE_CHUNK = 65536; // дефолт; переопределяется профилем из настроек
+const FILE_BUFFER_THRESHOLD = FILE_CHUNK * 16;
+const FILE_SEND_WINDOW = 8;
+// Динамические значения профиля (обновляются initMediaSettings / setFileProfile)
+function _fileChunk()  { return window._fileProfChunk  || FILE_CHUNK; }
+function _fileBuf()    { return window._fileProfBuffer || FILE_BUFFER_THRESHOLD; }
+function _fileWindow() { return window._fileProfWindow || FILE_SEND_WINDOW; }
 let _incomingFile = null;
 
 function fileIcon(type){
@@ -7139,14 +7618,15 @@ function _createFileSendBubble(file, ts){
 // Разрезать ArrayBuffer на чанки по FILE_CHUNK байт
 function _sliceFileChunks(buffer){
   const chunks = [];
-  for(let off = 0; off < buffer.byteLength; off += FILE_CHUNK)
-    chunks.push(buffer.slice(off, off + FILE_CHUNK));
+  const chunkSz = _fileChunk();
+  for(let off = 0; off < buffer.byteLength; off += chunkSz)
+    chunks.push(buffer.slice(off, off + chunkSz));
   return chunks;
 }
 
 // Event-driven flow control через bufferedamountlow
 function _setupFlowControl(){
-  dc.bufferedAmountLowThreshold = FILE_BUFFER_THRESHOLD / 2;
+  dc.bufferedAmountLowThreshold = _fileBuf() / 2;
   let _flowResolve = null;
   const orig = dc.onbufferedamountlow;
   dc.onbufferedamountlow = () => {
@@ -7239,8 +7719,11 @@ async function sendFile(input){
   let encIdx = 0, sendIdx = 0;
   let sent = 0;
 
+  const _activeWindow = _fileWindow();
+  const _activeBuf    = _fileBuf();
+
   const startEncrypt = () => {
-    while(encIdx < chunks.length && encIdx - sendIdx < FILE_SEND_WINDOW){
+    while(encIdx < chunks.length && encIdx - sendIdx < _activeWindow){
       const i = encIdx++;
       encrypted[i] = _e2eReady ? _e2eEncryptBinary(chunks[i]) : Promise.resolve(chunks[i]);
     }
@@ -7257,7 +7740,7 @@ async function sendFile(input){
       if(d.parentNode) d.remove();
       return;
     }
-    if(dc.bufferedAmount > FILE_BUFFER_THRESHOLD){
+    if(dc.bufferedAmount > _activeBuf){
       await Promise.race([flow.waitDrain(), new Promise(r => setTimeout(r, 50))]);
     }
     if(cancelled) continue;
@@ -7673,7 +8156,7 @@ async function _handleSigConnRelay(sig, peerId, role, offerSdp, scheduleCleanup)
   if(role === 'i'){
     // Инициатор: создаём offer, шлём через RELAY (включаем callerFp для баннера получателя)
         createPC();
-    dc = pc.createDataChannel('chat', { reliable: true });
+    dc = pc.createDataChannel('chat', { ordered: true });
     setupDC();
     await pc.setLocalDescription(await pc.createOffer());
     await waitIce();

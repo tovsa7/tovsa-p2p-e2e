@@ -166,6 +166,40 @@ textarea::placeholder{color:var(--mu)}
 .msg-xfer-dl:hover{background:var(--a);color:#000}
 .msg-xfer-play-btn{background:var(--a);border:none;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;color:#000;flex-shrink:0;padding-left:2px;transition:opacity .15s}
 .msg-xfer-play-btn:hover{opacity:.8}
+/* ── Voice message bubble ── */
+.msg-voice{display:flex;align-items:center;gap:8px;padding:4px 2px;min-width:190px;max-width:270px}
+.msg-voice-btn{width:38px;height:38px;border-radius:50%;background:var(--a);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;color:#000;font-size:15px;transition:opacity .15s;padding-left:2px}
+.msg-voice-btn:hover{opacity:.8}
+.msg-voice-wave{flex:1;height:30px;display:flex;align-items:center;gap:2px;overflow:hidden;cursor:pointer}
+.msg-voice-bar{width:3px;border-radius:2px;background:var(--a);opacity:.35;flex-shrink:0;transition:opacity .1s,background .1s}
+.msg-voice-bar.played{opacity:.9}
+.msg-voice-bar.cur{opacity:1;background:#fff}
+.msg-voice-dur{font-size:10px;color:var(--mu);flex-shrink:0;min-width:30px;text-align:right}
+/* ── Circle (video note) bubble ── */
+.msg-circle-wrap{display:flex;flex-direction:column;align-items:center;gap:4px}
+.msg-circle{position:relative;width:200px;height:200px;border-radius:50%;overflow:hidden;cursor:pointer;background:#111;flex-shrink:0;box-shadow:0 0 0 2px var(--bd)}
+.msg.out .msg-circle{box-shadow:0 0 0 2px rgba(0,255,157,.25)}
+.msg-circle video{width:100%;height:100%;object-fit:cover;display:block}
+.msg-circle-ov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.25)}
+.msg-circle-play{width:48px;height:48px;border-radius:50%;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.msg-circle-play svg{width:18px;height:18px;fill:#fff;margin-left:3px}
+.msg-circle-dur{font-size:10px;color:var(--mu);letter-spacing:.5px;margin-top:2px}
+/* ── Recording overlay (inline in iarea) ── */
+.vr-bar{display:none;align-items:center;gap:10px;flex:1;overflow:hidden}
+.vr-bar.on{display:flex}
+.vr-dot{width:8px;height:8px;border-radius:50%;background:var(--e);animation:blink .7s infinite;flex-shrink:0}
+.vr-time{font-size:13px;font-weight:700;color:var(--tx);flex-shrink:0;min-width:38px;font-variant-numeric:tabular-nums}
+.vr-wave{flex:1;height:28px;display:flex;align-items:center;gap:2px;overflow:hidden}
+.vr-wbar{width:3px;border-radius:2px;background:var(--a);flex-shrink:0;transition:height .06s}
+.vr-hint{font-size:10px;color:var(--mu);white-space:nowrap}
+/* ── Mic / send toggle button ── */
+.mic-send-btn{background:var(--a);color:#000;border:none;border-radius:20px;padding:10px 16px;font-size:15px;cursor:pointer;transition:opacity .15s,transform .1s,background .15s;flex-shrink:0;align-self:flex-end;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+.mic-send-btn.mic-mode{background:var(--sf);border:1px solid var(--bd);color:var(--tx)}
+.mic-send-btn.rec-mode{background:rgba(224,108,117,.2);border:1px solid rgba(224,108,117,.4);color:var(--e)}
+.mic-send-btn:active{transform:scale(.91)}
+/* ── Circle recording preview ── */
+#vr-circle-preview{display:none;position:fixed;bottom:90px;right:16px;width:120px;height:120px;border-radius:50%;overflow:hidden;border:2px solid var(--a);background:#000;z-index:200;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+#vr-circle-preview video{width:100%;height:100%;object-fit:cover;display:block;transform:scaleX(-1)}
 .msg button,.msg a{pointer-events:auto;-webkit-tap-highlight-color:rgba(0,0,0,.1);user-select:none;-webkit-user-select:none;touch-action:manipulation}
 .msg.msg-file-bubble{padding:6px 8px;max-width:fit-content;white-space:normal;line-height:1}
 .sysmsg{align-self:center;font-size:11px;color:var(--mu);padding:4px 12px;background:var(--sf);border-radius:20px}
@@ -1563,12 +1597,27 @@ textarea::placeholder{color:var(--mu)}
     </div>
     <button class="reply-bar-close" onclick="cancelEdit()">×</button>
   </div>
-  <div class="iarea">
-    <button class="btn" onclick="$('file-input').click()" style="padding:10px 12px;flex-shrink:0" title="Отправить файл">📎</button>
+  <div class="iarea" id="iarea">
+    <button class="btn" onclick="$('file-input').click()" style="padding:10px 12px;flex-shrink:0;display:none" id="attach-btn" title="Прикрепить файл">📎</button>
     <input type="file" id="file-input" style="display:none" onchange="sendFile(this)">
-    <textarea id="mi" placeholder="сообщение..." onkeydown="handleMiKey(event)" oninput="onTypingInput();autoGrowMi(this)"></textarea>
-    <button class="btn" onclick="sendMsg()">→</button>
+    <!-- Recording bar (shown while recording) -->
+    <div class="vr-bar" id="vr-bar">
+      <div class="vr-dot"></div>
+      <div class="vr-time" id="vr-time">0:00</div>
+      <div class="vr-wave" id="vr-wave"></div>
+      <div class="vr-hint" id="vr-hint">← отмена</div>
+    </div>
+    <!-- Normal input (hidden while recording) -->
+    <textarea id="mi" placeholder="сообщение..." onkeydown="handleMiKey(event)" oninput="onTypingInput();autoGrowMi(this);vrUpdateSendBtn()"></textarea>
+    <!-- Dynamic mic/send button -->
+    <button class="mic-send-btn mic-mode" id="mic-send-btn"
+      onmousedown="vrBtnDown(event)" ontouchstart="vrBtnDown(event)"
+      onmouseup="vrBtnUp(event)" ontouchend="vrBtnUp(event)"
+      onmouseleave="vrBtnLeave(event)"
+      onclick="vrBtnClick(event)">🎤</button>
   </div>
+  <!-- Circle recording preview -->
+  <div id="vr-circle-preview"><video id="vr-circle-video" autoplay playsinline muted></video></div>
 </div>
 
 <!-- Таб-бар -->
@@ -4761,6 +4810,406 @@ async function videoRunQualityTest() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// VOICE & CIRCLE RECORDING MODULE
+// ════════════════════════════════════════════════════════════════════════════
+
+let _vr = {
+  state: 'idle',   // idle | voice | circle
+  mr: null,        // MediaRecorder
+  chunks: [],
+  stream: null,
+  startTs: 0,
+  timer: null,
+  analyser: null,
+  raf: null,
+  cancelled: false,
+  samples: [],     // RMS amplitude samples for waveform
+  holdTimer: null, // long-press detection
+  mode: 'voice',   // что будем записывать при следующем hold
+};
+
+const VR_HOLD_MS  = 350;  // удержание → запись
+const VR_MIN_MS   = 500;  // минимум для отправки
+const VR_MAX_VOICE_MS  = 60_000;
+const VR_MAX_CIRCLE_MS = 60_000;
+
+// Инициализация кнопки и iarea
+function vrInit(){
+  const mi = document.getElementById('mi');
+  if(mi){
+    mi.addEventListener('input', vrUpdateSendBtn);
+    mi.addEventListener('focus', vrUpdateSendBtn);
+  }
+  vrUpdateSendBtn();
+}
+
+function vrUpdateSendBtn(){
+  const btn = document.getElementById('mic-send-btn');
+  const mi  = document.getElementById('mi');
+  const ab  = document.getElementById('attach-btn');
+  if(!btn) return;
+  const hasText = mi && mi.value.trim().length > 0;
+  if(_vr.state !== 'idle'){
+    btn.textContent = '⏹';
+    btn.className   = 'mic-send-btn rec-mode';
+    if(ab) ab.style.display = 'none';
+    return;
+  }
+  if(hasText){
+    btn.textContent = '→';
+    btn.className   = 'mic-send-btn';
+    if(ab) ab.style.display = '';
+    btn.title = 'Отправить';
+  } else {
+    btn.textContent = '🎤';
+    btn.className   = 'mic-send-btn mic-mode';
+    if(ab) ab.style.display = '';
+    btn.title = 'Удержите — голосовое · Двойное нажатие — кружок';
+  }
+}
+
+// ── Жесты кнопки ────────────────────────────────────────────────────────────
+let _vrBtnTs = 0;
+
+function vrBtnDown(e){
+  if(e.type === 'touchstart') e.preventDefault();
+  const mi = document.getElementById('mi');
+  const hasText = mi && mi.value.trim().length > 0;
+  if(hasText || _vr.state !== 'idle') return;
+
+  _vrBtnTs = Date.now();
+  _vr.holdTimer = setTimeout(() => {
+    _vr.holdTimer = null;
+    vrBeginRecording('voice');
+  }, VR_HOLD_MS);
+}
+
+function vrBtnUp(e){
+  if(e.type === 'touchend') e.preventDefault();
+  if(_vr.holdTimer){
+    clearTimeout(_vr.holdTimer);
+    _vr.holdTimer = null;
+  }
+  if(_vr.state !== 'idle'){
+    const dur = Date.now() - _vr.startTs;
+    if(dur < VR_MIN_MS){
+      vrCancelRecording();
+    } else {
+      vrStopRecording(false);
+    }
+  }
+}
+
+function vrBtnLeave(e){
+  // Mouse left button area during recording — cancel
+  if(_vr.holdTimer){ clearTimeout(_vr.holdTimer); _vr.holdTimer=null; }
+}
+
+let _vrLastClick = 0;
+function vrBtnClick(e){
+  const mi = document.getElementById('mi');
+  const hasText = mi && mi.value.trim().length > 0;
+  if(hasText){
+    sendMsg();
+    return;
+  }
+  if(_vr.state !== 'idle') return;
+
+  // Двойной клик → кружок
+  const now = Date.now();
+  if(now - _vrLastClick < 350){
+    _vrLastClick = 0;
+    if(_vr.holdTimer){ clearTimeout(_vr.holdTimer); _vr.holdTimer=null; }
+    vrBeginRecording('circle');
+  } else {
+    _vrLastClick = now;
+  }
+}
+
+// ── Запись ───────────────────────────────────────────────────────────────────
+async function vrBeginRecording(kind){
+  if(_vr.state !== 'idle') return;
+  if(!dc || dc.readyState !== 'open'){ toast('Нет соединения'); return; }
+
+  _vr.cancelled = false;
+  _vr.chunks    = [];
+  _vr.samples   = [];
+
+  const constraints = kind === 'circle'
+    ? { video: { facingMode: 'user', width:{ideal:400}, height:{ideal:400}, frameRate:{ideal:30} }, audio: true }
+    : { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, sampleRate: 48000 }, video: false };
+
+  try {
+    _vr.stream = await navigator.mediaDevices.getUserMedia(constraints);
+  } catch(e) {
+    toast('Нет доступа к ' + (kind==='circle' ? 'камере/микрофону' : 'микрофону'));
+    return;
+  }
+
+  // Определяем поддерживаемый mimeType
+  const mimes = kind === 'circle'
+    ? ['video/webm;codecs=vp8,opus','video/webm;codecs=vp9,opus','video/webm','video/mp4']
+    : ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/ogg','audio/mp4'];
+  const mime = mimes.find(m => MediaRecorder.isTypeSupported(m)) || '';
+
+  _vr.mr = new MediaRecorder(_vr.stream, mime ? { mimeType: mime } : {});
+  _vr.mr.ondataavailable = e => { if(e.data && e.data.size > 0) _vr.chunks.push(e.data); };
+  _vr.mr.onstop = () => vrOnStop();
+  _vr.mr.start(100);
+
+  _vr.state   = kind;
+  _vr.startTs = Date.now();
+  vrUpdateSendBtn();
+
+  // Аудио-анализатор для waveform (и для отображения в баре)
+  const audioTrack = _vr.stream.getAudioTracks()[0];
+  if(audioTrack){
+    const ctx      = new (window.AudioContext || window.webkitAudioContext)();
+    const src      = ctx.createMediaStreamSource(new MediaStream([audioTrack]));
+    _vr.analyser   = ctx.createAnalyser();
+    _vr.analyser.fftSize = 256;
+    _vr.analyser._ctx = ctx;
+    src.connect(_vr.analyser);
+  }
+
+  // Показываем circle preview
+  if(kind === 'circle'){
+    const prev = document.getElementById('vr-circle-preview');
+    const pvid = document.getElementById('vr-circle-video');
+    if(prev && pvid){
+      pvid.srcObject = _vr.stream;
+      prev.style.display = 'block';
+    }
+  }
+
+  // Запускаем UI
+  vrShowRecBar(true);
+  vrStartTimer();
+  vrStartWaveAnim();
+
+  // Авто-стоп по таймауту
+  const maxMs = kind === 'circle' ? VR_MAX_CIRCLE_MS : VR_MAX_VOICE_MS;
+  _vr._autoStop = setTimeout(() => vrStopRecording(false), maxMs);
+}
+
+function vrShowRecBar(show){
+  const bar  = document.getElementById('vr-bar');
+  const mi   = document.getElementById('mi');
+  if(bar) bar.classList.toggle('on', show);
+  if(mi)  mi.style.display = show ? 'none' : '';
+}
+
+function vrStartTimer(){
+  const el = document.getElementById('vr-time');
+  _vr.timer = setInterval(()=>{
+    if(!el) return;
+    const s = Math.floor((Date.now() - _vr.startTs) / 1000);
+    const mm=Math.floor(s/60), ss=s%60;
+    el.textContent = mm+':'+(ss<10?'0':'')+ss;
+  }, 200);
+}
+
+function vrStartWaveAnim(){
+  const waveEl = document.getElementById('vr-wave');
+  if(!waveEl) return;
+  // Заполняем 24 бара
+  waveEl.innerHTML = '';
+  for(let i=0;i<24;i++){
+    const b = document.createElement('div');
+    b.className = 'vr-wbar';
+    b.style.height = '4px';
+    waveEl.appendChild(b);
+  }
+  const bars = Array.from(waveEl.querySelectorAll('.vr-wbar'));
+  const buf  = _vr.analyser ? new Uint8Array(_vr.analyser.frequencyBinCount) : null;
+
+  const frame = () => {
+    if(_vr.state === 'idle') return;
+    _vr.raf = requestAnimationFrame(frame);
+
+    if(_vr.analyser && buf){
+      _vr.analyser.getByteFrequencyData(buf);
+      // Сохраняем RMS сэмпл для waveform
+      let rms=0; for(let i=0;i<buf.length;i++) rms+=buf[i]*buf[i];
+      rms = Math.sqrt(rms/buf.length)/128;
+      _vr.samples.push(rms);
+      // Обновляем бары
+      const step = Math.floor(buf.length / bars.length);
+      bars.forEach((b,i)=>{
+        const v = buf[i*step] || 0;
+        const h = Math.max(3, Math.round(v/255*26));
+        b.style.height = h+'px';
+      });
+    } else {
+      bars.forEach(b => {
+        b.style.height = (4 + Math.random()*10)+'px';
+      });
+    }
+  };
+  frame();
+}
+
+function vrStopRecording(cancel){
+  _vr.cancelled = cancel;
+  clearTimeout(_vr._autoStop);
+  if(_vr.mr && _vr.mr.state !== 'inactive') _vr.mr.stop();
+  else vrOnStop();
+}
+
+function vrCancelRecording(){
+  vrStopRecording(true);
+  toast('Запись отменена');
+}
+
+function vrOnStop(){
+  // Очищаем UI
+  clearInterval(_vr.timer);
+  if(_vr.raf){ cancelAnimationFrame(_vr.raf); _vr.raf=null; }
+  if(_vr.analyser && _vr.analyser._ctx){ _vr.analyser._ctx.close().catch(()=>{}); _vr.analyser=null; }
+  _vr.stream.getTracks().forEach(t=>t.stop());
+
+  // Скрываем circle preview
+  const prev = document.getElementById('vr-circle-preview');
+  const pvid = document.getElementById('vr-circle-video');
+  if(prev) prev.style.display='none';
+  if(pvid) pvid.srcObject=null;
+
+  vrShowRecBar(false);
+  const kind = _vr.state;
+  _vr.state = 'idle';
+  vrUpdateSendBtn();
+
+  if(_vr.cancelled || _vr.chunks.length === 0) return;
+
+  const mime = _vr.mr.mimeType || (kind==='circle' ? 'video/webm' : 'audio/webm');
+  const blob = new Blob(_vr.chunks, {type: mime});
+  _vr.mr = null;
+  _vr.chunks = [];
+
+  // Строим waveform: нормируем samples → 30 значений 0..1
+  const raw = _vr.samples;
+  const WN  = 30;
+  const waveform = [];
+  const max = Math.max(...raw, 0.01);
+  for(let i=0;i<WN;i++){
+    const idx = Math.floor(i/WN*raw.length);
+    waveform.push(Math.round((raw[idx]||0)/max*100)/100);
+  }
+
+  const ext  = mime.includes('mp4') ? 'mp4' : mime.includes('ogg') ? 'ogg' : 'webm';
+  const name = kind === 'circle' ? `circle_${Date.now()}.${ext}` : `voice_${Date.now()}.${ext}`;
+  const file = new File([blob], name, {type: mime});
+  file._kind     = kind;
+  file._waveform = kind === 'voice' ? waveform : null;
+
+  vrSendFile(file);
+}
+
+async function vrSendFile(file){
+  if(!dc || dc.readyState !== 'open'){ toast('Нет соединения'); return; }
+  if(await isOverLimit()){ toast('Лимит хранилища превышен'); return; }
+
+  const ts = Date.now();
+  const kind = file._kind;
+
+  // Создаём пузырь-заглушку
+  const d = document.createElement('div');
+  d.className = 'msg out msg-file-bubble';
+  d.dataset.fileSend = ts;
+  const tStr = new Date(ts).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
+  const icon = kind === 'circle' ? '⭕' : '🎤';
+  const label = kind === 'circle' ? 'Видеозаметка' : 'Голосовое';
+  d.innerHTML = `<div class="msg-xfer">
+    <div class="msg-xfer-icon">${icon}</div>
+    <div class="msg-xfer-body">
+      <div class="msg-xfer-name">${label}</div>
+      <div class="msg-xfer-status" id="fspeed-${ts}">отправка...</div>
+      <div class="msg-xfer-bar"><div class="msg-xfer-bar-fill" id="fp-${ts}" style="width:0%"></div></div>
+    </div>
+  </div>`;
+  $('msgs').appendChild(d);
+  $('msgs').scrollTop = $('msgs').scrollHeight;
+
+  _fileSendAbort[ts] = () => {};
+
+  // Отправляем через существующий pipeline
+  const _hdrExtra = { kind: file._kind };
+  if(file._waveform) _hdrExtra.waveform = file._waveform;
+  await _sendFilePkt({__file__:true, name:file.name, size:file.size,
+    type:file.type||'application/octet-stream', ..._hdrExtra});
+
+  let cancelled = false;
+  _fileSendAbort[ts] = () => { cancelled = true; };
+
+  const fileBuffer = await file.arrayBuffer();
+  const chunks     = _sliceFileChunks(fileBuffer);
+  const allChunks  = [];
+  const flow       = _setupFlowControl();
+
+  const _activeWindow = _fileWindow();
+  const _activeBuf    = _fileBuf();
+
+  const encrypted = new Array(chunks.length);
+  let encIdx=0, sendIdx=0, sent=0;
+
+  const startEncrypt = () => {
+    while(encIdx < chunks.length && encIdx - sendIdx < _activeWindow){
+      const i = encIdx++;
+      encrypted[i] = _e2eReady ? _e2eEncryptBinary(chunks[i]) : Promise.resolve(chunks[i]);
+    }
+  };
+  startEncrypt();
+
+  while(sendIdx < chunks.length){
+    if(cancelled){ flow.restore(); delete _fileSendAbort[ts]; await _sendFilePkt({__file_cancel__:true}); if(d.parentNode)d.remove(); return; }
+    if(dc.bufferedAmount > _activeBuf) await Promise.race([flow.waitDrain(), new Promise(r=>setTimeout(r,50))]);
+    if(cancelled) continue;
+    const encBuf = await encrypted[sendIdx];
+    encrypted[sendIdx]=null;
+    allChunks.push(chunks[sendIdx].slice(0));
+    dc.send(encBuf);
+    sent += chunks[sendIdx].byteLength;
+    sendIdx++;
+    startEncrypt();
+    const bar = document.getElementById('fp-'+ts);
+    if(bar) bar.style.width = Math.round(sent/file.size*100)+'%';
+  }
+
+  flow.restore();
+  delete _fileSendAbort[ts];
+  await _sendFilePkt({__file_end__:true});
+
+  const blob = new Blob(allChunks, {type: file.type});
+  saveFileToIDB(ts, blob);
+  const meta = {__file__:true, name:file.name, size:file.size,
+    mime:file.type, fileId:ts, ts, type:'out', kind:file._kind};
+  if(file._waveform) meta.waveform = file._waveform;
+  if(currentPeerFp){
+    const h = await getHistory();
+    if(!h[currentPeerFp]) h[currentPeerFp]=[];
+    h[currentPeerFp].push(meta);
+    await idbSet('history','all',h);
+    checkStorageAndNotify();
+  }
+  buildFileBubble({name:file.name, size:file.size, mime:file.type,
+    fileId:ts, ts, kind:file._kind, waveform:file._waveform}, blob, 'out')
+    .then(nb => {
+      if(d.parentNode){
+        const m=$('msgs');
+        const atBottom=m.scrollHeight-m.scrollTop-m.clientHeight<120;
+        d.parentNode.replaceChild(nb, d);
+        if(atBottom) m.scrollTop=m.scrollHeight;
+      }
+      const lbl = kind==='voice'?'🎤 Голосовое':'⭕ Кружок';
+      attachMsgLongPress(nb, lbl, 'Вы', ts, currentPeerFp);
+    });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// END VOICE & CIRCLE RECORDING MODULE
+// ════════════════════════════════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════════════════════════
 // END MEDIA SETTINGS MODULE
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -4768,6 +5217,7 @@ initIdentity();
 initMyContactCard();
 initShadowToggle();
 initMediaSettings();
+vrInit();
 // Загружаем офлайн-очередь из IDB (могла пережить перезагрузку страницы)
 idbGet('meta','offlineQueue').then(saved=>{
   if(Array.isArray(saved) && saved.length){
@@ -6919,6 +7369,9 @@ async function _ensureCamLabels(){
     const s = await navigator.mediaDevices.getUserMedia({ audio:false, video:true });
     s.getTracks().forEach(t => t.stop());
     _camLabelsUnlocked = true;
+    // Android не освобождает hardware lock мгновенно.
+    // Без паузы следующий getUserMedia (по deviceId) падает с NotReadableError.
+    await new Promise(r => setTimeout(r, 700));
   }catch(e){
     _mcCamLog('разрешение на камеру: ' + e.name, true);
   }
@@ -6959,8 +7412,8 @@ async function _mcGetVideoStream(facing, profile){
       return await navigator.mediaDevices.getUserMedia(constraints);
     } catch(e) {
       if (e.name === 'NotReadableError' || e.name === 'AbortError') {
-        _mcCamLog(`${label}: ${e.name} — ждём 900 мс и повторяем...`, true);
-        await new Promise(r => setTimeout(r, 900));
+        _mcCamLog(`${label}: ${e.name} — ждём 1500 мс и повторяем...`, true);
+        await new Promise(r => setTimeout(r, 1500));
         return await navigator.mediaDevices.getUserMedia(constraints);
       }
       throw e;
@@ -7001,7 +7454,8 @@ async function camDiagRun(){
 
     // 1. Запрос разрешения
     _mcCamLog('1. Запрос разрешения...');
-    _camLabelsUnlocked = false;
+    // Не сбрасываем _camLabelsUnlocked — разрешение выдано браузером, повторный
+    // getUserMedia только занял бы камеру и создал hardware lock перед следующим открытием.
     await _ensureCamLabels();
 
     // 2. Список устройств
@@ -8169,6 +8623,123 @@ async function buildFileBubble(meta,blobOrNull,msgType){
   }
 
   let inner='';
+
+  // ── Голосовое сообщение ────────────────────────────────────────────────
+  if(meta.kind === 'voice' && url){
+    d.classList.add('msg-file-bubble');
+    const vid = 'vv-'+Math.random().toString(36).slice(2);
+    const bars = meta.waveform || [];
+    const N = 36;
+    let barsHtml = '';
+    for(let i=0;i<N;i++){
+      const amp = bars[Math.floor(i/N*bars.length)] || 0.15;
+      const h = Math.max(3, Math.round(amp * 26));
+      barsHtml += `<div class="msg-voice-bar" data-i="${i}" style="height:${h}px"></div>`;
+    }
+    inner = `<div class="msg-voice">
+      <button class="msg-voice-btn" data-action="play" title="Воспроизвести">▶</button>
+      <div class="msg-voice-wave" data-bars="${N}">${barsHtml}</div>
+      <div class="msg-voice-dur" id="${vid}">0:00</div>
+    </div>`;
+    d.innerHTML = inner + `<div class="mmeta">${t}</div>`;
+
+    const audioEl = new Audio(url);
+    const durEl   = d.querySelector('#'+vid);
+    const wavEl   = d.querySelector('.msg-voice-wave');
+    const playBtn = d.querySelector('.msg-voice-btn');
+    const barEls  = Array.from(d.querySelectorAll('.msg-voice-bar'));
+
+    audioEl.addEventListener('loadedmetadata', () => {
+      if(isFinite(audioEl.duration)){
+        const mm=Math.floor(audioEl.duration/60), ss=Math.floor(audioEl.duration%60);
+        if(durEl) durEl.textContent=mm+':'+(ss<10?'0':'')+ss;
+      }
+    });
+
+    const _updateBars = () => {
+      if(!isFinite(audioEl.duration)) return;
+      const progress = audioEl.currentTime / audioEl.duration;
+      const cur = Math.floor(progress * barEls.length);
+      barEls.forEach((b,i) => {
+        b.classList.toggle('played', i < cur);
+        b.classList.toggle('cur', i === cur);
+      });
+      if(durEl){
+        const rem = audioEl.duration - audioEl.currentTime;
+        const mm=Math.floor(rem/60), ss=Math.floor(rem%60);
+        durEl.textContent = mm+':'+(ss<10?'0':'')+ss;
+      }
+    };
+    let _raf = null;
+    const _rafLoop = () => { _updateBars(); if(!audioEl.paused) _raf=requestAnimationFrame(_rafLoop); };
+
+    audioEl.addEventListener('play',  () => { playBtn.textContent='⏸'; _raf=requestAnimationFrame(_rafLoop); });
+    audioEl.addEventListener('pause', () => { playBtn.textContent='▶'; if(_raf){cancelAnimationFrame(_raf);_raf=null;} });
+    audioEl.addEventListener('ended', () => {
+      playBtn.textContent='▶';
+      barEls.forEach(b => { b.classList.remove('played','cur'); });
+      if(durEl && isFinite(audioEl.duration)){
+        const mm=Math.floor(audioEl.duration/60),ss=Math.floor(audioEl.duration%60);
+        durEl.textContent=mm+':'+(ss<10?'0':'')+ss;
+      }
+      if(_raf){cancelAnimationFrame(_raf);_raf=null;}
+    });
+
+    playBtn.addEventListener('click', () => {
+      if(_mpBubble===d && _mpAudio){ mpToggle(); return; }
+      let _container=$('msgs');
+      if(d.closest('#sh-msgs')) _container=$('sh-msgs');
+      else if(d.closest('#fav-msgs')) _container=$('fav-msgs');
+      let _source='Чат · '+($('peer-name').textContent||'');
+      if(_container===$('sh-msgs')) _source='История · '+($('sh-name').textContent||'');
+      else if(_container===$('fav-msgs')) _source='Избранное';
+      audioEl._mpName='🎤 Голосовое'; audioEl._mpSource=_source;
+      audioEl._mpContainer=_container; audioEl._mpBubble=d;
+      mpShow(audioEl,'🎤 Голосовое',_source,_container,d);
+      audioEl.play();
+    });
+    wavEl.addEventListener('click', e => {
+      if(!isFinite(audioEl.duration)) return;
+      const rect=wavEl.getBoundingClientRect();
+      audioEl.currentTime=(e.clientX-rect.left)/rect.width*audioEl.duration;
+      _updateBars();
+    });
+    return d;
+  }
+
+  // ── Кружок (видео-заметка) ─────────────────────────────────────────────
+  if(meta.kind === 'circle' && url){
+    d.classList.add('msg-file-bubble');
+    const cid='cv-'+Math.random().toString(36).slice(2);
+    const cdid='cd-'+Math.random().toString(36).slice(2);
+    inner=`<div class="msg-circle-wrap">
+      <div class="msg-circle" id="${cid}">
+        <video src="${url}" playsinline preload="metadata" loop style="width:100%;height:100%;object-fit:cover;display:block"></video>
+        <div class="msg-circle-ov" id="co-${cid}">
+          <div class="msg-circle-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+        </div>
+      </div>
+      <div class="msg-circle-dur" id="${cdid}">0:00</div>
+    </div>`;
+    d.innerHTML=inner+`<div class="mmeta" style="text-align:center">${t}</div>`;
+    const vidEl=d.querySelector('video');
+    const ov=d.querySelector('#co-'+cid);
+    const durEl2=d.querySelector('#'+cdid);
+    vidEl.addEventListener('loadedmetadata',()=>{
+      if(isFinite(vidEl.duration)){
+        const mm=Math.floor(vidEl.duration/60),ss=Math.floor(vidEl.duration%60);
+        if(durEl2) durEl2.textContent=mm+':'+(ss<10?'0':'')+ss;
+      }
+    });
+    vidEl.addEventListener('play',()=>{ if(ov) ov.style.display='none'; });
+    vidEl.addEventListener('pause',()=>{ if(ov) ov.style.display=''; });
+    vidEl.addEventListener('ended',()=>{ vidEl.pause(); vidEl.currentTime=0; if(ov) ov.style.display=''; });
+    d.querySelector('#'+cid).addEventListener('click',()=>{
+      if(vidEl.paused) vidEl.play(); else vidEl.pause();
+    });
+    return d;
+  }
+
   const isMedia = (isGif || isImage || isVideo) && url;
 
   if(isMedia){
@@ -8732,15 +9303,19 @@ async function _finishFileSend(file, ts, allChunks, d){
 
   const blob = new Blob(allChunks, {type: file.type || 'application/octet-stream'});
   saveFileToIDB(ts, blob);
+  const meta = {__file__:true, name:file.name, size:file.size,
+    mime:file.type||'application/octet-stream', fileId:ts, ts, type:'out'};
+  if(file._kind)     meta.kind     = file._kind;
+  if(file._waveform) meta.waveform = file._waveform;
   if(currentPeerFp){
     const h = await getHistory();
     if(!h[currentPeerFp]) h[currentPeerFp] = [];
-    h[currentPeerFp].push({__file__:true, name:file.name, size:file.size,
-      mime:file.type||'application/octet-stream', fileId:ts, ts, type:'out'});
+    h[currentPeerFp].push(meta);
     await idbSet('history', 'all', h);
     checkStorageAndNotify();
   }
-  buildFileBubble({name:file.name, size:file.size, mime:file.type||'application/octet-stream', fileId:ts, ts}, blob, 'out')
+  buildFileBubble({name:file.name, size:file.size, mime:file.type||'application/octet-stream',
+    fileId:ts, ts, kind:file._kind, waveform:file._waveform}, blob, 'out')
     .then(nb => {
       if(d.parentNode){
         const m=$('msgs');
@@ -8748,7 +9323,8 @@ async function _finishFileSend(file, ts, allChunks, d){
         d.parentNode.replaceChild(nb, d);
         if(atBottom) m.scrollTop=m.scrollHeight;
       }
-      attachMsgLongPress(nb, '[файл] ' + file.name, 'Вы', ts, currentPeerFp);
+      const label = file._kind === 'voice' ? '🎤 Голосовое' : file._kind === 'circle' ? '⭕ Кружок' : '[файл] ' + file.name;
+      attachMsgLongPress(nb, label, 'Вы', ts, currentPeerFp);
     });
 }
 
@@ -8760,7 +9336,10 @@ async function sendFile(input){
   if(await isOverLimit()){ toast('Лимит хранилища превышен'); return; }
 
   const ts = Date.now();
-  await _sendFilePkt({__file__:true, name:file.name, size:file.size, type:file.type||'application/octet-stream'});
+  const _hdrExtra = {};
+  if(file._kind)     _hdrExtra.kind     = file._kind;
+  if(file._waveform) _hdrExtra.waveform = file._waveform;
+  await _sendFilePkt({__file__:true, name:file.name, size:file.size, type:file.type||'application/octet-stream', ..._hdrExtra});
 
   let cancelled = false;
   const d = _createFileSendBubble(file, ts);
@@ -8843,7 +9422,7 @@ function handleIncomingFile(data){
       const j=JSON.parse(data);
       if(j.__file__){
         _incomingFile={name:j.name,size:j.size,type:j.type,chunks:[],received:0,
-          speedBytes:0, speedTs:Date.now()};
+          speedBytes:0, speedTs:Date.now(), kind:j.kind||null, waveform:j.waveform||null};
         const ts=Date.now();
         _incomingFile.ts=ts;
         const d=document.createElement('div');
@@ -8909,12 +9488,15 @@ function handleIncomingFile(data){
         if(currentPeerFp){
           getHistory().then(h=>{
             if(!h[currentPeerFp])h[currentPeerFp]=[];
-            h[currentPeerFp].push({__file__:true,name:inf.name,size:inf.size,mime:inf.type,fileId:ts,ts,type:'in'});
+            const _entry = {__file__:true,name:inf.name,size:inf.size,mime:inf.type,fileId:ts,ts,type:'in'};
+            if(inf.kind) _entry.kind = inf.kind;
+            if(inf.waveform) _entry.waveform = inf.waveform;
+            h[currentPeerFp].push(_entry);
             idbSet('history','all',h).then(()=>checkStorageAndNotify());
           });
         }
         _getCachedPeerName(currentPeerFp).then(peerName=>{
-          buildFileBubble({name:inf.name,size:inf.size,mime:inf.type,fileId:ts,ts},blob,'in').then(nb=>{
+          buildFileBubble({name:inf.name,size:inf.size,mime:inf.type,fileId:ts,ts,kind:inf.kind,waveform:inf.waveform},blob,'in').then(nb=>{
             nb.innerHTML=`<div class="msender">${esc(peerName)}</div>`+nb.innerHTML;
             if(inf.el&&inf.el.parentNode){
               const m=$('msgs');
@@ -8922,7 +9504,8 @@ function handleIncomingFile(data){
               inf.el.parentNode.replaceChild(nb,inf.el);
               if(atBottom) m.scrollTop=m.scrollHeight;
             }
-            attachMsgLongPress(nb,'[файл] '+inf.name,peerName,ts,currentPeerFp);
+            const _recvLabel = inf.kind === 'voice' ? '🎤 Голосовое' : inf.kind === 'circle' ? '⭕ Кружок' : '[файл] '+inf.name;
+            attachMsgLongPress(nb,_recvLabel,peerName,ts,currentPeerFp);
             _sendNotif(peerName, '📎 ' + inf.name, ()=>showTab('sc'));
           });
         });

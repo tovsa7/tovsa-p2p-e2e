@@ -53,7 +53,10 @@ html{overflow:hidden;height:100%;position:fixed;width:100%}
   --bg:#0a0a0f;--sf:#12121a;--bd:#2c2c42;
   --a:#00ff9d;--ad:rgba(0,255,157,.08);--am:rgba(0,255,157,.15);
   --tx:#e0e0f0;--mu:#9090b8;--sn:#003322;--rc:#1a1a2e;
-  --w:#e5c07b;--e:#e06c75
+  --w:#e5c07b;--e:#e06c75;
+  --fs:13px;
+  --br:12px;
+  --chat-pat:none;--chat-pat-size:auto
 }
 /* read indicator line */
 .msg-read-line{
@@ -122,11 +125,11 @@ textarea::placeholder{color:var(--mu)}
 #sc{flex-direction:column;position:relative;overflow:hidden;touch-action:pan-y}
 #sfav,#sh{overflow:hidden;touch-action:pan-y;overscroll-behavior:none}
 #sfav .msgs,#sh .msgs,#sc .msgs{overscroll-behavior:contain}
-.msgs{flex:1;overflow-y:auto;overflow-x:hidden;padding:16px;display:flex;flex-direction:column;gap:8px;scroll-behavior:smooth;touch-action:pan-y}
+.msgs{flex:1;overflow-y:auto;overflow-x:hidden;padding:16px;display:flex;flex-direction:column;gap:8px;scroll-behavior:smooth;touch-action:pan-y;background-image:var(--chat-pat);background-size:var(--chat-pat-size)}
 .msg.shadow-in{background:var(--sf);color:var(--mu);border:1px dashed var(--bd);opacity:.85;font-style:italic}
 
 .msgs::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
-.msg{max-width:80%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.5;animation:pop .22s ease;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:opacity .15s,transform .15s;-webkit-tap-highlight-color:transparent;white-space:pre-wrap;word-break:break-word}
+.msg{max-width:80%;padding:10px 14px;border-radius:var(--br);font-size:var(--fs);line-height:1.5;animation:pop .22s ease;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:opacity .15s,transform .15s;-webkit-tap-highlight-color:transparent;white-space:pre-wrap;word-break:break-word}
 .msg.msg-media{padding:3px;max-width:72%;white-space:normal}
 .msg-media-wrap{position:relative;display:block;border-radius:10px;overflow:hidden;background:#000}
 .msg-media-wrap img,.msg-media-wrap video{display:block;width:100%;max-height:320px;object-fit:cover;border-radius:10px;cursor:pointer}
@@ -137,15 +140,15 @@ textarea::placeholder{color:var(--mu)}
 .msg-media-dur{position:absolute;bottom:6px;left:8px;font-size:10px;color:#fff;background:rgba(0,0,0,.45);padding:1px 5px;border-radius:6px;pointer-events:none;backdrop-filter:blur(2px)}
 @keyframes pop{0%{transform:scale(.88) translateY(6px);opacity:0}60%{transform:scale(1.02) translateY(-1px);opacity:1}100%{transform:scale(1) translateY(0);opacity:1}}
 @keyframes reactionPop{0%{transform:scale(1) translateY(0);opacity:1}30%{transform:scale(1.8) translateY(-15px);opacity:1}100%{transform:scale(1.4) translateY(-50px);opacity:0}}
-.msg.out{align-self:flex-end;background:var(--sn);border:1px solid rgba(0,255,157,.2);border-bottom-right-radius:4px}
-.msg.in{align-self:flex-start;background:var(--rc);border:1px solid var(--bd);border-bottom-left-radius:4px}
+.msg.out{align-self:flex-end;background:var(--sn);border:1px solid rgba(0,255,157,.2);border-bottom-right-radius:calc(var(--br) / 4)}
+.msg.in{align-self:flex-start;background:var(--rc);border:1px solid var(--bd);border-bottom-left-radius:calc(var(--br) / 4)}
 .msg.pressing{opacity:.6;transform:scale(.97)}
-.mmeta{font-size:10px;color:var(--mu);margin-top:4px}
-.msender{font-size:10px;font-weight:700;margin-bottom:3px;color:var(--mu)}
+.mmeta{font-size:calc(var(--fs) - 3px);color:var(--mu);margin-top:4px}
+.msender{font-size:calc(var(--fs) - 3px);font-weight:700;margin-bottom:3px;color:var(--mu)}
 .msg-file{display:flex;align-items:center;gap:10px;padding:2px 0}
 .msg-file-icon{font-size:20px;flex-shrink:0}
 .msg-file-info{flex:1;min-width:0}
-.msg-file-name{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msg-file-name{font-size:calc(var(--fs) - 1px);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .msg-file-size{font-size:10px;color:var(--mu);margin-top:2px}
 .msg-file-dl{font-size:11px;color:var(--a);cursor:pointer;margin-top:4px;display:inline-block}
 .msg-file-dl:hover{text-decoration:underline}
@@ -220,9 +223,9 @@ textarea::placeholder{color:var(--mu)}
 .vr-preview-btn.redo{background:var(--sf);border:1px solid var(--bd);color:var(--tx)}
 .msg button,.msg a{pointer-events:auto;-webkit-tap-highlight-color:rgba(0,0,0,.1);user-select:none;-webkit-user-select:none;touch-action:manipulation}
 .msg.msg-file-bubble{padding:6px 8px;max-width:fit-content;white-space:normal;line-height:1}
-.sysmsg{align-self:center;font-size:11px;color:var(--mu);padding:4px 12px;background:var(--sf);border-radius:20px}
-.msg-quote{border-left:3px solid var(--a);padding:4px 8px;margin-bottom:6px;border-radius:0 4px 4px 0;background:rgba(0,255,157,.07);font-size:11px;color:var(--mu);line-height:1.4;cursor:pointer}
-.msg-quote-sender{font-size:10px;font-weight:700;color:var(--a);margin-bottom:2px}
+.sysmsg{align-self:center;font-size:calc(var(--fs) - 2px);color:var(--mu);padding:4px 12px;background:var(--sf);border-radius:20px}
+.msg-quote{border-left:3px solid var(--a);padding:4px 8px;margin-bottom:6px;border-radius:0 4px 4px 0;background:rgba(0,255,157,.07);font-size:calc(var(--fs) - 2px);color:var(--mu);line-height:1.4;cursor:pointer}
+.msg-quote-sender{font-size:calc(var(--fs) - 3px);font-weight:700;color:var(--a);margin-bottom:2px}
 /* reactions */
 .msg-reactions{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
 .msg-reaction{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:12px;font-size:13px;border:1px solid var(--bd);background:var(--sf);cursor:pointer;transition:background .15s,transform .12s,border-color .15s;user-select:none;-webkit-tap-highlight-color:transparent}
@@ -237,12 +240,12 @@ textarea::placeholder{color:var(--mu)}
 .msg-quote-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .reply-bar{display:flex;max-height:0;overflow:hidden;padding:0 12px;border-top:0px solid var(--bd);background:var(--sf);gap:8px;align-items:center;transition:max-height .22s cubic-bezier(.4,0,.2,1),padding .22s,border-top-width .22s}
 .reply-bar.on{max-height:80px;padding:8px 12px;border-top-width:1px}
-.reply-bar-quote{flex:1;min-width:0;font-size:11px;color:var(--mu);border-left:3px solid var(--a);padding-left:8px;overflow:hidden}
+.reply-bar-quote{flex:1;min-width:0;font-size:calc(var(--fs) - 2px);color:var(--mu);border-left:3px solid var(--a);padding-left:8px;overflow:hidden}
 .reply-bar-sender{font-size:10px;font-weight:700;color:var(--a);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .reply-bar-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .reply-bar-close{flex-shrink:0;background:none;border:none;color:var(--mu);font-size:18px;cursor:pointer;padding:0 4px;line-height:1}
 .iarea{padding:12px;border-top:1px solid var(--bd);background:var(--sf);display:flex;gap:8px;flex-shrink:0;align-items:flex-end;overflow:hidden;touch-action:pan-y}
-.iarea textarea{flex:1;background:var(--bg);border:1px solid var(--bd);border-radius:16px;padding:10px 16px;color:var(--tx);font-family:inherit;font-size:13px;outline:none;transition:border-color .2s;resize:none;overflow:hidden;line-height:1.4;height:calc(1.4em + 20px);max-height:120px;overflow-y:auto;scrollbar-width:none}
+.iarea textarea{flex:1;background:var(--bg);border:1px solid var(--bd);border-radius:16px;padding:10px 16px;color:var(--tx);font-family:inherit;font-size:var(--fs);outline:none;transition:border-color .2s;resize:none;overflow:hidden;line-height:1.4;height:calc(1.4em + 20px);max-height:120px;overflow-y:auto;scrollbar-width:none}
 .iarea textarea::-webkit-scrollbar{display:none}
 .iarea textarea:focus{border-color:var(--a);box-shadow:0 0 0 2px rgba(0,255,157,.08)}
 .iarea textarea::placeholder{color:var(--mu)}
@@ -929,11 +932,11 @@ textarea::placeholder{color:var(--mu)}
       </div>
       <div class="sn-row-arrow">›</div>
     </div>
-    <div class="sn-row" onclick="snOpen('sn-theme')">
+    <div class="sn-row" onclick="snOpen('sn-appearance')">
       <div class="sn-row-icon">🎨</div>
       <div class="sn-row-body">
-        <div class="sn-row-title">Тема</div>
-        <div class="sn-row-desc" id="sn-theme-desc">Matrix</div>
+        <div class="sn-row-title">Оформление</div>
+        <div class="sn-row-desc" id="sn-appearance-desc">Matrix · Обычный</div>
       </div>
       <div class="sn-row-arrow">›</div>
     </div>
@@ -947,13 +950,43 @@ textarea::placeholder{color:var(--mu)}
     </div>
   </div>
 
-  <!-- ══ ПОД-ЭКРАН: Тема ══ -->
-  <div class="sn-page" id="sn-theme">
+  <!-- ══ ПОД-ЭКРАН: Оформление ══ -->
+  <div class="sn-page" id="sn-appearance">
     <div class="sh-back" onclick="snBack()">← назад</div>
+
+    <!-- Тема -->
     <div class="sn-section">
-      <div class="sn-label">Тема оформления</div>
+      <div class="sn-label">Тема</div>
     </div>
-    <div id="theme-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px"></div>
+    <div id="theme-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 14px 4px"></div>
+
+    <!-- Паттерн фона чата -->
+    <div class="sn-section" style="margin-top:8px">
+      <div class="sn-label">Фон чата</div>
+    </div>
+    <div id="pat-options" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:14px 14px 4px"></div>
+
+    <!-- Скругления -->
+    <div class="sn-section" style="margin-top:8px">
+      <div class="sn-label">Скругления пузырей</div>
+    </div>
+    <div id="br-options" style="display:flex;flex-direction:column"></div>
+
+    <!-- Размер шрифта -->
+    <div class="sn-section" style="margin-top:8px">
+      <div class="sn-label">Размер шрифта</div>
+    </div>
+    <div id="fs-options" style="display:flex;flex-direction:column"></div>
+
+    <!-- Живое превью -->
+    <div style="padding:14px 18px 20px">
+      <div style="font-size:10px;color:var(--mu);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Превью</div>
+      <div id="appearance-preview" style="background:var(--bg);background-image:var(--chat-pat);background-size:var(--chat-pat-size);border:1px solid var(--bd);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px">
+        <div class="msg msg-in"  style="align-self:flex-start;max-width:85%">привет, как дела? 👋</div>
+        <div class="msg msg-out" style="align-self:flex-end;max-width:85%">всё отлично, спасибо!</div>
+        <div class="mmeta" style="align-self:flex-end">18:42 ✓✓</div>
+      </div>
+    </div>
   </div>
 
   <!-- ══ ПОД-ЭКРАН: Видимость в сети ══ -->
@@ -2986,7 +3019,7 @@ function snOpen(pageId){
   // Trigger lazy renders
   if(pageId==='sn-privacy'){ renderPresenceContactList(); _updateGlobalHiddenUI(); }
   if(pageId==='sn-data'){ updateStorageBar(); initStorageLimitUI(); }
-  if(pageId==='sn-theme'){ renderThemeGrid(); }
+  if(pageId==='sn-appearance'){ renderThemeGrid(); renderPatOptions(); renderBrOptions(); renderFsOptions(); }
 }
 function snBack(){
   document.querySelectorAll('#sn .sn-page').forEach(p=>p.classList.remove('on'));
@@ -3026,9 +3059,7 @@ function applyTheme(id){
   if(meta) meta.content = theme.vars['--bg'];
   _activeThemeId = id;
   localStorage.setItem('tovsa_theme', id);
-  // Обновляем подпись в меню настроек
-  const desc = document.getElementById('sn-theme-desc');
-  if(desc) desc.textContent = theme.name;
+  _updateAppearanceDesc();
 }
 
 function renderThemeGrid(){
@@ -3067,8 +3098,145 @@ function renderThemeGrid(){
   });
 }
 
-// Применяем сохранённую тему при старте
+// ── PATTERN SYSTEM ───────────────────────────────────────────────────────────
+const PAT_OPTIONS = [
+  { id:'none',     name:'Нет',      pat:'none' },
+  { id:'dots',     name:'Точки',    pat:`radial-gradient(circle, rgba(255,255,255,.06) 1px, transparent 1px)`, size:'20px 20px' },
+  { id:'grid',     name:'Сетка',    pat:`linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px)`, size:'24px 24px' },
+  { id:'diagonal', name:'Диагональ',pat:`repeating-linear-gradient(45deg, rgba(255,255,255,.03) 0, rgba(255,255,255,.03) 1px, transparent 0, transparent 50%)`, size:'16px 16px' },
+  { id:'cross',    name:'Крест',    pat:`radial-gradient(circle, rgba(255,255,255,.05) 1px, transparent 1px), radial-gradient(circle, rgba(255,255,255,.05) 1px, transparent 1px)`, size:'20px 20px, 20px 20px' },
+  { id:'hex',      name:'Гексы',    pat:`radial-gradient(circle at 0% 50%, rgba(255,255,255,.04) 2px, transparent 2px), radial-gradient(circle at 100% 50%, rgba(255,255,255,.04) 2px, transparent 2px)`, size:'28px 16px' },
+  { id:'lines',    name:'Линии',    pat:`repeating-linear-gradient(0deg, rgba(255,255,255,.03) 0, rgba(255,255,255,.03) 1px, transparent 1px, transparent 20px)`, size:'20px 20px' },
+  { id:'noise',    name:'Шум',      pat:`url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E")`, size:'200px 200px' },
+];
+
+let _activePatId = localStorage.getItem('tovsa_pat') || 'none';
+
+function applyPattern(id){
+  const opt = PAT_OPTIONS.find(o => o.id === id);
+  if(!opt) return;
+  const root = document.documentElement;
+  root.style.setProperty('--chat-pat', opt.pat === 'none' ? 'none' : opt.pat);
+  root.style.setProperty('--chat-pat-size', opt.size || 'auto');
+  _activePatId = id;
+  localStorage.setItem('tovsa_pat', id);
+}
+
+function renderPatOptions(){
+  const wrap = document.getElementById('pat-options');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  PAT_OPTIONS.forEach(opt => {
+    const cell = document.createElement('div');
+    const isActive = opt.id === _activePatId;
+    cell.style.cssText = `
+      aspect-ratio:1;border-radius:10px;cursor:pointer;border:2px solid ${isActive?'var(--a)':'var(--bd)'};
+      background-color:var(--bg);background-image:${opt.pat==='none'?'none':opt.pat};background-size:${opt.size||'auto'};
+      display:flex;align-items:flex-end;justify-content:center;padding-bottom:5px;
+      font-size:9px;color:${isActive?'var(--a)':'var(--mu)'};letter-spacing:.5px;
+      transition:border-color .15s;user-select:none;-webkit-tap-highlight-color:transparent;overflow:hidden`;
+    cell.textContent = opt.name;
+    cell.addEventListener('click', () => { applyPattern(opt.id); renderPatOptions(); });
+    wrap.appendChild(cell);
+  });
+}
+
+// ── BORDER RADIUS SYSTEM ─────────────────────────────────────────────────────
+const BR_OPTIONS = [
+  { id:'sharp',  name:'Острые',   px:4,  desc:'строго' },
+  { id:'normal', name:'Обычные',  px:12, desc:'стандарт' },
+  { id:'round',  name:'Круглые',  px:20, desc:'мягко' },
+];
+
+let _activeBrId = localStorage.getItem('tovsa_br') || 'normal';
+
+function applyBorderRadius(id){
+  const opt = BR_OPTIONS.find(o => o.id === id);
+  if(!opt) return;
+  document.documentElement.style.setProperty('--br', opt.px + 'px');
+  _activeBrId = id;
+  localStorage.setItem('tovsa_br', id);
+}
+
+function renderBrOptions(){
+  const wrap = document.getElementById('br-options');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  BR_OPTIONS.forEach(opt => {
+    const row = document.createElement('div');
+    row.className = 'sn-row';
+    row.style.justifyContent = 'space-between';
+    const isActive = opt.id === _activeBrId;
+    // Живая иллюстрация скругления
+    const demo = `<div style="width:48px;height:24px;background:var(--sn);border:1px solid var(--am);border-radius:${opt.px}px;border-bottom-right-radius:${Math.max(1,opt.px/4)}px;flex-shrink:0"></div>`;
+    row.innerHTML = `
+      ${demo}
+      <div class="sn-row-body">
+        <div class="sn-row-title">${opt.name}</div>
+        <div class="sn-row-desc">${opt.desc}</div>
+      </div>
+      <div style="font-size:16px;color:var(--a);opacity:${isActive?'1':'0'};transition:opacity .15s">✓</div>`;
+    row.addEventListener('click', () => { applyBorderRadius(opt.id); renderBrOptions(); });
+    wrap.appendChild(row);
+  });
+}
+
+// ── FONT SIZE SYSTEM ──────────────────────────────────────────────────────────
+const FS_OPTIONS = [
+  { id:'small',   name:'Маленький', px:11, desc:'компактно' },
+  { id:'normal',  name:'Обычный',   px:13, desc:'стандарт'  },
+  { id:'large',   name:'Крупный',   px:15, desc:'комфортно' },
+  { id:'xlarge',  name:'Очень крупный', px:17, desc:'максимум' },
+];
+
+let _activeFsId = localStorage.getItem('tovsa_fs') || 'normal';
+
+function applyFontSize(id){
+  const opt = FS_OPTIONS.find(o => o.id === id);
+  if(!opt) return;
+  document.documentElement.style.setProperty('--fs', opt.px + 'px');
+  _activeFsId = id;
+  localStorage.setItem('tovsa_fs', id);
+  _updateAppearanceDesc();
+}
+
+function renderFsOptions(){
+  const wrap = document.getElementById('fs-options');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  FS_OPTIONS.forEach(opt => {
+    const row = document.createElement('div');
+    row.className = 'sn-row';
+    row.style.justifyContent = 'space-between';
+    const isActive = opt.id === _activeFsId;
+    row.innerHTML = `
+      <div class="sn-row-body">
+        <div class="sn-row-title">${opt.name}</div>
+        <div class="sn-row-desc">${opt.desc} · ${opt.px}px</div>
+      </div>
+      <div style="font-size:16px;color:var(--a);opacity:${isActive?'1':'0'};transition:opacity .15s">✓</div>`;
+    row.addEventListener('click', () => {
+      applyFontSize(opt.id);
+      renderFsOptions();
+    });
+    wrap.appendChild(row);
+  });
+}
+
+function _updateAppearanceDesc(){
+  const el = document.getElementById('sn-appearance-desc');
+  if(!el) return;
+  const theme = THEMES.find(t => t.id === _activeThemeId);
+  const fs    = FS_OPTIONS.find(o => o.id === _activeFsId);
+  el.textContent = (theme ? theme.name : '') + ' · ' + (fs ? fs.name : '');
+}
+
+// Применяем сохранённые настройки при старте
 applyTheme(_activeThemeId);
+applyPattern(_activePatId);
+applyBorderRadius(_activeBrId);
+applyFontSize(_activeFsId);
+_updateAppearanceDesc();
 
 // Contacts tab button: restore last sub-screen
 function showContactsTab(){

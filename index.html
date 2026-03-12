@@ -526,6 +526,12 @@ textarea::placeholder{color:var(--mu)}
 
 /* ── Media call UI ─────────────────────────────────────────────────────────── */
 /* Incoming call modal */
+/* Outgoing call confirm modal */
+#mcall-confirm{position:fixed;inset:0;z-index:600;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(10,10,15,.85);backdrop-filter:blur(6px)}
+#mcall-confirm.on{display:flex}
+/* Enable camera button during audio call */
+.mcall-full-btn.add-video{background:rgba(0,255,157,.2);border:1px solid rgba(0,255,157,.4);font-size:16px}
+.mcall-full-btn.add-video:hover{background:rgba(0,255,157,.35)}
 #mcall-modal{position:fixed;inset:0;z-index:600;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(10,10,15,.85);backdrop-filter:blur(6px)}
 #mcall-modal.on{display:flex}
 .mcall-box{background:var(--sf);border:1px solid var(--bd);border-radius:20px;padding:28px 24px;width:100%;max-width:320px;display:flex;flex-direction:column;align-items:center;gap:16px}
@@ -1305,7 +1311,7 @@ textarea::placeholder{color:var(--mu)}
     <b>⚠ Не удалось подключиться</b>
     Возможные причины:<br>
     · <b>Port-Restricted NAT</b> — попробуйте поменяться ролями<br>
-    · <b>Symmetric NAT</b> — P2P невозможен без TURN-сервера
+    · <b>Symmetric NAT</b> — соединение затруднено, попробуйте поменяться ролями
   </div>
 </div>
 
@@ -1597,6 +1603,19 @@ textarea::placeholder{color:var(--mu)}
 </div>
 
 <!-- ── Входящий медиа-звонок ──────────────────────────────────────────────── -->
+<!-- ── Подтверждение исходящего звонка ───────────────────────────────────── -->
+<div id="mcall-confirm">
+  <div class="mcall-box">
+    <div class="mcall-avatar" id="mcall-confirm-emoji">📞</div>
+    <div class="mcall-name" id="mcall-confirm-name">Контакт</div>
+    <div class="mcall-type" id="mcall-confirm-type">АУДИО · ВИДЕО</div>
+    <div class="mcall-btns">
+      <button class="mcall-btn decline" onclick="mcallConfirmCancel()">✕ Отмена</button>
+      <button class="mcall-btn accept"  onclick="mcallConfirmStart()" id="mcall-confirm-go">📹 Позвонить</button>
+    </div>
+  </div>
+</div>
+
 <div id="mcall-modal">
   <div class="mcall-box">
     <div class="mcall-avatar" id="mcall-in-emoji">📞</div>
@@ -1653,11 +1672,12 @@ textarea::placeholder{color:var(--mu)}
     <div class="mcall-full-name" id="mcall-full-name"></div>
     <div class="mcall-full-timer" id="mcall-full-timer">00:00</div>
     <div class="mcall-full-btns">
-      <button class="mcall-full-btn mute"     id="mcall-full-mute"   onclick="mcallToggleMute()"    title="Микрофон">🎤</button>
-      <button class="mcall-full-btn end"                             onclick="mcallEnd()"            title="Завершить">📵</button>
-      <button class="mcall-full-btn camera"   id="mcall-full-cam"    onclick="mcallToggleCamera()"   title="Камера">📷</button>
-      <button class="mcall-full-btn flip"     id="mcall-full-flip"   onclick="mcallFlipCamera()"     title="Переключить камеру" style="display:none">🔄</button>
-      <button class="mcall-full-btn minimize"                        onclick="mcallMinimize()"       title="Свернуть">↙</button>
+      <button class="mcall-full-btn mute"      id="mcall-full-mute"      onclick="mcallToggleMute()"     title="Микрофон">🎤</button>
+      <button class="mcall-full-btn end"                                  onclick="mcallEnd()"             title="Завершить">📵</button>
+      <button class="mcall-full-btn camera"    id="mcall-full-cam"       onclick="mcallToggleCamera()"    title="Камера">📷</button>
+      <button class="mcall-full-btn add-video" id="mcall-full-addvideo"  onclick="mcallEnableVideo()"     title="Включить камеру" style="display:none">📹</button>
+      <button class="mcall-full-btn flip"      id="mcall-full-flip"      onclick="mcallFlipCamera()"      title="Переключить камеру" style="display:none">🔄</button>
+      <button class="mcall-full-btn minimize"                             onclick="mcallMinimize()"        title="Свернуть">↙</button>
     </div>
   </div>
 </div>
@@ -4475,7 +4495,7 @@ function updateNetStatus(){
     hint.textContent='';
   } else if(natState==='symmetric'){
     dot.className='netstatus-dot err';
-    txt.textContent='Symmetric NAT — P2P невозможен';
+    txt.textContent='Symmetric NAT · попробуйте подключиться';
     hint.textContent=stunLabel;
   } else if(natState==='cone'){
     dot.className='netstatus-dot ok';
@@ -4502,7 +4522,10 @@ function setNAT(el,cls,type,desc){
   }
   if(cls==='ok') natState='cone';
   else if(cls==='err') natState='symmetric';
-  else if(cls==='warn') natState='unknown';
+  else if(cls==='warn'){
+    // Symmetric NAT теперь тоже warn — определяем по тексту типа
+    natState = (type && type.includes('Symmetric')) ? 'symmetric' : 'unknown';
+  }
   else natState='pending';
   // Кешируем результат: при следующем открытии покажем мгновенно
   if(cls==='ok'||cls==='err'||cls==='warn'){
@@ -4925,64 +4948,72 @@ window.addEventListener('beforeunload', ()=>{
 });
 
 // ── NAT detection ──
-// Both i1 and i2 are already confirmed working (from autoTest).
-// Method: one PC + two STUN servers = same local UDP socket.
-//   Cone NAT (endpoint-independent mapping): both STUNs see same external port.
-//     → browser reports 1 or 2 srflx candidates, all with same port.
-//   Symmetric NAT (endpoint+address-dependent mapping): each STUN gets different port.
-//     → 2 srflx candidates with different ports.
+// Correct method: two SEPARATE RTCPeerConnections, each with ONE STUN server.
+// Both PCs share the same local network interface but get independent ICE agents.
+//
+// Cone NAT (endpoint-independent mapping):
+//   The NAT reuses the same external port for the same internal socket,
+//   regardless of the remote address → both PCs see the same external port.
+//
+// Symmetric NAT (endpoint+address-dependent mapping):
+//   The NAT allocates a NEW external port for each unique remote (STUN) address
+//   → the two PCs get different external ports.
+//
+// NOTE: Using ONE PC with TWO STUN servers is WRONG — browsers allocate separate
+// UDP sockets per ICE agent, so ports always differ regardless of NAT type.
 async function detectNAT(i1,i2){
-  const nb=document.getElementById('natbadge'); // may be null if removed from DOM
+  const nb=document.getElementById('natbadge');
   if(i1<0){setNAT(nb,'','нет данных','нет рабочих STUN серверов для анализа');return}
 
-  const iceServers=i2>=0
-    ?[{urls:STUNS[i1].u},{urls:STUNS[i2].u}]
-    :[{urls:STUNS[i1].u}];
-
-  const srflx=await new Promise(res=>{
-    const found=[]; let p=null; let endTm=null;
-    const finish=()=>{clearTimeout(tm);clearTimeout(endTm);try{p&&p.close()}catch(e){}res(found)};
-    // Timeout long enough for both STUNs to respond even on slow networks
-    const tm=setTimeout(finish,2500); // fallback timeout
-    try{
-      p=new RTCPeerConnection({iceServers,iceCandidatePoolSize:iceServers.length});
-      p.onicecandidate=e=>{
-        if(!e.candidate){
-          // Gathering complete — short wait to catch any concurrent late arrivals
-          clearTimeout(endTm);endTm=setTimeout(finish,50);
-          return;
-        }
-        const c=e.candidate.candidate;
-        if(c.includes('srflx')){
-          const pts=c.split(' ');
-          const ri=pts.indexOf('raddr');
-          found.push({ip:pts[4],port:parseInt(pts[5]),localIp:ri>=0?pts[ri+1]:null});
+  // Helper: get srflx candidate from a single PC with one STUN server
+  const getSrflx = (stunUrl) => new Promise(res => {
+    let p = null; let endTm = null;
+    const found = [];
+    const finish = () => { clearTimeout(tm); clearTimeout(endTm); try{p&&p.close()}catch(_){} res(found); };
+    const tm = setTimeout(finish, 2500);
+    try {
+      p = new RTCPeerConnection({ iceServers: [{urls: stunUrl}], iceCandidatePoolSize: 1 });
+      p.onicecandidate = e => {
+        if (!e.candidate) { clearTimeout(endTm); endTm = setTimeout(finish, 50); return; }
+        const c = e.candidate.candidate;
+        if (c.includes('srflx')) {
+          const pts = c.split(' ');
+          const ri  = pts.indexOf('raddr');
+          found.push({ ip: pts[4], port: parseInt(pts[5]), localIp: ri >= 0 ? pts[ri+1] : null });
         }
       };
       p.createDataChannel('t');
-      p.createOffer().then(o=>p.setLocalDescription(o)).catch(finish);
-    }catch(e){clearTimeout(tm);res([])}
+      p.createOffer().then(o => p.setLocalDescription(o)).catch(finish);
+    } catch(e) { clearTimeout(tm); res([]); }
   });
 
-  if(srflx.length===0){setNAT(nb,'','нет данных','STUN не ответил');return}
+  // Run both PCs in parallel so they use the same OS UDP binding window
+  const [srflx1, srflx2] = await Promise.all([
+    getSrflx(STUNS[i1].u),
+    i2 >= 0 ? getSrflx(STUNS[i2].u) : Promise.resolve([])
+  ]);
 
-  const r=srflx[0];
-  // No NAT: STUN-mapped IP matches local IP → device has public IP directly
-  if(r.localIp&&r.ip===r.localIp){
-    setNAT(nb,'ok','без NAT','публичный IP · P2P работает в любом случае');return;
+  if (srflx1.length === 0) { setNAT(nb,'','нет данных','STUN не ответил'); return; }
+
+  const r = srflx1[0];
+  // No NAT: public IP
+  if (r.localIp && r.ip === r.localIp) {
+    setNAT(nb,'ok','без NAT','публичный IP · P2P работает в любом случае'); return;
   }
 
-  if(i2<0){
-    setNAT(nb,'warn','NAT · тип не определён',`только один STUN сервер · ${r.ip}:${r.port}`);return;
+  if (i2 < 0 || srflx2.length === 0) {
+    setNAT(nb,'warn','NAT · тип не определён',`только один STUN сервер · ${r.ip}:${r.port}`); return;
   }
 
-  const ports=[...new Set(srflx.map(c=>c.port))];
-  if(ports.length>1){
-    // Different external ports from same socket → Symmetric NAT
-    setNAT(nb,'err','Symmetric NAT',`порты ${ports.join(' / ')} · P2P невозможен без TURN-сервера`);
-  }else{
-    // Same external port for both STUNs → Cone NAT (endpoint-independent mapping)
-    setNAT(nb,'ok','Cone NAT',`внешний порт ${ports[0]} · P2P работает`);
+  const port1 = srflx1[0].port;
+  const port2 = srflx2[0].port;
+
+  if (port1 !== port2) {
+    // Different external ports for different remote STUN addresses → Symmetric NAT
+    setNAT(nb,'warn','Symmetric NAT',`порты ${port1} / ${port2} · соединение может работать, попробуйте`);
+  } else {
+    // Same external port regardless of destination → Cone NAT
+    setNAT(nb,'ok','Cone NAT',`внешний порт ${port1} · P2P работает`);
   }
 }
 
@@ -5061,7 +5092,7 @@ function createPC(){
         _p2pHandleFailure('failed');
       }else{
         setStat('не удалось подключиться');
-        showAlert('Возможные причины:<br>· <b>Port-Restricted Cone NAT</b> — попробуйте поменяться ролями<br>· <b>Symmetric NAT</b> — P2P невозможен без TURN-сервера');
+        showAlert('Возможные причины:<br>· <b>Port-Restricted Cone NAT</b> — попробуйте поменяться ролями<br>· <b>Symmetric NAT</b> — соединение затруднено, попробуйте поменяться ролями');
       }
     }else if(s==='connected'||s==='completed'){
       clearTimeout(pc._reconnectHint);
@@ -5876,9 +5907,51 @@ let _mcTimerInterval = null;
 
 // ── Исходящий звонок ─────────────────────────────────────────────────────────
 
-async function mcallStart(video){
+// ── Wake Lock — держим экран активным во время звонка ────────────────────────
+let _mcWakeLock = null;
+
+async function _mcAcquireWakeLock(){
+  if(!('wakeLock' in navigator)) return;
+  try{
+    _mcWakeLock = await navigator.wakeLock.request('screen');
+    _mcWakeLock.addEventListener('release', () => { _mcWakeLock = null; });
+  }catch(_){}
+}
+
+function _mcReleaseWakeLock(){
+  try{ if(_mcWakeLock){ _mcWakeLock.release(); _mcWakeLock = null; } }catch(_){}
+}
+
+// Переподхватываем Wake Lock при возврате из фона (браузер его снимает)
+document.addEventListener('visibilitychange', () => {
+  if(!document.hidden && _mc.state === 'active' && !_mcWakeLock){
+    _mcAcquireWakeLock();
+  }
+});
+
+// ── Подтверждение исходящего звонка ─────────────────────────────────────────
+let _mcPendingVideo = false;
+
+function mcallStart(video){
   if(!dc || dc.readyState !== 'open'){ toast('Нет соединения'); return; }
   if(_mc.state !== 'idle'){ toast('Звонок уже активен'); return; }
+
+  _mcPendingVideo = video;
+  const name = $('peer-name').textContent || 'Контакт';
+  $('mcall-confirm-name').textContent   = name;
+  $('mcall-confirm-emoji').textContent  = video ? '📹' : '🎤';
+  $('mcall-confirm-type').textContent   = video ? 'АУДИО · ВИДЕО' : 'АУДИО';
+  $('mcall-confirm-go').textContent     = video ? '📹 Позвонить' : '🎤 Позвонить';
+  $('mcall-confirm').classList.add('on');
+}
+
+function mcallConfirmCancel(){
+  $('mcall-confirm').classList.remove('on');
+}
+
+async function mcallConfirmStart(){
+  $('mcall-confirm').classList.remove('on');
+  const video = _mcPendingVideo;
 
   let stream;
   try{
@@ -5893,13 +5966,9 @@ async function mcallStart(video){
   _mc.peerFp  = currentPeerFp;
   _mc.localStream = stream;
 
-  // Добавляем треки в существующий PeerConnection
   _mc.localSenders = stream.getTracks().map(t => pc.addTrack(t, stream));
-
-  // Renegotiation
   await _mcRenegotiate();
 
-  // Устанавливаем битрейт после renegotiation
   const _br1 = getVideoBitrates();
   for(const sender of _mc.localSenders){
     try{
@@ -5908,12 +5977,11 @@ async function mcallStart(video){
       const kind = sender.track && sender.track.kind;
       params.encodings[0].maxBitrate = kind === 'video' ? _br1.video : _br1.audio;
       await sender.setParameters(params);
-    }catch(e){ /* браузер может не поддерживать */ }
+    }catch(_){}
   }
 
-  // Сигнал через E2E DataChannel
   _e2eSend(JSON.stringify({ __mcall__: 'offer', video }));
-
+  _mcAcquireWakeLock();
   _mcUpdateUI();
   toast(video ? '📹 Звоним...' : '🎤 Звоним...');
 }
@@ -5979,7 +6047,65 @@ async function mcallAccept(withVideo){
 
   _mcStartTimer();
   _mcStartStats();
+  _mcAcquireWakeLock();
   _mcUpdateUI();
+}
+
+// ── Включить камеру во время аудио-звонка ────────────────────────────────────
+
+async function mcallEnableVideo(){
+  if(_mc.state !== 'active' || _mc.video) return;
+  const s = getMediaSettings();
+  const p = VIDEO_PROFILES[s.videoProfile] || VIDEO_PROFILES.std;
+  let videoTrack;
+  try{
+    const vs = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: {exact: _mcFacingMode}, width:{ideal:p.width}, height:{ideal:p.height}, frameRate:{ideal:p.frameRate} }
+    });
+    videoTrack = vs.getVideoTracks()[0];
+  }catch(_){
+    try{
+      const vs2 = await navigator.mediaDevices.getUserMedia({
+        audio: false, video: { facingMode: _mcFacingMode }
+      });
+      videoTrack = vs2.getVideoTracks()[0];
+    }catch(e){
+      toast('Нет доступа к камере: ' + (e.message || e.name)); return;
+    }
+  }
+  if(!videoTrack){ toast('Нет видеотрека'); return; }
+
+  // Добавляем новый видео-трек в PeerConnection
+  const sender = pc.addTrack(videoTrack, _mc.localStream);
+  _mc.localSenders.push(sender);
+
+  // Обновляем localStream
+  const updStream = new MediaStream([..._mc.localStream.getTracks(), videoTrack]);
+  _mc.localStream = updStream;
+
+  // Устанавливаем битрейт
+  try{
+    const params = sender.getParameters();
+    if(!params.encodings || !params.encodings.length) params.encodings = [{}];
+    params.encodings[0].maxBitrate = getVideoBitrates().video;
+    await sender.setParameters(params);
+  }catch(_){}
+
+  _mc.video      = true;
+  _mc.videoMuted = false;
+
+  // Обновляем превью
+  const lv = $('mcall-local-video');
+  lv.srcObject = updStream;
+  lv.style.display = 'block';
+
+  // Сигналим собеседнику о появлении видео
+  await _mcRenegotiate();
+  _e2eSend(JSON.stringify({ __mcall__: 'mute', audio: _mc.audioMuted, video: false }));
+
+  _mcUpdateUI();
+  toast('📹 Камера включена');
 }
 
 function mcallReject(){
@@ -6129,6 +6255,7 @@ function _mcStartTimer(){
 function _mcReset(){
   clearInterval(_mcTimerInterval);
   _mcStopStats();
+  _mcReleaseWakeLock();
   _mcFacingMode = 'user';
   $('mcall-modal').classList.remove('on');
   $('mcall-bar').classList.remove('on');
@@ -6195,6 +6322,10 @@ function _mcUpdateUI(){
     el.classList.toggle('active', camActive);
   });
 
+  // Кнопка включить камеру — только при аудио-звонке
+  const addVideoBtn = $('mcall-full-addvideo');
+  if(addVideoBtn) addVideoBtn.style.display = (_mc.video ? 'none' : 'flex');
+
   // Кнопка переключения камеры — только если видео включено
   const flipBtn = $('mcall-full-flip');
   if(flipBtn) flipBtn.style.display = (_mc.video && !_mc.videoMuted) ? 'flex' : 'none';
@@ -6214,36 +6345,62 @@ function _mcUpdateUI(){
 let _mcFacingMode = 'user'; // 'user' = фронтальная, 'environment' = тыловая
 
 async function mcallFlipCamera(){
-  if(!_mc.localStream || !_mc.video || _mc.videoMuted) return;
-  _mcFacingMode = _mcFacingMode === 'user' ? 'environment' : 'user';
+  if(!_mc.localStream || !_mc.video) return;
+  const nextFacing = _mcFacingMode === 'user' ? 'environment' : 'user';
+
+  // Try exact facingMode first (required on many Android browsers),
+  // fall back to ideal if device doesn't support exact constraint
+  let newStream = null;
   const s = getMediaSettings();
   const p = VIDEO_PROFILES[s.videoProfile] || VIDEO_PROFILES.std;
-  try{
-    const newStream = await navigator.mediaDevices.getUserMedia({
+  const baseVideo = { width:{ideal:p.width}, height:{ideal:p.height}, frameRate:{ideal:p.frameRate} };
+  try {
+    newStream = await navigator.mediaDevices.getUserMedia({
       audio: false,
-      video: { facingMode: _mcFacingMode, width:{ideal:p.width}, height:{ideal:p.height}, frameRate:{ideal:p.frameRate} }
+      video: { facingMode: {exact: nextFacing}, ...baseVideo }
     });
-    const newTrack = newStream.getVideoTracks()[0];
-    // Заменяем трек в sender
-    const videoSender = _mc.localSenders.find(s => s.track && s.track.kind === 'video');
-    if(videoSender){
-      await videoSender.replaceTrack(newTrack);
-      // Останавливаем старый видео трек
-      _mc.localStream.getVideoTracks().forEach(t => t.stop());
-      // Обновляем stream
-      const audioTracks = _mc.localStream.getAudioTracks();
-      const updStream = new MediaStream([...audioTracks, newTrack]);
-      _mc.localStream = updStream;
-      const lv = $('mcall-local-video');
-      lv.srcObject = updStream;
+  } catch(_) {
+    try {
+      newStream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: nextFacing, ...baseVideo }
+      });
+    } catch(e) {
+      toast('Не удалось переключить камеру: ' + (e.message || e.name));
+      return;
     }
+  }
+  const newTrack = newStream.getVideoTracks()[0];
+  if(!newTrack){ toast('Нет видеотрека'); return; }
+  // Find video sender by track kind
+  const videoSender = _mc.localSenders.find(snd => {
+    try { return snd.track && snd.track.kind === 'video'; } catch(_){ return false; }
+  });
+
+  try {
+    if(videoSender) await videoSender.replaceTrack(newTrack);
+
+    // Stop old video tracks
+    _mc.localStream.getVideoTracks().forEach(t => { try{ t.stop(); }catch(_){} });
+
+    // Rebuild stream with new video track
+    const audioTracks = _mc.localStream.getAudioTracks();
+    const updStream = new MediaStream([...audioTracks, newTrack]);
+    _mc.localStream = updStream;
+
+    const lv = $('mcall-local-video');
+    lv.srcObject = updStream;
+    if(!_mc.videoMuted) lv.style.display = 'block';
+
+    _mcFacingMode = nextFacing;
+
     const flipBtn = $('mcall-full-flip');
     if(flipBtn) flipBtn.style.background = _mcFacingMode === 'environment'
       ? 'rgba(0,255,157,.25)' : 'rgba(255,255,255,.15)';
     toast(_mcFacingMode === 'user' ? '📷 Фронтальная камера' : '📷 Тыловая камера');
-  }catch(e){
-    _mcFacingMode = _mcFacingMode === 'user' ? 'environment' : 'user'; // откат
-    toast('Не удалось переключить камеру');
+  } catch(e) {
+    toast('Ошибка замены трека: ' + (e.message || e.name));
+    try{ newTrack.stop(); }catch(_){}
   }
 }
 
@@ -6436,7 +6593,7 @@ async function applyAnswer(){
         setStat('не удалось подключиться');
         $('a2s').style.display='none';
         const msg=natState==='unknown'
-          ?'Возможные причины:<br>· <b>Port-Restricted Cone NAT</b> — попробуйте поменяться ролями<br>· <b>Symmetric NAT</b> — P2P невозможен без TURN-сервера<br><br>Попробуйте поменяться ролями.'
+          ?'Возможные причины:<br>· <b>Port-Restricted Cone NAT</b> — попробуйте поменяться ролями<br>· <b>Symmetric NAT</b> — соединение затруднено, попробуйте поменяться ролями<br><br>Попробуйте поменяться ролями.'
           :'Возможная причина — <b>Port-Restricted Cone NAT</b>.<br>Попробуйте поменяться ролями: пусть другое устройство станет инициатором.';
         showAlert(msg);
       }

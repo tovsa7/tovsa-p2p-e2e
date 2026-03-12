@@ -179,6 +179,9 @@ textarea::placeholder{color:var(--mu)}
 .msg-circle-wrap{display:flex;flex-direction:column;align-items:center;gap:4px}
 .msg-circle{position:relative;width:200px;height:200px;border-radius:50%;overflow:hidden;cursor:pointer;background:#111;flex-shrink:0;box-shadow:0 0 0 2px var(--bd)}
 .msg.out .msg-circle{box-shadow:0 0 0 2px rgba(0,255,157,.25)}
+/* кружок и голосовое — без рамки и фона у пузыря */
+.msg.msg-file-bubble:has(.msg-circle-wrap){background:transparent;border:none;padding:2px}
+.msg.msg-file-bubble:has(.msg-voice){background:var(--sn);}
 .msg-circle video{width:100%;height:100%;object-fit:cover;display:block}
 .msg-circle-ov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.25)}
 .msg-circle-play{width:48px;height:48px;border-radius:50%;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
@@ -4923,9 +4926,13 @@ function vrInit(){
 let _vrBtnDownTs  = 0;  // когда началось нажатие
 let _vrBtnMoved   = false; // засекаем свайп на кнопке (touch)
 let _vrBtnStartX  = 0;
+let _vrWasTouch   = false; // флаг: последнее нажатие было touch (блокируем дублирующий click)
 
 function vrBtnDown(e){
-  if(e.type === 'touchstart') e.preventDefault();
+  if(e.type === 'touchstart'){
+    e.preventDefault();
+    _vrWasTouch = true;
+  }
   const mi = document.getElementById('mi');
   const hasText = mi && mi.value.trim().length > 0;
   if(hasText || _vr.state !== 'idle') return;
@@ -4943,10 +4950,9 @@ function vrBtnDown(e){
 function vrBtnUp(e){
   if(e.type === 'touchend') e.preventDefault();
   if(_vr.holdTimer){
-    // Нажатие было коротким — это тап, holdTimer не сработал
     clearTimeout(_vr.holdTimer);
     _vr.holdTimer = null;
-    // Тап без текста → переключить режим (только если не было свайпа)
+    // Короткое нажатие без свайпа → переключить режим
     if(!_vrBtnMoved){
       _vrToggleMode();
     }
@@ -4964,18 +4970,21 @@ function vrBtnUp(e){
 }
 
 function vrBtnLeave(e){
-  // Мышь ушла с кнопки — отменяем hold-таймер (только mouse, не touch)
   if(e.type !== 'mouseleave') return;
   if(_vr.holdTimer){ clearTimeout(_vr.holdTimer); _vr.holdTimer = null; }
 }
 
 function vrBtnClick(e){
-  // Если есть текст — отправить
+  // На touch-устройствах click дублирует touchend — игнорируем
+  if(_vrWasTouch){ _vrWasTouch = false; return; }
+  // Mouse: если есть текст — отправить
   const mi = document.getElementById('mi');
   if(mi && mi.value.trim().length > 0){
     sendMsg();
+    return;
   }
-  // Переключение режима обрабатывается в vrBtnUp
+  // Mouse-тап (holdTimer уже сброшен в mouseup → vrBtnUp не вызывается для mouse click)
+  // Переключение режима для мыши уже обработано в vrBtnUp через mouseup
 }
 
 // ── Переключение режима 🎤 ↔ 🔴 ──────────────────────────────────────────────
@@ -8859,13 +8868,14 @@ async function buildFileBubble(meta,blobOrNull,msgType){
       audioEl._mpName='🎤 Голосовое'; audioEl._mpSource=_source;
       audioEl._mpContainer=_container; audioEl._mpBubble=d;
       mpShow(audioEl,'🎤 Голосовое',_source,_container,d);
-      audioEl.play();
+      audioEl.play().catch(()=>{});
     });
     wavEl.addEventListener('click', e => {
       if(!isFinite(audioEl.duration)) return;
       const rect=wavEl.getBoundingClientRect();
       audioEl.currentTime=(e.clientX-rect.left)/rect.width*audioEl.duration;
       _updateBars();
+      if(audioEl.paused) audioEl.play().catch(()=>{});
     });
     return d;
   }
@@ -8875,6 +8885,7 @@ async function buildFileBubble(meta,blobOrNull,msgType){
     d.classList.add('msg-file-bubble');
     const cid='cv-'+Math.random().toString(36).slice(2);
     const cdid='cd-'+Math.random().toString(36).slice(2);
+    const scid='cs-'+Math.random().toString(36).slice(2);
     inner=`<div class="msg-circle-wrap">
       <div class="msg-circle" id="${cid}">
         <video src="${url}" playsinline preload="metadata" loop style="width:100%;height:100%;object-fit:cover;display:block"></video>
@@ -8882,23 +8893,52 @@ async function buildFileBubble(meta,blobOrNull,msgType){
           <div class="msg-circle-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
         </div>
       </div>
-      <div class="msg-circle-dur" id="${cdid}">0:00</div>
+      <div style="width:200px;display:flex;align-items:center;gap:6px;margin-top:2px">
+        <div class="msg-circle-dur" id="${cdid}" style="margin:0;min-width:32px">0:00</div>
+        <input type="range" id="${scid}" min="0" max="100" value="0" step="0.1"
+          style="flex:1;height:3px;accent-color:var(--a);cursor:pointer;background:var(--bd);border-radius:2px">
+      </div>
     </div>`;
     d.innerHTML=inner+`<div class="mmeta" style="text-align:center">${t}</div>`;
     const vidEl=d.querySelector('video');
     const ov=d.querySelector('#co-'+cid);
     const durEl2=d.querySelector('#'+cdid);
+    const scrubEl=d.querySelector('#'+scid);
+    let _scrubbing=false;
+
     vidEl.addEventListener('loadedmetadata',()=>{
       if(isFinite(vidEl.duration)){
         const mm=Math.floor(vidEl.duration/60),ss=Math.floor(vidEl.duration%60);
         if(durEl2) durEl2.textContent=mm+':'+(ss<10?'0':'')+ss;
+        if(scrubEl) scrubEl.max=vidEl.duration;
       }
     });
+
+    // Обновляем scrubber во время воспроизведения
+    vidEl.addEventListener('timeupdate',()=>{
+      if(_scrubbing) return;
+      if(scrubEl && isFinite(vidEl.duration)){
+        scrubEl.value=vidEl.currentTime;
+      }
+      if(durEl2 && isFinite(vidEl.duration)){
+        const rem=vidEl.duration-vidEl.currentTime;
+        const mm=Math.floor(rem/60),ss=Math.floor(rem%60);
+        durEl2.textContent=mm+':'+(ss<10?'0':'')+ss;
+      }
+    });
+
+    scrubEl.addEventListener('input',()=>{ _scrubbing=true; });
+    scrubEl.addEventListener('change',()=>{
+      _scrubbing=false;
+      vidEl.currentTime=parseFloat(scrubEl.value);
+    });
+    scrubEl.addEventListener('click', e=>e.stopPropagation());
+
     vidEl.addEventListener('play',()=>{ if(ov) ov.style.display='none'; });
     vidEl.addEventListener('pause',()=>{ if(ov) ov.style.display=''; });
     vidEl.addEventListener('ended',()=>{ vidEl.pause(); vidEl.currentTime=0; if(ov) ov.style.display=''; });
     d.querySelector('#'+cid).addEventListener('click',()=>{
-      if(vidEl.paused) vidEl.play(); else vidEl.pause();
+      if(vidEl.paused) vidEl.play().catch(()=>{}); else vidEl.pause();
     });
     return d;
   }

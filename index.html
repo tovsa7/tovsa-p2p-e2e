@@ -2929,6 +2929,7 @@ function _updateGlobalHiddenUI() {
 
 // Группы
 let _grpAll     = {};    // code → groupRecord  (persist)
+let _grpDecRetry= {};    // code → [{fromPid, payload, rawData, ts}] — очередь на повторную расшифровку
 let _grpMyPeer  = {};    // code → Peer
 let _grpConns   = {};    // code → Map<peerId, DataConnection>
 let _grpSeen    = {};    // code → Set<msgId>
@@ -9379,6 +9380,14 @@ async function grpJoin(code, myName){
   // (SESSION_SALT меняется → все старые PID недостижимы). Актуальных участников
   // обнаружим через рандеву. Это устраняет лавину бесполезных outConnect.
   g.knownPids = [];
+  // Генерируем seed заранее если его нет — иначе первое сообщение будет зашифровано
+  // «пустым» ключом (seed || '') и не расшифруется на другой стороне.
+  // Тайбрейкер при hello-обмене синхронизирует seed между участниками.
+  if(!g.seed){
+    const seedBytes = crypto.getRandomValues(new Uint8Array(32));
+    g.seed = Array.from(seedBytes).map(b=>b.toString(16).padStart(2,'0')).join('');
+    _grpLog(`#${code} → seed сгенерирован при входе`);
+  }
   // Убираем дубли по fp — оставляем последнюю запись для каждого участника,
   // а себя убираем полностью (добавимся заново с актуальным pid).
   if(g.members){
@@ -9778,6 +9787,7 @@ async function _grpRvHandshake(code, myPid){
       for(const k of Object.keys(_grpKeyCache)){ if(k.startsWith(code+':')) delete _grpKeyCache[k]; }
       _grpLog(`#${code} рандеву: ✓ получили seed от rv-holder`);
       _grpSave();
+      _grpFlushDecRetry(code);
     } else if(intro.seed !== g.seed){
       // Оба стали rv-holder с разными seed — детерминированный тайбрейкер
       if(intro.seed < g.seed){
@@ -9785,6 +9795,7 @@ async function _grpRvHandshake(code, myPid){
         for(const k of Object.keys(_grpKeyCache)){ if(k.startsWith(code+':')) delete _grpKeyCache[k]; }
         _grpLog(`#${code} рандеву: seed-конфликт → принимаем seed rv-holder (меньший)`, 'warn');
         _grpSave();
+        _grpFlushDecRetry(code);
       } else {
         _grpLog(`#${code} рандеву: seed-конфликт → оставляем наш seed (он меньше)`, 'warn');
       }
@@ -9983,6 +9994,7 @@ async function _grpHandleHello(code, fromPid, g, payload){
       }
       _grpLog(`#${code} получили seed от доверенного ${fromPid.slice(-12)} · isKnown=${isKnown} isContact=${isContact} myPidInTheirs=${myPidInTheirs}`);
       _grpSave();
+      _grpFlushDecRetry(code);
     } else {
       _grpLog(`#${code} ⚠ seed отклонён от ${fromPid.slice(-12)} · isKnown=${isKnown} isContact=${isContact} myPidInTheirs=${myPidInTheirs} · myKnownPids=[${(g.knownPids||[]).map(p=>p.slice(-8)).join(',')}]`, 'warn');
     }
@@ -9996,6 +10008,7 @@ async function _grpHandleHello(code, fromPid, g, payload){
         g.seed = seed;
         for(const k of Object.keys(_grpKeyCache)){ if(k.startsWith(code+':')) delete _grpKeyCache[k]; }
         _grpSave();
+        _grpFlushDecRetry(code);
       } else {
         _grpLog(`#${code} seed-конфликт: оставляем наш seed (он меньше), ${fromPid.slice(-12)} должен принять наш`, 'warn');
         // Наш seed меньше — принудительно шлём hello чтобы партнёр принял наш seed
@@ -10080,7 +10093,15 @@ async function _grpHandleMessage(code, fromPid, g, payload, rawData){
     text = await _grpDec(code, ver ?? g.keyVer ?? 0, enc);
   } catch(e){
     const hasSeed = !!((_grpAll[code]?.seed));
-    _grpLog(`#${code} ✗ дешифровка msg ${id} · ver=${ver} keyVer=${g.keyVer} hasSeed=${hasSeed} · ${e?.message||e}`, 'error');
+    // Ставим в очередь на повторную расшифровку — seed может прийти чуть позже (hello-обмен ещё не завершён)
+    if(!_grpDecRetry[code]) _grpDecRetry[code] = [];
+    // Не дублируем и не накапливаем слишком много
+    if(_grpDecRetry[code].length < 50 && !_grpDecRetry[code].some(r=>r.payload.id===id)){
+      _grpDecRetry[code].push({fromPid, payload, rawData, queued: Date.now()});
+      _grpLog(`#${code} ✗ дешифровка msg ${id} · ver=${ver} hasSeed=${hasSeed} — в очередь на retry`, 'warn');
+    } else {
+      _grpLog(`#${code} ✗ дешифровка msg ${id} · ver=${ver} hasSeed=${hasSeed} · ${e?.message||e}`, 'error');
+    }
     return;
   }
 
@@ -10170,6 +10191,22 @@ function _grpForward(code, exceptPid, data){
 function _grpBroadcast(code, data){
   _grpConns[code]?.forEach(c=>{ if(c?.open) try{c.send(data)}catch(_){} });
 }
+// Повторно расшифровываем сообщения из очереди после обновления seed
+async function _grpFlushDecRetry(code){
+  const queue = _grpDecRetry[code];
+  if(!queue || queue.length === 0) return;
+  const g = _grpAll[code]; if(!g?.seed) return;
+  _grpDecRetry[code] = [];
+  const now = Date.now();
+  for(const {fromPid, payload, rawData, queued} of queue){
+    // Отбрасываем совсем старые (>30с) — скорее всего уже не нужны
+    if(now - queued > 30000) continue;
+    // Убираем из seen чтобы повторная обработка прошла
+    _grpSeen[code]?.delete(payload.id);
+    await _grpHandleMessage(code, fromPid, g, payload, rawData);
+  }
+}
+
 function _grpBroadcastHello(code){
   const g=_grpAll[code]; if(!g) return;
   // knownPids: только реально подключённые — не рассылаем устаревшие исторические PIDs

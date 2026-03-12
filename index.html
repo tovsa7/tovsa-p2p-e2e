@@ -374,6 +374,10 @@ textarea::placeholder{color:var(--mu)}
 .citem{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--bd);transition:background .12s;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .citem:hover{background:var(--sf)}
 .citem.active-peer{background:rgba(0,255,157,.03);border-left:2px solid var(--a)}
+/* Офлайн-очередь */
+.msg.pending{opacity:.65}
+.msg.pending .mmeta::after{content:' ⏳';font-size:9px;color:var(--w)}
+.citem-queue-badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;background:var(--w);color:#000;font-size:9px;font-weight:700;border-radius:8px;margin-left:6px;letter-spacing:0}
 .ci-online-dot{width:9px;height:9px;border-radius:50%;background:var(--a);box-shadow:0 0 6px var(--a);flex-shrink:0;animation:blink 2s infinite}
 .ci-presence-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;transition:background .3s,box-shadow .3s}
 .ci-presence-dot.online{background:var(--a);box-shadow:0 0 5px var(--a)}
@@ -411,6 +415,18 @@ textarea::placeholder{color:var(--mu)}
 .sh-empty{flex:1;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--mu)}
 /* identity panel */
 .idpanel{padding:10px 16px;border-bottom:1px solid var(--bd);background:var(--sf);display:flex;align-items:center;gap:10px;flex-shrink:0;font-size:11px}
+/* Search bar */
+#search-bar, .search-bar-generic{display:none;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--bd);background:var(--sf);flex-shrink:0}
+#search-bar.on, .search-bar-generic.on{display:flex}
+#search-input, .search-input-generic{flex:1;background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:7px 12px;color:var(--tx);font-family:inherit;font-size:12px;outline:none;transition:border-color .15s}
+#search-input:focus, .search-input-generic:focus{border-color:var(--a)}
+#search-input::placeholder, .search-input-generic::placeholder{color:var(--mu)}
+#search-count, .search-count-generic{font-size:10px;color:var(--mu);white-space:nowrap;min-width:44px;text-align:center}
+.search-nav-btn{background:none;border:none;cursor:pointer;color:var(--mu);font-size:16px;padding:4px 6px;line-height:1;transition:color .15s;border-radius:6px}
+.search-nav-btn:hover{color:var(--a)}
+.search-nav-btn:disabled{opacity:.25;cursor:default}
+.search-highlight{background:rgba(255,183,0,.35);border-radius:2px;color:inherit}
+.search-highlight.current{background:rgba(255,183,0,.7);outline:1px solid rgba(255,183,0,.9)}
 .idfp{font-size:18px;letter-spacing:2px;line-height:1}
 .idinfo{flex:1;min-width:0}
 .idname{font-weight:700;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1489,9 +1505,28 @@ textarea::placeholder{color:var(--mu)}
     </div>
     <button id="sh-conn-btn" class="ci-conn-btn" style="display:none" onclick="connectToContact(_historyFp)">→ связь</button>
     <button id="sh-invite-btn" class="ci-conn-btn" style="display:none;background:none;border-color:var(--mu);color:var(--mu)" onclick="inviteFromHistory()">📣 позвать</button>
+    <button onclick="openChatSearch('sh-msgs')" title="Поиск" style="background:none;border:none;cursor:pointer;font-size:15px;padding:5px;color:var(--mu);transition:color .15s;flex-shrink:0" onmouseover="this.style.color='var(--a)'" onmouseout="this.style.color='var(--mu)'">🔍</button>
+  </div>
+  <div id="search-bar-sh" class="search-bar-generic">
+    <button class="search-nav-btn" onclick="closeChatSearch('sh-msgs')" style="font-size:13px;color:var(--mu)">✕</button>
+    <input class="search-input-generic" type="search" placeholder="Поиск в переписке..." oninput="onSearchInput('sh-msgs')" onkeydown="onSearchKey(event,'sh-msgs')" autocomplete="off">
+    <span class="search-count-generic"></span>
+    <button class="search-nav-btn search-prev-generic" onclick="searchNav(-1,'sh-msgs')" disabled>▲</button>
+    <button class="search-nav-btn search-next-generic" onclick="searchNav(1,'sh-msgs')"  disabled>▼</button>
   </div>
   <div class="msgs" id="sh-msgs" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:16px;display:flex;flex-direction:column;gap:8px;touch-action:pan-y"></div>
   <div class="sh-empty" id="sh-empty" style="display:none">Нет сохранённых сообщений</div>
+  <!-- Офлайн-очередь: поле ввода в истории -->
+  <div id="sh-iarea" class="iarea" style="display:none;flex-direction:column;gap:8px;padding:10px 12px">
+    <div id="sh-offline-banner" style="display:flex;align-items:center;gap:8px;font-size:10px;color:var(--w);padding:0 2px">
+      <span style="width:6px;height:6px;border-radius:50%;background:var(--w);flex-shrink:0;animation:blink .9s infinite"></span>
+      <span>Контакт не в сети — сообщение будет отправлено при подключении</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:flex-end">
+      <textarea id="sh-mi" placeholder="Написать сообщение..." onkeydown="handleShMiKey(event)" oninput="autoGrowMi(this)" style="flex:1;background:var(--bg);border:1px solid var(--bd);border-radius:16px;padding:10px 16px;color:var(--tx);font-family:inherit;font-size:var(--fs);outline:none;resize:none;overflow:hidden;line-height:1.4;height:calc(1.4em + 20px);max-height:120px;overflow-y:auto;scrollbar-width:none;transition:border-color .2s" onfocus="this.style.borderColor='var(--a)'" onblur="this.style.borderColor='var(--bd)'"></textarea>
+      <button class="btn" onclick="sendOfflineMsg()" style="padding:10px 16px;flex-shrink:0;align-self:flex-end">📤</button>
+    </div>
+  </div>
 </div>
 
 <!-- Контакты -->
@@ -1522,6 +1557,14 @@ textarea::placeholder{color:var(--mu)}
       <div class="sh-name">Избранное</div>
       <div class="sh-fp">личные заметки</div>
     </div>
+    <button onclick="openChatSearch('fav-msgs')" title="Поиск" style="background:none;border:none;cursor:pointer;font-size:15px;padding:5px;color:var(--mu);transition:color .15s;flex-shrink:0" onmouseover="this.style.color='var(--a)'" onmouseout="this.style.color='var(--mu)'">🔍</button>
+  </div>
+  <div id="search-bar-fav-msgs" class="search-bar-generic">
+    <button class="search-nav-btn" onclick="closeChatSearch('fav-msgs')" style="font-size:13px;color:var(--mu)">✕</button>
+    <input class="search-input-generic" type="search" placeholder="Поиск в избранном..." oninput="onSearchInput('fav-msgs')" onkeydown="onSearchKey(event,'fav-msgs')" autocomplete="off">
+    <span class="search-count-generic"></span>
+    <button class="search-nav-btn search-prev-generic" onclick="searchNav(-1,'fav-msgs')" disabled>▲</button>
+    <button class="search-nav-btn search-next-generic" onclick="searchNav(1,'fav-msgs')"  disabled>▼</button>
   </div>
   <div class="msgs" id="fav-msgs" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:16px;display:flex;flex-direction:column-reverse;gap:8px;touch-action:pan-y"></div>
   <div class="reply-bar" id="fav-reply-bar">
@@ -1650,6 +1693,16 @@ textarea::placeholder{color:var(--mu)}
       <button onclick="mcallStart(false)" title="Аудиозвонок" style="background:none;border:1px solid var(--bd);border-radius:8px;padding:5px 9px;font-size:14px;cursor:pointer;color:var(--mu);transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='var(--a)';this.style.color='var(--a)'" onmouseout="this.style.borderColor='var(--bd)';this.style.color='var(--mu)'">🎤</button>
       <button onclick="mcallStart(true)" title="Видеозвонок" style="background:none;border:1px solid var(--bd);border-radius:8px;padding:5px 9px;font-size:14px;cursor:pointer;color:var(--mu);transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='var(--a)';this.style.color='var(--a)'" onmouseout="this.style.borderColor='var(--bd)';this.style.color='var(--mu)'">📹</button>
     </div>
+    <button onclick="openChatSearch('msgs')" title="Поиск" style="background:none;border:none;cursor:pointer;font-size:15px;padding:5px;color:var(--mu);transition:color .15s;flex-shrink:0" onmouseover="this.style.color='var(--a)'" onmouseout="this.style.color='var(--mu)'">🔍</button>
+  </div>
+
+  <!-- Search bar -->
+  <div id="search-bar-msgs" class="search-bar-generic">
+    <button class="search-nav-btn" onclick="closeChatSearch('msgs')" style="font-size:13px;color:var(--mu)">✕</button>
+    <input class="search-input-generic" type="search" placeholder="Поиск в переписке..." oninput="onSearchInput('msgs')" onkeydown="onSearchKey(event,'msgs')" autocomplete="off">
+    <span class="search-count-generic"></span>
+    <button class="search-nav-btn search-prev-generic" onclick="searchNav(-1,'msgs')" disabled>▲</button>
+    <button class="search-nav-btn search-next-generic" onclick="searchNav(1,'msgs')"  disabled>▼</button>
   </div>
   <div id="pin-bar" style="display:none;align-items:center;gap:8px;padding:7px 12px;
     background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0;">
@@ -2893,10 +2946,13 @@ function _buildContactEl(fp, c, h, isConnected){
   const nameHtml = esc(c.name || 'Неизвестный');
   const fpHint = c._stranger ? `<div style="font-size:9px;color:var(--mu);opacity:.7">${fp}</div>` : '';
 
+  const queueCount = _offlineQueue.filter(m => m.fp === fp).length;
+  const queueBadge = queueCount > 0 ? `<span class="citem-queue-badge">${queueCount}</span>` : '';
+
   return `<div class="citem${activeClass}" data-fp="${fp}" onclick="openHistory('${fp}')" ${ctxAttr}>
     ${onlineDot}${presenceDot}
     <div class="ciinfo">
-      <div class="ciname">${nameHtml}${pinHtml}${unconfHtml}</div>
+      <div class="ciname">${nameHtml}${pinHtml}${unconfHtml}${queueBadge}</div>
       ${fpHint}
       ${lastHtml}
     </div>
@@ -3332,10 +3388,92 @@ async function openHistory(fp){
     nodes.forEach(n=>container.appendChild(n));
     container.scrollTop=container.scrollHeight;
   }
+  // Показываем поле ввода только если контакт офлайн (нет активного соединения с ним)
+  const shIarea = $('sh-iarea');
+  if(shIarea){
+    const isActiveChat = $('sc').dataset.active==='1' && currentPeerFp===fp && dc && dc.readyState==='open';
+    shIarea.style.display = isActiveChat ? 'none' : '';
+  }
+  _updateQueueBadge(fp);
+
   showTab('sh');
 }
 
 function toggleContacts(){ showTab('sk'); }
+
+// ── Офлайн-сообщения из истории ──────────────────────────────────────────────
+function handleShMiKey(e){
+  if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendOfflineMsg(); }
+}
+
+async function sendOfflineMsg(){
+  const inp = $('sh-mi');
+  if(!inp) return;
+  const t = inp.value.trim();
+  if(!t || !_historyFp) return;
+
+  const ts = Date.now();
+  const fp = _historyFp;
+
+  // Кладём в очередь с fp
+  const item = { fp, text: t, ts };
+  _offlineQueue.push(item);
+  idbSet('meta','offlineQueue', _offlineQueue).catch(()=>{});
+
+  // Сохраняем в историю как 'out' (сразу, чтобы не потерялось)
+  const h = await getHistory();
+  if(!h[fp]) h[fp] = [];
+  h[fp].push({ type:'out', text:t, ts });
+  await idbSet('history','all', h).catch(()=>{});
+
+  // Добавляем пузырь с маркером pending в sh-msgs
+  const container = $('sh-msgs');
+  if(container){
+    const d = document.createElement('div');
+    d.className = 'msg out pending';
+    d.dataset.ts = ts;
+    d.dataset.pending = '1';
+    const tStr = new Date(ts).toLocaleString('ru',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    const contacts = await getContacts();
+    const sender = 'Вы';
+    d.innerHTML = `<div class="msender">${sender}</div>${esc(t)}<div class="mmeta">${tStr}</div>`;
+    container.style.display = 'flex';
+    $('sh-empty').style.display = 'none';
+    container.appendChild(d);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  inp.value = ''; inp.style.height = 'auto';
+  _updateQueueBadge(fp);
+  vibrate(10);
+}
+
+// Обновляет жёлтый бейдж на citem и sh-size
+function _updateQueueBadge(fp){
+  const count = _offlineQueue.filter(m => m.fp === fp).length;
+  // В списке контактов
+  const citem = document.querySelector(`.citem[data-fp="${fp}"]`);
+  if(citem){
+    let badge = citem.querySelector('.citem-queue-badge');
+    if(count > 0){
+      if(!badge){ badge = document.createElement('span'); badge.className='citem-queue-badge'; citem.querySelector('.ciname')?.appendChild(badge); }
+      badge.textContent = count;
+    } else if(badge){ badge.remove(); }
+  }
+  // В хедере истории
+  if(_historyFp === fp){
+    const sz = $('sh-size');
+    if(sz){
+      const existing = sz.querySelector('.sh-queue-info');
+      if(count > 0){
+        if(!existing){ const s=document.createElement('span'); s.className='sh-queue-info'; s.style.cssText='color:var(--w);margin-left:6px'; sz.appendChild(s); }
+        sz.querySelector('.sh-queue-info').textContent = `· ${count} в очереди`;
+      } else { sz.querySelector('.sh-queue-info')?.remove(); }
+    }
+  }
+}
+
+
 
 // ── Long-press & context menu ──
 let _ctxFp=null;
@@ -7415,9 +7553,11 @@ async function onConn(){
 
   if(_offlineQueue.length > 0){
     setTimeout(async () => {
-      const queue = [..._offlineQueue];
-      _offlineQueue = [];
-      idbSet('meta','offlineQueue',[]).catch(()=>{});
+      const fp = currentPeerFp;
+      // Берём только сообщения для этого fp (или без fp — старые записи)
+      const queue = _offlineQueue.filter(m => !m.fp || m.fp === fp);
+      _offlineQueue  = _offlineQueue.filter(m => m.fp && m.fp !== fp);
+      idbSet('meta','offlineQueue', _offlineQueue).catch(()=>{});
       for(const item of queue){
         if(dc && dc.readyState === 'open'){
           const pkt = {__msg__:true, ts:item.ts, text:item.text};
@@ -7425,8 +7565,19 @@ async function onConn(){
           _e2eSend(JSON.stringify(pkt));
         }
       }
-      if(queue.length) toast(`📤 Отправлено ${queue.length} отложенных сообщений`);
-    }, 1500); // ждём завершения E2E хэндшейка
+      // Снимаем pending-маркер с пузырей в sh-msgs
+      if(queue.length){
+        const container = $('sh-msgs');
+        if(container){
+          queue.forEach(item => {
+            const el = container.querySelector(`.msg[data-ts="${item.ts}"][data-pending="1"]`);
+            if(el){ el.classList.remove('pending'); el.removeAttribute('data-pending'); }
+          });
+        }
+        _updateQueueBadge(fp);
+        toast(`📤 Отправлено ${queue.length} отложенных сообщений`);
+      }
+    }, 1500);
   }
 }
 
@@ -7436,6 +7587,7 @@ function handleBack(){
 }
 
 function minimizeChat(){
+  closeChatSearch('msgs');
   _histFp=null; _histOffset=0; _histBottom=0; _histTotal=0; _histLoading=false;
   const target = (contactsSubScreen && contactsSubScreen !== 'sc') ? contactsSubScreen : 'sk';
   showTab(target);
@@ -8533,8 +8685,8 @@ function sendMsg(){
   if(!dc||dc.readyState!=='open'){
     const ts=Date.now();
     const queueItem = _replyText
-      ? {text:t,ts,replyText:_replyText,replySender:_replyIsOut?'self':'peer',replyTs:_replyTs}
-      : {text:t,ts};
+      ? {fp:currentPeerFp, text:t,ts,replyText:_replyText,replySender:_replyIsOut?'self':'peer',replyTs:_replyTs}
+      : {fp:currentPeerFp, text:t,ts};
     _offlineQueue.push(queueItem);
     idbSet('meta','offlineQueue',_offlineQueue).catch(()=>{});
     addMsg(t,'out',_replyText||null,_replySender||null,_replyTs||null,ts);
@@ -8972,6 +9124,155 @@ function scrollToMsg(ts){
   }
   toast('Сообщение не загружено — прокрутите к нему вручную');
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// CHAT SEARCH MODULE  (универсальный — работает для msgs, sh-msgs, fav-msgs)
+// ════════════════════════════════════════════════════════════════════════════
+const _srchState = {}; // msgsId → { results, idx, query, debounce }
+
+function _srchGet(msgsId){
+  if(!_srchState[msgsId]) _srchState[msgsId] = { results:[], idx:-1, query:'', debounce:null };
+  return _srchState[msgsId];
+}
+
+// Находит элементы search-bar по msgsId (id="search-bar-{msgsId}")
+function _srchBar(msgsId){ return document.getElementById('search-bar-' + msgsId); }
+function _srchInput(msgsId){ return _srchBar(msgsId)?.querySelector('.search-input-generic'); }
+function _srchCountEl(msgsId){ return _srchBar(msgsId)?.querySelector('.search-count-generic'); }
+function _srchPrevBtn(msgsId){ return _srchBar(msgsId)?.querySelector('.search-prev-generic'); }
+function _srchNextBtn(msgsId){ return _srchBar(msgsId)?.querySelector('.search-next-generic'); }
+
+function openChatSearch(msgsId){
+  const bar = _srchBar(msgsId);
+  if(!bar) return;
+  bar.classList.add('on');
+  const inp = _srchInput(msgsId);
+  if(inp){ inp.value = ''; inp.focus(); }
+  _srchClear(msgsId);
+  _updateSearchCount(msgsId);
+}
+
+function closeChatSearch(msgsId){
+  if(!msgsId){
+    // Закрываем все открытые
+    ['msgs','sh-msgs','fav-msgs'].forEach(id => {
+      if(_srchBar(id)?.classList.contains('on')) closeChatSearch(id);
+    });
+    return;
+  }
+  _srchBar(msgsId)?.classList.remove('on');
+  _srchClear(msgsId);
+  const inp = _srchInput(msgsId);
+  if(inp) inp.value = '';
+}
+
+function onSearchInput(msgsId){
+  const inp = _srchInput(msgsId);
+  const q = inp ? inp.value.trim() : '';
+  const st = _srchGet(msgsId);
+  clearTimeout(st.debounce);
+  st.debounce = setTimeout(() => _srchRun(msgsId, q), 180);
+}
+
+function onSearchKey(e, msgsId){
+  if(e.key === 'Enter'){ e.preventDefault(); searchNav(e.shiftKey ? -1 : 1, msgsId); }
+  if(e.key === 'Escape'){ closeChatSearch(msgsId); }
+}
+
+function searchNav(dir, msgsId){
+  const st = _srchGet(msgsId);
+  if(!st.results.length) return;
+  if(st.idx >= 0 && st.results[st.idx]){
+    st.results[st.idx].el.querySelectorAll('.search-highlight.current')
+      .forEach(h => h.classList.remove('current'));
+  }
+  st.idx = (st.idx + dir + st.results.length) % st.results.length;
+  const item = st.results[st.idx];
+  if(!item) return;
+  item.el.querySelectorAll('.search-highlight').forEach(h => h.classList.add('current'));
+  item.el.scrollIntoView({ behavior:'smooth', block:'center' });
+  _updateSearchCount(msgsId);
+}
+
+function _srchClear(msgsId){
+  const st = _srchGet(msgsId);
+  st.results.forEach(r => { try{ r.el.innerHTML = r.originalHTML; }catch(_){} });
+  st.results = [];
+  st.idx = -1;
+  st.query = '';
+}
+
+function _updateSearchCount(msgsId){
+  const st  = _srchGet(msgsId);
+  const el  = _srchCountEl(msgsId);
+  const prev = _srchPrevBtn(msgsId);
+  const next = _srchNextBtn(msgsId);
+  const n = st.results.length;
+  if(el){
+    if(!st.query)   el.textContent = '';
+    else if(n === 0) el.textContent = 'нет';
+    else             el.textContent = `${st.idx + 1} / ${n}`;
+  }
+  if(prev) prev.disabled = n === 0;
+  if(next) next.disabled = n === 0;
+}
+
+function _srchRun(msgsId, q){
+  _srchClear(msgsId);
+  const st = _srchGet(msgsId);
+  st.query = q;
+  if(q.length < 2){ _updateSearchCount(msgsId); return; }
+
+  const msgsEl = document.getElementById(msgsId);
+  if(!msgsEl){ _updateSearchCount(msgsId); return; }
+
+  const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+
+  msgsEl.querySelectorAll('.msg[data-ts]').forEach(msgEl => {
+    const textNode = _getMsgTextNode(msgEl);
+    if(!textNode) return;
+    const text = textNode.textContent || '';
+    if(!re.test(text)) return;
+    re.lastIndex = 0;
+    const originalHTML = msgEl.innerHTML;
+    _highlightInNode(textNode, re);
+    re.lastIndex = 0;
+    st.results.push({ el: msgEl, originalHTML });
+  });
+
+  if(st.results.length > 0){
+    st.idx = -1;
+    searchNav(1, msgsId);
+  } else {
+    _updateSearchCount(msgsId);
+  }
+}
+
+function _getMsgTextNode(msgEl){
+  if(msgEl.querySelector('.msg-file')) return msgEl.querySelector('.msg-file-name');
+  for(const node of msgEl.childNodes){
+    if(node.nodeType === Node.TEXT_NODE && node.textContent.trim()) return node;
+  }
+  return msgEl;
+}
+
+function _highlightInNode(node, re){
+  if(node.nodeType === Node.TEXT_NODE){
+    const text = node.textContent;
+    const newHTML = text.replace(re, m => `<span class="search-highlight">${_esc(m)}</span>`);
+    if(newHTML !== _esc(text)){
+      const span = document.createElement('span');
+      span.innerHTML = newHTML;
+      node.parentNode.replaceChild(span, node);
+    }
+  } else if(node.nodeType === Node.ELEMENT_NODE){
+    if(node.classList.contains('mmeta') || node.classList.contains('msg-quote') ||
+       node.classList.contains('msg-reaction') || node.tagName === 'BUTTON') return;
+    Array.from(node.childNodes).forEach(child => _highlightInNode(child, re));
+  }
+}
+
+function _esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 // ── Mobile keyboard fix ──
 if(window.visualViewport){

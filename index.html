@@ -4347,11 +4347,12 @@ function _micTestStop() {
 const _origSnBack = window.snBack;
 
 // ════════════════════════════════════════════════════════════════════════════
-// ТЕС СКОРОСТИ ФАЙЛОВ: download (CDN) + upload (loopback DataChannel)
+// ОБЩИЕ УТИЛИТЫ ЗАМЕРА — используются всеми тремя тестами
 // ════════════════════════════════════════════════════════════════════════════
 
-let _lastDownloadMbps = null; // кешируем для видео-теста
+let _lastNetworkStats = null; // { dlMbps, outMbps, inMbps, rttMs, ts }
 
+// Загрузка с CDN — ~500 КБ, реальная скорость до интернета
 async function _measureDownloadMbps() {
   const testUrl = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
   const t0   = performance.now();
@@ -4361,54 +4362,51 @@ async function _measureDownloadMbps() {
   return blob.size * 8 / 1_000_000 / elapsed;
 }
 
-async function _measureLoopbackMbps() {
-  return new Promise(async (resolve) => {
-    try {
-      const cfg = { iceServers: [] };
-      const pc1 = new RTCPeerConnection(cfg);
-      const pc2 = new RTCPeerConnection(cfg);
-      pc1.onicecandidate = e => e.candidate && pc2.addIceCandidate(e.candidate).catch(()=>{});
-      pc2.onicecandidate = e => e.candidate && pc1.addIceCandidate(e.candidate).catch(()=>{});
-
-      let bytesRcv = 0;
-      const dc = pc1.createDataChannel('st', { ordered: false, maxRetransmits: 0 });
-      pc2.ondatachannel = e => { e.channel.onmessage = ev => { bytesRcv += (ev.data.byteLength || ev.data.length || 0); }; };
-
-      const offer = await pc1.createOffer();
-      await pc1.setLocalDescription(offer);
-      await pc2.setRemoteDescription(offer);
-      const answer = await pc2.createAnswer();
-      await pc2.setLocalDescription(answer);
-      await pc1.setRemoteDescription(answer);
-
-      await new Promise((r, rj) => {
-        const tid = setTimeout(() => rj(new Error('dc timeout')), 5000);
-        dc.onopen = () => { clearTimeout(tid); r(); };
-      });
-
-      const CHUNK    = new ArrayBuffer(65536);
-      const DURATION = 2500;
-      const t0 = performance.now();
-      let sending = true;
-
-      (function sendLoop() {
-        if (!sending) return;
-        try { while (dc.bufferedAmount < 2_000_000) dc.send(CHUNK); } catch(_) {}
-        setTimeout(sendLoop, 10);
-      })();
-
-      setTimeout(() => {
-        sending = false;
-        const elapsed = (performance.now() - t0) / 1000;
-        const mbps = bytesRcv * 8 / 1_000_000 / elapsed;
-        try { pc1.close(); pc2.close(); } catch(_) {}
-        resolve(mbps);
-      }, DURATION + 200);
-    } catch(e) {
-      resolve(null);
-    }
-  });
+// Читает реальные P2P-метрики из существующего RTCPeerConnection
+// Возвращает { outMbps, inMbps, rttMs } или null если нет соединения
+async function _readP2PStats() {
+  if (typeof pc === 'undefined' || !pc || pc.connectionState !== 'connected') return null;
+  try {
+    const reports = await pc.getStats();
+    let best = null;
+    reports.forEach(r => {
+      if (r.type !== 'candidate-pair' || r.state !== 'succeeded') return;
+      if (!best || (r.availableOutgoingBitrate || 0) > (best.availableOutgoingBitrate || 0)) best = r;
+    });
+    if (!best) return null;
+    return {
+      outMbps : best.availableOutgoingBitrate  ? best.availableOutgoingBitrate  / 1_000_000 : null,
+      inMbps  : best.availableIncomingBitrate  ? best.availableIncomingBitrate  / 1_000_000 : null,
+      rttMs   : best.currentRoundTripTime      ? Math.round(best.currentRoundTripTime * 1000) : null,
+    };
+  } catch(_) { return null; }
 }
+
+// Получить сетевые метрики: сначала P2P если подключены, иначе CDN
+// Кеш 30 с чтобы не перезамерять при открытии нескольких тестов подряд
+async function _getNetworkMetrics(forceCDN) {
+  const CACHE_TTL = 30_000;
+  if (_lastNetworkStats && Date.now() - _lastNetworkStats.ts < CACHE_TTL && !forceCDN) {
+    return _lastNetworkStats;
+  }
+  const p2p = await _readP2PStats();
+  let dlMbps = null;
+  try { dlMbps = await _measureDownloadMbps(); } catch(_) {}
+  const result = {
+    dlMbps,
+    outMbps : p2p?.outMbps  ?? null,
+    inMbps  : p2p?.inMbps   ?? null,
+    rttMs   : p2p?.rttMs    ?? null,
+    hasP2P  : !!p2p,
+    ts      : Date.now(),
+  };
+  _lastNetworkStats = result;
+  return result;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ТЕСТ СКОРОСТИ ФАЙЛОВ
+// ════════════════════════════════════════════════════════════════════════════
 
 async function fileRunSpeedTest() {
   const btn    = document.getElementById('file-test-btn');
@@ -4419,44 +4417,50 @@ async function fileRunSpeedTest() {
   if (!btn) return;
 
   btn.disabled = true;
-  btn.textContent = '⏳ Замеряем загрузку...';
+  btn.textContent = '⏳ Замеряем...';
   if (result) result.style.display = 'none';
+  if (dlVal) dlVal.textContent = '…';
+  if (ulVal) ulVal.textContent = '…';
 
-  let dlMbps = null, ulMbps = null;
+  const net = await _getNetworkMetrics(true);
 
-  try {
-    dlMbps = await _measureDownloadMbps();
-    _lastDownloadMbps = dlMbps;
-    if (dlVal) dlVal.textContent = dlMbps.toFixed(1) + ' Мбит/с';
-  } catch(e) {
-    if (dlVal) dlVal.textContent = 'ошибка';
-  }
+  if (dlVal) dlVal.textContent = net.dlMbps ? net.dlMbps.toFixed(1) + ' Мбит/с' : 'ошибка';
 
-  btn.textContent = '⏳ Замеряем P2P-канал...';
-
-  try {
-    ulMbps = await _measureLoopbackMbps();
-    if (ulVal) ulVal.textContent = ulMbps !== null ? ulMbps.toFixed(1) + ' Мбит/с' : '—';
-  } catch(e) {
-    if (ulVal) ulVal.textContent = '—';
+  if (net.hasP2P && net.outMbps !== null) {
+    if (ulVal) ulVal.textContent = net.outMbps.toFixed(1) + ' Мбит/с'
+      + (net.rttMs ? ' · RTT ' + net.rttMs + ' мс' : '');
+  } else {
+    if (ulVal) ulVal.textContent = 'нет P2P-соединения';
   }
 
   if (result) result.style.display = 'block';
 
-  const speed = dlMbps || 0;
+  // Для рекомендации берём минимум из: загрузка, P2P-отдача (если есть)
+  const speeds = [net.dlMbps, net.outMbps].filter(v => v !== null);
+  const effectiveSpeed = speeds.length ? Math.min(...speeds) : 0;
+
+  // Если P2P есть — рекомендуем строже, там реальный лимит канала
   let rec, recLabel, recEmoji, hint;
-  if (speed < 3) {
+  const limit = net.hasP2P ? effectiveSpeed : (net.dlMbps || 0);
+
+  if (limit < 2) {
     rec = 'normal'; recLabel = 'Обычная'; recEmoji = '🐢';
-    hint = 'Медленный канал (' + speed.toFixed(1) + ' Мбит/с) — лучше оставить обычный режим. Турбо может вызвать зависания.';
-  } else if (speed < 15) {
+    hint = 'Канал узкий (' + limit.toFixed(1) + ' Мбит/с) — чанки 64 КБ, иначе буфер переполнится и передача зависнет.';
+  } else if (limit < 10) {
     rec = 'normal'; recLabel = 'Обычная'; recEmoji = '🚗';
-    hint = 'Умеренная скорость (' + speed.toFixed(1) + ' Мбит/с) — обычный режим оптимален. Турбо допустимо попробовать.';
-  } else if (speed < 50) {
+    hint = 'Умеренный канал (' + limit.toFixed(1) + ' Мбит/с) — обычный режим надёжен. Турбо можно попробовать, но без гарантий.';
+  } else if (limit < 40) {
     rec = 'turbo'; recLabel = 'Турбо'; recEmoji = '🚀';
-    hint = 'Хороший канал (' + speed.toFixed(1) + ' Мбит/с) — рекомендуем Турбо. Файлы пойдут заметно быстрее.';
+    hint = 'Хороший канал (' + limit.toFixed(1) + ' Мбит/с) — чанки 256 КБ дадут заметный прирост скорости.';
   } else {
     rec = 'ludicrous'; recLabel = 'Максимум'; recEmoji = '⚡';
-    hint = 'Отличный канал (' + speed.toFixed(1) + ' Мбит/с) — рекомендуем Максимум. Используем весь доступный канал.';
+    hint = 'Быстрый канал (' + limit.toFixed(1) + ' Мбит/с) — буфер 16 МБ и окно 64 выжмут всё возможное.';
+  }
+
+  if (!net.hasP2P) {
+    hint += ' <span style="opacity:.6">(измерено по CDN — реальная P2P-скорость станет известна после подключения к собеседнику)</span>';
+  } else if (net.rttMs && net.rttMs > 200) {
+    hint += ' ⚠ Высокая задержка (' + net.rttMs + ' мс) — это P2P через RELAY; реальная скорость передачи файлов может быть ниже.';
   }
 
   if (advice) {
@@ -4472,7 +4476,7 @@ async function fileRunSpeedTest() {
 function mediaRunSpeedTest() { return fileRunSpeedTest(); }
 
 // ════════════════════════════════════════════════════════════════════════════
-// ТЕСТ КАЧЕСТВА АУДИО: анализ микрофона → рекомендация битрейта
+// ТЕСТ КАЧЕСТВА АУДИО
 // ════════════════════════════════════════════════════════════════════════════
 
 async function audioRunQualityTest() {
@@ -4486,29 +4490,50 @@ async function audioRunQualityTest() {
   btn.textContent = '⏳ Запрашиваем микрофон...';
   if (result) result.style.display = 'none';
 
+  // ВАЖНО: отключаем всю браузерную обработку чтобы получить сырой сигнал.
+  // Если оставить noiseSuppression:true — браузер срежет ВЧ сам, и мы
+  // измерим не качество микрофона, а агрессивность браузерного фильтра.
   let stream;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 48000, channelCount: 1 }, video: false });
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        sampleRate: 48000,
+        channelCount: 1,
+        echoCancellation:  false,
+        noiseSuppression:  false,
+        autoGainControl:   false,
+        latency: 0,
+      },
+      video: false,
+    });
   } catch(e) {
-    btn.disabled = false;
-    btn.textContent = '🎙 Анализ микрофона';
-    if (result) result.style.display = 'block';
-    if (advice) advice.innerHTML = '<span style="color:var(--e)">❌ Нет доступа к микрофону. Разрешите доступ и повторите.</span>';
-    return;
+    // Некоторые браузеры/устройства не поддерживают отключение обработки —
+    // пробуем с настройками по умолчанию
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 48000 }, video: false });
+    } catch(e2) {
+      btn.disabled = false;
+      btn.textContent = '🎙 Анализ микрофона';
+      if (result) result.style.display = 'block';
+      if (advice) advice.innerHTML = '<span style="color:var(--e)">❌ Нет доступа к микрофону. Разрешите доступ и повторите.</span>';
+      return;
+    }
   }
 
   btn.textContent = '🎙 Говорите... (3 сек)';
 
-  const ctx      = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+  const SAMPLE_RATE = stream.getAudioTracks()[0].getSettings().sampleRate || 48000;
+  const ctx      = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
   const src      = ctx.createMediaStreamSource(stream);
   const analyser = ctx.createAnalyser();
-  analyser.fftSize = 2048;
-  analyser.smoothingTimeConstant = 0.3;
+  analyser.fftSize = 4096; // выше разрешение → точнее частотный анализ
+  analyser.smoothingTimeConstant = 0.1; // минимальное сглаживание — хотим сырые данные
   src.connect(analyser);
 
-  const DURATION = 3000;
-  const freqBuf  = new Uint8Array(analyser.frequencyBinCount);
-  const timeBuf  = new Float32Array(analyser.fftSize);
+  const DURATION  = 3000;
+  const freqBuf   = new Float32Array(analyser.frequencyBinCount); // Float для точности
+  const timeBuf   = new Float32Array(analyser.fftSize);
+  const binHz     = SAMPLE_RATE / analyser.fftSize;
 
   // Прогресс-бар
   const startTs = Date.now();
@@ -4522,72 +4547,119 @@ async function audioRunQualityTest() {
     })();
   }
 
-  // Собираем статистику
-  let peakRMS = 0, sumRMS = 0, frames = 0;
-  let highFreqSum = 0, totalFreqSum = 0;
+  // Накапливаем замеры каждые 80 мс
+  const rmsFrames    = [];
+  const silenceFloor = []; // фреймы без речи — для оценки шумового дна
 
   const sampleTimer = setInterval(() => {
-    analyser.getByteFrequencyData(freqBuf);
     analyser.getFloatTimeDomainData(timeBuf);
-
-    // RMS уровень
     let rms = 0;
     for (let i = 0; i < timeBuf.length; i++) rms += timeBuf[i] * timeBuf[i];
     rms = Math.sqrt(rms / timeBuf.length);
-    sumRMS += rms;
-    if (rms > peakRMS) peakRMS = rms;
-    frames++;
-
-    // Частотный анализ: <4 кГц (голос) vs >4 кГц (ВЧ — качество микрофона)
-    const binHz     = ctx.sampleRate / analyser.fftSize;
-    const boundary  = Math.floor(4000 / binHz);
-    for (let i = 0; i < freqBuf.length; i++) {
-      totalFreqSum += freqBuf[i];
-      if (i >= boundary) highFreqSum += freqBuf[i];
-    }
+    rmsFrames.push(rms);
+    if (rms < 0.015) silenceFloor.push(rms); // тихие фреймы = шум
   }, 80);
 
+  // Последний FFT-снимок после записи (getFloatFrequencyData = дБ)
   await new Promise(r => setTimeout(r, DURATION));
   clearInterval(sampleTimer);
+
+  analyser.getFloatFrequencyData(freqBuf); // dBFS значения
   stream.getTracks().forEach(t => t.stop());
-  ctx.close().catch(()=>{});
+  ctx.close().catch(() => {});
   if (prog) prog.style.display = 'none';
 
-  const avgRMS    = frames ? sumRMS / frames : 0;
-  const highRatio = totalFreqSum > 0 ? highFreqSum / totalFreqSum : 0;
+  // ── Анализ уровня сигнала ──────────────────────────────────────────────
+  const peakRMS = Math.max(...rmsFrames);
+  const avgRMS  = rmsFrames.reduce((a, b) => a + b, 0) / (rmsFrames.length || 1);
+  // Шумовое дно: медиана тихих фреймов
+  const noiseFloor = silenceFloor.length >= 3
+    ? silenceFloor.sort((a,b)=>a-b)[Math.floor(silenceFloor.length / 2)]
+    : 0.002;
+  // SNR: соотношение сигнал/шум
+  const snr = noiseFloor > 0 ? peakRMS / noiseFloor : 0;
 
-  // Логика рекомендации
-  let rec;
-  if (avgRMS < 0.008) {
-    rec = 'voice'; // Почти тишина — микрофон слабый или не говорили
-  } else if (avgRMS < 0.045 || highRatio < 0.18) {
-    rec = highRatio > 0.22 ? 'std' : 'voice'; // Тихий / телефонный микрофон
-  } else if (highRatio > 0.32 && avgRMS > 0.15) {
-    rec = 'studio'; // Отличный широкополосный микрофон, громкий сигнал
-  } else if (highRatio > 0.28) {
-    rec = 'hifi';   // Хороший микрофон с ВЧ
-  } else {
-    rec = 'std';    // Нормальный разговорный микрофон
+  // ── Частотный анализ ───────────────────────────────────────────────────
+  // Работаем в линейной шкале (из дБ): 10^(dB/20)
+  let energyTotal = 0, energyHF = 0, energyVoice = 0;
+  const hfBin     = Math.floor(5000  / binHz); // >5 кГц — ВЧ (качество микрофона)
+  const voiceHiBin= Math.floor(3500  / binHz); // голосовой диапазон до ~3.5 кГц
+  const voiceLoBin= Math.floor(200   / binHz); // нижняя граница голоса
+
+  for (let i = 1; i < freqBuf.length; i++) {
+    if (freqBuf[i] < -100) continue; // игнорируем нулевой сигнал
+    const lin = Math.pow(10, freqBuf[i] / 20);
+    energyTotal += lin;
+    if (i >= hfBin) energyHF += lin;
+    if (i >= voiceLoBin && i <= voiceHiBin) energyVoice += lin;
   }
 
-  const ap  = AUDIO_PROFILES[rec];
-  const rmsStr  = (avgRMS * 100).toFixed(1);
-  const hfStr   = Math.round(highRatio * 100);
-  let hint;
-  if (avgRMS < 0.008) {
-    hint = '⚠ Сигнал почти нулевой — микрофон не поймал голос, или очень тихое окружение. Повторите, говоря нормально.';
+  const hfRatio    = energyTotal > 0 ? energyHF    / energyTotal : 0;
+  const voiceRatio = energyTotal > 0 ? energyVoice / energyTotal : 0;
+
+  // ── Оценка качества микрофона (0–100) ─────────────────────────────────
+  // Три фактора: уровень сигнала, SNR, ВЧ-диапазон
+  const levelScore = Math.min(100, peakRMS / 0.4 * 100);  // пик > 0.4 = 100%
+  const snrScore   = Math.min(100, (snr - 1) / 19 * 100); // SNR 1..20 → 0..100%
+  const hfScore    = Math.min(100, hfRatio / 0.25 * 100); // 25%+ ВЧ = 100%
+  const micScore   = levelScore * 0.35 + snrScore * 0.40 + hfScore * 0.25;
+
+  // ── Сетевой лимит (если подключены) ───────────────────────────────────
+  const p2pStats  = await _readP2PStats();
+  const p2pOutKbps = p2pStats?.outMbps ? Math.round(p2pStats.outMbps * 1000) : Infinity;
+  const p2pRttMs   = p2pStats?.rttMs ?? null;
+
+  // ── Финальная рекомендация ─────────────────────────────────────────────
+  // Определяем максимально оправданный битрейт по микрофону
+  let recByMic;
+  if (peakRMS < 0.005 || avgRMS < 0.003) {
+    recByMic = null; // сигнал не пойман
+  } else if (micScore >= 72) {
+    recByMic = 'studio';
+  } else if (micScore >= 52) {
+    recByMic = 'hifi';
+  } else if (micScore >= 30) {
+    recByMic = 'std';
   } else {
-    hint = 'Уровень сигнала: ' + rmsStr + '% · Высоких частот: ' + hfStr + '%. ' +
-      (rec === 'studio' ? 'Отличный широкополосный микрофон — используем максимальное качество.' :
-       rec === 'hifi'   ? 'Хороший микрофон с богатым ВЧ-диапазоном.' :
-       rec === 'std'    ? 'Стандартный разговорный микрофон — оптимальный баланс.' :
-                          'Микрофон с ограниченным диапазоном — экономим битрейт.');
+    recByMic = 'voice';
+  }
+
+  // Снижаем если сеть не вытянет
+  const order  = ['voice', 'std', 'hifi', 'studio'];
+  const kbps   = { voice: 64, std: 96, hifi: 128, studio: 256 };
+  let rec      = recByMic || 'std';
+  while (rec !== 'voice' && p2pOutKbps < kbps[rec] * 3) {
+    rec = order[order.indexOf(rec) - 1]; // шаг вниз
+  }
+  // Снижаем fps-рекомендацию при высоком RTT (влияет только на видео, но предупреждаем)
+  const highRtt = p2pRttMs !== null && p2pRttMs > 180;
+
+  const ap = AUDIO_PROFILES[rec];
+
+  // ── Формируем объяснение ───────────────────────────────────────────────
+  let details, warning = '';
+  if (!recByMic) {
+    details = '⚠ Микрофон не поймал голосовой сигнал. Говорите в микрофон в нормальном режиме и повторите.';
+    rec = 'std'; // дефолт
+  } else {
+    const lvlStr  = Math.round(peakRMS * 1000) / 10 + '%';
+    const snrStr  = snr.toFixed(1) + '×';
+    const hfStr   = Math.round(hfRatio * 100) + '%';
+    const scoreStr = Math.round(micScore) + '/100';
+    details = 'Пик: <b>' + lvlStr + '</b> · SNR: <b>' + snrStr + '</b> · ВЧ: <b>' + hfStr + '</b> · Оценка микрофона: <b>' + scoreStr + '</b>';
+    if (recByMic !== rec) {
+      warning = '<br>⚠ Канал ограничивает: P2P-отдача ~' + Math.round(p2pOutKbps) + ' Кбит/с — выбрали ' + ap.label + ' вместо ' + AUDIO_PROFILES[recByMic].label + '.';
+    }
+    if (highRtt) {
+      warning += '<br>⚠ Задержка ' + p2pRttMs + ' мс — вероятно RELAY-соединение, Opus адаптируется сам.';
+    }
   }
 
   if (result) result.style.display = 'block';
   if (advice) {
     advice.innerHTML =
-      '<b>' + ap.emoji + ' Рекомендуем: ' + ap.label + ' (' + (ap.audioBitrate / 1000) + ' Кбит/с)</b><br>' + hint +
+      '<b>' + ap.emoji + ' Рекомендуем: ' + ap.label + ' (' + (ap.audioBitrate / 1000) + ' Кбит/с)</b><br>' +
+      details + warning +
       '<br><button onclick="setAudioProfile(\'' + rec + '\')" style="margin-top:8px;padding:5px 12px;background:var(--a);border:none;border-radius:6px;color:#000;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer">Применить ' + ap.emoji + ' ' + ap.label + '</button>';
   }
 
@@ -4596,7 +4668,7 @@ async function audioRunQualityTest() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// ТЕСТ КАЧЕСТВА ВИДЕО: реальные возможности камеры + скорость сети
+// ТЕСТ КАЧЕСТВА ВИДЕО
 // ════════════════════════════════════════════════════════════════════════════
 
 async function videoRunQualityTest() {
@@ -4609,7 +4681,7 @@ async function videoRunQualityTest() {
   btn.textContent = '⏳ Проверяем камеру...';
   if (result) result.style.display = 'none';
 
-  // Пробуем разрешения от лучшего к худшему
+  // ── Шаг 1: Что реально поддерживает камера ─────────────────────────────
   const candidates = [
     { width: 1920, height: 1080, fps: 60, label: '1080p 60fps' },
     { width: 1920, height: 1080, fps: 30, label: '1080p 30fps' },
@@ -4626,41 +4698,56 @@ async function videoRunQualityTest() {
         video: { width: { exact: c.width }, height: { exact: c.height }, frameRate: { ideal: c.fps } },
         audio: false,
       });
-      const settings = stream.getVideoTracks()[0].getSettings();
+      const s = stream.getVideoTracks()[0].getSettings();
       stream.getTracks().forEach(t => t.stop());
-      if ((settings.width || 0) >= c.width * 0.85) {
-        maxRes = { width: settings.width, height: settings.height, fps: Math.round(settings.frameRate || c.fps), label: c.label };
+      if ((s.width || 0) >= c.width * 0.85) {
+        maxRes = { width: s.width, height: s.height, fps: Math.round(s.frameRate || c.fps), label: c.label };
         break;
       }
     } catch(_) {}
   }
 
-  // Скорость сети: берём кеш или быстро меряем
-  let netMbps = _lastDownloadMbps;
-  if (netMbps === null) {
-    btn.textContent = '⏳ Проверяем сеть...';
-    try { netMbps = await _measureDownloadMbps(); _lastDownloadMbps = netMbps; } catch(_) {}
-  }
+  // ── Шаг 2: Реальные сетевые метрики ───────────────────────────────────
+  btn.textContent = '⏳ Проверяем сеть...';
+  const net = await _getNetworkMetrics();
 
-  // Подбираем профиль по камере + сети
+  // Для видео ключевые параметры: upload (outMbps), RTT
+  // Если нет P2P — берём скорость загрузки CDN как ориентир
+  const uploadMbps = net.outMbps ?? net.dlMbps ?? 0;
+  const rttMs      = net.rttMs;
+  const highRtt    = rttMs !== null && rttMs > 150; // задержка режет реальный fps
+
+  // ── Шаг 3: Рекомендация ────────────────────────────────────────────────
   let rec;
   if (!maxRes) {
     rec = 'eco';
-  } else if (maxRes.height >= 1080 && maxRes.fps >= 55 && (netMbps || 0) >= 50) {
+  } else if (maxRes.height >= 1080 && maxRes.fps >= 55 && uploadMbps >= 5 && !highRtt) {
     rec = 'max';
-  } else if (maxRes.height >= 1080 && (netMbps || 0) >= 20) {
+  } else if (maxRes.height >= 1080 && uploadMbps >= 3) {
     rec = 'high';
-  } else if (maxRes.height >= 720 && (netMbps || 0) >= 5) {
+  } else if (maxRes.height >= 720 && uploadMbps >= 1.5) {
     rec = 'std';
   } else {
     rec = 'eco';
   }
 
+  // Дополнительно понижаем при высоком RTT (RELAY, мобильный)
+  const order = ['eco', 'std', 'high', 'max'];
+  if (highRtt && order.indexOf(rec) > 1) rec = order[order.indexOf(rec) - 1];
+
   const prLabels = { eco:'🐢 Экономный', std:'🚗 Стандартный', high:'🚀 Высокое', max:'🛸 Максимальное' };
-  const vp  = VIDEO_PROFILES[rec];
-  const camStr = maxRes ? maxRes.label : 'камера не найдена';
-  const netStr = netMbps ? netMbps.toFixed(1) + ' Мбит/с' : 'нет данных';
-  const hint = 'Камера: <b>' + camStr + '</b> · Сеть: <b>' + netStr + '</b><br>Профиль: ' + vp.width + '×' + vp.height + ' · ' + vp.frameRate + ' fps · видео ' + (vp.videoBitrate/1000) + ' Кбит/с.';
+  const vp = VIDEO_PROFILES[rec];
+
+  const camStr    = maxRes ? maxRes.label : 'камера не найдена';
+  const netSource = net.hasP2P ? 'P2P-канал' : 'CDN-тест';
+  const upStr     = uploadMbps ? uploadMbps.toFixed(1) + ' Мбит/с (' + netSource + ')' : 'нет данных';
+  const rttStr    = rttMs !== null ? rttMs + ' мс' : '—';
+
+  let hint = 'Камера: <b>' + camStr + '</b> · ↑ Отдача: <b>' + upStr + '</b> · RTT: <b>' + rttStr + '</b>';
+  hint += '<br>Профиль: ' + vp.width + '×' + vp.height + ' · ' + vp.frameRate + ' fps · ' + (vp.videoBitrate / 1000) + ' Кбит/с';
+
+  if (highRtt) hint += '<br>⚠ Задержка ' + rttMs + ' мс снизила рекомендацию — вероятно RELAY-сервер между вами.';
+  if (!net.hasP2P) hint += '<br><span style="opacity:.6">Скорость P2P уточнится после подключения к собеседнику.</span>';
 
   if (result) result.style.display = 'block';
   if (advice) {

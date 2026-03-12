@@ -6952,24 +6952,40 @@ async function _mcGetVideoStream(facing, profile){
   _mcCamLog(`getVideoStream facing=${facing}`);
   const deviceId = await _mcGetCameraDeviceId(facing);
 
+  // NotReadableError/AbortError = камера физически заблокирована ОС (не освобождена после предыдущего стрима).
+  // Ждём 900 мс и делаем один ретрай — этого достаточно на Android/iOS.
+  const _tryGUM = async (constraints, label) => {
+    try {
+      return await navigator.mediaDevices.getUserMedia(constraints);
+    } catch(e) {
+      if (e.name === 'NotReadableError' || e.name === 'AbortError') {
+        _mcCamLog(`${label}: ${e.name} — ждём 900 мс и повторяем...`, true);
+        await new Promise(r => setTimeout(r, 900));
+        return await navigator.mediaDevices.getUserMedia(constraints);
+      }
+      throw e;
+    }
+  };
+
   if(deviceId){
     try{
-      const s = await navigator.mediaDevices.getUserMedia({ audio:false, video:{deviceId:{exact:deviceId},...base} });
-      const t = s.getVideoTracks()[0];
-      _mcCamLog(`✓ открыта по deviceId: "${t.label}"`);
+      const s = await _tryGUM({ audio:false, video:{deviceId:{exact:deviceId},...base} }, 'deviceId');
+      _mcCamLog(`✓ открыта по deviceId: "${s.getVideoTracks()[0].label}"`);
       return s;
     }catch(e){ _mcCamLog(`deviceId fail (${e.name}), пробуем facingMode`, true); }
   }
   try{
-    const s = await navigator.mediaDevices.getUserMedia({ audio:false, video:{facingMode:{exact:facing},...base} });
-    const t = s.getVideoTracks()[0];
-    _mcCamLog(`✓ открыта exact facingMode: "${t.label}"`);
+    const s = await _tryGUM({ audio:false, video:{facingMode:{exact:facing},...base} }, 'exact facingMode');
+    _mcCamLog(`✓ открыта exact facingMode: "${s.getVideoTracks()[0].label}"`);
     return s;
   }catch(e){ _mcCamLog(`exact facingMode fail (${e.name}), пробуем ideal`, true); }
 
+  // Последний шанс — ideal facingMode (браузер может отдать любую камеру, логируем если не та)
   const s = await navigator.mediaDevices.getUserMedia({ audio:false, video:{facingMode:facing} });
   const t = s.getVideoTracks()[0];
-  _mcCamLog(`✓ открыта ideal facingMode: "${t.label}"`);
+  const gotFacing = t.getSettings().facingMode;
+  if(gotFacing && gotFacing !== facing) _mcCamLog(`⚠ ideal вернул ${gotFacing} вместо ${facing}`, true);
+  else _mcCamLog(`✓ открыта ideal facingMode: "${t.label}"`);
   return s;
 }
 
@@ -7006,6 +7022,8 @@ async function camDiagRun(){
       const settings = t.getSettings();
       _mcCamLog(`   ✓ "${t.label}" ${settings.width}×${settings.height} ${settings.facingMode||''}`);
       s.getTracks().forEach(t => t.stop());
+      // Даём ОС время освободить камеру перед следующим открытием
+      await new Promise(r => setTimeout(r, 600));
     }catch(e){ _mcCamLog(`   ✗ ${e.name}: ${e.message}`, true); }
 
     // 4. Тест фронтальной камеры
@@ -7018,6 +7036,8 @@ async function camDiagRun(){
       const settings = t.getSettings();
       _mcCamLog(`   ✓ "${t.label}" ${settings.width}×${settings.height} ${settings.facingMode||''}`);
       s.getTracks().forEach(t => t.stop());
+      // Пауза после теста — ОС должна освободить камеру до следующего вызова (напр. реального звонка)
+      await new Promise(r => setTimeout(r, 600));
     }catch(e){ _mcCamLog(`   ✗ ${e.name}: ${e.message}`, true); }
 
     _mcCamLog('── Тест завершён ───────────────');

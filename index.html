@@ -522,6 +522,63 @@ textarea::placeholder{color:var(--mu)}
 .call-accept:hover{opacity:.85}
 .call-decline{background:transparent;border:1px solid rgba(224,108,117,.5);color:var(--e);border-radius:8px;padding:9px 14px;font-family:inherit;font-size:12px;cursor:pointer;flex-shrink:0;transition:border-color .15s,background .15s}
 .call-decline:hover{border-color:var(--e);background:rgba(224,108,117,.08)}
+
+/* ── Media call UI ─────────────────────────────────────────────────────────── */
+/* Incoming call modal */
+#mcall-modal{position:fixed;inset:0;z-index:600;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(10,10,15,.85);backdrop-filter:blur(6px)}
+#mcall-modal.on{display:flex}
+.mcall-box{background:var(--sf);border:1px solid var(--bd);border-radius:20px;padding:28px 24px;width:100%;max-width:320px;display:flex;flex-direction:column;align-items:center;gap:16px}
+.mcall-avatar{width:64px;height:64px;border-radius:50%;background:var(--ad);border:2px solid var(--a);display:flex;align-items:center;justify-content:center;font-size:28px;position:relative}
+.mcall-avatar::after{content:'';position:absolute;inset:-6px;border-radius:50%;border:2px solid rgba(0,255,157,.3);animation:callpulse 1.2s infinite}
+.mcall-name{font-size:15px;font-weight:700;color:var(--tx)}
+.mcall-type{font-size:11px;color:var(--mu);letter-spacing:1px}
+.mcall-btns{display:flex;gap:10px;width:100%}
+.mcall-btn{flex:1;padding:11px;border-radius:12px;border:none;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:opacity .15s}
+.mcall-btn.accept{background:var(--a);color:#000}
+.mcall-btn.accept-audio{background:transparent;border:1px solid var(--a);color:var(--a)}
+.mcall-btn.decline{background:transparent;border:1px solid rgba(224,108,117,.5);color:var(--e)}
+.mcall-btn:hover{opacity:.82}
+
+/* Minimized call bar — above tabbar */
+#mcall-bar{position:fixed;bottom:calc(68px + env(safe-area-inset-bottom,0px) + 8px);left:12px;right:12px;z-index:480;
+  background:var(--sf);border:1px solid var(--bd);border-radius:16px;
+  display:none;align-items:center;gap:10px;padding:10px 14px;
+  box-shadow:0 4px 20px rgba(0,0,0,.4)}
+#mcall-bar.on{display:flex}
+.mcall-bar-dot{width:8px;height:8px;border-radius:50%;background:var(--a);box-shadow:0 0 6px var(--a);animation:blink 1.5s infinite;flex-shrink:0}
+.mcall-bar-info{flex:1;min-width:0}
+.mcall-bar-name{font-size:12px;font-weight:700;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mcall-bar-timer{font-size:10px;color:var(--a);letter-spacing:1px}
+.mcall-bar-btn{background:transparent;border:1px solid var(--bd);border-radius:8px;padding:6px 10px;font-size:14px;cursor:pointer;color:var(--mu);transition:border-color .15s,color .15s;flex-shrink:0}
+.mcall-bar-btn:hover{border-color:var(--a);color:var(--a)}
+.mcall-bar-btn.end{border-color:rgba(224,108,117,.4);color:var(--e)}
+.mcall-bar-btn.end:hover{border-color:var(--e);background:rgba(224,108,117,.08)}
+.mcall-bar-btn.active{border-color:var(--a);color:var(--a)}
+
+/* Fullscreen call overlay */
+#mcall-full{position:fixed;inset:0;z-index:550;background:#000;display:none;flex-direction:column}
+#mcall-full.on{display:flex}
+#mcall-remote-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#111}
+#mcall-remote-avatar{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+#mcall-remote-avatar-emoji{font-size:64px}
+#mcall-remote-avatar-name{font-size:16px;font-weight:700;color:#fff}
+#mcall-local-video{position:absolute;top:16px;right:16px;width:90px;height:120px;object-fit:cover;border-radius:12px;border:2px solid rgba(255,255,255,.2);background:#222;z-index:10}
+.mcall-full-overlay{position:absolute;bottom:0;left:0;right:0;z-index:20;
+  padding:20px 20px calc(20px + env(safe-area-inset-bottom,0px));
+  background:linear-gradient(to top, rgba(0,0,0,.7) 0%, transparent 100%);
+  display:flex;flex-direction:column;align-items:center;gap:16px}
+.mcall-full-name{font-size:14px;font-weight:700;color:#fff;letter-spacing:.5px}
+.mcall-full-timer{font-size:11px;color:rgba(255,255,255,.6);letter-spacing:2px}
+.mcall-full-btns{display:flex;gap:16px;align-items:center}
+.mcall-full-btn{width:52px;height:52px;border-radius:50%;border:none;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:opacity .15s,transform .1s;flex-shrink:0}
+.mcall-full-btn:active{transform:scale(.9)}
+.mcall-full-btn.mute{background:rgba(255,255,255,.15)}
+.mcall-full-btn.mute.active{background:rgba(255,255,255,.35)}
+.mcall-full-btn.camera{background:rgba(255,255,255,.15)}
+.mcall-full-btn.camera.active{background:rgba(255,255,255,.35)}
+.mcall-full-btn.minimize{background:rgba(255,255,255,.12);font-size:16px}
+.mcall-full-btn.end{background:rgba(224,108,117,.85);width:60px;height:60px;font-size:22px}
+.mcall-full-btn:hover{opacity:.82}
 /* info banner (contextual tips) */
 #info-banner{position:fixed;top:-90px;left:0;right:0;z-index:499;display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--sf);border-bottom:1px solid rgba(0,255,157,.18);box-shadow:0 2px 16px rgba(0,255,157,.07);transition:top .3s cubic-bezier(.4,0,.2,1)}
 #info-banner.on{top:0}
@@ -1220,6 +1277,10 @@ textarea::placeholder{color:var(--mu)}
     <div id="peer-push-badge" title="Статус уведомлений" style="display:none;font-size:10px;padding:3px 7px;border-radius:8px;border:1px solid var(--bd);color:var(--mu);flex-shrink:0;cursor:default"></div>
     <button class="idsave" id="idsavebtn" onclick="saveContact()" style="display:none">+ сохранить</button>
     <button id="call-online-btn" onclick="callPeerOnline()" title="Позвать онлайн" style="display:none;background:none;border:1px solid var(--a);color:var(--a);border-radius:10px;padding:5px 10px;font-size:11px;cursor:pointer;flex-shrink:0">📣</button>
+    <div id="mcall-hdr-btns" style="display:none;gap:4px">
+      <button onclick="mcallStart(false)" title="Аудиозвонок" style="background:none;border:1px solid var(--bd);border-radius:8px;padding:5px 9px;font-size:14px;cursor:pointer;color:var(--mu);transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='var(--a)';this.style.color='var(--a)'" onmouseout="this.style.borderColor='var(--bd)';this.style.color='var(--mu)'">🎤</button>
+      <button onclick="mcallStart(true)" title="Видеозвонок" style="background:none;border:1px solid var(--bd);border-radius:8px;padding:5px 9px;font-size:14px;cursor:pointer;color:var(--mu);transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='var(--a)';this.style.color='var(--a)'" onmouseout="this.style.borderColor='var(--bd)';this.style.color='var(--mu)'">📹</button>
+    </div>
   </div>
   <div id="pin-bar" style="display:none;align-items:center;gap:8px;padding:7px 12px;
     background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0;">
@@ -1334,6 +1395,53 @@ textarea::placeholder{color:var(--mu)}
       onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();grpSendChatMsg()}"
       oninput="autoGrowMi(this)" disabled style="flex:1;border-radius:16px;padding:10px 16px;height:calc(1.4em + 20px);font-size:13px"></textarea>
     <button class="btn" id="grp-chat-send" onclick="grpSendChatMsg()" disabled style="border-radius:20px;padding:10px 20px;flex-shrink:0;align-self:flex-end">→</button>
+  </div>
+</div>
+
+<!-- ── Входящий медиа-звонок ──────────────────────────────────────────────── -->
+<div id="mcall-modal">
+  <div class="mcall-box">
+    <div class="mcall-avatar" id="mcall-in-emoji">📞</div>
+    <div class="mcall-name" id="mcall-in-name">Неизвестный</div>
+    <div class="mcall-type" id="mcall-in-type">АУДИО · ВИДЕО</div>
+    <div class="mcall-btns">
+      <button class="mcall-btn decline" onclick="mcallReject()">✕ Отклонить</button>
+      <button class="mcall-btn accept-audio" id="mcall-accept-audio-btn" onclick="mcallAccept(false)">🎤 Аудио</button>
+      <button class="mcall-btn accept" id="mcall-accept-video-btn" onclick="mcallAccept(true)">📹 Видео</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Свёрнутая плашка активного звонка ─────────────────────────────────── -->
+<div id="mcall-bar">
+  <div class="mcall-bar-dot"></div>
+  <div class="mcall-bar-info" onclick="mcallExpand()">
+    <div class="mcall-bar-name" id="mcall-bar-name">Звонок</div>
+    <div class="mcall-bar-timer" id="mcall-bar-timer">00:00</div>
+  </div>
+  <button class="mcall-bar-btn" id="mcall-bar-mute" onclick="mcallToggleMute()" title="Микрофон">🎤</button>
+  <button class="mcall-bar-btn" id="mcall-bar-cam" onclick="mcallToggleCamera()" title="Камера">📷</button>
+  <button class="mcall-bar-btn" onclick="mcallExpand()" title="Развернуть">⤢</button>
+  <button class="mcall-bar-btn end" onclick="mcallEnd()" title="Завершить">✕</button>
+</div>
+
+<!-- ── Полноэкранный звонок ───────────────────────────────────────────────── -->
+<div id="mcall-full">
+  <video id="mcall-remote-video" autoplay playsinline style="display:none"></video>
+  <div id="mcall-remote-avatar">
+    <div id="mcall-remote-avatar-emoji">🙂</div>
+    <div id="mcall-remote-avatar-name"></div>
+  </div>
+  <video id="mcall-local-video" autoplay playsinline muted style="display:none"></video>
+  <div class="mcall-full-overlay">
+    <div class="mcall-full-name" id="mcall-full-name"></div>
+    <div class="mcall-full-timer" id="mcall-full-timer">00:00</div>
+    <div class="mcall-full-btns">
+      <button class="mcall-full-btn mute" id="mcall-full-mute" onclick="mcallToggleMute()" title="Микрофон">🎤</button>
+      <button class="mcall-full-btn end" onclick="mcallEnd()" title="Завершить">📵</button>
+      <button class="mcall-full-btn camera" id="mcall-full-cam" onclick="mcallToggleCamera()" title="Камера">📷</button>
+      <button class="mcall-full-btn minimize" onclick="mcallMinimize()" title="Свернуть">↙</button>
+    </div>
   </div>
 </div>
 
@@ -2949,6 +3057,9 @@ function showPeerIdentity(fp,known,name){
   // Сбрасываем бейдж при смене собеседника
   _showPeerPushBadge(null);
   updateActiveBanner();
+  // Показываем кнопки звонка
+  const hdrBtns = $('mcall-hdr-btns');
+  if(hdrBtns) hdrBtns.style.display = 'flex';
 }
 
 function _showPeerPushBadge(pushEnabled){
@@ -2979,6 +3090,8 @@ function resetPeerIdentity(){
   $('peer-name').textContent='Неизвестный';
   $('peer-fp').textContent='';
   $('idsavebtn').style.display='none';
+  const hdrBtns = $('mcall-hdr-btns');
+  if(hdrBtns) hdrBtns.style.display = 'none';
 }
 
 
@@ -4481,6 +4594,7 @@ function createPC(){
       }
     }
   };
+  _mcSetupPc(pc);
 }
 
 // ── P2P авто-реконнект ────────────────────────────────────────────────────────
@@ -4585,6 +4699,7 @@ function _p2pReconnectStop(){
 // idDone — колбэк подтверждения identity-рукопожатия, вызывается когда пир верифицирован.
 /** @param {Object} j — уже распарсенный JSON пакет @param {Function} idDone */
 async function _handleServicePacket(j, idDone){
+  if(j.__mcall__ !== undefined){ return _mcHandlePacket(j); }
   if(j.__shadow__ !== undefined){ _showShadowMsg(j.__shadow__); return true; }
   if(j.__typing__ === true){ _showTyping(); return true; }
   if(j.__typing__ === false){ _hideTyping(); return true; }
@@ -5190,6 +5305,8 @@ function goBack(){
   // Пользователь вышел сам — останавливаем авто-реконнект
   _p2pReconnectStop();
   _callOnlineWatching = null;
+  // Завершаем медиазвонок если был активен
+  if(_mc.state !== 'idle') mcallEnd();
   // Флаг: подавить побочные эффекты dc.onclose (reconnect-bar, sysMsg)
   window._goingBack = true;
   setTimeout(()=>{ window._goingBack = false; }, 500);
@@ -5245,6 +5362,344 @@ function waitIce(){
     pc.addEventListener('icegatheringstatechange',onState);
     if(pc.iceGatheringState==='complete')finish();
   });
+}
+
+// ── Media calls (audio/video over existing RTCPeerConnection) ────────────────
+
+/**
+ * @typedef {{
+ *   state: 'idle'|'outgoing'|'incoming'|'active'|'ending',
+ *   video: boolean,
+ *   peerVideo: boolean,
+ *   peerFp: string|null,
+ *   startedAt: number|null,
+ *   localStream: MediaStream|null,
+ *   remoteStream: MediaStream|null,
+ *   localSenders: RTCRtpSender[],
+ *   audioMuted: boolean,
+ *   videoMuted: boolean,
+ *   minimized: boolean
+ * }} McallState
+ */
+
+/** @type {McallState} */
+let _mc = {
+  state: 'idle', video: false, peerVideo: false,
+  peerFp: null, startedAt: null,
+  localStream: null, remoteStream: null,
+  localSenders: [], audioMuted: false, videoMuted: false, minimized: false
+};
+let _mcTimerInterval = null;
+
+// ── Исходящий звонок ─────────────────────────────────────────────────────────
+
+async function mcallStart(video){
+  if(!dc || dc.readyState !== 'open'){ toast('Нет соединения'); return; }
+  if(_mc.state !== 'idle'){ toast('Звонок уже активен'); return; }
+
+  let stream;
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: video ? {facingMode:'user'} : false });
+  }catch(e){
+    toast('Нет доступа к ' + (video ? 'камере/микрофону' : 'микрофону'));
+    return;
+  }
+
+  _mc.state   = 'outgoing';
+  _mc.video   = video;
+  _mc.peerFp  = currentPeerFp;
+  _mc.localStream = stream;
+
+  // Добавляем треки в существующий PeerConnection
+  _mc.localSenders = stream.getTracks().map(t => pc.addTrack(t, stream));
+
+  // Renegotiation
+  await _mcRenegotiate();
+
+  // Сигнал через E2E DataChannel
+  _e2eSend(JSON.stringify({ __mcall__: 'offer', video }));
+
+  _mcUpdateUI();
+  toast(video ? '📹 Звоним...' : '🎤 Звоним...');
+}
+
+// ── Входящий звонок ──────────────────────────────────────────────────────────
+
+function _mcHandleOffer(video){
+  if(_mc.state !== 'idle'){
+    _e2eSend(JSON.stringify({ __mcall__: 'busy' }));
+    return;
+  }
+  _mc.state    = 'incoming';
+  _mc.peerVideo = video;
+  _mc.peerFp   = currentPeerFp;
+
+  // Заполняем модал входящего звонка
+  const name = $('peer-name').textContent || 'Неизвестный';
+  $('mcall-in-name').textContent = name;
+  $('mcall-in-emoji').textContent = video ? '📹' : '🎤';
+  $('mcall-in-type').textContent  = video ? 'АУДИО · ВИДЕО' : 'АУДИО';
+
+  // Скрываем кнопку видео-приёма если у звонящего только аудио
+  $('mcall-accept-video-btn').style.display = video ? '' : 'none';
+
+  $('mcall-modal').classList.add('on');
+  vibrate(200);
+}
+
+async function mcallAccept(withVideo){
+  if(_mc.state !== 'incoming') return;
+  $('mcall-modal').classList.remove('on');
+
+  let stream;
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo ? {facingMode:'user'} : false });
+  }catch(e){
+    toast('Нет доступа к ' + (withVideo ? 'камере/микрофону' : 'микрофону'));
+    _mcReset();
+    return;
+  }
+
+  _mc.state       = 'active';
+  _mc.video       = withVideo;
+  _mc.localStream = stream;
+  _mc.startedAt   = Date.now();
+  _mc.localSenders = stream.getTracks().map(t => pc.addTrack(t, stream));
+
+  await _mcRenegotiate();
+  _e2eSend(JSON.stringify({ __mcall__: 'accept', video: withVideo }));
+
+  _mcStartTimer();
+  _mcUpdateUI();
+}
+
+function mcallReject(){
+  $('mcall-modal').classList.remove('on');
+  _e2eSend(JSON.stringify({ __mcall__: 'reject' }));
+  _mcReset();
+}
+
+// ── Управление активным звонком ──────────────────────────────────────────────
+
+function mcallEnd(){
+  if(_mc.state === 'idle') return;
+  try{ _e2eSend(JSON.stringify({ __mcall__: 'end' })); }catch(_){}
+  _mcReset();
+  toast('Звонок завершён');
+}
+
+function mcallToggleMute(){
+  if(!_mc.localStream) return;
+  _mc.audioMuted = !_mc.audioMuted;
+  _mc.localStream.getAudioTracks().forEach(t => t.enabled = !_mc.audioMuted);
+  _e2eSend(JSON.stringify({ __mcall__: 'mute', audio: _mc.audioMuted, video: _mc.videoMuted }));
+  _mcUpdateUI();
+}
+
+function mcallToggleCamera(){
+  if(!_mc.localStream) return;
+  _mc.videoMuted = !_mc.videoMuted;
+  _mc.localStream.getVideoTracks().forEach(t => t.enabled = !_mc.videoMuted);
+  _e2eSend(JSON.stringify({ __mcall__: 'mute', audio: _mc.audioMuted, video: _mc.videoMuted }));
+  _mcUpdateUI();
+}
+
+function mcallMinimize(){
+  _mc.minimized = true;
+  $('mcall-full').classList.remove('on');
+  $('mcall-bar').classList.add('on');
+}
+
+function mcallExpand(){
+  _mc.minimized = false;
+  $('mcall-bar').classList.remove('on');
+  $('mcall-full').classList.add('on');
+}
+
+// ── Renegotiation (добавление медиатреков к существующему pc) ────────────────
+
+async function _mcRenegotiate(){
+  if(!pc) return;
+  // Слушаем onnegotiationneeded только один раз — создаём offer вручную
+  try{
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    _e2eSend(JSON.stringify({ __mcall__: 'sdp', sdp: pc.localDescription }));
+  }catch(e){
+    _dbgPush('warn', ['[mcall] renegotiate error:', e.message]);
+  }
+}
+
+async function _mcHandleSdp(sdp){
+  if(!pc) return;
+  try{
+    const desc = new RTCSessionDescription(sdp);
+    if(sdp.type === 'offer'){
+      await pc.setRemoteDescription(desc);
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      _e2eSend(JSON.stringify({ __mcall__: 'sdp', sdp: pc.localDescription }));
+    } else if(sdp.type === 'answer'){
+      await pc.setRemoteDescription(desc);
+    }
+  }catch(e){
+    _dbgPush('warn', ['[mcall] handleSdp error:', e.message]);
+  }
+}
+
+// ── Роутер входящих __mcall__ пакетов ────────────────────────────────────────
+// Вызывается из _handleServicePacket
+
+function _mcHandlePacket(j){
+  const p = j.__mcall__;
+  if(!p) return false;
+
+  if(p === 'offer'){
+    _mcHandleOffer(!!j.video);
+  } else if(p === 'accept'){
+    if(_mc.state === 'outgoing'){
+      _mc.state     = 'active';
+      _mc.peerVideo = !!j.video;
+      _mc.startedAt = Date.now();
+      _mcStartTimer();
+      _mcUpdateUI();
+      toast('Звонок принят');
+    }
+  } else if(p === 'reject'){
+    if(_mc.state === 'outgoing'){
+      _mcReset();
+      toast('Звонок отклонён');
+    }
+  } else if(p === 'busy'){
+    if(_mc.state === 'outgoing'){
+      _mcReset();
+      toast('Собеседник занят');
+    }
+  } else if(p === 'end'){
+    _mcReset();
+    toast('Собеседник завершил звонок');
+  } else if(p === 'sdp'){
+    _mcHandleSdp(j.sdp);
+  } else if(p === 'mute'){
+    // Можно показать иконку заглушения собеседника — пока просто логируем
+    _dbgPush('log', ['[mcall] peer mute audio=' + j.audio + ' video=' + j.video]);
+  }
+  return true;
+}
+
+// ── Подключение удалённого потока ────────────────────────────────────────────
+
+function _mcAttachRemoteStream(stream){
+  _mc.remoteStream = stream;
+  const vEl = $('mcall-remote-video');
+  vEl.srcObject = stream;
+  const hasVideo = stream.getVideoTracks().length > 0 && stream.getVideoTracks()[0].enabled;
+  vEl.style.display = hasVideo ? 'block' : 'none';
+  $('mcall-remote-avatar').style.display = hasVideo ? 'none' : 'flex';
+  if(_mc.state === 'active' && !_mc.minimized) $('mcall-full').classList.add('on');
+}
+
+// ── Таймер ───────────────────────────────────────────────────────────────────
+
+function _mcStartTimer(){
+  clearInterval(_mcTimerInterval);
+  _mcTimerInterval = setInterval(() => {
+    if(_mc.state !== 'active'){ clearInterval(_mcTimerInterval); return; }
+    const s = Math.floor((Date.now() - _mc.startedAt) / 1000);
+    const mm = String(Math.floor(s/60)).padStart(2,'0');
+    const ss = String(s % 60).padStart(2,'0');
+    const t = mm + ':' + ss;
+    $('mcall-bar-timer').textContent  = t;
+    $('mcall-full-timer').textContent = t;
+  }, 1000);
+}
+
+// ── Сброс состояния ──────────────────────────────────────────────────────────
+
+function _mcReset(){
+  clearInterval(_mcTimerInterval);
+  $('mcall-modal').classList.remove('on');
+  $('mcall-bar').classList.remove('on');
+  $('mcall-full').classList.remove('on');
+
+  // Останавливаем треки
+  if(_mc.localStream) _mc.localStream.getTracks().forEach(t => t.stop());
+
+  // Удаляем senders из pc
+  if(pc) _mc.localSenders.forEach(s => { try{ pc.removeTrack(s); }catch(_){} });
+
+  // Сбрасываем video элементы
+  const rv = $('mcall-remote-video');
+  rv.srcObject = null; rv.style.display = 'none';
+  const lv = $('mcall-local-video');
+  lv.srcObject = null; lv.style.display = 'none';
+
+  _mc = {
+    state: 'idle', video: false, peerVideo: false,
+    peerFp: null, startedAt: null,
+    localStream: null, remoteStream: null,
+    localSenders: [], audioMuted: false, videoMuted: false, minimized: false
+  };
+  _mcUpdateUI();
+}
+
+// ── Синхронизация UI ─────────────────────────────────────────────────────────
+
+function _mcUpdateUI(){
+  const active  = _mc.state === 'active';
+  const name    = $('peer-name').textContent || 'Звонок';
+
+  // Кнопки в хедере чата — скрываем во время звонка
+  const hdrBtns = $('mcall-hdr-btns');
+  if(hdrBtns) hdrBtns.style.display = (_mc.state === 'idle' && dc?.readyState === 'open') ? 'flex' : 'none';
+
+  if(!active) return;
+
+  // Свёрнутая плашка
+  $('mcall-bar-name').textContent = name;
+
+  // Полноэкранный оверлей
+  $('mcall-full-name').textContent = name;
+  $('mcall-remote-avatar-name').textContent = name;
+
+  // Локальное видео
+  const lv = $('mcall-local-video');
+  if(_mc.localStream){
+    lv.srcObject = _mc.localStream;
+    lv.style.display = (_mc.video && !_mc.videoMuted) ? 'block' : 'none';
+  }
+
+  // Кнопки mute
+  const muteActive = _mc.audioMuted;
+  const camActive  = _mc.videoMuted;
+  [$('mcall-bar-mute'), $('mcall-full-mute')].forEach(el => {
+    if(!el) return;
+    el.textContent = muteActive ? '🔇' : '🎤';
+    el.classList.toggle('active', muteActive);
+  });
+  [$('mcall-bar-cam'), $('mcall-full-cam')].forEach(el => {
+    if(!el) return;
+    el.textContent = camActive ? '🚫' : '📷';
+    el.classList.toggle('active', camActive);
+  });
+
+  // Показываем нужный вид
+  if(_mc.minimized){
+    $('mcall-bar').classList.add('on');
+    $('mcall-full').classList.remove('on');
+  } else {
+    $('mcall-full').classList.add('on');
+    $('mcall-bar').classList.remove('on');
+  }
+}
+
+// ── Инициализация ontrack ─────────────────────────────────────────────────────
+// Вызывается из createPC — вешает обработчик входящих медиатреков
+
+function _mcSetupPc(peerConn){
+  peerConn.ontrack = e => {
+    if(e.streams && e.streams[0]) _mcAttachRemoteStream(e.streams[0]);
+  };
 }
 
 // ── Guard ──

@@ -1013,57 +1013,97 @@ textarea::placeholder{color:var(--mu)}
     <div class="sh-back" onclick="snBack()">← назад</div>
     <div class="sn-section">
 
-      <!-- ── Рекомендации по качеству ── -->
-      <div class="sn-label">📶 Рекомендации по качеству</div>
+      <!-- ── Передача файлов ── -->
+      <div class="sn-label">📁 Передача файлов</div>
       <div style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;overflow:hidden;margin-bottom:4px">
-        <div style="padding:10px 14px;border-bottom:1px solid var(--bd)">
-          <div style="font-size:11px;color:var(--mu);margin-bottom:8px;line-height:1.5">Ваша скорость интернета определяет оптимальный профиль качества. Нажмите кнопку для замера.</div>
-          <button id="media-speedtest-btn" onclick="mediaRunSpeedTest()" style="width:100%;padding:10px;background:var(--ad);border:1px solid rgba(0,255,157,.2);border-radius:8px;color:var(--a);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.5px;transition:opacity .15s">⚡ Проверить скорость соединения</button>
-          <div id="media-speedtest-result" style="display:none;margin-top:10px;padding:10px 12px;background:var(--sf);border:1px solid var(--bd);border-radius:8px">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-              <span style="font-size:11px;color:var(--mu)">Примерная скорость</span>
-              <span id="media-speed-value" style="font-size:13px;font-weight:700;color:var(--a)">—</span>
+        <div style="display:flex;flex-direction:column;gap:0" id="file-speed-list">
+          <label style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--bd);cursor:pointer" onclick="setFileProfile('normal')">
+            <div id="fp-normal-radio" class="srv-radio" style="flex-shrink:0"></div>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:700">🐢 Обычная</div>
+              <div style="font-size:10px;color:var(--mu);margin-top:2px">Чанки 64 КБ · буфер 1 МБ — стабильно на любом канале</div>
             </div>
-            <div id="media-speed-advice" style="font-size:11px;color:var(--tx);line-height:1.6;padding:8px 10px;background:var(--bg);border-radius:6px;border-left:3px solid var(--a)"></div>
+          </label>
+          <label style="display:flex;align-items:center;border-bottom:1px solid var(--bd);gap:10px;padding:11px 14px;cursor:pointer" onclick="setFileProfile('turbo')">
+            <div id="fp-turbo-radio" class="srv-radio" style="flex-shrink:0"></div>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:700">🚀 Турбо</div>
+              <div style="font-size:10px;color:var(--mu);margin-top:2px">Чанки 256 КБ · буфер 4 МБ — быстрее на хорошем Wi-Fi / оптике</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer" onclick="setFileProfile('ludicrous')">
+            <div id="fp-ludicrous-radio" class="srv-radio" style="flex-shrink:0"></div>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:700">⚡ Максимум</div>
+              <div style="font-size:10px;color:var(--mu);margin-top:2px">Чанки 256 КБ · буфер 16 МБ · окно 64 — весь канал на предел</div>
+            </div>
+          </label>
+        </div>
+        <!-- Тест скорости файлов -->
+        <div style="padding:10px 14px;border-top:1px solid var(--bd)">
+          <button id="file-test-btn" onclick="fileRunSpeedTest()" style="width:100%;padding:10px;background:var(--ad);border:1px solid rgba(0,255,157,.2);border-radius:8px;color:var(--a);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.5px;transition:opacity .15s">⚡ Тест скорости передачи</button>
+          <div id="file-test-result" style="display:none;margin-top:10px;padding:10px 12px;background:var(--sf);border:1px solid var(--bd);border-radius:8px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+              <span style="font-size:11px;color:var(--mu)">↓ Загрузка (CDN)</span>
+              <span id="file-dl-value" style="font-size:13px;font-weight:700;color:var(--a)">—</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <span style="font-size:11px;color:var(--mu)">↑ Отдача (P2P)</span>
+              <span id="file-ul-value" style="font-size:13px;font-weight:700;color:var(--a)">—</span>
+            </div>
+            <div id="file-test-advice" style="font-size:11px;color:var(--tx);line-height:1.6;padding:8px 10px;background:var(--bg);border-radius:6px;border-left:3px solid var(--a)"></div>
           </div>
         </div>
-        <!-- Таблица профилей -->
-        <div style="padding:10px 14px">
-          <div style="font-size:10px;color:var(--mu);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">Профили качества</div>
-          <div style="display:flex;flex-direction:column;gap:4px" id="media-profiles-list">
-            <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;background:var(--sf)">
-              <div style="font-size:14px;flex-shrink:0">🐢</div>
-              <div style="flex:1;min-width:0">
-                <div style="font-size:11px;font-weight:700;color:var(--tx)">Экономный <span style="font-weight:400;color:var(--mu)">— до 5 Мбит/с</span></div>
-                <div style="font-size:10px;color:var(--mu);margin-top:1px">480p · 15 fps · аудио 64 Кбит/с</div>
-              </div>
+        <div style="padding:4px 14px 10px;font-size:10px;color:var(--mu);line-height:1.5">⚠ Турбо и Максимум могут вызвать задержки на медленном канале.</div>
+      </div>
+
+      <!-- ── Битрейт аудио ── -->
+      <div class="sn-label">🎙 Битрейт аудио</div>
+      <div style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;overflow:hidden;margin-bottom:4px">
+        <div style="display:flex;flex-direction:column;gap:0" id="audio-profile-list">
+          <label id="ap-voice" style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .12s" onclick="setAudioProfile('voice')">
+            <div id="ap-voice-radio" class="srv-radio" style="flex-shrink:0"></div>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:700">🗣 Голос</div>
+              <div style="font-size:10px;color:var(--mu);margin-top:2px">64 Кбит/с — экономный, слабый сигнал или мобильный трафик</div>
             </div>
-            <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;background:var(--sf)">
-              <div style="font-size:14px;flex-shrink:0">🚗</div>
-              <div style="flex:1;min-width:0">
-                <div style="font-size:11px;font-weight:700;color:var(--tx)">Стандартный <span style="font-weight:400;color:var(--mu)">— 5–20 Мбит/с</span></div>
-                <div style="font-size:10px;color:var(--mu);margin-top:1px">720p · 30 fps · аудио 96 Кбит/с</div>
-              </div>
+          </label>
+          <label id="ap-std" style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .12s" onclick="setAudioProfile('std')">
+            <div id="ap-std-radio" class="srv-radio" style="flex-shrink:0"></div>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:700">🎙 Стандарт</div>
+              <div style="font-size:10px;color:var(--mu);margin-top:2px">96 Кбит/с — хорошее качество, подходит большинству</div>
             </div>
-            <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;background:var(--sf)">
-              <div style="font-size:14px;flex-shrink:0">🚀</div>
-              <div style="flex:1;min-width:0">
-                <div style="font-size:11px;font-weight:700;color:var(--tx)">Высокое <span style="font-weight:400;color:var(--mu)">— 20–50 Мбит/с</span></div>
-                <div style="font-size:10px;color:var(--mu);margin-top:1px">1080p · 30 fps · аудио 128 Кбит/с</div>
-              </div>
+          </label>
+          <label id="ap-hifi" style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .12s" onclick="setAudioProfile('hifi')">
+            <div id="ap-hifi-radio" class="srv-radio" style="flex-shrink:0"></div>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:700">🎧 Hi-Fi</div>
+              <div style="font-size:10px;color:var(--mu);margin-top:2px">128 Кбит/с — насыщенный звук, широкополосный микрофон</div>
             </div>
-            <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;background:var(--sf)">
-              <div style="font-size:14px;flex-shrink:0">🛸</div>
-              <div style="flex:1;min-width:0">
-                <div style="font-size:11px;font-weight:700;color:var(--tx)">Максимальное <span style="font-weight:400;color:var(--mu)">— 50+ Мбит/с</span></div>
-                <div style="font-size:10px;color:var(--mu);margin-top:1px">1080p · 60 fps · аудио 256 Кбит/с</div>
-              </div>
+          </label>
+          <label id="ap-studio" style="display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;transition:background .12s" onclick="setAudioProfile('studio')">
+            <div id="ap-studio-radio" class="srv-radio" style="flex-shrink:0"></div>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:700">🎚 Студия</div>
+              <div style="font-size:10px;color:var(--mu);margin-top:2px">256 Кбит/с — максимум, требует быстрый канал</div>
             </div>
+          </label>
+        </div>
+        <!-- Тест качества аудио -->
+        <div style="padding:10px 14px;border-top:1px solid var(--bd)">
+          <div style="font-size:11px;color:var(--mu);margin-bottom:8px;line-height:1.5">Говорите в микрофон 3 секунды — анализируем сигнал и рекомендуем оптимальный битрейт.</div>
+          <button id="audio-test-btn" onclick="audioRunQualityTest()" style="width:100%;padding:10px;background:var(--ad);border:1px solid rgba(0,255,157,.2);border-radius:8px;color:var(--a);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.5px;transition:opacity .15s">🎙 Анализ микрофона</button>
+          <div style="height:3px;background:var(--bd);border-radius:2px;margin-top:8px;overflow:hidden">
+            <div id="audio-test-progress" style="display:none;height:100%;width:0%;background:var(--a);border-radius:2px;transition:width .1s linear"></div>
+          </div>
+          <div id="audio-test-result" style="display:none;margin-top:10px;padding:10px 12px;background:var(--sf);border:1px solid var(--bd);border-radius:8px">
+            <div id="audio-test-advice" style="font-size:11px;color:var(--tx);line-height:1.6;padding:8px 10px;background:var(--bg);border-radius:6px;border-left:3px solid var(--a)"></div>
           </div>
         </div>
       </div>
 
-      <!-- ── Профиль видео ── -->
+      <!-- ── Качество видео ── -->
       <div class="sn-label">🎥 Качество видеозвонков</div>
       <div style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;overflow:hidden;margin-bottom:4px">
         <div style="display:flex;flex-direction:column;gap:0" id="video-profile-list">
@@ -1095,6 +1135,14 @@ textarea::placeholder{color:var(--mu)}
               <div style="font-size:10px;color:var(--mu);margin-top:2px">1080p · 60 fps · ~5 Мбит/с — быстрый Wi-Fi / оптика</div>
             </div>
           </label>
+        </div>
+        <!-- Тест качества видео -->
+        <div style="padding:10px 14px;border-top:1px solid var(--bd)">
+          <div style="font-size:11px;color:var(--mu);margin-bottom:8px;line-height:1.5">Проверяем реальные возможности камеры и скорость сети — подбираем оптимальный профиль.</div>
+          <button id="video-test-btn" onclick="videoRunQualityTest()" style="width:100%;padding:10px;background:var(--ad);border:1px solid rgba(0,255,157,.2);border-radius:8px;color:var(--a);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.5px;transition:opacity .15s">📹 Тест камеры и сети</button>
+          <div id="video-test-result" style="display:none;margin-top:10px;padding:10px 12px;background:var(--sf);border:1px solid var(--bd);border-radius:8px">
+            <div id="video-test-advice" style="font-size:11px;color:var(--tx);line-height:1.6;padding:8px 10px;background:var(--bg);border-radius:6px;border-left:3px solid var(--a)"></div>
+          </div>
         </div>
       </div>
 
@@ -1170,34 +1218,6 @@ textarea::placeholder{color:var(--mu)}
         <div id="cam-log-console" style="background:var(--bg);border-top:1px solid var(--bd);padding:10px 12px;font-size:10px;line-height:1.7;color:var(--mu);max-height:280px;overflow-y:auto;font-family:'JetBrains Mono',monospace;word-break:break-all;white-space:pre-wrap;display:none"><span style="opacity:.4">// нажмите «Тест камер» для диагностики</span></div>
       </div>
 
-      <!-- ── Передача файлов ── -->
-      <div class="sn-label">📁 Передача файлов</div>
-      <div style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
-        <div style="display:flex;flex-direction:column;gap:0" id="file-speed-list">
-          <label style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--bd);cursor:pointer" onclick="setFileProfile('normal')">
-            <div id="fp-normal-radio" class="srv-radio" style="flex-shrink:0"></div>
-            <div style="flex:1">
-              <div style="font-size:12px;font-weight:700">Обычная</div>
-              <div style="font-size:10px;color:var(--mu);margin-top:2px">Чанки 64 КБ · буфер 1 МБ — стабильно на любом канале</div>
-            </div>
-          </label>
-          <label style="display:flex;align-items:center;border-bottom:1px solid var(--bd);gap:10px;padding:11px 14px;cursor:pointer" onclick="setFileProfile('turbo')">
-            <div id="fp-turbo-radio" class="srv-radio" style="flex-shrink:0"></div>
-            <div style="flex:1">
-              <div style="font-size:12px;font-weight:700">Турбо 🚀</div>
-              <div style="font-size:10px;color:var(--mu);margin-top:2px">Чанки 256 КБ · буфер 4 МБ — быстрее на хорошем Wi-Fi / оптике</div>
-            </div>
-          </label>
-          <label style="display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer" onclick="setFileProfile('ludicrous')">
-            <div id="fp-ludicrous-radio" class="srv-radio" style="flex-shrink:0"></div>
-            <div style="flex:1">
-              <div style="font-size:12px;font-weight:700">Максимум ⚡</div>
-              <div style="font-size:10px;color:var(--mu);margin-top:2px">Чанки 256 КБ · буфер 16 МБ · окно 64 — максимальный параллелизм, всё на пределе канала</div>
-            </div>
-          </label>
-        </div>
-        <div style="padding:10px 14px;border-top:1px solid var(--bd);font-size:10px;color:var(--mu);line-height:1.5">⚠ Турбо и Максимум могут вызвать задержки на медленном соединении. Максимум использует всю доступную полосу.</div>
-      </div>
 
     </div>
   </div>
@@ -4093,6 +4113,13 @@ const VIDEO_PROFILES = {
   max:  { width: 1920, height: 1080, frameRate: 60, videoBitrate: 5_000_000, audioBitrate: 256_000 },
 };
 
+const AUDIO_PROFILES = {
+  voice:  { audioBitrate: 64_000,  emoji: '🗣',  label: 'Голос',   desc: '64 Кбит/с — экономный, разговор на слабом канале' },
+  std:    { audioBitrate: 96_000,  emoji: '🎙',  label: 'Стандарт',desc: '96 Кбит/с — хорошее качество звонка' },
+  hifi:   { audioBitrate: 128_000, emoji: '🎧', label: 'Hi-Fi',   desc: '128 Кбит/с — насыщенный звук, широкополосный микрофон' },
+  studio: { audioBitrate: 256_000, emoji: '🎚', label: 'Студия',  desc: '256 Кбит/с — максимальное качество, требует быстрый канал' },
+};
+
 const FILE_PROFILES = {
   normal:    { chunk: 65536,   buffer: 65536  * 16, window: 8  },
   turbo:     { chunk: 262144,  buffer: 262144 * 16, window: 16 },
@@ -4105,9 +4132,13 @@ const FILE_PROFILES = {
 function _loadMediaSettings() {
   try {
     const raw = localStorage.getItem(MEDIA_SETTINGS_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const s = JSON.parse(raw);
+      if (!s.audioProfile) s.audioProfile = 'std';
+      return s;
+    }
   } catch(_) {}
-  return { videoProfile: 'std', fileProfile: 'normal', noise: true, echo: true, agc: true };
+  return { videoProfile: 'std', audioProfile: 'std', fileProfile: 'normal', noise: true, echo: true, agc: true };
 }
 
 function _saveMediaSettings(s) {
@@ -4128,8 +4159,12 @@ function getVideoConstraints(withVideo) {
 
 function getVideoBitrates() {
   const s = _loadMediaSettings();
-  const p = VIDEO_PROFILES[s.videoProfile] || VIDEO_PROFILES.std;
-  return { video: p.videoBitrate, audio: p.audioBitrate };
+  const vp = VIDEO_PROFILES[s.videoProfile] || VIDEO_PROFILES.std;
+  const ap = AUDIO_PROFILES[s.audioProfile];
+  return {
+    video: vp.videoBitrate,
+    audio: ap ? ap.audioBitrate : vp.audioBitrate,
+  };
 }
 
 function getFileTransferProfile() {
@@ -4144,7 +4179,16 @@ function setVideoProfile(key) {
   s.videoProfile = key;
   _saveMediaSettings(s);
   _renderMediaSettings(s);
-  toast('Профиль видео: ' + { eco:'Экономный', std:'Стандартный', high:'Высокое', max:'Максимальное' }[key]);
+  toast('Видео: ' + { eco:'Экономный', std:'Стандартный', high:'Высокое', max:'Максимальное' }[key]);
+}
+
+function setAudioProfile(key) {
+  if (!AUDIO_PROFILES[key]) return;
+  const s = _loadMediaSettings();
+  s.audioProfile = key;
+  _saveMediaSettings(s);
+  _renderMediaSettings(s);
+  toast('Аудио: ' + AUDIO_PROFILES[key].label);
 }
 
 function setFileProfile(key) {
@@ -4192,6 +4236,13 @@ function _renderMediaSettings(s) {
     const row = document.getElementById('vp-' + k);
     if (row) row.style.background = s.videoProfile === k ? 'rgba(0,255,157,.04)' : '';
   });
+  // Аудио профили — radio
+  ['voice','std','hifi','studio'].forEach(k => {
+    const r = document.getElementById('ap-' + k + '-radio');
+    if (r) r.classList.toggle('sel', s.audioProfile === k);
+    const row = document.getElementById('ap-' + k);
+    if (row) row.style.background = s.audioProfile === k ? 'rgba(0,255,157,.04)' : '';
+  });
   // Файловые профили — radio
   ['normal','turbo','ludicrous'].forEach(k => {
     const r = document.getElementById('fp-' + k + '-radio');
@@ -4205,8 +4256,9 @@ function _renderMediaSettings(s) {
   const desc = document.getElementById('sn-media-desc');
   if (desc) {
     const vLabel = { eco:'Экономный', std:'Стандартный', high:'Высокое', max:'Максимальное' }[s.videoProfile] || '';
+    const aLabel = s.audioProfile !== 'std' ? ' · Аудио: ' + (AUDIO_PROFILES[s.audioProfile]?.label || '') : '';
     const fLabel = { turbo:' · Файлы: Турбо', ludicrous:' · Файлы: Максимум' }[s.fileProfile] || '';
-    desc.textContent = 'Видео: ' + vLabel + fLabel;
+    desc.textContent = 'Видео: ' + vLabel + aLabel + fLabel;
   }
 }
 
@@ -4294,55 +4346,331 @@ function _micTestStop() {
 // Останавливаем тест при уходе с экрана настроек
 const _origSnBack = window.snBack;
 
-// ── Тест скорости ─────────────────────────────────────────────────────────────
-async function mediaRunSpeedTest() {
-  const btn    = document.getElementById('media-speedtest-btn');
-  const result = document.getElementById('media-speedtest-result');
-  const value  = document.getElementById('media-speed-value');
-  const advice = document.getElementById('media-speed-advice');
-  if (!btn || !result || !value || !advice) return;
+// ════════════════════════════════════════════════════════════════════════════
+// ТЕС СКОРОСТИ ФАЙЛОВ: download (CDN) + upload (loopback DataChannel)
+// ════════════════════════════════════════════════════════════════════════════
+
+let _lastDownloadMbps = null; // кешируем для видео-теста
+
+async function _measureDownloadMbps() {
+  const testUrl = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+  const t0   = performance.now();
+  const resp = await fetch(testUrl + '?_=' + Date.now(), { cache: 'no-store' });
+  const blob = await resp.blob();
+  const elapsed = (performance.now() - t0) / 1000;
+  return blob.size * 8 / 1_000_000 / elapsed;
+}
+
+async function _measureLoopbackMbps() {
+  return new Promise(async (resolve) => {
+    try {
+      const cfg = { iceServers: [] };
+      const pc1 = new RTCPeerConnection(cfg);
+      const pc2 = new RTCPeerConnection(cfg);
+      pc1.onicecandidate = e => e.candidate && pc2.addIceCandidate(e.candidate).catch(()=>{});
+      pc2.onicecandidate = e => e.candidate && pc1.addIceCandidate(e.candidate).catch(()=>{});
+
+      let bytesRcv = 0;
+      const dc = pc1.createDataChannel('st', { ordered: false, maxRetransmits: 0 });
+      pc2.ondatachannel = e => { e.channel.onmessage = ev => { bytesRcv += (ev.data.byteLength || ev.data.length || 0); }; };
+
+      const offer = await pc1.createOffer();
+      await pc1.setLocalDescription(offer);
+      await pc2.setRemoteDescription(offer);
+      const answer = await pc2.createAnswer();
+      await pc2.setLocalDescription(answer);
+      await pc1.setRemoteDescription(answer);
+
+      await new Promise((r, rj) => {
+        const tid = setTimeout(() => rj(new Error('dc timeout')), 5000);
+        dc.onopen = () => { clearTimeout(tid); r(); };
+      });
+
+      const CHUNK    = new ArrayBuffer(65536);
+      const DURATION = 2500;
+      const t0 = performance.now();
+      let sending = true;
+
+      (function sendLoop() {
+        if (!sending) return;
+        try { while (dc.bufferedAmount < 2_000_000) dc.send(CHUNK); } catch(_) {}
+        setTimeout(sendLoop, 10);
+      })();
+
+      setTimeout(() => {
+        sending = false;
+        const elapsed = (performance.now() - t0) / 1000;
+        const mbps = bytesRcv * 8 / 1_000_000 / elapsed;
+        try { pc1.close(); pc2.close(); } catch(_) {}
+        resolve(mbps);
+      }, DURATION + 200);
+    } catch(e) {
+      resolve(null);
+    }
+  });
+}
+
+async function fileRunSpeedTest() {
+  const btn    = document.getElementById('file-test-btn');
+  const result = document.getElementById('file-test-result');
+  const dlVal  = document.getElementById('file-dl-value');
+  const ulVal  = document.getElementById('file-ul-value');
+  const advice = document.getElementById('file-test-advice');
+  if (!btn) return;
 
   btn.disabled = true;
-  btn.textContent = '⏳ Измеряем...';
-  result.style.display = 'none';
+  btn.textContent = '⏳ Замеряем загрузку...';
+  if (result) result.style.display = 'none';
+
+  let dlMbps = null, ulMbps = null;
 
   try {
-    // Загружаем ~500 KB с CDN и измеряем время
-    const testUrl = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
-    const t0 = performance.now();
-    const resp = await fetch(testUrl + '?_=' + Date.now(), { cache: 'no-store' });
-    const blob = await resp.blob();
-    const elapsed = (performance.now() - t0) / 1000;
-    const mbps = (blob.size * 8 / 1_000_000 / elapsed);
-
-    value.textContent = mbps.toFixed(1) + ' Мбит/с';
-
-    let rec, emoji;
-    if (mbps < 5) {
-      rec = 'eco'; emoji = '🐢';
-      advice.innerHTML = '<b>' + emoji + ' Рекомендуем: Экономный</b><br>Скорость ' + mbps.toFixed(1) + ' Мбит/с — достаточно для аудио и видео 480p. Турбо-режим файлов лучше не включать.';
-    } else if (mbps < 20) {
-      rec = 'std'; emoji = '🚗';
-      advice.innerHTML = '<b>' + emoji + ' Рекомендуем: Стандартный</b><br>Скорость ' + mbps.toFixed(1) + ' Мбит/с — отлично для видео 720p. Файлы можно передавать в обычном режиме.';
-    } else if (mbps < 50) {
-      rec = 'high'; emoji = '🚀';
-      advice.innerHTML = '<b>' + emoji + ' Рекомендуем: Высокое</b><br>Скорость ' + mbps.toFixed(1) + ' Мбит/с — поддерживает Full HD. Файлы: попробуйте Турбо.';
-    } else {
-      rec = 'max'; emoji = '🛸';
-      advice.innerHTML = '<b>' + emoji + ' Рекомендуем: Максимальное</b><br>Скорость ' + mbps.toFixed(1) + ' Мбит/с — хватит на 1080p 60fps. Файлы: включайте Турбо.';
-    }
-
-    result.style.display = 'block';
-    // Предлагаем переключить профиль
-    advice.innerHTML += '<br><button onclick="setVideoProfile(\'' + rec + '\');mediaRunSpeedTest._applied=true" style="margin-top:8px;padding:5px 12px;background:var(--a);border:none;border-radius:6px;color:#000;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer">Применить ' + emoji + ' профиль</button>';
+    dlMbps = await _measureDownloadMbps();
+    _lastDownloadMbps = dlMbps;
+    if (dlVal) dlVal.textContent = dlMbps.toFixed(1) + ' Мбит/с';
   } catch(e) {
-    value.textContent = 'ошибка';
-    advice.textContent = 'Не удалось измерить скорость. Проверьте подключение к интернету.';
-    result.style.display = 'block';
+    if (dlVal) dlVal.textContent = 'ошибка';
+  }
+
+  btn.textContent = '⏳ Замеряем P2P-канал...';
+
+  try {
+    ulMbps = await _measureLoopbackMbps();
+    if (ulVal) ulVal.textContent = ulMbps !== null ? ulMbps.toFixed(1) + ' Мбит/с' : '—';
+  } catch(e) {
+    if (ulVal) ulVal.textContent = '—';
+  }
+
+  if (result) result.style.display = 'block';
+
+  const speed = dlMbps || 0;
+  let rec, recLabel, recEmoji, hint;
+  if (speed < 3) {
+    rec = 'normal'; recLabel = 'Обычная'; recEmoji = '🐢';
+    hint = 'Медленный канал (' + speed.toFixed(1) + ' Мбит/с) — лучше оставить обычный режим. Турбо может вызвать зависания.';
+  } else if (speed < 15) {
+    rec = 'normal'; recLabel = 'Обычная'; recEmoji = '🚗';
+    hint = 'Умеренная скорость (' + speed.toFixed(1) + ' Мбит/с) — обычный режим оптимален. Турбо допустимо попробовать.';
+  } else if (speed < 50) {
+    rec = 'turbo'; recLabel = 'Турбо'; recEmoji = '🚀';
+    hint = 'Хороший канал (' + speed.toFixed(1) + ' Мбит/с) — рекомендуем Турбо. Файлы пойдут заметно быстрее.';
+  } else {
+    rec = 'ludicrous'; recLabel = 'Максимум'; recEmoji = '⚡';
+    hint = 'Отличный канал (' + speed.toFixed(1) + ' Мбит/с) — рекомендуем Максимум. Используем весь доступный канал.';
+  }
+
+  if (advice) {
+    advice.innerHTML = '<b>' + recEmoji + ' Рекомендуем: ' + recLabel + '</b><br>' + hint +
+      '<br><button onclick="setFileProfile(\'' + rec + '\')" style="margin-top:8px;padding:5px 12px;background:var(--a);border:none;border-radius:6px;color:#000;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer">Применить ' + recEmoji + ' ' + recLabel + '</button>';
   }
 
   btn.disabled = false;
   btn.textContent = '⚡ Проверить снова';
+}
+
+// Обратная совместимость
+function mediaRunSpeedTest() { return fileRunSpeedTest(); }
+
+// ════════════════════════════════════════════════════════════════════════════
+// ТЕСТ КАЧЕСТВА АУДИО: анализ микрофона → рекомендация битрейта
+// ════════════════════════════════════════════════════════════════════════════
+
+async function audioRunQualityTest() {
+  const btn    = document.getElementById('audio-test-btn');
+  const result = document.getElementById('audio-test-result');
+  const advice = document.getElementById('audio-test-advice');
+  const prog   = document.getElementById('audio-test-progress');
+  if (!btn) return;
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Запрашиваем микрофон...';
+  if (result) result.style.display = 'none';
+
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 48000, channelCount: 1 }, video: false });
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = '🎙 Анализ микрофона';
+    if (result) result.style.display = 'block';
+    if (advice) advice.innerHTML = '<span style="color:var(--e)">❌ Нет доступа к микрофону. Разрешите доступ и повторите.</span>';
+    return;
+  }
+
+  btn.textContent = '🎙 Говорите... (3 сек)';
+
+  const ctx      = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+  const src      = ctx.createMediaStreamSource(stream);
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 2048;
+  analyser.smoothingTimeConstant = 0.3;
+  src.connect(analyser);
+
+  const DURATION = 3000;
+  const freqBuf  = new Uint8Array(analyser.frequencyBinCount);
+  const timeBuf  = new Float32Array(analyser.fftSize);
+
+  // Прогресс-бар
+  const startTs = Date.now();
+  if (prog) {
+    prog.style.display = 'block';
+    prog.style.width   = '0%';
+    (function tick() {
+      const pct = Math.min(100, (Date.now() - startTs) / DURATION * 100);
+      prog.style.width = pct + '%';
+      if (pct < 100) requestAnimationFrame(tick);
+    })();
+  }
+
+  // Собираем статистику
+  let peakRMS = 0, sumRMS = 0, frames = 0;
+  let highFreqSum = 0, totalFreqSum = 0;
+
+  const sampleTimer = setInterval(() => {
+    analyser.getByteFrequencyData(freqBuf);
+    analyser.getFloatTimeDomainData(timeBuf);
+
+    // RMS уровень
+    let rms = 0;
+    for (let i = 0; i < timeBuf.length; i++) rms += timeBuf[i] * timeBuf[i];
+    rms = Math.sqrt(rms / timeBuf.length);
+    sumRMS += rms;
+    if (rms > peakRMS) peakRMS = rms;
+    frames++;
+
+    // Частотный анализ: <4 кГц (голос) vs >4 кГц (ВЧ — качество микрофона)
+    const binHz     = ctx.sampleRate / analyser.fftSize;
+    const boundary  = Math.floor(4000 / binHz);
+    for (let i = 0; i < freqBuf.length; i++) {
+      totalFreqSum += freqBuf[i];
+      if (i >= boundary) highFreqSum += freqBuf[i];
+    }
+  }, 80);
+
+  await new Promise(r => setTimeout(r, DURATION));
+  clearInterval(sampleTimer);
+  stream.getTracks().forEach(t => t.stop());
+  ctx.close().catch(()=>{});
+  if (prog) prog.style.display = 'none';
+
+  const avgRMS    = frames ? sumRMS / frames : 0;
+  const highRatio = totalFreqSum > 0 ? highFreqSum / totalFreqSum : 0;
+
+  // Логика рекомендации
+  let rec;
+  if (avgRMS < 0.008) {
+    rec = 'voice'; // Почти тишина — микрофон слабый или не говорили
+  } else if (avgRMS < 0.045 || highRatio < 0.18) {
+    rec = highRatio > 0.22 ? 'std' : 'voice'; // Тихий / телефонный микрофон
+  } else if (highRatio > 0.32 && avgRMS > 0.15) {
+    rec = 'studio'; // Отличный широкополосный микрофон, громкий сигнал
+  } else if (highRatio > 0.28) {
+    rec = 'hifi';   // Хороший микрофон с ВЧ
+  } else {
+    rec = 'std';    // Нормальный разговорный микрофон
+  }
+
+  const ap  = AUDIO_PROFILES[rec];
+  const rmsStr  = (avgRMS * 100).toFixed(1);
+  const hfStr   = Math.round(highRatio * 100);
+  let hint;
+  if (avgRMS < 0.008) {
+    hint = '⚠ Сигнал почти нулевой — микрофон не поймал голос, или очень тихое окружение. Повторите, говоря нормально.';
+  } else {
+    hint = 'Уровень сигнала: ' + rmsStr + '% · Высоких частот: ' + hfStr + '%. ' +
+      (rec === 'studio' ? 'Отличный широкополосный микрофон — используем максимальное качество.' :
+       rec === 'hifi'   ? 'Хороший микрофон с богатым ВЧ-диапазоном.' :
+       rec === 'std'    ? 'Стандартный разговорный микрофон — оптимальный баланс.' :
+                          'Микрофон с ограниченным диапазоном — экономим битрейт.');
+  }
+
+  if (result) result.style.display = 'block';
+  if (advice) {
+    advice.innerHTML =
+      '<b>' + ap.emoji + ' Рекомендуем: ' + ap.label + ' (' + (ap.audioBitrate / 1000) + ' Кбит/с)</b><br>' + hint +
+      '<br><button onclick="setAudioProfile(\'' + rec + '\')" style="margin-top:8px;padding:5px 12px;background:var(--a);border:none;border-radius:6px;color:#000;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer">Применить ' + ap.emoji + ' ' + ap.label + '</button>';
+  }
+
+  btn.disabled = false;
+  btn.textContent = '🔄 Повторить анализ';
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ТЕСТ КАЧЕСТВА ВИДЕО: реальные возможности камеры + скорость сети
+// ════════════════════════════════════════════════════════════════════════════
+
+async function videoRunQualityTest() {
+  const btn    = document.getElementById('video-test-btn');
+  const result = document.getElementById('video-test-result');
+  const advice = document.getElementById('video-test-advice');
+  if (!btn) return;
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Проверяем камеру...';
+  if (result) result.style.display = 'none';
+
+  // Пробуем разрешения от лучшего к худшему
+  const candidates = [
+    { width: 1920, height: 1080, fps: 60, label: '1080p 60fps' },
+    { width: 1920, height: 1080, fps: 30, label: '1080p 30fps' },
+    { width: 1280, height: 720,  fps: 30, label: '720p 30fps'  },
+    { width: 640,  height: 480,  fps: 30, label: '480p 30fps'  },
+    { width: 640,  height: 480,  fps: 15, label: '480p 15fps'  },
+  ];
+
+  let maxRes = null;
+  for (const c of candidates) {
+    btn.textContent = '⏳ Проверяем ' + c.label + '...';
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { exact: c.width }, height: { exact: c.height }, frameRate: { ideal: c.fps } },
+        audio: false,
+      });
+      const settings = stream.getVideoTracks()[0].getSettings();
+      stream.getTracks().forEach(t => t.stop());
+      if ((settings.width || 0) >= c.width * 0.85) {
+        maxRes = { width: settings.width, height: settings.height, fps: Math.round(settings.frameRate || c.fps), label: c.label };
+        break;
+      }
+    } catch(_) {}
+  }
+
+  // Скорость сети: берём кеш или быстро меряем
+  let netMbps = _lastDownloadMbps;
+  if (netMbps === null) {
+    btn.textContent = '⏳ Проверяем сеть...';
+    try { netMbps = await _measureDownloadMbps(); _lastDownloadMbps = netMbps; } catch(_) {}
+  }
+
+  // Подбираем профиль по камере + сети
+  let rec;
+  if (!maxRes) {
+    rec = 'eco';
+  } else if (maxRes.height >= 1080 && maxRes.fps >= 55 && (netMbps || 0) >= 50) {
+    rec = 'max';
+  } else if (maxRes.height >= 1080 && (netMbps || 0) >= 20) {
+    rec = 'high';
+  } else if (maxRes.height >= 720 && (netMbps || 0) >= 5) {
+    rec = 'std';
+  } else {
+    rec = 'eco';
+  }
+
+  const prLabels = { eco:'🐢 Экономный', std:'🚗 Стандартный', high:'🚀 Высокое', max:'🛸 Максимальное' };
+  const vp  = VIDEO_PROFILES[rec];
+  const camStr = maxRes ? maxRes.label : 'камера не найдена';
+  const netStr = netMbps ? netMbps.toFixed(1) + ' Мбит/с' : 'нет данных';
+  const hint = 'Камера: <b>' + camStr + '</b> · Сеть: <b>' + netStr + '</b><br>Профиль: ' + vp.width + '×' + vp.height + ' · ' + vp.frameRate + ' fps · видео ' + (vp.videoBitrate/1000) + ' Кбит/с.';
+
+  if (result) result.style.display = 'block';
+  if (advice) {
+    advice.innerHTML =
+      '<b>' + prLabels[rec] + '</b><br>' + hint +
+      '<br><button onclick="setVideoProfile(\'' + rec + '\')" style="margin-top:8px;padding:5px 12px;background:var(--a);border:none;border-radius:6px;color:#000;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer">Применить профиль</button>';
+  }
+
+  btn.disabled = false;
+  btn.textContent = '🔄 Повторить тест';
 }
 
 // ════════════════════════════════════════════════════════════════════════════

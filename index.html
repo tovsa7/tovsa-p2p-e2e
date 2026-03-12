@@ -7369,17 +7369,19 @@ async function _ensureCamLabels(){
     const s = await navigator.mediaDevices.getUserMedia({ audio:false, video:true });
     s.getTracks().forEach(t => t.stop());
     _camLabelsUnlocked = true;
-    // Android не освобождает hardware lock мгновенно.
-    // Без паузы следующий getUserMedia (по deviceId) падает с NotReadableError.
-    await new Promise(r => setTimeout(r, 700));
+    // Эта функция вызывается ТОЛЬКО из camDiagRun (явно).
+    // Пауза нужна только там, и она уже есть в camDiagRun перед следующим открытием.
   }catch(e){
     _mcCamLog('разрешение на камеру: ' + e.name, true);
   }
 }
 
 async function _mcGetCameraDeviceId(facing){
+  // НЕ вызываем _ensureCamLabels здесь — она открывает/закрывает камеру и создаёт
+  // hardware lock, который мешает следующему getUserMedia (NotReadableError на Android).
+  // Если labels уже известны (после camDiagRun или предыдущего звонка) — используем их.
+  // Если нет — возвращаем null, и _mcGetVideoStream перейдёт к facingMode.
   try{
-    await _ensureCamLabels();
     const devices = await navigator.mediaDevices.enumerateDevices();
     const cameras = devices.filter(d => d.kind === 'videoinput');
     if(cameras.length <= 1) return null;
@@ -7388,10 +7390,13 @@ async function _mcGetCameraDeviceId(facing){
       ? ['back','rear','environment','main','wide']
       : ['front','user','selfie','face'];
     for(const kw of keywords){
-      const found = cameras.find(d => d.label.toLowerCase().includes(kw));
+      const found = cameras.find(d => d.label && d.label.toLowerCase().includes(kw));
       if(found){ _mcCamLog(`deviceId по label "${kw}": ${found.label}`); return found.deviceId; }
     }
-    // Fallback по индексу: 0 = тыловая, последняя = фронтальная
+    // Labels пусты (разрешение ещё не выдано) — возвращаем null, пойдём через facingMode.
+    // Индексный fallback без label ненадёжен: порядок камер не гарантирован.
+    const hasLabels = cameras.some(d => d.label);
+    if(!hasLabels){ _mcCamLog('labels недоступны → facingMode'); return null; }
     const fallback = isBack ? cameras[0] : cameras[cameras.length-1];
     _mcCamLog(`deviceId fallback[${isBack?0:cameras.length-1}]: ${fallback.label||'(нет label)'}`);
     return fallback.deviceId;
@@ -7454,9 +7459,14 @@ async function camDiagRun(){
 
     // 1. Запрос разрешения
     _mcCamLog('1. Запрос разрешения...');
-    // Не сбрасываем _camLabelsUnlocked — разрешение выдано браузером, повторный
-    // getUserMedia только занял бы камеру и создал hardware lock перед следующим открытием.
+    const _labelsWereKnown = _camLabelsUnlocked;
     await _ensureCamLabels();
+    // Если _ensureCamLabels открывала камеру (первый раз) — ждём освобождения hardware lock.
+    // Если labels уже были известны — пауза не нужна.
+    if(!_labelsWereKnown && _camLabelsUnlocked){
+      _mcCamLog('   (пауза 700 мс — освобождение hardware lock)');
+      await new Promise(r => setTimeout(r, 700));
+    }
 
     // 2. Список устройств
     const devices = await navigator.mediaDevices.enumerateDevices();

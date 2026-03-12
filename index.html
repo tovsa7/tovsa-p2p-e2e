@@ -1468,7 +1468,8 @@ textarea::placeholder{color:var(--mu)}
     <button class="btn" onclick="$('fav-file-input').click()" style="padding:10px 12px;flex-shrink:0" title="Прикрепить файл">📎</button>
     <input type="file" id="fav-file-input" style="display:none" onchange="saveFavFile(this)">
     <textarea id="fav-input" placeholder="заметка..." onkeydown="handleFavKey(event)" oninput="autoGrowMi(this)"></textarea>
-    <button class="btn" onclick="sendFav()">→</button>
+    <button class="mic-send-btn mic-mode" id="fav-mic-btn">🎤</button>
+    <button class="btn" onclick="sendFav()" id="fav-send-btn">→</button>
   </div>
 </div>
 
@@ -1628,11 +1629,7 @@ textarea::placeholder{color:var(--mu)}
     <!-- Normal input (hidden while recording) -->
     <textarea id="mi" placeholder="сообщение..." onkeydown="handleMiKey(event)" oninput="onTypingInput();autoGrowMi(this);vrUpdateSendBtn()"></textarea>
     <!-- Mic/send button: тап = переключить режим 🎤↔🔴, удержание = запись, свайп влево = отмена -->
-    <button class="mic-send-btn mic-mode" id="mic-send-btn"
-      onmousedown="vrBtnDown(event)" ontouchstart="vrBtnDown(event)"
-      onmouseup="vrBtnUp(event)" ontouchend="vrBtnUp(event)"
-      onmouseleave="vrBtnLeave(event)"
-      onclick="vrBtnClick(event)">🎤</button>
+    <button class="mic-send-btn mic-mode" id="mic-send-btn">🎤</button>
   </div>
   <!-- Circle live preview (during recording) -->
   <div id="vr-circle-preview"><video id="vr-circle-video" autoplay playsinline muted></video></div>
@@ -1640,16 +1637,30 @@ textarea::placeholder{color:var(--mu)}
 
 <!-- VR Preview Modal — показывается после записи, до отправки -->
 <div id="vr-preview-modal">
+  <!-- Кружок: video preview -->
   <div id="vr-preview-circle" style="display:none">
     <video id="vr-preview-circle-video" playsinline loop></video>
+    <!-- scrubber под кружком -->
+    <div style="width:260px;display:flex;align-items:center;gap:8px;margin-top:6px">
+      <span id="vr-preview-circle-time" style="font-size:11px;color:var(--mu);min-width:32px">0:00</span>
+      <input type="range" id="vr-preview-circle-scrub" min="0" max="100" value="0" step="0.1"
+        style="flex:1;height:3px;accent-color:var(--a);cursor:pointer">
+    </div>
   </div>
+  <!-- Голосовое: плеер + waveform -->
   <div id="vr-preview-voice" style="display:none">
-    <div class="vr-preview-wave" id="vr-preview-wave"></div>
-    <div class="vr-preview-dur" id="vr-preview-dur">0:00</div>
+    <div style="display:flex;align-items:center;gap:10px;width:100%">
+      <button id="vr-preview-play-btn" onclick="vrPreviewPlayToggle()"
+        style="width:42px;height:42px;border-radius:50%;background:var(--a);border:none;color:#000;font-size:16px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding-left:2px">▶</button>
+      <div class="vr-preview-wave" id="vr-preview-wave" style="flex:1;cursor:pointer"></div>
+      <span id="vr-preview-dur" style="font-size:11px;color:var(--mu);min-width:32px;text-align:right">0:00</span>
+    </div>
   </div>
+  <!-- Кнопки -->
   <div class="vr-preview-btns">
-    <button class="vr-preview-btn redo" onclick="vrPreviewRedo()">🔄 Перезаписать</button>
+    <button class="vr-preview-btn redo" onclick="vrPreviewRedo()">🔄</button>
     <button class="vr-preview-btn send" onclick="vrPreviewSend()">✈️ Отправить</button>
+    <button class="vr-preview-btn redo" onclick="vrPreviewFav()">⭐</button>
   </div>
 </div>
 
@@ -4846,28 +4857,41 @@ function vrUpdateSendBtn(){
   const btn = document.getElementById('mic-send-btn');
   const mi  = document.getElementById('mi');
   const ab  = document.getElementById('attach-btn');
-  if(!btn) return;
-  const hasText = mi && mi.value.trim().length > 0;
-  if(hasText){
-    btn.textContent = '➤';
-    btn.className   = 'mic-send-btn';
-    if(ab) ab.style.display = 'none';
-    btn.title = 'Отправить';
-  } else if(_vr.state !== 'idle'){
-    btn.className   = 'mic-send-btn rec-mode';
-    if(ab) ab.style.display = 'none';
-  } else {
-    // Показываем текущий режим: 🎤 или 🔴
-    if(_vr.mode === 'circle'){
-      btn.textContent = '🔴';
-      btn.className   = 'mic-send-btn mic-mode circle-mode';
-      btn.title       = 'Тап — переключить на голосовое · Удержание — кружок';
+  if(btn){
+    const hasText = mi && mi.value.trim().length > 0;
+    if(hasText){
+      btn.textContent = '➤';
+      btn.className   = 'mic-send-btn';
+      if(ab) ab.style.display = 'none';
+      btn.title = 'Отправить';
+    } else if(_vr.state !== 'idle'){
+      btn.className   = 'mic-send-btn rec-mode';
+      if(ab) ab.style.display = 'none';
     } else {
-      btn.textContent = '🎤';
-      btn.className   = 'mic-send-btn mic-mode';
-      btn.title       = 'Тап — переключить на кружок · Удержание — голосовое';
+      if(_vr.mode === 'circle'){
+        btn.textContent = '🔴';
+        btn.className   = 'mic-send-btn mic-mode circle-mode';
+        btn.title       = 'Тап — переключить на голосовое · Удержание — кружок';
+      } else {
+        btn.textContent = '🎤';
+        btn.className   = 'mic-send-btn mic-mode';
+        btn.title       = 'Тап — переключить на кружок · Удержание — голосовое';
+      }
+      if(ab) ab.style.display = '';
     }
-    if(ab) ab.style.display = '';
+  }
+  // Синхронизируем кнопку в избранном
+  const favBtn = document.getElementById('fav-mic-btn');
+  if(favBtn){
+    if(_vr.state !== 'idle'){
+      favBtn.className = 'mic-send-btn rec-mode';
+    } else if(_vr.mode === 'circle'){
+      favBtn.textContent = '🔴';
+      favBtn.className   = 'mic-send-btn mic-mode circle-mode';
+    } else {
+      favBtn.textContent = '🎤';
+      favBtn.className   = 'mic-send-btn mic-mode';
+    }
   }
 }
 
@@ -4896,6 +4920,7 @@ let _vr = {
   samples: [],     // RMS amplitude samples для waveform
   holdTimer: null, // таймер long-press
   mode: 'voice',   // текущий режим кнопки: 'voice' | 'circle'
+  context: 'chat', // 'chat' — отправить, 'fav' — сохранить в избранное
   // preview state — хранится после записи до отправки/перезаписи
   _previewBlob: null,
   _previewKind: null,
@@ -4915,76 +4940,95 @@ function vrInit(){
     mi.addEventListener('input', vrUpdateSendBtn);
     mi.addEventListener('focus', vrUpdateSendBtn);
   }
+  _vrAttachBtn('mic-send-btn', 'chat');
+  _vrAttachBtn('fav-mic-btn',  'fav');
   vrUpdateSendBtn();
 }
 
-// ── Жесты кнопки ────────────────────────────────────────────────────────────
-// Тап (короткое нажатие без текста) → переключить режим
-// Удержание → начать запись
-// Свайп влево во время записи → отмена (обрабатывается в GESTURES MODULE)
+// ── Навешиваем события на кнопку ────────────────────────────────────────────
+// context: 'chat' — отправить собеседнику, 'fav' — сохранить в избранное
+function _vrAttachBtn(btnId, context){
+  const btn = document.getElementById(btnId);
+  if(!btn) return;
 
-let _vrBtnDownTs  = 0;  // когда началось нажатие
-let _vrBtnMoved   = false; // засекаем свайп на кнопке (touch)
-let _vrBtnStartX  = 0;
-let _vrWasTouch   = false; // флаг: последнее нажатие было touch (блокируем дублирующий click)
+  // Синхронизируем иконку и режим с глобальным _vr.mode
+  const _syncBtn = () => {
+    if(_vr.state !== 'idle'){ btn.className='mic-send-btn rec-mode'; return; }
+    btn.className = _vr.mode==='circle'
+      ? 'mic-send-btn mic-mode circle-mode'
+      : 'mic-send-btn mic-mode';
+    btn.textContent = _vr.mode==='circle' ? '🔴' : '🎤';
+  };
+  // Подписываемся на обновления (vrUpdateSendBtn вызывается при смене режима)
+  btn._vrSync = _syncBtn;
+  _syncBtn();
 
-function vrBtnDown(e){
-  if(e.type === 'touchstart'){
+  let _holdTimer  = null;
+  let _touchActive = false;
+  let _startX     = 0;
+
+  // ── TOUCH ──
+  btn.addEventListener('touchstart', e => {
     e.preventDefault();
-    _vrWasTouch = true;
-  }
-  const mi = document.getElementById('mi');
-  const hasText = mi && mi.value.trim().length > 0;
-  if(hasText || _vr.state !== 'idle') return;
+    _touchActive = true;
+    _startX = e.touches[0].clientX;
+    if(_vr.state !== 'idle') return;
+    _holdTimer = setTimeout(() => {
+      _holdTimer = null;
+      vrBeginRecording(_vr.mode, context);
+    }, VR_HOLD_MS);
+  }, { passive: false });
 
-  _vrBtnDownTs = Date.now();
-  _vrBtnMoved  = false;
-  _vrBtnStartX = e.touches ? e.touches[0].clientX : e.clientX;
+  btn.addEventListener('touchend', e => {
+    e.preventDefault();
+    const dx = e.changedTouches[0].clientX - _startX;
+    if(_holdTimer){
+      clearTimeout(_holdTimer); _holdTimer = null;
+      if(Math.abs(dx) < 10) _vrToggleMode();
+      return;
+    }
+    if(_vr.state !== 'idle'){
+      const dur = Date.now() - _vr.startTs;
+      if(dur < VR_MIN_MS) vrCancelRecording();
+      else vrStopRecording(false);
+    }
+  }, { passive: false });
 
-  _vr.holdTimer = setTimeout(() => {
-    _vr.holdTimer = null;
-    vrBeginRecording(_vr.mode);
-  }, VR_HOLD_MS);
-}
+  btn.addEventListener('touchcancel', () => {
+    if(_holdTimer){ clearTimeout(_holdTimer); _holdTimer = null; }
+  }, { passive: true });
 
-function vrBtnUp(e){
-  if(e.type === 'touchend') e.preventDefault();
-  if(_vr.holdTimer){
-    clearTimeout(_vr.holdTimer);
-    _vr.holdTimer = null;
-    // Короткое нажатие без свайпа → переключить режим
-    if(!_vrBtnMoved){
+  // ── MOUSE (десктоп) ──
+  btn.addEventListener('mousedown', () => {
+    if(_touchActive) return;
+    if(_vr.state !== 'idle') return;
+    _holdTimer = setTimeout(() => {
+      _holdTimer = null;
+      vrBeginRecording(_vr.mode, context);
+    }, VR_HOLD_MS);
+  });
+
+  btn.addEventListener('mouseup', () => {
+    if(_touchActive) return;
+    if(_holdTimer){
+      clearTimeout(_holdTimer); _holdTimer = null;
       _vrToggleMode();
+      return;
     }
-    return;
-  }
-  // holdTimer уже сработал — идёт/шла запись
-  if(_vr.state !== 'idle'){
-    const dur = Date.now() - _vr.startTs;
-    if(dur < VR_MIN_MS){
-      vrCancelRecording();
-    } else {
-      vrStopRecording(false);
+    if(_vr.state !== 'idle'){
+      const dur = Date.now() - _vr.startTs;
+      if(dur < VR_MIN_MS) vrCancelRecording();
+      else vrStopRecording(false);
     }
-  }
-}
+  });
 
-function vrBtnLeave(e){
-  if(e.type !== 'mouseleave') return;
-  if(_vr.holdTimer){ clearTimeout(_vr.holdTimer); _vr.holdTimer = null; }
-}
+  btn.addEventListener('mouseleave', () => {
+    if(_holdTimer){ clearTimeout(_holdTimer); _holdTimer = null; }
+  });
 
-function vrBtnClick(e){
-  // На touch-устройствах click дублирует touchend — игнорируем
-  if(_vrWasTouch){ _vrWasTouch = false; return; }
-  // Mouse: если есть текст — отправить
-  const mi = document.getElementById('mi');
-  if(mi && mi.value.trim().length > 0){
-    sendMsg();
-    return;
-  }
-  // Mouse-тап (holdTimer уже сброшен в mouseup → vrBtnUp не вызывается для mouse click)
-  // Переключение режима для мыши уже обработано в vrBtnUp через mouseup
+  btn.addEventListener('click', () => {
+    if(_touchActive){ _touchActive = false; return; }
+  });
 }
 
 // ── Переключение режима 🎤 ↔ 🔴 ──────────────────────────────────────────────
@@ -4995,13 +5039,15 @@ function _vrToggleMode(){
 }
 
 // ── Запись ───────────────────────────────────────────────────────────────────
-async function vrBeginRecording(kind){
+// context: 'chat' — отправить собеседнику после preview, 'fav' — сохранить в избранное
+async function vrBeginRecording(kind, context){
   if(_vr.state !== 'idle') return;
-  if(!dc || dc.readyState !== 'open'){ toast('Нет соединения'); return; }
+  if((context||'chat') !== 'fav' && (!dc || dc.readyState !== 'open')){ toast('Нет соединения'); return; }
 
   _vr.cancelled = false;
   _vr.chunks    = [];
   _vr.samples   = [];
+  _vr.context   = context || 'chat';
 
   const constraints = kind === 'circle'
     ? { video: { facingMode: 'user', width:{ideal:400}, height:{ideal:400}, frameRate:{ideal:30} }, audio: true }
@@ -5175,96 +5221,165 @@ function vrOnStop(){
   }
 
   const durSec = Math.round((Date.now() - _vr.startTs) / 1000);
+  const ctx    = _vr.context || 'chat';
 
   // Останавливаем треки для кружка после получения blob
   if(wasCircle) _vr.stream && _vr.stream.getTracks().forEach(t=>t.stop());
   _vr.stream = null;
 
-  // Сохраняем в preview state и показываем modal
+  // Сохраняем в preview state
   _vr._previewBlob     = blob;
   _vr._previewKind     = kind;
   _vr._previewWaveform = kind === 'voice' ? waveform : null;
   _vr._previewDurSec   = durSec;
 
-  vrShowPreviewModal(kind, blob, waveform, durSec);
+  if(ctx === 'fav'){
+    // Сразу сохраняем в избранное без preview
+    vrPreviewFav();
+  } else {
+    // Показываем preview с кнопками Отправить / Перезаписать
+    vrShowPreviewModal(kind, blob, waveform, durSec);
+  }
 }
 
 // ── Preview Modal ─────────────────────────────────────────────────────────────
+let _vrPreviewAudio = null;
+
 function vrShowPreviewModal(kind, blob, waveform, durSec){
   const modal   = document.getElementById('vr-preview-modal');
   const circleW = document.getElementById('vr-preview-circle');
   const voiceW  = document.getElementById('vr-preview-voice');
-  const cvid    = document.getElementById('vr-preview-circle-video');
   if(!modal) return;
 
   if(kind === 'circle'){
     if(circleW) circleW.style.display = '';
     if(voiceW)  voiceW.style.display  = 'none';
+    const cvid   = document.getElementById('vr-preview-circle-video');
+    const scrub  = document.getElementById('vr-preview-circle-scrub');
+    const timeEl = document.getElementById('vr-preview-circle-time');
     if(cvid){
+      if(cvid._blobUrl){ URL.revokeObjectURL(cvid._blobUrl); }
       const url = URL.createObjectURL(blob);
-      cvid.src  = url;
-      cvid.play().catch(()=>{});
       cvid._blobUrl = url;
+      cvid.src = url;
+      cvid.play().catch(()=>{});
+      cvid.onloadedmetadata = () => { if(scrub) scrub.max = cvid.duration; };
+      cvid.ontimeupdate = () => {
+        if(!isFinite(cvid.duration)) return;
+        if(scrub) scrub.value = cvid.currentTime;
+        if(timeEl){
+          const rem = cvid.duration - cvid.currentTime;
+          const mm=Math.floor(rem/60), ss=Math.floor(rem%60);
+          timeEl.textContent = mm+':'+(ss<10?'0':'')+ss;
+        }
+      };
+      cvid.onended = () => { cvid.currentTime=0; cvid.play().catch(()=>{}); };
     }
+    if(scrub){ scrub.oninput = () => { const v=document.getElementById('vr-preview-circle-video'); if(v) v.currentTime=parseFloat(scrub.value); }; }
+
   } else {
     if(circleW) circleW.style.display = 'none';
     if(voiceW)  voiceW.style.display  = '';
-    // Рисуем waveform bars
-    const waveEl = document.getElementById('vr-preview-wave');
-    const durEl  = document.getElementById('vr-preview-dur');
-    if(waveEl && waveform){
+    if(_vrPreviewAudio){ _vrPreviewAudio.pause(); if(_vrPreviewAudio._blobUrl) URL.revokeObjectURL(_vrPreviewAudio._blobUrl); _vrPreviewAudio=null; }
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio._blobUrl = url;
+    _vrPreviewAudio = audio;
+    const playBtn = document.getElementById('vr-preview-play-btn');
+    const waveEl  = document.getElementById('vr-preview-wave');
+    const durEl   = document.getElementById('vr-preview-dur');
+    if(waveEl && waveform && waveform.length){
       waveEl.innerHTML = '';
       waveform.forEach(v => {
         const b = document.createElement('div');
         b.className = 'vr-preview-bar';
-        b.style.height = Math.max(4, Math.round(v * 36)) + 'px';
+        b.style.height = Math.max(4, Math.round(v*36))+'px';
         waveEl.appendChild(b);
       });
     }
-    if(durEl){
-      const mm = Math.floor(durSec/60), ss = durSec%60;
-      durEl.textContent = mm + ':' + (ss<10?'0':'') + ss;
-    }
+    const _setDur = () => {
+      if(!isFinite(audio.duration)) return;
+      const rem = audio.duration - audio.currentTime;
+      const mm=Math.floor(rem/60), ss=Math.floor(rem%60);
+      if(durEl) durEl.textContent = mm+':'+(ss<10?'0':'')+ss;
+    };
+    audio.addEventListener('loadedmetadata', _setDur);
+    audio.addEventListener('timeupdate', () => {
+      _setDur();
+      if(waveEl && isFinite(audio.duration)){
+        const bars = waveEl.querySelectorAll('.vr-preview-bar');
+        const prog = audio.currentTime / audio.duration;
+        bars.forEach((b,i)=>{ b.style.opacity = i/bars.length < prog ? '1' : '0.5'; });
+      }
+    });
+    audio.addEventListener('play',  ()=>{ if(playBtn) playBtn.textContent='⏸'; });
+    audio.addEventListener('pause', ()=>{ if(playBtn) playBtn.textContent='▶'; });
+    audio.addEventListener('ended', ()=>{
+      if(playBtn) playBtn.textContent='▶';
+      if(waveEl) waveEl.querySelectorAll('.vr-preview-bar').forEach(b=>b.style.opacity='0.5');
+      _setDur();
+    });
+    if(waveEl){ waveEl.onclick = e => { if(!isFinite(audio.duration)) return; const r=waveEl.getBoundingClientRect(); audio.currentTime=(e.clientX-r.left)/r.width*audio.duration; if(audio.paused) audio.play().catch(()=>{}); }; }
+    if(durEl){ const mm=Math.floor(durSec/60),ss=durSec%60; durEl.textContent=mm+':'+(ss<10?'0':'')+ss; }
   }
-
   modal.classList.add('on');
+}
+
+function vrPreviewPlayToggle(){
+  if(!_vrPreviewAudio) return;
+  if(_vrPreviewAudio.paused) _vrPreviewAudio.play().catch(()=>{});
+  else _vrPreviewAudio.pause();
 }
 
 function vrClosePreviewModal(){
   const modal = document.getElementById('vr-preview-modal');
   if(modal) modal.classList.remove('on');
-  // Освобождаем blob URL видео
+  if(_vrPreviewAudio){ _vrPreviewAudio.pause(); if(_vrPreviewAudio._blobUrl) URL.revokeObjectURL(_vrPreviewAudio._blobUrl); _vrPreviewAudio=null; }
   const cvid = document.getElementById('vr-preview-circle-video');
-  if(cvid){
-    cvid.pause();
-    if(cvid._blobUrl){ URL.revokeObjectURL(cvid._blobUrl); cvid._blobUrl=null; }
-    cvid.src = '';
-  }
+  if(cvid){ cvid.pause(); if(cvid._blobUrl){ URL.revokeObjectURL(cvid._blobUrl); cvid._blobUrl=null; } cvid.src=''; }
 }
 
-// Отправить из preview
 function vrPreviewSend(){
   vrClosePreviewModal();
   if(!_vr._previewBlob) return;
-  const blob     = _vr._previewBlob;
-  const kind     = _vr._previewKind;
-  const waveform = _vr._previewWaveform;
+  _vrDispatchFile(_vr._previewBlob, _vr._previewKind, _vr._previewWaveform);
   _vr._previewBlob = null;
-
-  const mime = blob.type || (kind==='circle' ? 'video/webm' : 'audio/webm');
-  const ext  = mime.includes('mp4') ? 'mp4' : mime.includes('ogg') ? 'ogg' : 'webm';
-  const name = kind === 'circle' ? `circle_${Date.now()}.${ext}` : `voice_${Date.now()}.${ext}`;
-  const file = new File([blob], name, {type: mime});
-  file._kind     = kind;
-  file._waveform = kind === 'voice' ? waveform : null;
-  vrSendFile(file);
 }
 
-// Перезаписать — закрываем modal, режим сохраняется, пользователь снова удерживает кнопку
+async function vrPreviewFav(){
+  vrClosePreviewModal();
+  if(!_vr._previewBlob) return;
+  const blob=_vr._previewBlob, kind=_vr._previewKind, waveform=_vr._previewWaveform;
+  _vr._previewBlob = null;
+  const ts=Date.now();
+  const mime=blob.type||(kind==='circle'?'video/webm':'audio/webm');
+  const ext=mime.includes('mp4')?'mp4':mime.includes('ogg')?'ogg':'webm';
+  const name=kind==='circle'?`circle_${ts}.${ext}`:`voice_${ts}.${ext}`;
+  await saveFileToIDB(ts, blob);
+  const msgs=await getFavMsgs();
+  const entry={__file__:true,name,size:blob.size,mime,fileId:ts,ts,kind};
+  if(waveform) entry.waveform=waveform;
+  msgs.push(entry);
+  await idbSet('fav','all',msgs);
+  await updateFavLast();
+  if(typeof contactsSubScreen!=='undefined' && contactsSubScreen==='sfav') await renderFavMsgs();
+  toast('Сохранено в избранное');
+}
+
 function vrPreviewRedo(){
   vrClosePreviewModal();
   _vr._previewBlob = null;
-  toast(_vr.mode === 'circle' ? 'Удержи кнопку 🔴 для новой записи' : 'Удержи кнопку 🎤 для новой записи');
+  toast(_vr.mode==='circle'?'Удержи 🔴 для новой записи':'Удержи 🎤 для новой записи');
+}
+
+function _vrDispatchFile(blob, kind, waveform){
+  const mime=blob.type||(kind==='circle'?'video/webm':'audio/webm');
+  const ext=mime.includes('mp4')?'mp4':mime.includes('ogg')?'ogg':'webm';
+  const name=kind==='circle'?`circle_${Date.now()}.${ext}`:`voice_${Date.now()}.${ext}`;
+  const file=new File([blob],name,{type:mime});
+  file._kind=kind;
+  file._waveform=kind==='voice'?waveform:null;
+  vrSendFile(file);
 }
 
 async function vrSendFile(file){

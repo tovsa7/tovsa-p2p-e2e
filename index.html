@@ -393,6 +393,7 @@ textarea::placeholder{color:var(--mu)}
 .cilast-row{display:flex;align-items:baseline;gap:5px;margin-top:3px;min-width:0}
 .cilast-text{font-size:11px;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
 .cilast-time{font-size:10px;color:var(--mu);opacity:.6;flex-shrink:0;white-space:nowrap}
+.cilast-lastseen{font-size:10px;color:var(--mu);opacity:.65}
 .citem-fav{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .12s;background:var(--sf)}
 .citem-fav:hover{background:#16161f}
 .citem-fav-icon{font-size:22px;flex-shrink:0;line-height:1}
@@ -1683,6 +1684,7 @@ textarea::placeholder{color:var(--mu)}
     <button class="gbtn" onclick="minimizeChat()" title="Свернуть" style="flex-shrink:0;padding:8px 10px;font-size:14px">←</button>
     <div class="idinfo">
       <div class="idname" id="peer-name">Неизвестный</div>
+      <div id="peer-lastseen" style="font-size:10px;color:var(--mu);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
       <div id="peer-fp" style="font-size:9px;color:var(--mu);opacity:.7;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
       <div id="typing-indicator" style="display:none;font-size:9px;color:var(--a);margin-top:1px">печатает...</div>
     </div>
@@ -2438,6 +2440,7 @@ async function initIdentity(){
     // Hex первых 24 байт хеша → presence peer ID
     myPresenceId = await sha256hex(myPubKeyRaw, 24);
     myPubKeyHex  = Array.from(myPubKeyRaw).map(b=>b.toString(16).padStart(2,'0')).join('');
+    _pidCache.clear(); // myPubKeyHex изменился — производные PID-ы устарели
     // Обновляем кнопку группы — теперь идентификация готова
     if(_grpActive) _grpUpdateStatus(_grpActive);
     // Инициализируем UI невидимки
@@ -2669,14 +2672,29 @@ async function verifyIdentityMsg(msg){
 }
 
 /** @returns {Promise<Record<string, Contact>>} */
+// ── Кэш контактов (in-memory) ─────────────────────────────────────────────────
+// Устраняет повторные обращения к IndexedDB: 44+ вызовов getContacts() теперь
+// читают из памяти. Инвалидация — только при saveContacts().
+let _contactsCache = null; // null = ещё не загружен
+
 async function getContacts(){
-  return (await idbGet('contacts','all'))||{};
+  if(_contactsCache !== null) return _contactsCache;
+  _contactsCache = (await idbGet('contacts','all')) || {};
+  return _contactsCache;
 }
 
 /** @param {Record<string, Contact>} contacts */
 async function saveContacts(contacts){
+  _contactsCache = contacts;   // обновляем кэш — следующий getContacts() не пойдёт в IDB
+  _pidCache.clear();           // pubKeyHex мог смениться — сбрасываем кэш PID-ов
   return idbSet('contacts','all',contacts);
 }
+
+// ── Кэш производных PID-ов контактов ─────────────────────────────────────────
+// _fpToContactPairPid/_fpToPairPid/_fpToPid вычисляют SHA-256 при каждом тике
+// (20 контактов = 20 хэшей в Promise.all). Кэшируем по ключу.
+// Очищается при saveContacts() — единственный момент когда pubKeyHex меняется.
+const _pidCache = new Map(); // cacheKey → pid-строка
 
 // ── Storage utils ──
 function calcSize(str){return new Blob([str]).size}
@@ -2929,7 +2947,14 @@ function _buildContactEl(fp, c, h, isConnected){
     const prefix = lastMsg.type === 'out' ? 'вы: ' : '';
     const txt = esc(prefix + (lastMsg.__file__ ? ('[файл] ' + (lastMsg.name||'')) : lastMsg.text || ''));
     const t = new Date(lastMsg.ts).toLocaleString('ru', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
-    lastHtml = `<div class="cilast-row"><span class="cilast-text">${txt}</span><span class="cilast-time">${t}</span></div>`;
+    // Под последним сообщением показываем "был(а) N назад" если контакт офлайн
+    const lsText = (_presenceCache[fp] !== 'online' && _pjOk) ? _fmtLastSeen(fp) : null;
+    const lsHtml = lsText ? `<span class="cilast-lastseen">был(а) ${esc(lsText)}</span>` : '';
+    lastHtml = `<div class="cilast-row"><span class="cilast-text">${txt}</span><span class="cilast-time">${t}</span></div>${lsHtml ? `<div class="cilast-row">${lsHtml}</div>` : ''}`;
+  } else {
+    // Нет сообщений — показываем только lastSeen
+    const lsText = (_presenceCache[fp] !== 'online' && _pjOk) ? _fmtLastSeen(fp) : null;
+    if(lsText) lastHtml = `<div class="cilast-row"><span class="cilast-lastseen">был(а) ${esc(lsText)}</span></div>`;
   }
 
   const pinHtml     = c.pinned ? `<span class="cipin" style="font-size:9px;opacity:.6">pin</span>` : '';
@@ -2937,8 +2962,9 @@ function _buildContactEl(fp, c, h, isConnected){
   const activeClass = isActivePeer ? ' active-peer' : (c.pinned ? ' pinned' : '');
   const onlineDot   = isActivePeer ? `<div class="ci-online-dot"></div>` : '';
   const presenceState = _presenceCache[fp];
+  const _pdTitle = presenceState==='online' ? 'онлайн' : presenceState==='checking' ? 'проверяем...' : (_fmtLastSeen(fp) ? 'был(а) '+_fmtLastSeen(fp) : 'офлайн');
   const presenceDot = (!isActivePeer && _pjOk)
-    ? `<div class="ci-presence-dot ${presenceState||'offline'}" id="pd-${fp}" title="${presenceState==='online'?'онлайн':presenceState==='checking'?'проверяем...':'офлайн'}"></div>` : '';
+    ? `<div class="ci-presence-dot ${presenceState||'offline'}" id="pd-${fp}" title="${_pdTitle}"></div>` : '';
   const discBtn = isActivePeer ? `<button class="ci-disc-btn" onclick="event.stopPropagation();goBack()">✕</button>` : '';
   const isOnline = !isActivePeer && _presenceCache[fp] === 'online' && !isConnected;
   const connBtn = isOnline ? `<button class="ci-conn-btn" onclick="event.stopPropagation();connectToContact('${fp}')">→ связь</button>` : '';
@@ -3847,6 +3873,8 @@ function showPeerIdentity(fp,known,name){
     $('peer-fp').style.display='';
     $('peer-fp').textContent=fp||'';
   }
+  // Показываем "был(а) N назад" сразу при открытии чата
+  _updatePeerLastSeenHeader(fp);
   // Открываем чат после верификации identity (если ждали)
   if($('sc').dataset.waitingIdentity === '1'){
     $('sc').dataset.waitingIdentity = '';
@@ -3888,6 +3916,7 @@ function resetPeerIdentity(){
   currentPeerOfferedName=null;
   $('peer-name').textContent='Неизвестный';
   $('peer-fp').textContent='';
+  $('peer-lastseen').textContent='';
   $('idsavebtn').style.display='none';
   const hdrBtns = $('mcall-hdr-btns');
   if(hdrBtns) hdrBtns.style.display = 'none';
@@ -3939,6 +3968,8 @@ let _pjOk = false;
 // Presence контактов
 let _presenceCache        = {};
 let _presenceCacheTime    = {};
+let _presenceLastSeenAt   = {}; // fp → timestamp последнего online
+const _LAST_SEEN_IDB_KEY  = 'presenceLastSeenAt';
 let _presencePubKeyCache  = {};
 let _presenceHbRunning    = false;
 let _presenceLastHbAt     = 0;
@@ -4594,6 +4625,89 @@ async function _wsPresenceQuery(ids, timeoutMs = 5000) {
     }
   });
 }
+
+// ── PresenceBatcher: единый батчевый планировщик presence-запросов ─────────────
+// Копит запросы от контактов и всех групп в течение PRESENCE_BATCH_WINDOW_MS,
+// затем шлёт ОДИН PRESENCE-запрос со всеми уникальными PID-ами и раздаёт
+// результаты обратно каждому ожидающему.
+//
+// Использование:
+//   const onlineSet = await PresenceBatcher.query(['pid1', 'pid2'], 6000);
+//   // → Set<string> онлайн-PID-ов (подмножество запрошенных), или null при ошибке
+
+const PRESENCE_BATCH_WINDOW_MS = 80; // мс — окно накопления запросов
+
+const PresenceBatcher = (() => {
+  // Текущий батч: { ids: Set, waiters: [{ids, resolve, timer, timeoutMs}], flushTimer }
+  let _batch = null;
+
+  function _flush() {
+    if (!_batch) return;
+    const { ids, waiters } = _batch;
+    _batch = null;
+
+    const idList = [...ids];
+
+    // Нет маяка — сразу возвращаем null всем ожидающим
+    if (!_presencePeer || _presencePeer.destroyed) {
+      waiters.forEach(w => { clearTimeout(w.timer); w.resolve(null); });
+      return;
+    }
+
+    // Один WS-запрос для всего батча
+    const reqId = Math.random().toString(36).slice(2, 14);
+    const maxTimeout = Math.max(...waiters.map(w => w.timeoutMs));
+    const masterTimer = setTimeout(() => {
+      _presenceWsCallbacks.delete(reqId);
+      waiters.forEach(w => { clearTimeout(w.timer); w.resolve(null); });
+    }, maxTimeout);
+
+    _presenceWsCallbacks.set(reqId, {
+      resolve(onlinePids) {
+        clearTimeout(masterTimer);
+        const onlineSet = new Set(onlinePids);
+        // Каждый ожидающий получает только те PID-ы, которые он запрашивал
+        waiters.forEach(w => {
+          clearTimeout(w.timer);
+          w.resolve(new Set([...w.ids].filter(id => onlineSet.has(id))));
+        });
+      },
+      timer: masterTimer,
+    });
+
+    try {
+      _presencePeer.queryPresence(reqId, idList);
+      _dbgPush('log', ['[batcher] PRESENCE запрос: ' + idList.length + ' pid, ' + waiters.length + ' ожидающих']);
+    } catch(_) {
+      clearTimeout(masterTimer);
+      _presenceWsCallbacks.delete(reqId);
+      waiters.forEach(w => { clearTimeout(w.timer); w.resolve(null); });
+    }
+  }
+
+  return {
+    /**
+     * Запросить присутствие ids. Возвращает Set<string> онлайн-PID-ов
+     * (только из переданного списка) или null при недоступности маяка/таймауте.
+     */
+    query(ids, timeoutMs = 5000) {
+      if (!ids || !ids.length) return Promise.resolve(new Set());
+      return new Promise(resolve => {
+        if (!_batch) {
+          _batch = { ids: new Set(), waiters: [], flushTimer: null };
+          _batch.flushTimer = setTimeout(_flush, PRESENCE_BATCH_WINDOW_MS);
+        }
+        ids.forEach(id => _batch.ids.add(id));
+        // Индивидуальный таймаут как страховка (срабатывает если батч завис)
+        const timer = setTimeout(() => {
+          if (_batch) _batch.waiters = _batch.waiters.filter(w => w.resolve !== resolve);
+          resolve(null);
+        }, timeoutMs + PRESENCE_BATCH_WINDOW_MS + 500);
+        _batch.waiters.push({ ids: new Set(ids), resolve, timer, timeoutMs });
+      });
+    },
+  };
+})();
 
 // Безопасное уничтожение PeerJS-объекта (peer или conn)
 function safePeerDestroy(peer) {
@@ -6319,12 +6433,35 @@ async function rerunAll(){
 }
 
 buildStuns();
-openDB().then(()=>{
+openDB().then(async ()=>{
   updateFavLast();
   renderContacts();
+  // Загружаем lastSeen из IDB — сохраняется между сессиями
+  try{
+    const saved = await idbGet('meta', _LAST_SEEN_IDB_KEY);
+    if(saved && typeof saved === 'object') _presenceLastSeenAt = saved;
+  }catch(_){}
 });
 setTimeout(async()=>{await warmup();await autoTest();},50);
 setTimeout(()=>{ initLeaderElection(); _updateLeaderBtn(); }, 0);
+
+// ── Прогрев signaling-сервера ─────────────────────────────────────────────────
+// Render и аналогичные платформы усыпляют сервис при отсутствии трафика.
+// Первый WS-connect занимает 10–30с пока процесс просыпается.
+// Дешёвый GET / будит сервер параллельно со всей остальной инициализацией
+// (загрузкой ключей, leader election, WebRTC warmup) — к моменту WS-подключения
+// сервер уже готов.
+(function warmupSignalingServer(){
+  const srv = SIGNALING_SERVERS[0];
+  if(!srv) return;
+  const proto = srv.secure ? 'https' : 'http';
+  const isDefaultPort = (srv.secure && srv.port === 443) || (!srv.secure && srv.port === 80);
+  const port = isDefaultPort ? '' : ':' + srv.port;
+  const url = proto + '://' + srv.host + port + '/';
+  fetch(url, { method: 'GET', mode: 'cors', cache: 'no-store' })
+    .then(() => _dbgPush('info', ['[warmup] signaling сервер проснулся']))
+    .catch(() => {}); // тихо игнорируем — WS сам разберётся при реконнекте
+})();
 
 // ── Leader election (BroadcastChannel) ──
 // Только одна вкладка держит маяк — "лидер".
@@ -6842,29 +6979,60 @@ function createPC(){
   };
   pc._hasSrflx=()=>srflxCount>0;
 
+  pc._iceRestartDone = false; // флаг: рестарт уже пробовали для текущей сессии
+
   pc.oniceconnectionstatechange=()=>{
     const s=pc.iceConnectionState;
     const inChat=$('sc').classList.contains('on');
     if(s==='disconnected'&&inChat){
       setStat('соединение нестабильно...');
       $('dot').className='dot act';
-      // Даём браузеру 7 с восстановиться самому — без сообщений в чате
-      pc._reconnectHint = setTimeout(()=>{
-        if(pc&&(pc.iceConnectionState==='disconnected'||pc.iceConnectionState==='failed')){
-          _p2pHandleFailure('disconnected');
-        }
-      }, 7000);
+      clearTimeout(pc._reconnectHint);
+      if(!pc._iceRestartDone && role === 'i'){
+        // ICE Restart: инициатор пробует переоткрыть ICE без пересоздания PC.
+        // Только инициатор делает рестарт (как polite peer) — получатель ждёт новый offer.
+        // Одна попытка — если через 5с не помогло, переходим к полному реконнекту.
+        pc._iceRestartDone = true;
+        _dbgPush('log', ['[p2p] ICE disconnected → restartIce()']);
+        try{ pc.restartIce(); }catch(e){ _dbgPush('warn', ['[p2p] restartIce failed: ' + e.message]); }
+        pc._reconnectHint = setTimeout(()=>{
+          if(pc&&(pc.iceConnectionState==='disconnected'||pc.iceConnectionState==='failed')){
+            _dbgPush('log', ['[p2p] ICE restart timeout → _p2pHandleFailure']);
+            _p2pHandleFailure('disconnected');
+          }
+        }, 5000);
+      } else {
+        // Получатель или повторный разрыв — ждём меньше, потом реконнект
+        pc._reconnectHint = setTimeout(()=>{
+          if(pc&&(pc.iceConnectionState==='disconnected'||pc.iceConnectionState==='failed')){
+            _p2pHandleFailure('disconnected');
+          }
+        }, 4000);
+      }
     }else if(s==='failed'){
       clearTimeout(pc._reconnectHint);
       $('dot').className='dot';
       if(inChat){
-        _p2pHandleFailure('failed');
+        if(!pc._iceRestartDone && role === 'i'){
+          // failed без disconnected — тоже пробуем рестарт один раз
+          pc._iceRestartDone = true;
+          _dbgPush('log', ['[p2p] ICE failed → restartIce()']);
+          try{ pc.restartIce(); }catch(_){}
+          pc._reconnectHint = setTimeout(()=>{
+            if(pc&&(pc.iceConnectionState==='failed'||pc.iceConnectionState==='disconnected')){
+              _p2pHandleFailure('failed');
+            }
+          }, 5000);
+        } else {
+          _p2pHandleFailure('failed');
+        }
       }else{
         setStat('не удалось подключиться');
         showAlert('Возможные причины:<br>· <b>Port-Restricted Cone NAT</b> — попробуйте поменяться ролями<br>· <b>Symmetric NAT</b> — соединение затруднено, попробуйте поменяться ролями');
       }
     }else if(s==='connected'||s==='completed'){
       clearTimeout(pc._reconnectHint);
+      pc._iceRestartDone = false; // успешно восстановились — сбрасываем флаг
       $('reconnect-bar').style.display='none';
       if(inChat){
         setStat('подключено ✓');
@@ -10854,37 +11022,70 @@ async function joinSigRoom(overrideCode, callerFp){
 async function _handleSigConnRelay(sig, peerId, role, offerSdp, scheduleCleanup){
   _dbgPush('log', ['[p2p] _handleSigConnRelay role=' + role + ' peer=' + peerId.slice(0,14)]);
   hideAlert();
+
+  // ── Буфер входящих ICE-кандидатов (Trickle ICE) ──────────────────────────
+  // Кандидаты могут прийти через RELAY до того как remoteDescription установлен.
+  // Буферизуем их и применяем сразу после setRemoteDescription.
+  let _iceBuf = [];
+  let _remoteReady = false;
+
+  const _applyIceBuf = async () => {
+    for(const c of _iceBuf){
+      try{ await pc.addIceCandidate(new RTCIceCandidate(c)); }catch(_){}
+    }
+    _iceBuf = [];
+  };
+
+  // createPC() создаём здесь для 'i' и 'r'. Для 'i_answer' PC уже существует.
+  if(role === 'i' || role === 'r') createPC();
+
+  // Перехватываем входящие ICE-кандидаты через RELAY
+  const _origHandleRelay = sig._handleRelay.bind(sig);
+  sig._handleRelay = async (from, kind, data) => {
+    if(from === peerId && kind === 'ice'){
+      if(_remoteReady){
+        try{ await pc.addIceCandidate(new RTCIceCandidate(data)); }catch(_){}
+      } else {
+        _iceBuf.push(data);
+      }
+      return;
+    }
+    await _origHandleRelay(from, kind, data);
+  };
+
+  // Отправляем наши ICE-кандидаты по мере появления (Trickle ICE)
+  pc.onicecandidate = (e) => {
+    if(e.candidate) sig._wsSend({ type: 'RELAY', to: peerId, kind: 'ice', data: e.candidate.toJSON() });
+  };
+
   if(role === 'i'){
-    // Инициатор: создаём offer, шлём через RELAY (включаем callerFp для баннера получателя)
-        createPC();
-    dc = pc.createDataChannel('chat', { ordered: true });
+    // Инициатор: offer уходит немедленно (Trickle ICE — не ждём waitIce)
+    dc = pc.createDataChannel('chat', { ordered: true }); // pc создан выше
     setupDC();
     await pc.setLocalDescription(await pc.createOffer());
-    await waitIce();
     const offerWithFp = { type: pc.localDescription.type, sdp: pc.localDescription.sdp, _callerFp: myFingerprint || '' };
     sig._wsSend({ type: 'RELAY', to: peerId, kind: 'offer', data: offerWithFp });
-        scheduleCleanup();
+    scheduleCleanup();
 
   } else if(role === 'r'){
-    // Получатель: применяем offer, создаём answer, шлём через RELAY
-    // offerSdp может содержать _callerFp — убираем лишнее перед передачей в RTCSessionDescription
+    // Получатель: answer уходит немедленно (Trickle ICE — не ждём waitIce) // pc создан выше
     const cleanSdp = (offerSdp && offerSdp._callerFp !== undefined)
       ? { type: offerSdp.type, sdp: offerSdp.sdp }
       : offerSdp;
-        createPC();
-    pc.ondatachannel = e => {
-      dc = e.channel;
-      setupDC();
-    };
+    pc.ondatachannel = e => { dc = e.channel; setupDC(); };
     await pc.setRemoteDescription(new RTCSessionDescription(cleanSdp));
+    _remoteReady = true;
+    await _applyIceBuf(); // применяем кандидатов пришедших до offer
     await pc.setLocalDescription(await pc.createAnswer());
-    await waitIce();    sig._wsSend({ type: 'RELAY', to: peerId, kind: 'answer', data: pc.localDescription });
-        scheduleCleanup();
+    sig._wsSend({ type: 'RELAY', to: peerId, kind: 'answer', data: pc.localDescription });
+    scheduleCleanup();
 
   } else if(role === 'i_answer'){
-    // Инициатор получил answer: применяем
+    // Инициатор получил answer: применяем и разблокируем буфер ICE
     await pc.setRemoteDescription(new RTCSessionDescription(offerSdp));
-        scheduleCleanup();
+    _remoteReady = true;
+    await _applyIceBuf();
+    scheduleCleanup();
   }
 }
 
@@ -10935,7 +11136,7 @@ let _presenceBeaconReady = false;
 // _presencePubKeyCache — объявлена выше
 const PRESENCE_TTL         = 60000; // мс — как долго считаем статус актуальным
 const PRESENCE_MIN_INTERVAL = 60000; // мс — троттл кнопки ↺ статусы
-const PRESENCE_HB_INTERVAL  = 30000; // мс — период автопроверки (WebRTC-only, увеличен)
+const PRESENCE_HB_INTERVAL  = 20000; // мс — период автопроверки (снижен с 30с до 20с)
 let _presenceLastRefresh = 0;       // время последнего ручного обновления
 let _presenceHbTimer = null;        // таймер heartbeat (только у лидера)
 // _presenceHbRunning — объявлена выше
@@ -11171,11 +11372,15 @@ function _beaconConnect(ctx){
       _pjOk = true;
       _pjChecked = true;
       _presenceBeaconReady = true;
-      _presenceBeaconOpenedAt = Date.now(); // для задержки первого presence-тика
+      _presenceBeaconOpenedAt = Date.now() - PRESENCE_MIN_STABLE_MS; // guard пройдёт сразу
       // Сбрасываем авто-реконнект — соединение установлено
       if(_autoReconnectTimer){ clearTimeout(_autoReconnectTimer); _autoReconnectTimer = null; }
       _autoReconnectAttempts = 0;
-      _onPjStatusChange(true);
+      _onPjStatusChange(true); // запускает _startPresenceHeartbeat → интервал
+      // Первый тик сразу — не ждём первого срабатывания интервала.
+      // document.hidden не мешает: пользователь только что открыл приложение
+      // (или это реконнект — тогда тоже нужен свежий статус немедленно).
+      if(_pjOk && _isLeader) _presenceHeartbeatTick(true); // force=true: игнорирует document.hidden
       _requestNotifPermission();
       _syncPairBeacons(); // регистрируем парные маяки для каждого контакта
       const shortName = srv.host.replace('.com','').replace('.','');
@@ -11530,8 +11735,12 @@ function _releaseCheckPeer(){
 // Вычислить presence peer-id контакта (для проверки — только его ключ)
 // Используется при опросе: мы знаем публичный ID контакта и ищем его
 async function _fpToPid(pubKeyHex){
+  const key = 'pid:' + pubKeyHex;
+  if(_pidCache.has(key)) return _pidCache.get(key);
   const pubKeyBytes = new Uint8Array(pubKeyHex.match(/.{2}/g).map(h=>parseInt(h,16)));
-  return 'fpvp-' + await sha256hex(pubKeyBytes, 24);
+  const pid = 'fpvp-' + await sha256hex(pubKeyBytes, 24);
+  _pidCache.set(key, pid);
+  return pid;
 }
 
 // Вычислить ID маяка — направленный: "мой маяк для конкретного контакта"
@@ -11542,16 +11751,24 @@ async function _fpToPid(pubKeyHex){
 //   → sha256("beacon:" + contactKey + ":" + myKey) — другой ID (маяк контакта) ✓
 async function _fpToPairPid(contactPubKeyHex){
   if(!myPubKeyHex) return null;
+  const key = 'pair:my:' + contactPubKeyHex;
+  if(_pidCache.has(key)) return _pidCache.get(key);
   const combined = new TextEncoder().encode('beacon:' + myPubKeyHex + ':' + contactPubKeyHex);
-  return 'fpvpp-' + await sha256hex(combined, 24);
+  const pid = 'fpvpp-' + await sha256hex(combined, 24);
+  _pidCache.set(key, pid);
+  return pid;
 }
 
 // Вычислить ID маяка контакта для проверки его присутствия
 // sha256("beacon:" + contactKey + ":" + myKey)
 async function _fpToContactPairPid(contactPubKeyHex){
   if(!myPubKeyHex) return null;
+  const key = 'pair:ct:' + contactPubKeyHex;
+  if(_pidCache.has(key)) return _pidCache.get(key);
   const combined = new TextEncoder().encode('beacon:' + contactPubKeyHex + ':' + myPubKeyHex);
-  return 'fpvpp-' + await sha256hex(combined, 24);
+  const pid = 'fpvpp-' + await sha256hex(combined, 24);
+  _pidCache.set(key, pid);
+  return pid;
 }
 
 // Применить результат проверки одного контакта
@@ -11559,14 +11776,74 @@ function _applyPresenceResult(fp, result){
   const prev = _presenceCache[fp];
   _presenceCache[fp] = result;
   _presenceCacheTime[fp] = Date.now();
+  // Обновляем lastSeen при переходе в online или из online
+  if(result === 'online'){
+    _presenceLastSeenAt[fp] = Date.now();
+    idbSet('meta', _LAST_SEEN_IDB_KEY, _presenceLastSeenAt).catch(()=>{});
+  }
   const dot = document.getElementById('pd-' + fp);
   if(dot){
     dot.className = 'ci-presence-dot ' + result;
-    dot.title = result === 'online' ? 'онлайн' : 'офлайн';
+    const lsText = _fmtLastSeen(fp);
+    dot.title = result === 'online' ? 'онлайн' : (lsText || 'офлайн');
   }
+  // Обновляем подпись в шапке чата если открыт этот контакт
+  _updatePeerLastSeenHeader(fp);
   // Единый хук: контакт появился онлайн
   if(prev !== 'online' && result === 'online'){
     _onPeerCameOnline(fp).catch(e => console.warn('[presence] _onPeerCameOnline error:', e));
+  }
+}
+
+// Форматирование "был(а) N назад" как в Telegram
+function _fmtLastSeen(fp){
+  const ts = _presenceLastSeenAt[fp];
+  if(!ts) return null;
+  const diff = Date.now() - ts;
+  const sec  = Math.floor(diff / 1000);
+  const min  = Math.floor(sec / 60);
+  const hrs  = Math.floor(min / 60);
+  const days = Math.floor(hrs / 24);
+  if(sec < 60)  return 'только что';
+  if(min < 60)  return `${min} мин. назад`;
+  if(hrs < 24){
+    // сегодня — показываем время
+    const d = new Date(ts);
+    const hh = d.getHours().toString().padStart(2,'0');
+    const mm = d.getMinutes().toString().padStart(2,'0');
+    return `сегодня в ${hh}:${mm}`;
+  }
+  if(days === 1){
+    const d = new Date(ts);
+    const hh = d.getHours().toString().padStart(2,'0');
+    const mm = d.getMinutes().toString().padStart(2,'0');
+    return `вчера в ${hh}:${mm}`;
+  }
+  if(days < 7){
+    const weekdays = ['вс','пн','вт','ср','чт','пт','сб'];
+    const d = new Date(ts);
+    const hh = d.getHours().toString().padStart(2,'0');
+    const mm = d.getMinutes().toString().padStart(2,'0');
+    return `${weekdays[d.getDay()]} в ${hh}:${mm}`;
+  }
+  // больше недели — только дата
+  const d = new Date(ts);
+  return d.toLocaleDateString('ru', {day:'numeric', month:'long'});
+}
+
+// Обновить подпись "был(а) N назад" в шапке открытого чата
+function _updatePeerLastSeenHeader(fp){
+  if(!fp || fp !== currentPeerFp) return;
+  const el = document.getElementById('peer-lastseen');
+  if(!el) return;
+  const state = _presenceCache[fp];
+  if(state === 'online'){
+    el.textContent = 'онлайн';
+    el.style.color = 'var(--a)';
+  } else {
+    const ls = _fmtLastSeen(fp);
+    el.textContent = ls ? 'был(а) ' + ls : '';
+    el.style.color = 'var(--mu)';
   }
 }
 
@@ -11739,14 +12016,16 @@ async function _refreshPresenceViaWebRTC(fps, fpToPid, checkPeer, myGen){
             conn.on('open',  ()=> finish('online'));
             conn.on('close', ()=> finish('offline'));
             conn.on('error', ()=> finish('offline'));
-            // v4: RELAY-ACK delivered=true → offer дошёл локально, контакт онлайн сразу.
-            // delivered=false → offer ушёл через BroadcastChannel (другой инстанс Deno Deploy).
-            //   В этом случае ждём answer через conn.on('open') или таймаут.
+            // v4: RELAY-ACK delivered=true → offer дошёл, контакт онлайн.
+            // delivered=false → сервер Railway (одиночный инстанс) не нашёл получателя:
+            //   контакт точно офлайн — завершаем немедленно вместо ожидания 8с таймаута.
+            //   (Для multi-instance Deno Deploy с BroadcastChannel это было бы неверно,
+            //    но здесь один инстанс — ответ сервера окончателен.)
             const ackHandler = e => {
               if(e.detail.to === pid && e.detail.kind === 'offer') {
                 window.removeEventListener('tovsa-relay-ack', ackHandler);
                 if(e.detail.delivered) finish('online');
-                // delivered=false: не делаем ничего — ждём answer или таймаут
+                else finish('offline'); // сервер подтвердил: получатель не найден → офлайн
               }
             };
             window.addEventListener('tovsa-relay-ack', ackHandler);
@@ -11873,11 +12152,10 @@ async function connectToContact(fp, opts={}){
 function _startPresenceHeartbeat(){
   if(!_isLeader) return;       // только лидер держит таймер
   if(_presenceHbTimer) return; // уже запущен
-  // Первый тик — через 10с (парные маяки успеют подключиться), потом каждые 30с
-  _presenceHbTimer = setTimeout(function firstTick(){
-    _presenceHeartbeatTick();
-    _presenceHbTimer = setInterval(_presenceHeartbeatTick, PRESENCE_HB_INTERVAL);
-  }, 10000);
+  // Первый тик — немедленно (WS PRESENCE не зависит от парных маяков).
+  // Регулярный интервал стартует после него.
+  _presenceHeartbeatTick();
+  _presenceHbTimer = setInterval(_presenceHeartbeatTick, PRESENCE_HB_INTERVAL);
 }
 
 function _stopPresenceHeartbeat(){
@@ -11892,15 +12170,18 @@ function _stopPresenceHeartbeat(){
 }
 
 let _presenceHbGen = 0; // увеличивается при каждом новом тике — защита от дублей
-// Минимальное время с открытия маяка до первого presence-тика
-// Даёт парным маякам время зарегистрироваться на сервере
-const PRESENCE_MIN_STABLE_MS = 12_000;
+// Минимальное время с открытия маяка до первого presence-тика.
+// Снижено с 12с до 4с: WS PRESENCE не требует парных маяков — результат приходит
+// немедленно от сервера. Парные маяки нужны только для WebRTC-fallback,
+// но он запускается лишь если WS недоступен.
+const PRESENCE_MIN_STABLE_MS = 4_000;
 let _presenceBeaconOpenedAt = 0; // время открытия основного маяка
 
-async function _presenceHeartbeatTick(){
-  if(!_pjOk || !_isLeader || document.hidden || _presenceHbRunning) return;
-  // Не проверяем presence пока маяк не открылся и парные маяки не успели стабилизироваться
-  if(!_presenceBeaconOpenedAt || Date.now() - _presenceBeaconOpenedAt < PRESENCE_MIN_STABLE_MS) return;
+async function _presenceHeartbeatTick(force=false){
+  if(!_pjOk || !_isLeader || _presenceHbRunning) return;
+  if(!force && document.hidden) return; // скрытая вкладка: пропускаем плановые тики
+  // Маяк должен быть открыт хотя бы раз (защита от вызова до initMasterPeer)
+  if(!_presenceBeaconOpenedAt) return;
   _presenceHbRunning = true;
   _presenceLastHbAt = Date.now();
   const myGen = ++_presenceHbGen;
@@ -11922,24 +12203,35 @@ async function _presenceHeartbeatTick(){
     const fpsWithPid = fps.filter(fp => fpToPid[fp]);
     if(!fpsWithPid.length) return;
 
-    // Ставим всем 'checking' и рендерим чтобы элементы были в DOM
-    fpsWithPid.forEach(fp => {
+    // Пропускаем контактов у которых статус свежее PRESENCE_TTL —
+    // их статус актуален и перепроверять нет смысла.
+    // Исключение: статус 'checking' (предыдущий тик завис) — проверяем всегда.
+    const now = Date.now();
+    const stale = fpsWithPid.filter(fp =>
+      _presenceCache[fp] === 'checking' ||
+      !_presenceCacheTime[fp] ||
+      now - _presenceCacheTime[fp] >= PRESENCE_TTL
+    );
+    // Если все свежие — тихо выходим, не мигаем UI
+    if(!stale.length) return;
+
+    // Ставим 'checking' только тем кого реально перепроверяем
+    stale.forEach(fp => {
       _presenceCache[fp] = 'checking';
       const dot2 = document.getElementById('pd-' + fp);
       if(dot2){ dot2.className = 'ci-presence-dot checking'; dot2.title = 'проверяем...'; }
     });
     await renderContacts();
 
-    // Метод 1: WS PRESENCE query через маяк (работает cross-instance через KV)
-    const pidList = fpsWithPid.map(fp => fpToPid[fp]);
-    const onlinePids = await _wsPresenceQuery(pidList, 6000);
+    // Метод 1: WS PRESENCE query через батчер (объединяет запросы от контактов и групп)
+    const pidList = stale.map(fp => fpToPid[fp]);
+    const onlineSet = await PresenceBatcher.query(pidList, 6000);
 
     if(myGen !== _presenceHbGen) return; // новый тик запустился
 
-    if(onlinePids !== null){
-      // WS ответил — применяем результаты
-      const onlineSet = new Set(onlinePids);
-      fpsWithPid.forEach(fp => {
+    if(onlineSet !== null){
+      // WS ответил — применяем результаты (только для перепроверенных)
+      stale.forEach(fp => {
         const result = onlineSet.has(fpToPid[fp]) ? 'online' : 'offline';
         if(result === 'online') _dbgPush('log', ['[presence] ONLINE ' + fp]);
         _applyPresenceResult(fp, result);
@@ -11955,7 +12247,7 @@ async function _presenceHeartbeatTick(){
         return;
       }
       try{
-        await _refreshPresenceViaWebRTC(fpsWithPid, fpToPid, checkPeer, myGen);
+        await _refreshPresenceViaWebRTC(stale, fpToPid, checkPeer, myGen);
       } finally {
         _releaseCheckPeer();
       }
@@ -14271,11 +14563,18 @@ async function _grpHandlePingMsg(data){
 // ── Group Presence ────────────────────────────────────────────────────────────
 
 // Запустить heartbeat presence для группы (вызывается при открытии чата)
+// При восстановлении signaling все группы стартуют одновременно — добавляем jitter
+// чтобы не создавать burst из N одновременных PRESENCE-запросов (до батчера).
 function _grpStartPresence(code){
   if(_grpPresenceHb[code]) return; // уже запущен
-  // Первый прогон сразу
-  _grpCheckPresence(code);
-  _grpPresenceHb[code] = setInterval(()=>_grpCheckPresence(code), GRP_PRESENCE_INTERVAL);
+  // Jitter: 0..1500мс — разносим первый тик групп по времени.
+  // PresenceBatcher всё равно объединит запросы попавшие в одно окно 80мс,
+  // но при большом числе групп jitter снижает пиковую нагрузку на event loop.
+  const jitter = Math.random() * 1500;
+  _grpPresenceHb[code] = setTimeout(() => {
+    _grpCheckPresence(code);
+    _grpPresenceHb[code] = setInterval(()=>_grpCheckPresence(code), GRP_PRESENCE_INTERVAL);
+  }, jitter);
 }
 
 // Остановить heartbeat (при закрытии/смене чата или выходе из группы)
@@ -14321,17 +14620,16 @@ async function _grpCheckPresence(code, force=false){
 
   const srv = currentSrv(); if(!srv) return;
 
-  // ── Метод 1: WS presence query (через маяк, не HTTP) ──
+  // ── Метод 1: WS presence query через батчер (объединяет запросы всех групп) ──
   // Запрос идёт в теле WS-фрейма — не попадает в access logs сервера.
-  // Fallback на WebRTC если маяк недоступен или сервер не поддерживает запрос.
+  // Fallback на WebRTC если маяк недоступен или батчер вернул null.
   let restOk = false;
   if(toCheck.length && _presencePeer && !_presencePeer.destroyed){
     try{
       const idsToQuery = [...new Set(toCheck)];
-      const onlinePids = await _wsPresenceQuery(idsToQuery.slice(0, 200));
-      if(onlinePids !== null){
-        const onlineSet = new Set(onlinePids);
-        const onlinePrefixes = new Set(onlinePids.map(p => p.replace(/-t[a-z0-9]{3}$/, '')));
+      const onlineSet = await PresenceBatcher.query(idsToQuery.slice(0, 200));
+      if(onlineSet !== null){
+        const onlinePrefixes = new Set([...onlineSet].map(p => p.replace(/-t[a-z0-9]{3}$/, '')));
         const pidOnline = pid => onlineSet.has(pid) || onlinePrefixes.has(pid);
         toCheck.forEach(pid => {
           _grpPresence[code][pid] = pidOnline(pid) ? 'online' : 'offline';
@@ -14344,16 +14642,13 @@ async function _grpCheckPresence(code, force=false){
   }
 
   // ── Метод 2: WebRTC-connect fallback ──
+  // Переиспользуем общий _checkPeer вместо создания нового пира на каждую группу.
+  // Это важно при WS-недоступности с несколькими группами — иначе поднималось бы
+  // N отдельных WebRTC-соединений только для проверки присутствия.
   if(!restOk && toCheck.length){
-    const randomId = `grp-pchk-${code}-${Math.random().toString(36).slice(2,8)}`;
     let chkPeer = null;
     try{
-      chkPeer = await new Promise((resolve, reject)=>{
-        const p = createAuthPeer(randomId, buildPeerConfig(srv));
-        const tm = setTimeout(()=>{ safePeerDestroy(p); reject(new Error('timeout')); }, 6000);
-        p.on('open', ()=>{ clearTimeout(tm); resolve(p); });
-        p.on('error', e=>{ clearTimeout(tm); safePeerDestroy(p); reject(e); });
-      });
+      chkPeer = await _getCheckPeer();
 
       const BATCH = 6;
       for(let i = 0; i < toCheck.length; i += BATCH){
@@ -14383,7 +14678,7 @@ async function _grpCheckPresence(code, force=false){
       _grpLog(`#${code} presence WebRTC: ${e.message}`, 'warn');
       toCheck.forEach(pid=>{ if(_grpPresence[code][pid]==='checking') _grpPresence[code][pid]='offline'; });
     }finally{
-      if(chkPeer) safePeerDestroy(chkPeer);
+      _releaseCheckPeer(); // освобождаем общий пир (не уничтожаем — может использоваться другой группой)
     }
   }
 

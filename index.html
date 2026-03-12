@@ -195,11 +195,26 @@ textarea::placeholder{color:var(--mu)}
 /* ── Mic / send toggle button ── */
 .mic-send-btn{background:var(--a);color:#000;border:none;border-radius:20px;padding:10px 16px;font-size:15px;cursor:pointer;transition:opacity .15s,transform .1s,background .15s;flex-shrink:0;align-self:flex-end;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
 .mic-send-btn.mic-mode{background:var(--sf);border:1px solid var(--bd);color:var(--tx)}
+.mic-send-btn.mic-mode.circle-mode{border-color:rgba(0,255,157,.45);color:var(--a)}
 .mic-send-btn.rec-mode{background:rgba(224,108,117,.2);border:1px solid rgba(224,108,117,.4);color:var(--e)}
 .mic-send-btn:active{transform:scale(.91)}
-/* ── Circle recording preview ── */
+/* ── Circle live preview (during recording) ── */
 #vr-circle-preview{display:none;position:fixed;bottom:90px;right:16px;width:120px;height:120px;border-radius:50%;overflow:hidden;border:2px solid var(--a);background:#000;z-index:200;box-shadow:0 4px 20px rgba(0,0,0,.5)}
 #vr-circle-preview video{width:100%;height:100%;object-fit:cover;display:block;transform:scaleX(-1)}
+/* ── VR Preview Modal — показывается после записи, до отправки ── */
+#vr-preview-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:600;flex-direction:column;align-items:center;justify-content:center;gap:20px}
+#vr-preview-modal.on{display:flex}
+#vr-preview-circle{width:260px;height:260px;border-radius:50%;overflow:hidden;background:#000;border:2px solid var(--a);box-shadow:0 0 40px rgba(0,255,157,.15);flex-shrink:0}
+#vr-preview-circle video{width:100%;height:100%;object-fit:cover;display:block}
+#vr-preview-voice{width:88%;max-width:340px;background:var(--sf);border:1px solid var(--bd);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.vr-preview-wave{height:40px;display:flex;align-items:center;gap:2px;overflow:hidden;justify-content:center}
+.vr-preview-bar{width:3px;border-radius:2px;background:var(--a);opacity:.5;flex-shrink:0}
+.vr-preview-dur{font-size:12px;color:var(--mu);text-align:center;letter-spacing:.5px}
+.vr-preview-btns{display:flex;gap:10px;width:88%;max-width:340px}
+.vr-preview-btn{flex:1;padding:13px;border-radius:12px;border:none;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.5px;transition:opacity .15s,transform .1s;-webkit-tap-highlight-color:transparent}
+.vr-preview-btn:active{opacity:.8;transform:scale(.96)}
+.vr-preview-btn.send{background:var(--a);color:#000}
+.vr-preview-btn.redo{background:var(--sf);border:1px solid var(--bd);color:var(--tx)}
 .msg button,.msg a{pointer-events:auto;-webkit-tap-highlight-color:rgba(0,0,0,.1);user-select:none;-webkit-user-select:none;touch-action:manipulation}
 .msg.msg-file-bubble{padding:6px 8px;max-width:fit-content;white-space:normal;line-height:1}
 .sysmsg{align-self:center;font-size:11px;color:var(--mu);padding:4px 12px;background:var(--sf);border-radius:20px}
@@ -1609,15 +1624,30 @@ textarea::placeholder{color:var(--mu)}
     </div>
     <!-- Normal input (hidden while recording) -->
     <textarea id="mi" placeholder="сообщение..." onkeydown="handleMiKey(event)" oninput="onTypingInput();autoGrowMi(this);vrUpdateSendBtn()"></textarea>
-    <!-- Dynamic mic/send button -->
+    <!-- Mic/send button: тап = переключить режим 🎤↔🔴, удержание = запись, свайп влево = отмена -->
     <button class="mic-send-btn mic-mode" id="mic-send-btn"
       onmousedown="vrBtnDown(event)" ontouchstart="vrBtnDown(event)"
       onmouseup="vrBtnUp(event)" ontouchend="vrBtnUp(event)"
       onmouseleave="vrBtnLeave(event)"
       onclick="vrBtnClick(event)">🎤</button>
   </div>
-  <!-- Circle recording preview -->
+  <!-- Circle live preview (during recording) -->
   <div id="vr-circle-preview"><video id="vr-circle-video" autoplay playsinline muted></video></div>
+</div>
+
+<!-- VR Preview Modal — показывается после записи, до отправки -->
+<div id="vr-preview-modal">
+  <div id="vr-preview-circle" style="display:none">
+    <video id="vr-preview-circle-video" playsinline loop></video>
+  </div>
+  <div id="vr-preview-voice" style="display:none">
+    <div class="vr-preview-wave" id="vr-preview-wave"></div>
+    <div class="vr-preview-dur" id="vr-preview-dur">0:00</div>
+  </div>
+  <div class="vr-preview-btns">
+    <button class="vr-preview-btn redo" onclick="vrPreviewRedo()">🔄 Перезаписать</button>
+    <button class="vr-preview-btn send" onclick="vrPreviewSend()">✈️ Отправить</button>
+  </div>
 </div>
 
 <!-- Таб-бар -->
@@ -4804,13 +4834,50 @@ async function videoRunQualityTest() {
       '<b>' + prLabels[rec] + '</b><br>' + hint +
       '<br><button onclick="setVideoProfile(\'' + rec + '\')" style="margin-top:8px;padding:5px 12px;background:var(--a);border:none;border-radius:6px;color:#000;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer">Применить профиль</button>';
   }
-
   btn.disabled = false;
   btn.textContent = '🔄 Повторить тест';
 }
 
+// ── Обновление иконки/класса кнопки ─────────────────────────────────────────
+function vrUpdateSendBtn(){
+  const btn = document.getElementById('mic-send-btn');
+  const mi  = document.getElementById('mi');
+  const ab  = document.getElementById('attach-btn');
+  if(!btn) return;
+  const hasText = mi && mi.value.trim().length > 0;
+  if(hasText){
+    btn.textContent = '➤';
+    btn.className   = 'mic-send-btn';
+    if(ab) ab.style.display = 'none';
+    btn.title = 'Отправить';
+  } else if(_vr.state !== 'idle'){
+    btn.className   = 'mic-send-btn rec-mode';
+    if(ab) ab.style.display = 'none';
+  } else {
+    // Показываем текущий режим: 🎤 или 🔴
+    if(_vr.mode === 'circle'){
+      btn.textContent = '🔴';
+      btn.className   = 'mic-send-btn mic-mode circle-mode';
+      btn.title       = 'Тап — переключить на голосовое · Удержание — кружок';
+    } else {
+      btn.textContent = '🎤';
+      btn.className   = 'mic-send-btn mic-mode';
+      btn.title       = 'Тап — переключить на кружок · Удержание — голосовое';
+    }
+    if(ab) ab.style.display = '';
+  }
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 // VOICE & CIRCLE RECORDING MODULE
+// ════════════════════════════════════════════════════════════════════════════
+// Flow:
+//   Тап на кнопку (без текста)  → переключить режим 🎤 ↔ 🔴
+//   Удержание (VR_HOLD_MS)      → начать запись в режиме _vr.mode
+//   Свайп влево во время записи → отмена (обрабатывается в GESTURES MODULE)
+//   Отпустить кнопку            → стоп → preview modal
+//   Preview "Отправить"         → vrPreviewSend()
+//   Preview "Перезаписать"      → vrPreviewRedo()
 // ════════════════════════════════════════════════════════════════════════════
 
 let _vr = {
@@ -4823,17 +4890,22 @@ let _vr = {
   analyser: null,
   raf: null,
   cancelled: false,
-  samples: [],     // RMS amplitude samples for waveform
-  holdTimer: null, // long-press detection
-  mode: 'voice',   // что будем записывать при следующем hold
+  samples: [],     // RMS amplitude samples для waveform
+  holdTimer: null, // таймер long-press
+  mode: 'voice',   // текущий режим кнопки: 'voice' | 'circle'
+  // preview state — хранится после записи до отправки/перезаписи
+  _previewBlob: null,
+  _previewKind: null,
+  _previewWaveform: null,
+  _previewDurSec: 0,
 };
 
-const VR_HOLD_MS  = 350;  // удержание → запись
-const VR_MIN_MS   = 500;  // минимум для отправки
+const VR_HOLD_MS       = 350;   // мс удержания до старта записи
+const VR_MIN_MS        = 500;   // минимальная длина записи для отправки
 const VR_MAX_VOICE_MS  = 60_000;
 const VR_MAX_CIRCLE_MS = 60_000;
 
-// Инициализация кнопки и iarea
+// ── Инициализация ────────────────────────────────────────────────────────────
 function vrInit(){
   const mi = document.getElementById('mi');
   if(mi){
@@ -4843,33 +4915,14 @@ function vrInit(){
   vrUpdateSendBtn();
 }
 
-function vrUpdateSendBtn(){
-  const btn = document.getElementById('mic-send-btn');
-  const mi  = document.getElementById('mi');
-  const ab  = document.getElementById('attach-btn');
-  if(!btn) return;
-  const hasText = mi && mi.value.trim().length > 0;
-  if(_vr.state !== 'idle'){
-    btn.textContent = '⏹';
-    btn.className   = 'mic-send-btn rec-mode';
-    if(ab) ab.style.display = 'none';
-    return;
-  }
-  if(hasText){
-    btn.textContent = '→';
-    btn.className   = 'mic-send-btn';
-    if(ab) ab.style.display = '';
-    btn.title = 'Отправить';
-  } else {
-    btn.textContent = '🎤';
-    btn.className   = 'mic-send-btn mic-mode';
-    if(ab) ab.style.display = '';
-    btn.title = 'Удержите — голосовое · Двойное нажатие — кружок';
-  }
-}
-
 // ── Жесты кнопки ────────────────────────────────────────────────────────────
-let _vrBtnTs = 0;
+// Тап (короткое нажатие без текста) → переключить режим
+// Удержание → начать запись
+// Свайп влево во время записи → отмена (обрабатывается в GESTURES MODULE)
+
+let _vrBtnDownTs  = 0;  // когда началось нажатие
+let _vrBtnMoved   = false; // засекаем свайп на кнопке (touch)
+let _vrBtnStartX  = 0;
 
 function vrBtnDown(e){
   if(e.type === 'touchstart') e.preventDefault();
@@ -4877,19 +4930,29 @@ function vrBtnDown(e){
   const hasText = mi && mi.value.trim().length > 0;
   if(hasText || _vr.state !== 'idle') return;
 
-  _vrBtnTs = Date.now();
+  _vrBtnDownTs = Date.now();
+  _vrBtnMoved  = false;
+  _vrBtnStartX = e.touches ? e.touches[0].clientX : e.clientX;
+
   _vr.holdTimer = setTimeout(() => {
     _vr.holdTimer = null;
-    vrBeginRecording('voice');
+    vrBeginRecording(_vr.mode);
   }, VR_HOLD_MS);
 }
 
 function vrBtnUp(e){
   if(e.type === 'touchend') e.preventDefault();
   if(_vr.holdTimer){
+    // Нажатие было коротким — это тап, holdTimer не сработал
     clearTimeout(_vr.holdTimer);
     _vr.holdTimer = null;
+    // Тап без текста → переключить режим (только если не было свайпа)
+    if(!_vrBtnMoved){
+      _vrToggleMode();
+    }
+    return;
   }
+  // holdTimer уже сработал — идёт/шла запись
   if(_vr.state !== 'idle'){
     const dur = Date.now() - _vr.startTs;
     if(dur < VR_MIN_MS){
@@ -4901,29 +4964,25 @@ function vrBtnUp(e){
 }
 
 function vrBtnLeave(e){
-  // Mouse left button area during recording — cancel
-  if(_vr.holdTimer){ clearTimeout(_vr.holdTimer); _vr.holdTimer=null; }
+  // Мышь ушла с кнопки — отменяем hold-таймер (только mouse, не touch)
+  if(e.type !== 'mouseleave') return;
+  if(_vr.holdTimer){ clearTimeout(_vr.holdTimer); _vr.holdTimer = null; }
 }
 
-let _vrLastClick = 0;
 function vrBtnClick(e){
+  // Если есть текст — отправить
   const mi = document.getElementById('mi');
-  const hasText = mi && mi.value.trim().length > 0;
-  if(hasText){
+  if(mi && mi.value.trim().length > 0){
     sendMsg();
-    return;
   }
-  if(_vr.state !== 'idle') return;
+  // Переключение режима обрабатывается в vrBtnUp
+}
 
-  // Двойной клик → кружок
-  const now = Date.now();
-  if(now - _vrLastClick < 350){
-    _vrLastClick = 0;
-    if(_vr.holdTimer){ clearTimeout(_vr.holdTimer); _vr.holdTimer=null; }
-    vrBeginRecording('circle');
-  } else {
-    _vrLastClick = now;
-  }
+// ── Переключение режима 🎤 ↔ 🔴 ──────────────────────────────────────────────
+function _vrToggleMode(){
+  _vr.mode = _vr.mode === 'voice' ? 'circle' : 'voice';
+  vibrate(12);
+  vrUpdateSendBtn();
 }
 
 // ── Запись ───────────────────────────────────────────────────────────────────
@@ -5062,26 +5121,36 @@ function vrCancelRecording(){
 }
 
 function vrOnStop(){
-  // Очищаем UI
+  // Очищаем анализатор и таймеры
   clearInterval(_vr.timer);
   if(_vr.raf){ cancelAnimationFrame(_vr.raf); _vr.raf=null; }
   if(_vr.analyser && _vr.analyser._ctx){ _vr.analyser._ctx.close().catch(()=>{}); _vr.analyser=null; }
-  _vr.stream.getTracks().forEach(t=>t.stop());
 
-  // Скрываем circle preview
+  // Останавливаем треки стрима (для circle — чуть позже, нужен для preview)
+  const kind = _vr.state;
+  const wasCircle = kind === 'circle';
+
+  if(!wasCircle){
+    _vr.stream.getTracks().forEach(t=>t.stop());
+  }
+
+  // Скрываем live circle preview
   const prev = document.getElementById('vr-circle-preview');
   const pvid = document.getElementById('vr-circle-video');
   if(prev) prev.style.display='none';
   if(pvid) pvid.srcObject=null;
 
   vrShowRecBar(false);
-  const kind = _vr.state;
   _vr.state = 'idle';
   vrUpdateSendBtn();
 
-  if(_vr.cancelled || _vr.chunks.length === 0) return;
+  if(_vr.cancelled || _vr.chunks.length === 0){
+    if(wasCircle) _vr.stream && _vr.stream.getTracks().forEach(t=>t.stop());
+    _vr.stream = null;
+    return;
+  }
 
-  const mime = _vr.mr.mimeType || (kind==='circle' ? 'video/webm' : 'audio/webm');
+  const mime = _vr.mr ? (_vr.mr.mimeType || (kind==='circle' ? 'video/webm' : 'audio/webm')) : (kind==='circle' ? 'video/webm' : 'audio/webm');
   const blob = new Blob(_vr.chunks, {type: mime});
   _vr.mr = null;
   _vr.chunks = [];
@@ -5096,13 +5165,97 @@ function vrOnStop(){
     waveform.push(Math.round((raw[idx]||0)/max*100)/100);
   }
 
+  const durSec = Math.round((Date.now() - _vr.startTs) / 1000);
+
+  // Останавливаем треки для кружка после получения blob
+  if(wasCircle) _vr.stream && _vr.stream.getTracks().forEach(t=>t.stop());
+  _vr.stream = null;
+
+  // Сохраняем в preview state и показываем modal
+  _vr._previewBlob     = blob;
+  _vr._previewKind     = kind;
+  _vr._previewWaveform = kind === 'voice' ? waveform : null;
+  _vr._previewDurSec   = durSec;
+
+  vrShowPreviewModal(kind, blob, waveform, durSec);
+}
+
+// ── Preview Modal ─────────────────────────────────────────────────────────────
+function vrShowPreviewModal(kind, blob, waveform, durSec){
+  const modal   = document.getElementById('vr-preview-modal');
+  const circleW = document.getElementById('vr-preview-circle');
+  const voiceW  = document.getElementById('vr-preview-voice');
+  const cvid    = document.getElementById('vr-preview-circle-video');
+  if(!modal) return;
+
+  if(kind === 'circle'){
+    if(circleW) circleW.style.display = '';
+    if(voiceW)  voiceW.style.display  = 'none';
+    if(cvid){
+      const url = URL.createObjectURL(blob);
+      cvid.src  = url;
+      cvid.play().catch(()=>{});
+      cvid._blobUrl = url;
+    }
+  } else {
+    if(circleW) circleW.style.display = 'none';
+    if(voiceW)  voiceW.style.display  = '';
+    // Рисуем waveform bars
+    const waveEl = document.getElementById('vr-preview-wave');
+    const durEl  = document.getElementById('vr-preview-dur');
+    if(waveEl && waveform){
+      waveEl.innerHTML = '';
+      waveform.forEach(v => {
+        const b = document.createElement('div');
+        b.className = 'vr-preview-bar';
+        b.style.height = Math.max(4, Math.round(v * 36)) + 'px';
+        waveEl.appendChild(b);
+      });
+    }
+    if(durEl){
+      const mm = Math.floor(durSec/60), ss = durSec%60;
+      durEl.textContent = mm + ':' + (ss<10?'0':'') + ss;
+    }
+  }
+
+  modal.classList.add('on');
+}
+
+function vrClosePreviewModal(){
+  const modal = document.getElementById('vr-preview-modal');
+  if(modal) modal.classList.remove('on');
+  // Освобождаем blob URL видео
+  const cvid = document.getElementById('vr-preview-circle-video');
+  if(cvid){
+    cvid.pause();
+    if(cvid._blobUrl){ URL.revokeObjectURL(cvid._blobUrl); cvid._blobUrl=null; }
+    cvid.src = '';
+  }
+}
+
+// Отправить из preview
+function vrPreviewSend(){
+  vrClosePreviewModal();
+  if(!_vr._previewBlob) return;
+  const blob     = _vr._previewBlob;
+  const kind     = _vr._previewKind;
+  const waveform = _vr._previewWaveform;
+  _vr._previewBlob = null;
+
+  const mime = blob.type || (kind==='circle' ? 'video/webm' : 'audio/webm');
   const ext  = mime.includes('mp4') ? 'mp4' : mime.includes('ogg') ? 'ogg' : 'webm';
   const name = kind === 'circle' ? `circle_${Date.now()}.${ext}` : `voice_${Date.now()}.${ext}`;
   const file = new File([blob], name, {type: mime});
   file._kind     = kind;
   file._waveform = kind === 'voice' ? waveform : null;
-
   vrSendFile(file);
+}
+
+// Перезаписать — закрываем modal, режим сохраняется, пользователь снова удерживает кнопку
+function vrPreviewRedo(){
+  vrClosePreviewModal();
+  _vr._previewBlob = null;
+  toast(_vr.mode === 'circle' ? 'Удержи кнопку 🔴 для новой записи' : 'Удержи кнопку 🎤 для новой записи');
 }
 
 async function vrSendFile(file){
@@ -14661,6 +14814,41 @@ document.body.appendChild(ptrEl);
 
 // ── Утилиты ───────────────────────────────────────────────────────────────────
 function vibrate(ms){ navigator.vibrate && navigator.vibrate(ms); }
+
+// ── 0. СВАЙП ВЛЕВО НА КНОПКЕ ЗАПИСИ → ОТМЕНА ─────────────────────────────────
+// Во время записи свайп влево от кнопки отменяет запись
+(function(){
+  const CANCEL_THRESHOLD = 60; // px влево
+  let tracking = false;
+  let startX = 0;
+  let cancelled = false;
+
+  document.addEventListener('touchstart', e => {
+    const btn = document.getElementById('mic-send-btn');
+    if(!btn) return;
+    if(typeof _vr === 'undefined' || _vr.state === 'idle') return;
+    // Начало касания на кнопке или vr-bar
+    const target = e.target;
+    if(btn.contains(target) || (document.getElementById('vr-bar') || {}).contains && document.getElementById('vr-bar').contains(target)){
+      tracking = true;
+      cancelled = false;
+      startX = e.touches[0].clientX;
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchmove', e => {
+    if(!tracking || typeof _vr === 'undefined' || _vr.state === 'idle'){ tracking = false; return; }
+    const dx = e.touches[0].clientX - startX;
+    if(dx < -CANCEL_THRESHOLD && !cancelled){
+      cancelled = true;
+      tracking  = false;
+      vibrate(30);
+      vrCancelRecording();
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchend', () => { tracking = false; }, { passive: true });
+})();
 
 // ── 1. СВАЙП ПО СООБЩЕНИЮ → ОТВЕТИТЬ ─────────────────────────────────────────
 // Вправо = ответить (для входящих и исходящих)

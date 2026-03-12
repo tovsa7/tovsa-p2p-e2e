@@ -563,7 +563,19 @@ textarea::placeholder{color:var(--mu)}
 #mcall-remote-avatar{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px}
 #mcall-remote-avatar-emoji{font-size:64px}
 #mcall-remote-avatar-name{font-size:16px;font-weight:700;color:#fff}
-#mcall-local-video{position:absolute;top:16px;right:16px;width:90px;height:120px;object-fit:cover;border-radius:12px;border:2px solid rgba(255,255,255,.2);background:#222;z-index:10}
+#mcall-local-video{position:absolute;top:16px;right:16px;width:90px;height:120px;object-fit:cover;border-radius:12px;border:2px solid rgba(255,255,255,.2);background:#222;z-index:10;cursor:pointer;transition:transform .15s,opacity .15s}
+#mcall-local-video:active{transform:scale(.96);opacity:.8}
+/* Stats panel */
+#mcall-stats{position:absolute;top:16px;left:16px;z-index:25;display:flex;flex-direction:column;gap:4px;pointer-events:none}
+.mcall-stat-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:20px;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);font-size:10px;color:#fff;letter-spacing:.3px;white-space:nowrap}
+.mcall-stat-chip .msc-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.mcall-stat-chip.good  .msc-dot{background:#00ff9d;box-shadow:0 0 4px #00ff9d}
+.mcall-stat-chip.ok    .msc-dot{background:#e5c07b;box-shadow:0 0 4px #e5c07b}
+.mcall-stat-chip.bad   .msc-dot{background:#e06c75;box-shadow:0 0 4px #e06c75}
+/* Quality upgrade prompt */
+#mcall-upgrade{position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:26;display:none;align-items:center;gap:8px;padding:7px 12px;background:rgba(0,0,0,.65);backdrop-filter:blur(6px);border:1px solid rgba(0,255,157,.3);border-radius:20px;white-space:nowrap}
+#mcall-upgrade span{font-size:11px;color:#fff}
+#mcall-upgrade button{background:var(--a);border:none;border-radius:12px;padding:3px 10px;font-size:10px;font-weight:700;color:#000;cursor:pointer;pointer-events:all;font-family:inherit}
 .mcall-full-overlay{position:absolute;bottom:0;left:0;right:0;z-index:20;
   padding:20px 20px calc(20px + env(safe-area-inset-bottom,0px));
   background:linear-gradient(to top, rgba(0,0,0,.7) 0%, transparent 100%);
@@ -577,6 +589,7 @@ textarea::placeholder{color:var(--mu)}
 .mcall-full-btn.mute.active{background:rgba(255,255,255,.35)}
 .mcall-full-btn.camera{background:rgba(255,255,255,.15)}
 .mcall-full-btn.camera.active{background:rgba(255,255,255,.35)}
+.mcall-full-btn.flip{background:rgba(255,255,255,.15);font-size:18px}
 .mcall-full-btn.minimize{background:rgba(255,255,255,.12);font-size:16px}
 .mcall-full-btn.end{background:rgba(224,108,117,.85);width:60px;height:60px;font-size:22px}
 .mcall-full-btn:hover{opacity:.82}
@@ -1617,15 +1630,34 @@ textarea::placeholder{color:var(--mu)}
     <div id="mcall-remote-avatar-emoji">🙂</div>
     <div id="mcall-remote-avatar-name"></div>
   </div>
-  <video id="mcall-local-video" autoplay playsinline muted style="display:none"></video>
+  <video id="mcall-local-video" autoplay playsinline muted style="display:none" onclick="mcallFlipCamera()" title="Нажмите чтобы переключить камеру"></video>
+
+  <!-- Статистика: задержка + скорость -->
+  <div id="mcall-stats">
+    <div class="mcall-stat-chip good" id="mcall-stat-rtt">
+      <div class="msc-dot"></div><span id="mcall-stat-rtt-val">— мс</span>
+    </div>
+    <div class="mcall-stat-chip good" id="mcall-stat-bw">
+      <div class="msc-dot"></div><span id="mcall-stat-bw-val">↑— ↓—</span>
+    </div>
+  </div>
+
+  <!-- Предложение повысить качество -->
+  <div id="mcall-upgrade">
+    <span id="mcall-upgrade-text">Задержка хорошая — повысить качество?</span>
+    <button onclick="mcallUpgradeQuality()">Улучшить</button>
+    <button onclick="mcallDismissUpgrade()" style="background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:12px;padding:3px 8px;font-size:10px;cursor:pointer;pointer-events:all;font-family:inherit">✕</button>
+  </div>
+
   <div class="mcall-full-overlay">
     <div class="mcall-full-name" id="mcall-full-name"></div>
     <div class="mcall-full-timer" id="mcall-full-timer">00:00</div>
     <div class="mcall-full-btns">
-      <button class="mcall-full-btn mute" id="mcall-full-mute" onclick="mcallToggleMute()" title="Микрофон">🎤</button>
-      <button class="mcall-full-btn end" onclick="mcallEnd()" title="Завершить">📵</button>
-      <button class="mcall-full-btn camera" id="mcall-full-cam" onclick="mcallToggleCamera()" title="Камера">📷</button>
-      <button class="mcall-full-btn minimize" onclick="mcallMinimize()" title="Свернуть">↙</button>
+      <button class="mcall-full-btn mute"     id="mcall-full-mute"   onclick="mcallToggleMute()"    title="Микрофон">🎤</button>
+      <button class="mcall-full-btn end"                             onclick="mcallEnd()"            title="Завершить">📵</button>
+      <button class="mcall-full-btn camera"   id="mcall-full-cam"    onclick="mcallToggleCamera()"   title="Камера">📷</button>
+      <button class="mcall-full-btn flip"     id="mcall-full-flip"   onclick="mcallFlipCamera()"     title="Переключить камеру" style="display:none">🔄</button>
+      <button class="mcall-full-btn minimize"                        onclick="mcallMinimize()"       title="Свернуть">↙</button>
     </div>
   </div>
 </div>
@@ -5946,6 +5978,7 @@ async function mcallAccept(withVideo){
   _e2eSend(JSON.stringify({ __mcall__: 'accept', video: withVideo }));
 
   _mcStartTimer();
+  _mcStartStats();
   _mcUpdateUI();
 }
 
@@ -6038,6 +6071,7 @@ function _mcHandlePacket(j){
       _mc.peerVideo = !!j.video;
       _mc.startedAt = Date.now();
       _mcStartTimer();
+      _mcStartStats();
       _mcUpdateUI();
       toast('Звонок принят');
     }
@@ -6094,6 +6128,8 @@ function _mcStartTimer(){
 
 function _mcReset(){
   clearInterval(_mcTimerInterval);
+  _mcStopStats();
+  _mcFacingMode = 'user';
   $('mcall-modal').classList.remove('on');
   $('mcall-bar').classList.remove('on');
   $('mcall-full').classList.remove('on');
@@ -6159,6 +6195,10 @@ function _mcUpdateUI(){
     el.classList.toggle('active', camActive);
   });
 
+  // Кнопка переключения камеры — только если видео включено
+  const flipBtn = $('mcall-full-flip');
+  if(flipBtn) flipBtn.style.display = (_mc.video && !_mc.videoMuted) ? 'flex' : 'none';
+
   // Показываем нужный вид
   if(_mc.minimized){
     $('mcall-bar').classList.add('on');
@@ -6167,6 +6207,174 @@ function _mcUpdateUI(){
     $('mcall-full').classList.add('on');
     $('mcall-bar').classList.remove('on');
   }
+}
+
+// ── Переключение камеры (фронтальная ↔ тыловая) ─────────────────────────────
+
+let _mcFacingMode = 'user'; // 'user' = фронтальная, 'environment' = тыловая
+
+async function mcallFlipCamera(){
+  if(!_mc.localStream || !_mc.video || _mc.videoMuted) return;
+  _mcFacingMode = _mcFacingMode === 'user' ? 'environment' : 'user';
+  const s = getMediaSettings();
+  const p = VIDEO_PROFILES[s.videoProfile] || VIDEO_PROFILES.std;
+  try{
+    const newStream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: _mcFacingMode, width:{ideal:p.width}, height:{ideal:p.height}, frameRate:{ideal:p.frameRate} }
+    });
+    const newTrack = newStream.getVideoTracks()[0];
+    // Заменяем трек в sender
+    const videoSender = _mc.localSenders.find(s => s.track && s.track.kind === 'video');
+    if(videoSender){
+      await videoSender.replaceTrack(newTrack);
+      // Останавливаем старый видео трек
+      _mc.localStream.getVideoTracks().forEach(t => t.stop());
+      // Обновляем stream
+      const audioTracks = _mc.localStream.getAudioTracks();
+      const updStream = new MediaStream([...audioTracks, newTrack]);
+      _mc.localStream = updStream;
+      const lv = $('mcall-local-video');
+      lv.srcObject = updStream;
+    }
+    const flipBtn = $('mcall-full-flip');
+    if(flipBtn) flipBtn.style.background = _mcFacingMode === 'environment'
+      ? 'rgba(0,255,157,.25)' : 'rgba(255,255,255,.15)';
+    toast(_mcFacingMode === 'user' ? '📷 Фронтальная камера' : '📷 Тыловая камера');
+  }catch(e){
+    _mcFacingMode = _mcFacingMode === 'user' ? 'environment' : 'user'; // откат
+    toast('Не удалось переключить камеру');
+  }
+}
+
+// ── Статистика звонка (RTT, битрейт) ─────────────────────────────────────────
+
+let _mcStatsInterval  = null;
+let _mcUpgradeDismiss = false;
+let _mcPrevBytes      = { sent: 0, recv: 0, ts: 0 };
+
+function _mcStartStats(){
+  _mcStopStats();
+  _mcUpgradeDismiss = false;
+  _mcPrevBytes = { sent: 0, recv: 0, ts: 0 };
+  _mcStatsInterval = setInterval(_mcPollStats, 2000);
+}
+
+function _mcStopStats(){
+  clearInterval(_mcStatsInterval);
+  _mcStatsInterval = null;
+  const upg = $('mcall-upgrade');
+  if(upg) upg.style.display = 'none';
+}
+
+async function _mcPollStats(){
+  if(!pc || _mc.state !== 'active') return;
+  try{
+    const reports = await pc.getStats();
+    let rtt = null, bytesSent = 0, bytesRecv = 0;
+
+    reports.forEach(r => {
+      // RTT из candidate-pair
+      if(r.type === 'candidate-pair' && r.state === 'succeeded' && r.currentRoundTripTime != null){
+        if(rtt === null || r.currentRoundTripTime < rtt)
+          rtt = r.currentRoundTripTime;
+      }
+      // Входящий поток
+      if(r.type === 'inbound-rtp' && (r.kind === 'video' || r.kind === 'audio'))
+        bytesRecv += r.bytesReceived || 0;
+      // Исходящий поток
+      if(r.type === 'outbound-rtp' && (r.kind === 'video' || r.kind === 'audio'))
+        bytesSent += r.bytesSent || 0;
+    });
+
+    const now = Date.now();
+    const dt  = (now - (_mcPrevBytes.ts || now - 2000)) / 1000;
+    const upKbps   = dt > 0 ? Math.round((bytesSent - _mcPrevBytes.sent) * 8 / 1000 / dt) : 0;
+    const downKbps = dt > 0 ? Math.round((bytesRecv - _mcPrevBytes.recv) * 8 / 1000 / dt) : 0;
+    _mcPrevBytes = { sent: bytesSent, recv: bytesRecv, ts: now };
+
+    // Обновляем RTT-чип
+    const rttEl    = $('mcall-stat-rtt');
+    const rttVal   = $('mcall-stat-rtt-val');
+    if(rttEl && rttVal){
+      if(rtt !== null){
+        const ms = Math.round(rtt * 1000);
+        rttVal.textContent = ms + ' мс';
+        rttEl.className = 'mcall-stat-chip ' + (ms < 100 ? 'good' : ms < 250 ? 'ok' : 'bad');
+      } else {
+        rttVal.textContent = '— мс';
+        rttEl.className = 'mcall-stat-chip ok';
+      }
+    }
+
+    // Обновляем битрейт-чип
+    const bwEl  = $('mcall-stat-bw');
+    const bwVal = $('mcall-stat-bw-val');
+    if(bwEl && bwVal && dt > 0){
+      const fmt = kbps => kbps >= 1000 ? (kbps/1000).toFixed(1)+' Мбит/с' : kbps+' Кбит/с';
+      bwVal.textContent = '↑' + fmt(upKbps) + ' ↓' + fmt(downKbps);
+      const total = upKbps + downKbps;
+      bwEl.className = 'mcall-stat-chip ' + (total > 500 ? 'good' : total > 100 ? 'ok' : 'bad');
+    }
+
+    // Подсказка повысить качество
+    _mcCheckUpgradePrompt(rtt);
+
+  }catch(e){ /* getStats может падать при закрытии */ }
+}
+
+function _mcCheckUpgradePrompt(rtt){
+  if(_mcUpgradeDismiss) return;
+  const upg = $('mcall-upgrade');
+  if(!upg) return;
+  const s   = getMediaSettings();
+  const cur = s.videoProfile;
+  const order = ['eco','std','high','max'];
+  const curIdx = order.indexOf(cur);
+  // Предлагаем улучшить если: хорошее RTT (<120мс) и текущий профиль не максимальный
+  if(rtt !== null && rtt < 0.12 && curIdx < order.length - 1 && _mc.video){
+    const nextKey   = order[curIdx + 1];
+    const nextLabel = { eco:'Экономный', std:'Стандартный', high:'Высокое', max:'Максимальное' }[nextKey];
+    $('mcall-upgrade-text').textContent = 'Задержка ' + Math.round(rtt*1000) + ' мс — попробовать «' + nextLabel + '»?';
+    upg._nextProfile = nextKey;
+    upg.style.display = 'flex';
+  } else if(rtt !== null && rtt > 0.25){
+    // Плохая задержка — предлагаем понизить
+    if(curIdx > 0){
+      const downKey   = order[curIdx - 1];
+      const downLabel = { eco:'Экономный', std:'Стандартный', high:'Высокое', max:'Максимальное' }[downKey];
+      $('mcall-upgrade-text').textContent = 'Задержка ' + Math.round(rtt*1000) + ' мс — снизить до «' + downLabel + '»?';
+      upg._nextProfile = downKey;
+      upg.style.display = 'flex';
+    }
+  } else {
+    upg.style.display = 'none';
+  }
+}
+
+function mcallUpgradeQuality(){
+  const upg = $('mcall-upgrade');
+  if(!upg || !upg._nextProfile) return;
+  setVideoProfile(upg._nextProfile);
+  upg.style.display = 'none';
+  _mcUpgradeDismiss = true;
+  // Применяем новый битрейт к активным сендерам
+  const br = getVideoBitrates();
+  _mc.localSenders.forEach(async sender => {
+    try{
+      const params = sender.getParameters();
+      if(!params.encodings || !params.encodings.length) return;
+      const kind = sender.track && sender.track.kind;
+      params.encodings[0].maxBitrate = kind === 'video' ? br.video : br.audio;
+      await sender.setParameters(params);
+    }catch(_){}
+  });
+}
+
+function mcallDismissUpgrade(){
+  _mcUpgradeDismiss = true;
+  const upg = $('mcall-upgrade');
+  if(upg) upg.style.display = 'none';
 }
 
 // ── Инициализация ontrack ─────────────────────────────────────────────────────

@@ -1159,6 +1159,13 @@ textarea::placeholder{color:var(--mu)}
         <div id="mic-test-status" style="font-size:10px;color:var(--mu);text-align:center;min-height:14px"></div>
       </div>
 
+      <!-- ── Диагностика камеры ── -->
+      <div class="sn-label">📷 Камеры</div>
+      <div style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px">
+        <button id="cam-diag-btn" onclick="camDiagRun()" style="padding:9px;background:var(--ad);border:1px solid rgba(0,255,157,.2);border-radius:8px;color:var(--a);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">🔍 Определить камеры</button>
+        <div id="cam-diag-result" style="font-size:10px;color:var(--mu);line-height:1.6;display:none"></div>
+      </div>
+
       <!-- ── Передача файлов ── -->
       <div class="sn-label">📁 Передача файлов</div>
       <div style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
@@ -1170,15 +1177,22 @@ textarea::placeholder{color:var(--mu)}
               <div style="font-size:10px;color:var(--mu);margin-top:2px">Чанки 64 КБ · буфер 1 МБ — стабильно на любом канале</div>
             </div>
           </label>
-          <label style="display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer" onclick="setFileProfile('turbo')">
+          <label style="display:flex;align-items:center;border-bottom:1px solid var(--bd);gap:10px;padding:11px 14px;cursor:pointer" onclick="setFileProfile('turbo')">
             <div id="fp-turbo-radio" class="srv-radio" style="flex-shrink:0"></div>
             <div style="flex:1">
               <div style="font-size:12px;font-weight:700">Турбо 🚀</div>
               <div style="font-size:10px;color:var(--mu);margin-top:2px">Чанки 256 КБ · буфер 4 МБ — быстрее на хорошем Wi-Fi / оптике</div>
             </div>
           </label>
+          <label style="display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer" onclick="setFileProfile('ludicrous')">
+            <div id="fp-ludicrous-radio" class="srv-radio" style="flex-shrink:0"></div>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:700">Максимум ⚡</div>
+              <div style="font-size:10px;color:var(--mu);margin-top:2px">Чанки 1 МБ · буфер 32 МБ · окно 32 — всё на пределе канала</div>
+            </div>
+          </label>
         </div>
-        <div style="padding:10px 14px;border-top:1px solid var(--bd);font-size:10px;color:var(--mu);line-height:1.5">⚠ Турбо может вызвать задержки на медленном или нестабильном соединении.</div>
+        <div style="padding:10px 14px;border-top:1px solid var(--bd);font-size:10px;color:var(--mu);line-height:1.5">⚠ Турбо и Максимум могут вызвать задержки на медленном соединении. Максимум использует всю доступную полосу.</div>
       </div>
 
     </div>
@@ -4072,8 +4086,9 @@ const VIDEO_PROFILES = {
 };
 
 const FILE_PROFILES = {
-  normal: { chunk: 65536,   buffer: 65536 * 16,  window: 8  },
-  turbo:  { chunk: 262144,  buffer: 262144 * 16, window: 16 },
+  normal:    { chunk: 65536,    buffer: 65536 * 16,   window: 8  },
+  turbo:     { chunk: 262144,   buffer: 262144 * 16,  window: 16 },
+  ludicrous: { chunk: 1048576,  buffer: 1048576 * 32, window: 32 },
 };
 
 function _loadMediaSettings() {
@@ -4167,7 +4182,7 @@ function _renderMediaSettings(s) {
     if (row) row.style.background = s.videoProfile === k ? 'rgba(0,255,157,.04)' : '';
   });
   // Файловые профили — radio
-  ['normal','turbo'].forEach(k => {
+  ['normal','turbo','ludicrous'].forEach(k => {
     const r = document.getElementById('fp-' + k + '-radio');
     if (r) r.classList.toggle('sel', s.fileProfile === k);
   });
@@ -4179,7 +4194,7 @@ function _renderMediaSettings(s) {
   const desc = document.getElementById('sn-media-desc');
   if (desc) {
     const vLabel = { eco:'Экономный', std:'Стандартный', high:'Высокое', max:'Максимальное' }[s.videoProfile] || '';
-    const fLabel = s.fileProfile === 'turbo' ? ' · Файлы: Турбо' : '';
+    const fLabel = { turbo:' · Файлы: Турбо', ludicrous:' · Файлы: Максимум' }[s.fileProfile] || '';
     desc.textContent = 'Видео: ' + vLabel + fLabel;
   }
 }
@@ -5945,19 +5960,26 @@ function _mcReleaseWakeLock(){
 
 // ── Восстановление видео при возврате из фона ───────────────────────────────
 // Android Chrome приостанавливает видеотреки при document.hidden.
-// При возврате переполучаем поток и заменяем треки через replaceTrack.
+// При возврате ВСЕГДА переполучаем видеопоток — это надёжнее чем проверять состояние треков.
 let _mcRestoringVideo = false;
+let _mcWasHidden = false;
 
 document.addEventListener('visibilitychange', async () => {
   // Переподхватываем Wake Lock (браузер снимает его при скрытии)
   if(!document.hidden && _mc.state === 'active' && !_mcWakeLock){
     _mcAcquireWakeLock();
   }
-  // Восстанавливаем видеотреки если они замьютились браузером
-  if(!document.hidden && _mc.state === 'active' && _mc.video && !_mc.videoMuted && !_mcRestoringVideo){
-    const videoTracks = _mc.localStream ? _mc.localStream.getVideoTracks() : [];
-    const needsRestore = _mc._videoNeedsRestore || videoTracks.length === 0 || videoTracks.some(t => t.muted || t.readyState === 'ended');
-    if(needsRestore){ _mc._videoNeedsRestore = false; await _mcRestoreVideoTrack(); }
+  if(document.hidden){
+    _mcWasHidden = true;
+    return;
+  }
+  // Возврат из фона — восстанавливаем видео если был активный видеозвонок
+  if(_mcWasHidden && _mc.state === 'active' && _mc.video && !_mc.videoMuted && !_mcRestoringVideo){
+    _mcWasHidden = false;
+    // Small delay — let browser finish resuming before we request camera
+    setTimeout(() => _mcRestoreVideoTrack(), 300);
+  } else {
+    _mcWasHidden = false;
   }
 });
 
@@ -6405,23 +6427,72 @@ let _mcFacingMode = 'user'; // 'user' = фронтальная, 'environment' = 
 
 // ── Выбор камеры через enumerateDevices ────────────────────────────────────
 // facingMode как constraint ненадёжен на Android — используем deviceId
+// ── Диагностика и выбор камеры ──────────────────────────────────────────────
+
+// enumerateDevices() returns empty labels until camera permission is granted.
+// We need a brief getUserMedia call first to unlock labels.
+let _camLabelsUnlocked = false;
+
+async function _ensureCamLabels(){
+  if(_camLabelsUnlocked) return;
+  try{
+    // Minimal request just to unlock labels — stop immediately
+    const s = await navigator.mediaDevices.getUserMedia({ audio:false, video:true });
+    s.getTracks().forEach(t => t.stop());
+    _camLabelsUnlocked = true;
+  }catch(_){}
+}
+
 async function _mcGetCameraDeviceId(facing){
   try{
+    await _ensureCamLabels();
     const devices = await navigator.mediaDevices.enumerateDevices();
     const cameras = devices.filter(d => d.kind === 'videoinput');
-    if(cameras.length <= 1) return null; // одна камера — deviceId не нужен
-    // Ищем по label: back/rear/environment = тыловая, front/user = фронтальная
+    if(cameras.length <= 1) return null;
     const isBack = facing === 'environment';
     const keywords = isBack
-      ? ['back','rear','environment','0','main','wide']
-      : ['front','user','selfie','1','face'];
+      ? ['back','rear','environment','main','wide','0']
+      : ['front','user','selfie','face','1'];
     for(const kw of keywords){
       const found = cameras.find(d => d.label.toLowerCase().includes(kw));
       if(found) return found.deviceId;
     }
-    // Fallback: первая = тыловая, вторая = фронтальная (типичный порядок на Android)
+    // Fallback: index 0 = back, last = front (standard Android order)
     return isBack ? cameras[0].deviceId : cameras[cameras.length-1].deviceId;
   }catch(_){ return null; }
+}
+
+async function camDiagRun(){
+  const btn = document.getElementById('cam-diag-btn');
+  const res = document.getElementById('cam-diag-result');
+  if(!btn || !res) return;
+  btn.disabled = true; btn.textContent = '⏳ Запрос доступа...';
+  res.style.display = 'none';
+  try{
+    await _ensureCamLabels();
+    _camLabelsUnlocked = false; // force re-unlock to get fresh labels
+    await _ensureCamLabels();
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cameras = devices.filter(d => d.kind === 'videoinput');
+    if(cameras.length === 0){
+      res.textContent = '❌ Камеры не найдены'; res.style.display = 'block'; return;
+    }
+    const backId  = await _mcGetCameraDeviceId('environment');
+    const frontId = await _mcGetCameraDeviceId('user');
+    let html = `Найдено камер: ${cameras.length}\n`;
+    cameras.forEach((c, i) => {
+      const tag = c.deviceId === backId ? ' ← тыловая' : c.deviceId === frontId ? ' ← фронтальная' : '';
+      html += `[${i}] ${c.label || '(без label)'} ${tag}\n`;
+    });
+    res.style.whiteSpace = 'pre';
+    res.textContent = html;
+    res.style.display = 'block';
+  }catch(e){
+    res.textContent = '❌ Ошибка: ' + (e.message || e.name);
+    res.style.display = 'block';
+  }finally{
+    btn.disabled = false; btn.textContent = '🔍 Определить камеры';
+  }
 }
 
 async function _mcGetVideoStream(facing, profile){

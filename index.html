@@ -9772,11 +9772,23 @@ async function _grpRvHandshake(code, myPid){
   if(typeof keyVer==='number') g.keyVer=Math.max(g.keyVer||0,keyVer);
   // Принимаем seed из rv-intro только если подпись верифицирована —
   // это гарантирует что seed пришёл от настоящего участника группы.
-  if(_rvSigVerified && intro.seed && !g.seed && /^[0-9a-f]{64}$/.test(intro.seed)){
-    g.seed = intro.seed;
-    for(const k of Object.keys(_grpKeyCache)){ if(k.startsWith(code+':')) delete _grpKeyCache[k]; }
-    _grpLog(`#${code} рандеву: ✓ получили seed от rv-holder`);
-    _grpSave();
+  if(_rvSigVerified && intro.seed && /^[0-9a-f]{64}$/.test(intro.seed)){
+    if(!g.seed){
+      g.seed = intro.seed;
+      for(const k of Object.keys(_grpKeyCache)){ if(k.startsWith(code+':')) delete _grpKeyCache[k]; }
+      _grpLog(`#${code} рандеву: ✓ получили seed от rv-holder`);
+      _grpSave();
+    } else if(intro.seed !== g.seed){
+      // Оба стали rv-holder с разными seed — детерминированный тайбрейкер
+      if(intro.seed < g.seed){
+        g.seed = intro.seed;
+        for(const k of Object.keys(_grpKeyCache)){ if(k.startsWith(code+':')) delete _grpKeyCache[k]; }
+        _grpLog(`#${code} рандеву: seed-конфликт → принимаем seed rv-holder (меньший)`, 'warn');
+        _grpSave();
+      } else {
+        _grpLog(`#${code} рандеву: seed-конфликт → оставляем наш seed (он меньше)`, 'warn');
+      }
+    }
   } else if(intro.seed && !_rvSigVerified){
     _grpLog(`#${code} рандеву: ⚠ seed в intro НЕ принят — подпись rv-holder не верифицирована`, 'warn');
   } else if(!intro.seed && !g.seed){
@@ -9975,9 +9987,24 @@ async function _grpHandleHello(code, fromPid, g, payload){
       _grpLog(`#${code} ⚠ seed отклонён от ${fromPid.slice(-12)} · isKnown=${isKnown} isContact=${isContact} myPidInTheirs=${myPidInTheirs} · myKnownPids=[${(g.knownPids||[]).map(p=>p.slice(-8)).join(',')}]`, 'warn');
     }
   } else if(seed && g.seed){
-    // Уже есть seed — проверяем совпадение (диагностика)
+    // Оба клиента сгенерировали seed независимо (одновременный вход, оба стали rv-holder).
+    // Детерминированное разрешение: меньший seed лексикографически побеждает.
+    // Оба клиента применят одно и то же правило → сойдутся к одному seed.
     if(seed !== g.seed){
-      _grpLog(`#${code} ⚠ входящий seed ОТЛИЧАЕТСЯ от нашего — участник с другим ключом! (${fromPid.slice(-12)})`, 'error');
+      if(seed < g.seed){
+        _grpLog(`#${code} seed-конфликт: принимаем seed от ${fromPid.slice(-12)} (меньший лексикографически)`, 'warn');
+        g.seed = seed;
+        for(const k of Object.keys(_grpKeyCache)){ if(k.startsWith(code+':')) delete _grpKeyCache[k]; }
+        _grpSave();
+      } else {
+        _grpLog(`#${code} seed-конфликт: оставляем наш seed (он меньше), ${fromPid.slice(-12)} должен принять наш`, 'warn');
+        // Наш seed меньше — принудительно шлём hello чтобы партнёр принял наш seed
+        try{ const conn = _grpConns[code]?.get(fromPid); if(conn?.open) conn.send({__grp_hello__:{
+          pid:g.myPid, name:g.myName||'Аноним', fp:myFingerprint, keyVer:g.keyVer||0,
+          knownPids:[...(_grpConns[code]?.keys()||[]),g.myPid||''].filter(p=>p&&!p.includes('-pchk-')),
+          members:_grpMemberList(code), pub:myPubKeyRaw?Array.from(myPubKeyRaw):null, seed:g.seed
+        }}); }catch(_){}
+      }
     }
   }
   _grpUpsertMember(code, {pid: pid||fromPid, name, fp, online:true, lastSeen:Date.now()});

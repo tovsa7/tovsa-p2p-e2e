@@ -5943,12 +5943,50 @@ function _mcReleaseWakeLock(){
   try{ if(_mcWakeLock){ _mcWakeLock.release(); _mcWakeLock = null; } }catch(_){}
 }
 
-// Переподхватываем Wake Lock при возврате из фона (браузер его снимает)
-document.addEventListener('visibilitychange', () => {
+// ── Восстановление видео при возврате из фона ───────────────────────────────
+// Android Chrome приостанавливает видеотреки при document.hidden.
+// При возврате переполучаем поток и заменяем треки через replaceTrack.
+let _mcRestoringVideo = false;
+
+document.addEventListener('visibilitychange', async () => {
+  // Переподхватываем Wake Lock (браузер снимает его при скрытии)
   if(!document.hidden && _mc.state === 'active' && !_mcWakeLock){
     _mcAcquireWakeLock();
   }
+  // Восстанавливаем видеотреки если они замьютились браузером
+  if(!document.hidden && _mc.state === 'active' && _mc.video && !_mc.videoMuted && !_mcRestoringVideo){
+    const videoTracks = _mc.localStream ? _mc.localStream.getVideoTracks() : [];
+    const needsRestore = _mc._videoNeedsRestore || videoTracks.length === 0 || videoTracks.some(t => t.muted || t.readyState === 'ended');
+    if(needsRestore){ _mc._videoNeedsRestore = false; await _mcRestoreVideoTrack(); }
+  }
 });
+
+async function _mcRestoreVideoTrack(){
+  if(_mcRestoringVideo || !_mc.video || !_mc.localStream) return;
+  _mcRestoringVideo = true;
+  try{
+    const s = getMediaSettings();
+    const p = VIDEO_PROFILES[s.videoProfile] || VIDEO_PROFILES.std;
+    const deviceId = await _mcGetCameraDeviceId(_mcFacingMode);
+    const constraints = deviceId
+      ? { audio: false, video: { deviceId: {exact: deviceId}, width:{ideal:p.width}, height:{ideal:p.height}, frameRate:{ideal:p.frameRate} } }
+      : { audio: false, video: { facingMode: {exact: _mcFacingMode}, width:{ideal:p.width}, height:{ideal:p.height}, frameRate:{ideal:p.frameRate} } };
+    const newStream = await navigator.mediaDevices.getUserMedia(constraints).catch(() =>
+      navigator.mediaDevices.getUserMedia({ audio: false, video: true })
+    );
+    const newTrack = newStream && newStream.getVideoTracks()[0];
+    if(!newTrack){ _mcRestoringVideo = false; return; }
+    const sender = _mc.localSenders.find(s => { try{ return s.track && s.track.kind==='video'; }catch(_){return false;} });
+    if(sender) await sender.replaceTrack(newTrack).catch(()=>{});
+    _mc.localStream.getVideoTracks().forEach(t => { try{t.stop();}catch(_){} });
+    const audio = _mc.localStream.getAudioTracks();
+    const updated = new MediaStream([...audio, newTrack]);
+    _mc.localStream = updated;
+    const lv = $('mcall-local-video');
+    if(lv){ lv.srcObject = updated; lv.style.display = 'block'; }
+  }catch(_){}
+  _mcRestoringVideo = false;
+}
 
 // ── Подтверждение исходящего звонка ─────────────────────────────────────────
 let _mcPendingVideo = false;
@@ -5988,6 +6026,10 @@ async function mcallConfirmStart(){
   _mc.localStream = stream;
 
   _mc.localSenders = stream.getTracks().map(t => pc.addTrack(t, stream));
+  stream.getVideoTracks().forEach(t => {
+    t.onmute  = () => { if(_mc.state==='active'&&!_mc.videoMuted) _mc._videoNeedsRestore=true; };
+    t.onended = () => { if(_mc.state==='active'&&!_mc.videoMuted) _mc._videoNeedsRestore=true; };
+  });
   await _mcRenegotiate();
 
   const _br1 = getVideoBitrates();
@@ -6049,6 +6091,10 @@ async function mcallAccept(withVideo){
   _mc.localStream = stream;
   _mc.startedAt   = Date.now();
   _mc.localSenders = stream.getTracks().map(t => pc.addTrack(t, stream));
+  stream.getVideoTracks().forEach(t => {
+    t.onmute  = () => { if(_mc.state==='active'&&!_mc.videoMuted) _mc._videoNeedsRestore=true; };
+    t.onended = () => { if(_mc.state==='active'&&!_mc.videoMuted) _mc._videoNeedsRestore=true; };
+  });
 
   await _mcRenegotiate();
 
@@ -6080,12 +6126,10 @@ async function mcallEnableVideo(){
   const p = VIDEO_PROFILES[s.videoProfile] || VIDEO_PROFILES.std;
   let videoTrack;
   try{
-    // No facingMode constraint — let browser pick default (usually back camera on mobile)
-    const vs = await navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: { width:{ideal:p.width}, height:{ideal:p.height}, frameRate:{ideal:p.frameRate} }
-    });
+    // Start with back (environment) camera — user can flip later
+    const vs = await _mcGetVideoStream('environment', p);
     videoTrack = vs.getVideoTracks()[0];
+    _mcFacingMode = 'environment';
   }catch(e){
     toast('Нет доступа к камере: ' + (e.message || e.name)); return;
   }
@@ -6359,31 +6403,51 @@ function _mcUpdateUI(){
 
 let _mcFacingMode = 'user'; // 'user' = фронтальная, 'environment' = тыловая
 
+// ── Выбор камеры через enumerateDevices ────────────────────────────────────
+// facingMode как constraint ненадёжен на Android — используем deviceId
+async function _mcGetCameraDeviceId(facing){
+  try{
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cameras = devices.filter(d => d.kind === 'videoinput');
+    if(cameras.length <= 1) return null; // одна камера — deviceId не нужен
+    // Ищем по label: back/rear/environment = тыловая, front/user = фронтальная
+    const isBack = facing === 'environment';
+    const keywords = isBack
+      ? ['back','rear','environment','0','main','wide']
+      : ['front','user','selfie','1','face'];
+    for(const kw of keywords){
+      const found = cameras.find(d => d.label.toLowerCase().includes(kw));
+      if(found) return found.deviceId;
+    }
+    // Fallback: первая = тыловая, вторая = фронтальная (типичный порядок на Android)
+    return isBack ? cameras[0].deviceId : cameras[cameras.length-1].deviceId;
+  }catch(_){ return null; }
+}
+
+async function _mcGetVideoStream(facing, profile){
+  const p = profile || (VIDEO_PROFILES[getMediaSettings().videoProfile] || VIDEO_PROFILES.std);
+  const base = { width:{ideal:p.width}, height:{ideal:p.height}, frameRate:{ideal:p.frameRate} };
+  const deviceId = await _mcGetCameraDeviceId(facing);
+  // Try deviceId first (most reliable), then exact facingMode, then any video
+  if(deviceId){
+    try{ return await navigator.mediaDevices.getUserMedia({ audio:false, video:{deviceId:{exact:deviceId},...base} }); }catch(_){}
+  }
+  try{ return await navigator.mediaDevices.getUserMedia({ audio:false, video:{facingMode:{exact:facing},...base} }); }catch(_){}
+  return await navigator.mediaDevices.getUserMedia({ audio:false, video:{facingMode:facing} });
+}
+
 async function mcallFlipCamera(){
   if(!_mc.localStream || !_mc.video) return;
   const nextFacing = _mcFacingMode === 'user' ? 'environment' : 'user';
 
-  // Try exact facingMode first (required on many Android browsers),
-  // fall back to ideal if device doesn't support exact constraint
   let newStream = null;
   const s = getMediaSettings();
   const p = VIDEO_PROFILES[s.videoProfile] || VIDEO_PROFILES.std;
-  const baseVideo = { width:{ideal:p.width}, height:{ideal:p.height}, frameRate:{ideal:p.frameRate} };
-  try {
-    newStream = await navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: { facingMode: {exact: nextFacing}, ...baseVideo }
-    });
-  } catch(_) {
-    try {
-      newStream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: { facingMode: nextFacing, ...baseVideo }
-      });
-    } catch(e) {
-      toast('Не удалось переключить камеру: ' + (e.message || e.name));
-      return;
-    }
+  try{
+    newStream = await _mcGetVideoStream(nextFacing, p);
+  }catch(e){
+    toast('Не удалось переключить камеру: ' + (e.message || e.name));
+    return;
   }
   const newTrack = newStream.getVideoTracks()[0];
   if(!newTrack){ toast('Нет видеотрека'); return; }

@@ -1161,9 +1161,13 @@ textarea::placeholder{color:var(--mu)}
 
       <!-- ── Диагностика камеры ── -->
       <div class="sn-label">📷 Камеры</div>
-      <div style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px">
-        <button id="cam-diag-btn" onclick="camDiagRun()" style="padding:9px;background:var(--ad);border:1px solid rgba(0,255,157,.2);border-radius:8px;color:var(--a);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">🔍 Определить камеры</button>
-        <div id="cam-diag-result" style="font-size:10px;color:var(--mu);line-height:1.6;display:none"></div>
+      <div style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+        <div style="padding:10px 14px;display:flex;gap:6px">
+          <button id="cam-diag-btn" onclick="camDiagRun()" style="flex:1;padding:9px;background:var(--ad);border:1px solid rgba(0,255,157,.2);border-radius:8px;color:var(--a);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">🔍 Тест камер</button>
+          <button onclick="camLogClear()" style="padding:9px 12px;background:transparent;border:1px solid var(--bd);border-radius:8px;color:var(--mu);font-family:inherit;font-size:11px;cursor:pointer">✕</button>
+          <button onclick="camLogCopy()" style="padding:9px 12px;background:transparent;border:1px solid var(--bd);border-radius:8px;color:var(--mu);font-family:inherit;font-size:11px;cursor:pointer">⎘</button>
+        </div>
+        <div id="cam-log-console" style="background:var(--bg);border-top:1px solid var(--bd);padding:10px 12px;font-size:10px;line-height:1.7;color:var(--mu);max-height:280px;overflow-y:auto;font-family:'JetBrains Mono',monospace;word-break:break-all;white-space:pre-wrap;display:none"><span style="opacity:.4">// нажмите «Тест камер» для диагностики</span></div>
       </div>
 
       <!-- ── Передача файлов ── -->
@@ -6247,7 +6251,7 @@ async function _mcRenegotiate(){
     await pc.setLocalDescription(offer);
     _e2eSend(JSON.stringify({ __mcall__: 'sdp', sdp: pc.localDescription }));
   }catch(e){
-    _dbgPush('warn', ['[mcall] renegotiate error:', e.message]);
+    console.warn('[mcall] renegotiate error:', e.message);
   }
 }
 
@@ -6264,7 +6268,7 @@ async function _mcHandleSdp(sdp){
       await pc.setRemoteDescription(desc);
     }
   }catch(e){
-    _dbgPush('warn', ['[mcall] handleSdp error:', e.message]);
+    console.warn('[mcall] handleSdp error:', e.message);
   }
 }
 
@@ -6304,7 +6308,7 @@ function _mcHandlePacket(j){
     _mcHandleSdp(j.sdp);
   } else if(p === 'mute'){
     // Можно показать иконку заглушения собеседника — пока просто логируем
-    _dbgPush('log', ['[mcall] peer mute audio=' + j.audio + ' video=' + j.video]);
+    // peer mute logged via _mcCamLog if needed
   }
   return true;
 }
@@ -6434,18 +6438,75 @@ let _mcFacingMode = 'user'; // 'user' = фронтальная, 'environment' = 
 // facingMode как constraint ненадёжен на Android — используем deviceId
 // ── Диагностика и выбор камеры ──────────────────────────────────────────────
 
-// enumerateDevices() returns empty labels until camera permission is granted.
-// We need a brief getUserMedia call first to unlock labels.
+// ══════════════════════════════════════════════════════════════════════════════
+// ── Камера: лог, диагностика, выбор устройства ────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Лог камеры — единственное место куда пишем события камеры.
+// Пишет в:  1) консоль камеры в настройках медиа (cam-log-console)
+//           2) чип в экране звонка (mcall-cam-log) — только последнее событие
+const _camLog = [];
+const _CAM_LOG_MAX = 200;
+
+function _mcCamLog(msg, isErr){
+  const t = new Date().toLocaleTimeString('ru', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  _camLog.push({t, msg, isErr: !!isErr});
+  if(_camLog.length > _CAM_LOG_MAX) _camLog.shift();
+  _camLogRender();
+
+  // Чип в экране звонка — показывает только последнее событие
+  const chip = document.getElementById('mcall-cam-log');
+  const chipVal = document.getElementById('mcall-cam-log-val');
+  if(chip && chipVal){
+    chipVal.textContent = msg;
+    chip.className = 'mcall-stat-chip ' + (isErr ? 'bad' : 'ok');
+    chip.style.display = 'flex';
+    if(!isErr) setTimeout(() => { if(chipVal.textContent === msg) chip.style.display = 'none'; }, 5000);
+  }
+}
+
+function _camLogRender(){
+  const el = document.getElementById('cam-log-console');
+  if(!el) return;
+  if(_camLog.length === 0){
+    el.style.display = 'none'; return;
+  }
+  el.style.display = 'block';
+  el.innerHTML = _camLog.map(e => {
+    const col = e.isErr ? 'var(--e)' : 'var(--a)';
+    const pfx = e.isErr ? '✗ ' : '● ';
+    const safe = e.msg.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `<span style="opacity:.4">${e.t}</span> <span style="color:${col}">${pfx}${safe}</span>`;
+  }).join('\n');
+  el.scrollTop = el.scrollHeight;
+}
+
+function camLogClear(){
+  _camLog.length = 0;
+  _camLogRender();
+}
+
+function camLogCopy(){
+  if(!_camLog.length){ toast('Лог пуст'); return; }
+  const text = _camLog.map(e => `[${e.t}] ${e.isErr?'ERR':'ok '} ${e.msg}`).join('\n');
+  navigator.clipboard.writeText(text)
+    .then(() => toast('Лог камеры скопирован (' + _camLog.length + ' строк)'))
+    .catch(() => { const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); toast('Скопировано'); });
+}
+
+// enumerateDevices() возвращает пустые label до получения разрешения.
+// _ensureCamLabels делает минимальный getUserMedia чтобы разблокировать label.
 let _camLabelsUnlocked = false;
 
 async function _ensureCamLabels(){
   if(_camLabelsUnlocked) return;
   try{
-    // Minimal request just to unlock labels — stop immediately
     const s = await navigator.mediaDevices.getUserMedia({ audio:false, video:true });
     s.getTracks().forEach(t => t.stop());
     _camLabelsUnlocked = true;
-  }catch(_){}
+  }catch(e){
+    _mcCamLog('разрешение на камеру: ' + e.name, true);
+  }
 }
 
 async function _mcGetCameraDeviceId(facing){
@@ -6456,87 +6517,100 @@ async function _mcGetCameraDeviceId(facing){
     if(cameras.length <= 1) return null;
     const isBack = facing === 'environment';
     const keywords = isBack
-      ? ['back','rear','environment','main','wide','0']
-      : ['front','user','selfie','face','1'];
+      ? ['back','rear','environment','main','wide']
+      : ['front','user','selfie','face'];
     for(const kw of keywords){
       const found = cameras.find(d => d.label.toLowerCase().includes(kw));
-      if(found) return found.deviceId;
+      if(found){ _mcCamLog(`deviceId по label "${kw}": ${found.label}`); return found.deviceId; }
     }
-    // Fallback: index 0 = back, last = front (standard Android order)
-    return isBack ? cameras[0].deviceId : cameras[cameras.length-1].deviceId;
-  }catch(_){ return null; }
-}
-
-async function camDiagRun(){
-  const btn = document.getElementById('cam-diag-btn');
-  const res = document.getElementById('cam-diag-result');
-  if(!btn || !res) return;
-  btn.disabled = true; btn.textContent = '⏳ Запрос доступа...';
-  res.style.display = 'none';
-  try{
-    await _ensureCamLabels();
-    _camLabelsUnlocked = false; // force re-unlock to get fresh labels
-    await _ensureCamLabels();
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const cameras = devices.filter(d => d.kind === 'videoinput');
-    if(cameras.length === 0){
-      res.textContent = '❌ Камеры не найдены'; res.style.display = 'block'; return;
-    }
-    const backId  = await _mcGetCameraDeviceId('environment');
-    const frontId = await _mcGetCameraDeviceId('user');
-    let html = `Найдено камер: ${cameras.length}\n`;
-    cameras.forEach((c, i) => {
-      const tag = c.deviceId === backId ? ' ← тыловая' : c.deviceId === frontId ? ' ← фронтальная' : '';
-      html += `[${i}] ${c.label || '(без label)'} ${tag}\n`;
-    });
-    res.style.whiteSpace = 'pre';
-    res.textContent = html;
-    res.style.display = 'block';
-  }catch(e){
-    res.textContent = '❌ Ошибка: ' + (e.message || e.name);
-    res.style.display = 'block';
-  }finally{
-    btn.disabled = false; btn.textContent = '🔍 Определить камеры';
-  }
-}
-
-// ── Лог камеры — показывает что происходит в реальном времени ──────────────
-function _mcCamLog(msg, isErr){
-  const el = document.getElementById('mcall-cam-log');
-  const val = document.getElementById('mcall-cam-log-val');
-  if(!el || !val) { console.log('[cam]', msg); return; }
-  val.textContent = msg;
-  el.className = 'mcall-stat-chip ' + (isErr ? 'bad' : 'ok');
-  el.style.display = 'flex';
-  // Auto-hide after 6s if not error
-  if(!isErr) setTimeout(() => { if(val.textContent === msg) el.style.display = 'none'; }, 6000);
+    // Fallback по индексу: 0 = тыловая, последняя = фронтальная
+    const fallback = isBack ? cameras[0] : cameras[cameras.length-1];
+    _mcCamLog(`deviceId fallback[${isBack?0:cameras.length-1}]: ${fallback.label||'(нет label)'}`);
+    return fallback.deviceId;
+  }catch(e){ _mcCamLog('_mcGetCameraDeviceId: ' + e.message, true); return null; }
 }
 
 async function _mcGetVideoStream(facing, profile){
   const p = profile || (VIDEO_PROFILES[getMediaSettings().videoProfile] || VIDEO_PROFILES.std);
   const base = { width:{ideal:p.width}, height:{ideal:p.height}, frameRate:{ideal:p.frameRate} };
+
+  _mcCamLog(`getVideoStream facing=${facing}`);
   const deviceId = await _mcGetCameraDeviceId(facing);
-  _mcCamLog(`Камера: ${facing}, deviceId: ${deviceId ? deviceId.slice(0,8)+'…' : 'нет'}`);
 
   if(deviceId){
     try{
       const s = await navigator.mediaDevices.getUserMedia({ audio:false, video:{deviceId:{exact:deviceId},...base} });
       const t = s.getVideoTracks()[0];
-      _mcCamLog(`OK deviceId: ${t.label || deviceId.slice(0,8)}`);
+      _mcCamLog(`✓ открыта по deviceId: "${t.label}"`);
       return s;
-    }catch(e){ _mcCamLog(`deviceId fail: ${e.name}`, true); }
+    }catch(e){ _mcCamLog(`deviceId fail (${e.name}), пробуем facingMode`, true); }
   }
   try{
     const s = await navigator.mediaDevices.getUserMedia({ audio:false, video:{facingMode:{exact:facing},...base} });
     const t = s.getVideoTracks()[0];
-    _mcCamLog(`OK exact: ${t.label || facing}`);
+    _mcCamLog(`✓ открыта exact facingMode: "${t.label}"`);
     return s;
-  }catch(e){ _mcCamLog(`exact fail: ${e.name}, try ideal…`, true); }
+  }catch(e){ _mcCamLog(`exact facingMode fail (${e.name}), пробуем ideal`, true); }
 
   const s = await navigator.mediaDevices.getUserMedia({ audio:false, video:{facingMode:facing} });
   const t = s.getVideoTracks()[0];
-  _mcCamLog(`OK ideal: ${t.label || facing}`);
+  _mcCamLog(`✓ открыта ideal facingMode: "${t.label}"`);
   return s;
+}
+
+// Полный тест камер — вызывается кнопкой в настройках
+async function camDiagRun(){
+  const btn = document.getElementById('cam-diag-btn');
+  if(!btn) return;
+  btn.disabled = true; btn.textContent = '⏳ Тестируем...';
+  camLogClear();
+
+  try{
+    _mcCamLog('── Тест камер ──────────────────');
+
+    // 1. Запрос разрешения
+    _mcCamLog('1. Запрос разрешения...');
+    _camLabelsUnlocked = false;
+    await _ensureCamLabels();
+
+    // 2. Список устройств
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cameras = devices.filter(d => d.kind === 'videoinput');
+    _mcCamLog(`2. Найдено камер: ${cameras.length}`);
+    cameras.forEach((c, i) => _mcCamLog(`   [${i}] "${c.label || '(нет label)'}"`));
+
+    if(cameras.length === 0){ _mcCamLog('Камеры не найдены', true); return; }
+
+    // 3. Тест тыловой камеры
+    _mcCamLog('3. Тест тыловой (environment)...');
+    try{
+      const backId = await _mcGetCameraDeviceId('environment');
+      _mcCamLog(`   deviceId: ${backId ? backId.slice(0,16)+'…' : 'не найден'}`);
+      const s = await _mcGetVideoStream('environment');
+      const t = s.getVideoTracks()[0];
+      const settings = t.getSettings();
+      _mcCamLog(`   ✓ "${t.label}" ${settings.width}×${settings.height} ${settings.facingMode||''}`);
+      s.getTracks().forEach(t => t.stop());
+    }catch(e){ _mcCamLog(`   ✗ ${e.name}: ${e.message}`, true); }
+
+    // 4. Тест фронтальной камеры
+    _mcCamLog('4. Тест фронтальной (user)...');
+    try{
+      const frontId = await _mcGetCameraDeviceId('user');
+      _mcCamLog(`   deviceId: ${frontId ? frontId.slice(0,16)+'…' : 'не найден'}`);
+      const s = await _mcGetVideoStream('user');
+      const t = s.getVideoTracks()[0];
+      const settings = t.getSettings();
+      _mcCamLog(`   ✓ "${t.label}" ${settings.width}×${settings.height} ${settings.facingMode||''}`);
+      s.getTracks().forEach(t => t.stop());
+    }catch(e){ _mcCamLog(`   ✗ ${e.name}: ${e.message}`, true); }
+
+    _mcCamLog('── Тест завершён ───────────────');
+  }catch(e){
+    _mcCamLog('Критическая ошибка: ' + e.message, true);
+  }finally{
+    btn.disabled = false; btn.textContent = '🔍 Тест камер';
+  }
 }
 
 async function mcallFlipCamera(){
@@ -10378,16 +10452,7 @@ function clearDebugLog(){
   toast('Лог очищен');
 }
 
-// Перехватываем console.* — пишем и в DevTools и в нашу консоль
-(function(){
-  ['log','info','warn','error'].forEach(lvl => {
-    const _orig = console[lvl].bind(console);
-    console[lvl] = function(...args){
-      _orig(...args);
-      _dbgPush(lvl, args);
-    };
-  });
-})();
+// console.* intercept removed — use _dbgPush() explicitly
 // ── Reactions ─────────────────────────────────────────────────────────────────
 const DEFAULT_REACTION_EMOJIS = ['❤️','👍','😂','😮','😢','🔥','👎','🎉'];
 let REACTION_EMOJIS = [...DEFAULT_REACTION_EMOJIS];

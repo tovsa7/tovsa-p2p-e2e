@@ -78,15 +78,17 @@ body{font-family:'JetBrains Mono',monospace;background:var(--bg);color:var(--tx)
 .scr{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;display:none;flex-direction:column}
 .scr.on{display:flex}
 /* role screen */
-#sr{align-items:center;padding:32px 24px;gap:24px}
+#sr{align-items:center;padding:24px 20px;gap:20px}
 #sr>*{flex-shrink:0;width:100%}
-.rtitle{font-size:12px;color:var(--mu);letter-spacing:3px;text-transform:uppercase;text-align:center}
-.rcards{display:flex;flex-direction:column;gap:12px}
-.rcard{background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:20px;cursor:pointer;transition:border-color .2s,background .2s,transform .2s,box-shadow .2s}
-.rcard:hover{border-color:var(--a);background:var(--ad);transform:translateY(-2px);box-shadow:0 4px 20px rgba(0,255,157,.08)}
-.rcard.dis{opacity:.35;cursor:not-allowed;pointer-events:none}
-.rcard h3{font-size:14px;color:var(--a);margin-bottom:6px}
-.rcard p{font-size:11px;color:var(--mu);line-height:1.6}
+.rtitle{font-size:11px;color:var(--mu);letter-spacing:3px;text-transform:uppercase;text-align:center}
+/* manual cards — теперь компактные второстепенные кнопки */
+.rcards{display:flex;gap:8px}
+.rcard{flex:1;background:transparent;border:1px solid var(--bd);border-radius:10px;padding:10px 12px;cursor:pointer;transition:border-color .15s,background .15s,color .15s;text-align:center}
+.rcard:hover{border-color:var(--a);background:var(--ad)}
+.rcard.dis{opacity:.3;cursor:not-allowed;pointer-events:none}
+.rcard h3{font-size:11px;color:var(--mu);font-weight:600;margin:0;transition:color .15s}
+.rcard:hover h3{color:var(--a)}
+.rcard p{display:none}
 /* steps screen */
 .step{padding:20px;border-bottom:1px solid var(--bd);display:none;flex-direction:column;gap:12px}
 .step.on{display:flex}
@@ -431,7 +433,22 @@ textarea::placeholder{color:var(--mu)}
 .netstatus-text{flex:1}
 .netstatus-hint{font-size:10px;color:var(--mu);opacity:.85;margin-left:4px}
 /* settings screen */
-#sn{overflow-x:hidden}
+#sn{overflow-x:hidden;display:none;flex-direction:column}
+#sn.on{display:flex}
+/* settings sub-screens */
+.sn-page{display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden}
+.sn-page.on{display:flex}
+.sn-page::-webkit-scrollbar{width:4px}
+.sn-page::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+/* menu rows */
+.sn-row{display:flex;align-items:center;gap:14px;padding:15px 18px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .12s;-webkit-tap-highlight-color:transparent;user-select:none}
+.sn-row:hover{background:rgba(255,255,255,.025)}
+.sn-row:active{background:var(--sf)}
+.sn-row-icon{font-size:17px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:9px;background:var(--bg);border:1px solid var(--bd);flex-shrink:0}
+.sn-row-body{flex:1;min-width:0}
+.sn-row-title{font-size:13px;font-weight:700;color:var(--tx)}
+.sn-row-desc{font-size:10px;color:var(--mu);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sn-row-arrow{font-size:16px;color:var(--mu);flex-shrink:0;opacity:.35}
 #sn::-webkit-scrollbar{width:4px}
 #sn::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
 #sn.on{display:block}
@@ -624,14 +641,14 @@ textarea::placeholder{color:var(--mu)}
     <span style="color:var(--mu)">Сохраните файл на устройство и откройте через браузер, или разместите на веб-сервере.</span>
   </div>
   <div style="margin:16px 16px 0;border:1px solid var(--bd);border-radius:14px;overflow:hidden;background:var(--sf)">
-  <div class="netstatus" id="netstatus" onclick="showTab('sn')" style="margin:0;border:none;border-radius:0;border-bottom:1px solid var(--bd)">
+  <div class="netstatus" id="netstatus" onclick="showTab('sn');setTimeout(()=>snOpen('sn-net'),50)" style="margin:0;border:none;border-radius:0;border-bottom:1px solid var(--bd)">
     <div class="netstatus-dot spin" id="nsdot"></div>
     <div class="netstatus-text">
       <span id="nstext">проверяем сеть...</span>
       <span class="netstatus-hint" id="nshint"></span>
     </div>
   </div>
-  <div id="leader-badge" class="natbadge" style="margin:0;border-radius:0;border:none;cursor:pointer" onclick="showTab('sn');setTimeout(()=>$('pjcheck').classList.add('open'),100)">
+  <div id="leader-badge" class="natbadge" style="margin:0;border-radius:0;border:none;cursor:pointer" onclick="showTab('sn');setTimeout(()=>{snOpen('sn-net');$('pjcheck').classList.add('open')},100)">
     <div class="natdot" id="leader-dot" style="animation:blink 1s infinite"></div>
     <div class="natinfo">
       <div class="nattype" id="leader-text">определяем роль...</div>
@@ -640,17 +657,7 @@ textarea::placeholder{color:var(--mu)}
     <button class="gbtn" id="leader-claim-btn" onclick="event.stopPropagation();claimLeadership()" style="font-size:11px;padding:3px 8px;display:none;flex-shrink:0">👑 взять управление</button>
   </div>
   </div>
-  <div class="rtitle" style="padding-top:20px">Кто вы в этом соединении?</div>
-  <div class="rcards">
-    <div class="rcard dis" id="ci" onclick="startAs('i')">
-      <h3>Я начинаю → Инициатор</h3>
-    </div>
-    <div class="rcard dis" id="cr" onclick="startAs('r')">
-      <h3>Мне прислали код → Получатель</h3>
-    </div>
-  </div>
-
-  <div class="conn-divider" id="sig-divider">через signaling</div>
+  <div class="rtitle" style="padding-top:4px">Подключиться через</div>
 
   <div class="sig-block dis" id="sig-block">
     <div class="sig-input-row">
@@ -659,263 +666,329 @@ textarea::placeholder{color:var(--mu)}
     </div>
   </div>
   <div id="sig-hint" style="display:none"></div>
+
+  <div class="conn-divider" id="sig-divider">или вручную по коду</div>
+
+  <div class="rcards">
+    <div class="rcard dis" id="ci" onclick="startAs('i')">
+      <h3>↑ Инициатор</h3>
+    </div>
+    <div class="rcard dis" id="cr" onclick="startAs('r')">
+      <h3>↓ Получатель</h3>
+    </div>
+  </div>
 </div>
 
 <!-- Настройки -->
 <div class="scr" id="sn">
-  <!-- Контакты: поделиться / добавить -->
-  <div class="sn-section">
-    <div class="sn-label">Мой контакт</div>
-    <!-- О себе -->
-    <div style="display:flex;flex-direction:column;gap:6px">
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px">
-        <div id="my-fp-emoji" style="font-size:22px;flex-shrink:0">⏳</div>
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;gap:6px">
-            <input id="my-name-input" placeholder="Ваше имя..." maxlength="32"
-              style="flex:1;background:transparent;border:none;outline:none;font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);padding:0;min-width:0"
-              oninput="saveMyName(this.value)" value="">
+
+  <!-- ══ ГЛАВНЫЙ ЭКРАН ══ -->
+  <div class="sn-page on" id="sn-home">
+    <!-- Мой профиль — остаётся сверху -->
+    <div class="sn-section">
+      <div class="sn-label">Мой контакт</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px">
+          <div id="my-fp-emoji" style="font-size:22px;flex-shrink:0">⏳</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:6px">
+              <input id="my-name-input" placeholder="Ваше имя..." maxlength="32"
+                style="flex:1;background:transparent;border:none;outline:none;font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);padding:0;min-width:0"
+                oninput="saveMyName(this.value)" value="">
+            </div>
+            <div id="my-fp-text" style="font-size:10px;color:var(--mu);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">определяем...</div>
           </div>
-          <div id="my-fp-text" style="font-size:10px;color:var(--mu);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">определяем...</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="action-btn" style="flex:1;justify-content:center" onclick="shareMyContact()">↑ поделиться</button>
+        <button class="action-btn" style="flex:1;justify-content:center" onclick="showAddContact()">+ добавить контакт</button>
+      </div>
+      <!-- QR / share панель -->
+      <div id="my-contact-share" style="display:none;flex-direction:column;gap:12px">
+        <div style="display:flex;justify-content:center;position:relative">
+          <div id="my-contact-qr-card" style="background:#0d0d14;border:1px solid rgba(0,255,157,.25);border-radius:16px;padding:20px;display:flex;flex-direction:column;align-items:center;gap:12px;min-width:220px">
+            <div style="font-size:11px;color:var(--a);letter-spacing:2px;text-transform:uppercase">Tovsa</div>
+            <div style="position:relative;display:inline-block">
+              <canvas id="my-contact-qr-canvas" width="256" height="256" style="border-radius:10px;display:block;width:220px;height:220px"></canvas>
+            </div>
+            <div id="my-contact-qr-name" style="font-size:12px;color:var(--tx);font-weight:700;letter-spacing:1px"></div>
+            <div style="font-size:9px;color:var(--mu)">сканируйте — оба добавятся в контакты</div>
+          </div>
+          <button onclick="$('my-contact-share').style.display='none'" style="position:absolute;top:4px;right:4px;background:rgba(30,30,46,.85);border:1px solid var(--bd);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--mu);font-size:16px;line-height:1;transition:color .15s,border-color .15s" onmouseover="this.style.color='var(--tx)';this.style.borderColor='var(--mu)'" onmouseout="this.style.color='var(--mu)';this.style.borderColor='var(--bd)'">×</button>
+        </div>
+        <div id="share-push-warn" style="display:none;font-size:10px;color:var(--w);padding:8px 10px;background:rgba(229,192,123,.07);border:1px solid rgba(229,192,123,.2);border-radius:8px;line-height:1.5">
+          ⚠ Уведомления отключены — вы увидите нового контакта только при следующем открытии приложения
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn" style="flex:1;font-size:11px" onclick="shareMyContactNative()" id="share-native-btn">↑ поделиться</button>
+          <button class="action-btn" style="flex:1;justify-content:center" onclick="copyMyContactLink()">🔗 скопировать</button>
+          <button class="action-btn" style="justify-content:center" onclick="saveMyQR()" title="Сохранить QR">⬇</button>
+        </div>
+        <div id="share-invite-meta" style="font-size:10px;color:var(--mu);text-align:center"></div>
+      </div>
+      <!-- Добавить контакт -->
+      <div id="add-contact-form" style="display:none;flex-direction:column;gap:8px">
+        <textarea id="add-contact-input" placeholder="вставьте код контакта..." style="height:72px"></textarea>
+        <div style="display:flex;gap:8px">
+          <button class="btn" style="flex:1" onclick="importContact()">Добавить</button>
+          <button class="action-btn" onclick="$('add-contact-form').style.display='none';$('add-contact-input').value=''">Отмена</button>
         </div>
       </div>
     </div>
-    <div style="display:flex;gap:8px">
-      <button class="action-btn" style="flex:1;justify-content:center" onclick="shareMyContact()">↑ поделиться</button>
-      <button class="action-btn" style="flex:1;justify-content:center" onclick="showAddContact()">+ добавить контакт</button>
+
+    <!-- Меню под-разделов -->
+    <div class="sn-row" onclick="snOpen('sn-privacy')">
+      <div class="sn-row-icon">👁</div>
+      <div class="sn-row-body">
+        <div class="sn-row-title">Видимость в сети</div>
+        <div class="sn-row-desc">Невидимка, скрытие статуса</div>
+      </div>
+      <div class="sn-row-arrow">›</div>
     </div>
-    <!-- Мой контакт — поделиться (скрыт по умолчанию) -->
-    <div id="my-contact-share" style="display:none;flex-direction:column;gap:12px">
-      <!-- QR карточка (кодирует invite URL) -->
-      <div style="display:flex;justify-content:center;position:relative">
-        <div id="my-contact-qr-card" style="background:#0d0d14;border:1px solid rgba(0,255,157,.25);border-radius:16px;padding:20px;display:flex;flex-direction:column;align-items:center;gap:12px;min-width:220px">
-          <div style="font-size:11px;color:var(--a);letter-spacing:2px;text-transform:uppercase">Tovsa</div>
-          <div style="position:relative;display:inline-block">
-            <canvas id="my-contact-qr-canvas" width="256" height="256" style="border-radius:10px;display:block;width:220px;height:220px"></canvas>
-          </div>
-          <div id="my-contact-qr-name" style="font-size:12px;color:var(--tx);font-weight:700;letter-spacing:1px"></div>
-          <div style="font-size:9px;color:var(--mu)">сканируйте — оба добавятся в контакты</div>
+    <div class="sn-row" onclick="snOpen('sn-chat')">
+      <div class="sn-row-icon">💬</div>
+      <div class="sn-row-body">
+        <div class="sn-row-title">Чат</div>
+        <div class="sn-row-desc">Теневые сообщения, реакции</div>
+      </div>
+      <div class="sn-row-arrow">›</div>
+    </div>
+    <div class="sn-row" onclick="snOpen('sn-data')">
+      <div class="sn-row-icon">💾</div>
+      <div class="sn-row-body">
+        <div class="sn-row-title">Данные</div>
+        <div class="sn-row-desc">Бэкап, лимит хранилища</div>
+      </div>
+      <div class="sn-row-arrow">›</div>
+    </div>
+    <div class="sn-row" onclick="snOpen('sn-app')">
+      <div class="sn-row-icon">📱</div>
+      <div class="sn-row-body">
+        <div class="sn-row-title">Приложение</div>
+        <div class="sn-row-desc">PWA, уведомления, версия</div>
+      </div>
+      <div class="sn-row-arrow">›</div>
+    </div>
+    <div class="sn-row" onclick="snOpen('sn-net')">
+      <div class="sn-row-icon">📡</div>
+      <div class="sn-row-body">
+        <div class="sn-row-title">Сеть</div>
+        <div class="sn-row-desc">STUN-серверы, Signaling, NAT</div>
+      </div>
+      <div class="sn-row-arrow">›</div>
+    </div>
+    <div class="sn-row" onclick="snOpen('sn-debug')">
+      <div class="sn-row-icon">🖥</div>
+      <div class="sn-row-body">
+        <div class="sn-row-title">Консоль отладки</div>
+        <div class="sn-row-desc">Лог подключений P2P</div>
+      </div>
+      <div class="sn-row-arrow">›</div>
+    </div>
+  </div>
+
+  <!-- ══ ПОД-ЭКРАН: Видимость в сети ══ -->
+  <div class="sn-page" id="sn-privacy">
+    <div class="sh-back" onclick="snBack()">← назад</div>
+    <div class="sn-section">
+      <div class="sn-label">Видимость в сети</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:12px;color:var(--tx);font-weight:700">Глобальная невидимка</div>
+          <div style="font-size:11px;color:var(--mu);line-height:1.5">Вас не видит никто из контактов. Вы по-прежнему видите всех и можете подключаться первым.</div>
+          <button class="gbtn" id="global-hidden-btn" style="width:100%;padding:10px;text-align:center;font-size:12px;margin-top:2px" onclick="_setGlobalHidden(!_presenceGlobalHidden)">👁 Невидимка: ВЫКЛ</button>
         </div>
-        <button onclick="$('my-contact-share').style.display='none'" style="position:absolute;top:4px;right:4px;background:rgba(30,30,46,.85);border:1px solid var(--bd);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--mu);font-size:16px;line-height:1;transition:color .15s,border-color .15s" onmouseover="this.style.color='var(--tx)';this.style.borderColor='var(--mu)'" onmouseout="this.style.color='var(--mu)';this.style.borderColor='var(--bd)'">×</button>
-      </div>
-      <!-- Предупреждение если push отключены -->
-      <div id="share-push-warn" style="display:none;font-size:10px;color:var(--w);padding:8px 10px;background:rgba(229,192,123,.07);border:1px solid rgba(229,192,123,.2);border-radius:8px;line-height:1.5">
-        ⚠ Уведомления отключены — вы увидите нового контакта только при следующем открытии приложения
-      </div>
-      <!-- Кнопки действий -->
-      <div style="display:flex;gap:8px">
-        <button class="btn" style="flex:1;font-size:11px" onclick="shareMyContactNative()" id="share-native-btn">↑ поделиться</button>
-        <button class="action-btn" style="flex:1;justify-content:center" onclick="copyMyContactLink()">🔗 скопировать</button>
-        <button class="action-btn" style="justify-content:center" onclick="saveMyQR()" title="Сохранить QR">⬇</button>
-      </div>
-      <!-- Срок действия -->
-      <div id="share-invite-meta" style="font-size:10px;color:var(--mu);text-align:center"></div>
-    </div>
-    <!-- Поле ввода чужого кода (скрыто по умолчанию) -->
-    <div id="add-contact-form" style="display:none;flex-direction:column;gap:8px">
-      <textarea id="add-contact-input" placeholder="вставьте код контакта..." style="height:72px"></textarea>
-      <div style="display:flex;gap:8px">
-        <button class="btn" style="flex:1" onclick="importContact()">Добавить</button>
-        <button class="action-btn" onclick="$('add-contact-form').style.display='none';$('add-contact-input').value=''">Отмена</button>
+        <div style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+          <div style="padding:10px 14px;font-size:11px;color:var(--mu);border-bottom:1px solid var(--bd)">Скрыть статус от отдельных контактов</div>
+          <div id="presence-contact-list" style="display:flex;flex-direction:column"></div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- ── Видимость в сети ─────────────────────────────────────── -->
-  <div class="sn-section">
-    <div class="sn-label">Видимость в сети</div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <!-- Глобальная невидимка -->
-      <div style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:6px">
-        <div style="font-size:12px;color:var(--tx);font-weight:700">Глобальная невидимка</div>
-        <div style="font-size:11px;color:var(--mu);line-height:1.5">Вас не видит никто из контактов. Вы по-прежнему видите всех и можете подключаться первым.</div>
-        <button class="gbtn" id="global-hidden-btn"
-          style="width:100%;padding:10px;text-align:center;font-size:12px;margin-top:2px"
-          onclick="_setGlobalHidden(!_presenceGlobalHidden)">👁 Невидимка: ВЫКЛ</button>
-      </div>
-      <!-- Список контактов с индивидуальными переключателями -->
-      <div style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
-        <div style="padding:10px 14px;font-size:11px;color:var(--mu);border-bottom:1px solid var(--bd)">Скрыть статус от отдельных контактов</div>
-        <div id="presence-contact-list" style="display:flex;flex-direction:column"></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="sn-section">
-    <div class="sn-label">Чат</div>
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px">
-      <div>
-        <div style="font-size:13px;font-weight:700">Теневые сообщения</div>
-        <div style="font-size:10px;color:var(--mu);margin-top:2px">Собеседник видит текст в реальном времени</div>
-      </div>
-      <label style="position:relative;width:42px;height:24px;flex-shrink:0">
-        <input type="checkbox" id="shadow-toggle" style="opacity:0;width:0;height:0;position:absolute" onchange="setShadowMode(this.checked)">
-        <span id="shadow-track" style="position:absolute;inset:0;border-radius:12px;background:var(--bd);transition:background .2s;cursor:pointer">
-          <span id="shadow-thumb" style="position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s"></span>
-        </span>
-      </label>
-    </div>
-    <div style="padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px;margin-top:8px">
-      <div style="font-size:13px;font-weight:700;margin-bottom:4px">Быстрые реакции</div>
-      <div style="font-size:10px;color:var(--mu);margin-bottom:10px">8 эмодзи для пикера. Нажмите на любое чтобы изменить.</div>
-      <div id="reaction-slots" style="display:flex;gap:6px;flex-wrap:wrap"></div>
-    </div>
-  </div>
-  <div class="sn-section">
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="action-btn" onclick="backupData()">↓ скачать бэкап</button>
-      <button class="action-btn" onclick="$('restore-file').click()">↑ загрузить бэкап</button>
-      <input type="file" id="restore-file" accept=".json" style="display:none" onchange="restoreData(event)">
-    </div>
-    <div style="font-size:10px;color:var(--mu);line-height:1.6">Бэкап содержит контакты, историю переписки и ваш ключ идентификации.</div>
-    <div style="margin-top:8px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <div style="font-size:11px;color:var(--mu)">Лимит хранилища</div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <input type="number" id="storage-limit-input" min="1" max="102400" step="1"
-            style="width:64px;background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:4px 8px;color:var(--tx);font-size:12px;text-align:right"
-            onchange="saveStorageLimit(this.value)">
-          <span style="font-size:11px;color:var(--mu)">МБ</span>
-        </div>
-      </div>
-      <input type="range" id="storage-limit-slider" min="10" max="10240" step="10"
-        style="width:100%;accent-color:var(--a);cursor:pointer"
-        oninput="syncLimitSlider(this.value)" onchange="saveStorageLimit(this.value)">
-      <div style="display:flex;align-items:center;gap:10px;padding-top:6px">
-        <div class="sk-storage-bar" style="flex:1"><div class="sk-storage-fill" id="sk-fill" style="width:0%"></div></div>
-        <div class="sk-storage-num" id="sk-storage-num" style="font-size:10px;color:var(--mu);white-space:nowrap">считаем...</div>
-      </div>
-    </div>
-  </div>
-  <div class="sn-section">
-    <div class="sn-label">Приложение</div>
-    <!-- Install PWA -->
-    <div id="pwa-install-wrap" style="display:none;flex-direction:column;gap:8px">
+  <!-- ══ ПОД-ЭКРАН: Чат ══ -->
+  <div class="sn-page" id="sn-chat">
+    <div class="sh-back" onclick="snBack()">← назад</div>
+    <div class="sn-section">
+      <div class="sn-label">Чат</div>
       <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px">
         <div>
-          <div style="font-size:13px;font-weight:700">Установить приложение</div>
-          <div style="font-size:10px;color:var(--mu);margin-top:2px">Работает как нативное приложение</div>
+          <div style="font-size:13px;font-weight:700">Теневые сообщения</div>
+          <div style="font-size:10px;color:var(--mu);margin-top:2px">Собеседник видит текст в реальном времени</div>
         </div>
-        <button class="action-btn" id="pwa-install-btn" onclick="pwaTriggerInstall()">+ установить</button>
+        <label style="position:relative;width:42px;height:24px;flex-shrink:0">
+          <input type="checkbox" id="shadow-toggle" style="opacity:0;width:0;height:0;position:absolute" onchange="setShadowMode(this.checked)">
+          <span id="shadow-track" style="position:absolute;inset:0;border-radius:12px;background:var(--bd);transition:background .2s;cursor:pointer">
+            <span id="shadow-thumb" style="position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s"></span>
+          </span>
+        </label>
+      </div>
+      <div style="padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:4px">Быстрые реакции</div>
+        <div style="font-size:10px;color:var(--mu);margin-bottom:10px">8 эмодзи для пикера. Нажмите на любое чтобы изменить.</div>
+        <div id="reaction-slots" style="display:flex;gap:6px;flex-wrap:wrap"></div>
       </div>
     </div>
-    <!-- Tutorial hints toggle -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px">
+  </div>
+
+  <!-- ══ ПОД-ЭКРАН: Данные ══ -->
+  <div class="sn-page" id="sn-data">
+    <div class="sh-back" onclick="snBack()">← назад</div>
+    <div class="sn-section">
+      <div class="sn-label">Данные</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="action-btn" onclick="backupData()">↓ скачать бэкап</button>
+        <button class="action-btn" onclick="$('restore-file').click()">↑ загрузить бэкап</button>
+        <input type="file" id="restore-file" accept=".json" style="display:none" onchange="restoreData(event)">
+      </div>
+      <div style="font-size:10px;color:var(--mu);line-height:1.6">Бэкап содержит контакты, историю переписки и ваш ключ идентификации.</div>
       <div>
-        <div style="font-size:13px;font-weight:700">Обучающие подсказки</div>
-        <div style="font-size:10px;color:var(--mu);margin-top:2px">Плашки с инструкциями при подключении</div>
-      </div>
-      <label style="position:relative;width:42px;height:24px;flex-shrink:0">
-        <input type="checkbox" id="hints-toggle" style="opacity:0;width:0;height:0;position:absolute" onchange="setHintsEnabled(this.checked)">
-        <span id="hints-track" style="position:absolute;inset:0;border-radius:12px;background:var(--bd);transition:background .2s;cursor:pointer">
-          <span id="hints-thumb" style="position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s"></span>
-        </span>
-      </label>
-    </div>
-    <!-- Notifications -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px">
-      <div>
-        <div style="font-size:13px;font-weight:700">Уведомления</div>
-        <div style="font-size:10px;color:var(--mu);margin-top:2px" id="notif-desc">Уведомления о новых сообщениях</div>
-      </div>
-      <div style="display:flex;gap:6px">
-        <button class="action-btn" id="notif-btn" onclick="pwaRequestNotif()">включить</button>
-        <button class="action-btn" id="notif-unsub-btn" onclick="pwaUnsubscribeNotif()" style="display:none;color:var(--e);border-color:var(--e)">отписаться</button>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="font-size:11px;color:var(--mu)">Лимит хранилища</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="number" id="storage-limit-input" min="1" max="102400" step="1"
+              style="width:64px;background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:4px 8px;color:var(--tx);font-size:12px;text-align:right"
+              onchange="saveStorageLimit(this.value)">
+            <span style="font-size:11px;color:var(--mu)">МБ</span>
+          </div>
+        </div>
+        <input type="range" id="storage-limit-slider" min="10" max="10240" step="10"
+          style="width:100%;accent-color:var(--a);cursor:pointer"
+          oninput="syncLimitSlider(this.value)" onchange="saveStorageLimit(this.value)">
+        <div style="display:flex;align-items:center;gap:10px;padding-top:6px">
+          <div class="sk-storage-bar" style="flex:1"><div class="sk-storage-fill" id="sk-fill" style="width:0%"></div></div>
+          <div class="sk-storage-num" id="sk-storage-num" style="font-size:10px;color:var(--mu);white-space:nowrap">считаем...</div>
+        </div>
       </div>
     </div>
-    <!-- Persistent storage -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px">
-      <div>
-        <div style="font-size:13px;font-weight:700">Защита данных</div>
-        <div style="font-size:10px;color:var(--mu);margin-top:2px" id="persist-desc">Браузер может удалить данные автоматически</div>
+  </div>
+
+  <!-- ══ ПОД-ЭКРАН: Приложение ══ -->
+  <div class="sn-page" id="sn-app">
+    <div class="sh-back" onclick="snBack()">← назад</div>
+    <div class="sn-section">
+      <div class="sn-label">Приложение</div>
+      <div id="pwa-install-wrap" style="display:none;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px">
+          <div>
+            <div style="font-size:13px;font-weight:700">Установить приложение</div>
+            <div style="font-size:10px;color:var(--mu);margin-top:2px">Работает как нативное приложение</div>
+          </div>
+          <button class="action-btn" id="pwa-install-btn" onclick="pwaTriggerInstall()">+ установить</button>
+        </div>
       </div>
-      <button class="action-btn" id="persist-btn" onclick="pwaRequestPersist()">защитить</button>
-    </div>
-    <!-- Version -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px">
-      <div style="font-size:10px;color:var(--mu);letter-spacing:1px">ВЕРСИЯ</div>
-      <div style="font-size:11px;color:var(--a);letter-spacing:1px">1.2.0</div>
-    </div>
-    <!-- Update button — скрыт, показывается когда SW сигнализирует об обновлении -->
-    <div id="sn-update-wrap" style="display:none;padding:0 0 4px 0">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--ad);border:1px solid rgba(0,255,157,.2);border-radius:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px">
         <div>
-          <div style="font-size:13px;font-weight:700;color:var(--a)">Доступно обновление</div>
-          <div style="font-size:10px;color:var(--mu);margin-top:2px">Новая версия готова к установке</div>
+          <div style="font-size:13px;font-weight:700">Обучающие подсказки</div>
+          <div style="font-size:10px;color:var(--mu);margin-top:2px">Плашки с инструкциями при подключении</div>
         </div>
-        <button class="action-btn" onclick="location.reload()" style="color:var(--a);border-color:var(--a)">обновить</button>
+        <label style="position:relative;width:42px;height:24px;flex-shrink:0">
+          <input type="checkbox" id="hints-toggle" style="opacity:0;width:0;height:0;position:absolute" onchange="setHintsEnabled(this.checked)">
+          <span id="hints-track" style="position:absolute;inset:0;border-radius:12px;background:var(--bd);transition:background .2s;cursor:pointer">
+            <span id="hints-thumb" style="position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s"></span>
+          </span>
+        </label>
       </div>
-    </div>
-  </div>
-  <div class="sn-section">
-    <div style="display:flex;align-items:center;justify-content:space-between">
-      <div class="sn-label">Сеть</div>
-      <button id="cbtn" onclick="rerunAll()" class="gbtn rerun" style="display:none">↺ повторить проверку</button>
-    </div>
-    <div id="chint" style="font-size:11px;color:var(--mu);text-align:center;display:none"></div>
-    <div class="natbadge" id="natbadge">
-      <div class="natdot" style="animation:blink 1s infinite"></div>
-      <div class="natinfo">
-        <div class="nattype">NAT · определяем тип...</div>
-        <div class="natdesc" style="font-size:10px;color:var(--mu);margin-top:2px;line-height:1.5">ожидаем результатов STUN-теста</div>
-      </div>
-    </div>
-    <div class="stunwrap" id="stunwrap">
-      <div class="stuntog" onclick="this.closest('.stunwrap').classList.toggle('open')">
-        <div class="stunleft">STUN · <b id="scnt">0</b> выбрано</div>
-        <div class="stunarr">▼</div>
-      </div>
-      <div class="stunbody" id="slist"></div>
-      <div class="stunwarn" id="swarn">⚠ выберите хотя бы один рабочий сервер</div>
-    </div>
-    <div class="pjcheck" id="pjcheck">
-      <div class="stuntog" onclick="this.closest('.pjcheck').classList.toggle('open')">
-        <div class="stunleft">
-          <div class="pjdot" id="pj-hdr-dot"></div>
-          Signaling ·
-          <b id="pj-hdr-name">—</b>
-          <span id="pj-hdr-conns" style="color:var(--mu);font-weight:400"></span>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px">
+        <div>
+          <div style="font-size:13px;font-weight:700">Уведомления</div>
+          <div style="font-size:10px;color:var(--mu);margin-top:2px" id="notif-desc">Уведомления о новых сообщениях</div>
         </div>
-        <div class="stunarr">▼</div>
+        <div style="display:flex;gap:6px">
+          <button class="action-btn" id="notif-btn" onclick="pwaRequestNotif()">включить</button>
+          <button class="action-btn" id="notif-unsub-btn" onclick="pwaUnsubscribeNotif()" style="display:none;color:var(--e);border-color:var(--e)">отписаться</button>
+        </div>
       </div>
-      <div class="stunbody" id="pj-body" style="flex-direction:column">
-        <!-- заполняется динамически из SIGNALING_SERVERS в _initSrvUI() -->
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--bd);background:var(--bg)">
-          <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--mu)">
-            <span>Соединений:</span>
-            <span id="pj-peer-count" style="font-size:13px;font-weight:700;color:var(--a);min-width:16px">—</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px">
+        <div>
+          <div style="font-size:13px;font-weight:700">Защита данных</div>
+          <div style="font-size:10px;color:var(--mu);margin-top:2px" id="persist-desc">Браузер может удалить данные автоматически</div>
+        </div>
+        <button class="action-btn" id="persist-btn" onclick="pwaRequestPersist()">защитить</button>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px">
+        <div style="font-size:10px;color:var(--mu);letter-spacing:1px">ВЕРСИЯ</div>
+        <div style="font-size:11px;color:var(--a);letter-spacing:1px">1.2.0</div>
+      </div>
+      <div id="sn-update-wrap" style="display:none;padding:0 0 4px 0">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--ad);border:1px solid rgba(0,255,157,.2);border-radius:10px">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--a)">Доступно обновление</div>
+            <div style="font-size:10px;color:var(--mu);margin-top:2px">Новая версия готова к установке</div>
           </div>
-          <div style="display:flex;gap:6px;align-items:center">
-            <button class="stbtn" id="pj-leader-btn" onclick="claimLeadership()" title="Взять управление соединением на эту вкладку" style="opacity:0.6;font-size:11px">👑</button>
-            <button class="stbtn" id="pj-connect-btn" onclick="sigConnect()" title="Подключиться к выбранному серверу">↺ Подключить</button>
+          <button class="action-btn" onclick="location.reload()" style="color:var(--a);border-color:var(--a)">обновить</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ПОД-ЭКРАН: Сеть ══ -->
+  <div class="sn-page" id="sn-net">
+    <div class="sh-back" onclick="snBack()">← назад</div>
+    <div class="sn-section">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div class="sn-label">Сеть</div>
+        <button id="cbtn" onclick="rerunAll()" class="gbtn rerun" style="display:none">↺ повторить проверку</button>
+      </div>
+      <div id="chint" style="font-size:11px;color:var(--mu);text-align:center;display:none"></div>
+      <div class="natbadge" id="natbadge">
+        <div class="natdot" style="animation:blink 1s infinite"></div>
+        <div class="natinfo">
+          <div class="nattype">NAT · определяем тип...</div>
+          <div class="natdesc" style="font-size:10px;color:var(--mu);margin-top:2px;line-height:1.5">ожидаем результатов STUN-теста</div>
+        </div>
+      </div>
+      <div class="stunwrap" id="stunwrap">
+        <div class="stuntog" onclick="this.closest('.stunwrap').classList.toggle('open')">
+          <div class="stunleft">STUN · <b id="scnt">0</b> выбрано</div>
+          <div class="stunarr">▼</div>
+        </div>
+        <div class="stunbody" id="slist"></div>
+        <div class="stunwarn" id="swarn">⚠ выберите хотя бы один рабочий сервер</div>
+      </div>
+      <div class="pjcheck" id="pjcheck">
+        <div class="stuntog" onclick="this.closest('.pjcheck').classList.toggle('open')">
+          <div class="stunleft">
+            <div class="pjdot" id="pj-hdr-dot"></div>
+            Signaling ·
+            <b id="pj-hdr-name">—</b>
+            <span id="pj-hdr-conns" style="color:var(--mu);font-weight:400"></span>
+          </div>
+          <div class="stunarr">▼</div>
+        </div>
+        <div class="stunbody" id="pj-body" style="flex-direction:column">
+          <!-- заполняется динамически из SIGNALING_SERVERS в _initSrvUI() -->
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--bd);background:var(--bg)">
+            <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--mu)">
+              <span>Соединений:</span>
+              <span id="pj-peer-count" style="font-size:13px;font-weight:700;color:var(--a);min-width:16px">—</span>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <button class="stbtn" id="pj-leader-btn" onclick="claimLeadership()" title="Взять управление соединением на эту вкладку" style="opacity:0.6;font-size:11px">👑</button>
+              <button class="stbtn" id="pj-connect-btn" onclick="sigConnect()" title="Подключиться к выбранному серверу">↺ Подключить</button>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
-  <div class="sn-section">
-    <div style="display:flex;align-items:center;justify-content:space-between">
-      <div class="sn-label">Консоль отладки</div>
-      <div style="display:flex;gap:6px">
-        <button class="stbtn" onclick="copyDebugLog()" id="dbg-copy-btn">⎘ копировать</button>
-        <button class="stbtn" onclick="clearDebugLog()">✕ очистить</button>
+
+  <!-- ══ ПОД-ЭКРАН: Консоль ══ -->
+  <div class="sn-page" id="sn-debug">
+    <div class="sh-back" onclick="snBack()">← назад</div>
+    <div class="sn-section">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div class="sn-label">Консоль отладки</div>
+        <div style="display:flex;gap:6px">
+          <button class="stbtn" onclick="copyDebugLog()" id="dbg-copy-btn">⎘ копировать</button>
+          <button class="stbtn" onclick="clearDebugLog()">✕ очистить</button>
+        </div>
       </div>
+      <div id="dbg-console" style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;font-size:10px;line-height:1.7;color:var(--mu);max-height:340px;overflow-y:auto;font-family:'JetBrains Mono',monospace;word-break:break-all;white-space:pre-wrap"><span style="opacity:.4">// лог появится при подключении...</span></div>
     </div>
-    <div id="dbg-console" style="
-      background:var(--bg);
-      border:1px solid var(--bd);
-      border-radius:10px;
-      padding:10px 12px;
-      font-size:10px;
-      line-height:1.7;
-      color:var(--mu);
-      max-height:280px;
-      overflow-y:auto;
-      font-family:'JetBrains Mono',monospace;
-      word-break:break-all;
-      white-space:pre-wrap;
-    "><span style="opacity:.4">// лог появится при подключении...</span></div>
   </div>
+
 </div>
 
 <!-- Sig-room connection modal overlay -->
@@ -1171,7 +1244,7 @@ textarea::placeholder{color:var(--mu)}
     color:var(--a);font-size:16px;cursor:pointer;
     box-shadow:0 2px 12px rgba(0,0,0,.4);
     z-index:10;transition:opacity .2s;
-    display:none;align-items:center;justify-content:center;
+    align-items:center;justify-content:center;
   ">↓<span class="scroll-badge" id="scroll-unread-badge"></span></button>
   <div class="reply-bar" id="reply-bar">
     <div class="reply-bar-quote">
@@ -1265,7 +1338,7 @@ textarea::placeholder{color:var(--mu)}
 </div>
 
 <div id="toast"></div>
-<div id="update-banner" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a2e;border:1px solid var(--a);border-radius:20px;padding:8px 8px 8px 16px;font-size:12px;color:var(--tx);z-index:999;display:none;align-items:center;gap:10px;white-space:nowrap;box-shadow:0 4px 24px #00ff9d22">
+<div id="update-banner" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a2e;border:1px solid var(--a);border-radius:20px;padding:8px 8px 8px 16px;font-size:12px;color:var(--tx);z-index:999;align-items:center;gap:10px;white-space:nowrap;box-shadow:0 4px 24px #00ff9d22">
   <span>🆕 Доступно обновление</span>
   <button onclick="location.reload()" style="background:var(--a);color:#000;border:none;border-radius:14px;padding:4px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Обновить</button>
   <button onclick="this.parentElement.style.display='none'" style="background:none;border:none;color:var(--tx);opacity:.5;cursor:pointer;font-size:14px;padding:0 4px">✕</button>
@@ -2291,6 +2364,7 @@ function showTab(tab){
   } else if(tab==='sn'){
     activeTab='sn';
     show('sn');
+    snBack(); // всегда показываем главный экран при переходе на вкладку
     updateStorageBar();
     renderPresenceContactList(); _updateGlobalHiddenUI();
     initStorageLimitUI();
@@ -2305,6 +2379,21 @@ function showTab(tab){
     activeTab='grp';
     show('sgrpc');
   }
+}
+
+// Settings sub-screen navigation
+function snOpen(pageId){
+  document.querySelectorAll('#sn .sn-page').forEach(p=>p.classList.remove('on'));
+  const page = $(pageId);
+  if(page) page.classList.add('on');
+  // Trigger lazy renders
+  if(pageId==='sn-privacy'){ renderPresenceContactList(); _updateGlobalHiddenUI(); }
+  if(pageId==='sn-data'){ updateStorageBar(); initStorageLimitUI(); }
+}
+function snBack(){
+  document.querySelectorAll('#sn .sn-page').forEach(p=>p.classList.remove('on'));
+  const home = $('sn-home');
+  if(home) home.classList.add('on');
 }
 
 // Contacts tab button: restore last sub-screen
@@ -4298,7 +4387,7 @@ function createPC(){
         $('dot').className='dot con';
         // Не показываем уведомление при тихом авто-реконнекте
         if(!_p2pReconnectFp){
-          const peerName = (currentPeerFp && contacts[currentPeerFp]?.name) || 'Собеседник';
+          const peerName = window.peerNameCache || 'Собеседник';
           _sendNotif('🔗 ' + peerName, 'Соединение установлено', ()=>showTab('sc'));
         }
       }
@@ -4410,6 +4499,7 @@ async function _handleServicePacket(j, idDone){
   if(j.__read__){ _updateReadLine(j.__read__); return true; }
 
   if(j.__react__ !== undefined){
+    if(!j.__react__ || typeof j.__react__ !== 'object') return true; // malformed packet — ignore safely
     const {ts, emoji: rawEmoji} = j.__react__;
     // Ограничиваем emoji одним grapheme cluster — защита от HTML-инъекции через __react__
     let emoji = null;
@@ -8815,7 +8905,7 @@ function toggleReaction(ts, emoji, el){
   if(r.mine) _lastUsedReaction = r.mine;
   // Синхронизируем с собеседником
   if(dc && dc.readyState === 'open'){
-    _e2eSend(JSON.stringify({__react__: {ts, emoji: r.mine}})).catch(()=>{});
+    try{ _e2eSend(JSON.stringify({__react__: {ts, emoji: r.mine}})); }catch(_){}
   }
   // Анимация при добавлении
   if(r.mine) _popReactionAnim(el, emoji);
@@ -8996,7 +9086,7 @@ async function confirmPin(forBoth){
   const scope = forBoth ? 'both' : 'self';
   await _addPin(ts, text, scope);
   if(forBoth && dc && dc.readyState === 'open'){
-    _e2eSend(JSON.stringify({__pin__: {action:'add', ts, text}})).catch(()=>{});
+    try{ _e2eSend(JSON.stringify({__pin__: {action:'add', ts, text}})); }catch(_){}
   }
 }
 
@@ -9013,7 +9103,7 @@ async function confirmUnpin(){
   _renderPinBar();
   // Отправляем сигнал собеседнику (после рендера — нет визуального бага)
   if(scope === 'both' && dc && dc.readyState === 'open'){
-    _e2eSend(JSON.stringify({__pin__: {action:'remove', ts}})).catch(()=>{});
+    try{ _e2eSend(JSON.stringify({__pin__: {action:'remove', ts}})); }catch(_){}
   }
 }
 
@@ -9116,7 +9206,7 @@ function _sendReadReceipt(){
   const lastTs = Number(msgs[msgs.length-1].dataset.ts);
   if(lastTs <= _lastReadTs) return;
   _lastReadTs = lastTs;
-  _e2eSend(JSON.stringify({__read__: lastTs})).catch(()=>{});
+  try{ _e2eSend(JSON.stringify({__read__: lastTs})); }catch(_){}
 }
 
 // Обновляем позицию линии «прочитано» в чате

@@ -4096,7 +4096,7 @@ function getVideoConstraints(withVideo) {
   const p = VIDEO_PROFILES[s.videoProfile] || VIDEO_PROFILES.std;
   return {
     audio: { echoCancellation: s.echo, noiseSuppression: s.noise, autoGainControl: s.agc, sampleRate: 48000 },
-    video: withVideo ? { facingMode: 'user', width: { ideal: p.width }, height: { ideal: p.height }, frameRate: { ideal: p.frameRate } } : false,
+    video: withVideo ? { width: { ideal: p.width }, height: { ideal: p.height }, frameRate: { ideal: p.frameRate } } : false,
   };
 }
 
@@ -4947,73 +4947,94 @@ window.addEventListener('beforeunload', ()=>{
   }
 });
 
-// ── NAT detection ──
-// Correct method: two SEPARATE RTCPeerConnections, each with ONE STUN server.
-// Both PCs share the same local network interface but get independent ICE agents.
+// ── NAT detection ────────────────────────────────────────────────────────────
 //
-// Cone NAT (endpoint-independent mapping):
-//   The NAT reuses the same external port for the same internal socket,
-//   regardless of the remote address → both PCs see the same external port.
+// Method: ONE RTCPeerConnection with TWO STUN servers.
+// The ICE agent uses ONE UDP socket and sends Binding Requests to both STUNs.
 //
-// Symmetric NAT (endpoint+address-dependent mapping):
-//   The NAT allocates a NEW external port for each unique remote (STUN) address
-//   → the two PCs get different external ports.
+//   Cone NAT    → both STUNs see the same external port
+//   Symmetric   → each STUN sees a different port
 //
-// NOTE: Using ONE PC with TWO STUN servers is WRONG — browsers allocate separate
-// UDP sockets per ICE agent, so ports always differ regardless of NAT type.
+// We group srflx candidates by raddr (related-address = local socket identity).
+// Candidates with the same raddr came from the same local socket — only these
+// are comparable. This is robust to mDNS (.local) obfuscation on HTTPS.
+//
+// Run multiple probes and vote to avoid false positives from port reuse.
+
 async function detectNAT(i1,i2){
   const nb=document.getElementById('natbadge');
   if(i1<0){setNAT(nb,'','нет данных','нет рабочих STUN серверов для анализа');return}
 
-  // Helper: get srflx candidate from a single PC with one STUN server
-  const getSrflx = (stunUrl) => new Promise(res => {
-    let p = null; let endTm = null;
-    const found = [];
-    const finish = () => { clearTimeout(tm); clearTimeout(endTm); try{p&&p.close()}catch(_){} res(found); };
-    const tm = setTimeout(finish, 2500);
+  const stunUrls = i2>=0 ? [STUNS[i1].u, STUNS[i2].u] : [STUNS[i1].u];
+
+  // Single probe: one PC + two STUNs, collect srflx grouped by raddr
+  const probe = () => new Promise(res => {
+    const byRaddr = {};
+    let p = null, endTm = null;
+    const finish = () => {
+      clearTimeout(tm); clearTimeout(endTm);
+      try{p&&p.close()}catch(_){}
+      res(byRaddr);
+    };
+    const tm = setTimeout(finish, 3000);
     try {
-      p = new RTCPeerConnection({ iceServers: [{urls: stunUrl}], iceCandidatePoolSize: 1 });
+      p = new RTCPeerConnection({ iceServers: stunUrls.map(u=>({urls:u})), iceCandidatePoolSize: stunUrls.length });
       p.onicecandidate = e => {
-        if (!e.candidate) { clearTimeout(endTm); endTm = setTimeout(finish, 50); return; }
+        if (!e.candidate) { clearTimeout(endTm); endTm = setTimeout(finish, 150); return; }
         const c = e.candidate.candidate;
-        if (c.includes('srflx')) {
-          const pts = c.split(' ');
-          const ri  = pts.indexOf('raddr');
-          found.push({ ip: pts[4], port: parseInt(pts[5]), localIp: ri >= 0 ? pts[ri+1] : null });
-        }
+        if (!c.includes('srflx')) return;
+        const pts = c.split(' ');
+        const extPort = parseInt(pts[5]);
+        const ri = pts.indexOf('raddr');
+        const raddr = ri >= 0 ? pts[ri+1] : 'unknown';
+        if (!byRaddr[raddr]) byRaddr[raddr] = new Set();
+        byRaddr[raddr].add(extPort);
       };
       p.createDataChannel('t');
-      p.createOffer().then(o => p.setLocalDescription(o)).catch(finish);
-    } catch(e) { clearTimeout(tm); res([]); }
+      p.createOffer().then(o=>p.setLocalDescription(o)).catch(finish);
+    } catch(_) { clearTimeout(tm); res({}); }
   });
 
-  // Run both PCs in parallel so they use the same OS UDP binding window
-  const [srflx1, srflx2] = await Promise.all([
-    getSrflx(STUNS[i1].u),
-    i2 >= 0 ? getSrflx(STUNS[i2].u) : Promise.resolve([])
-  ]);
+  // Interpret one probe: find the raddr group with the most candidates
+  const classify = (byRaddr) => {
+    let bestPorts = null, bestSize = 0;
+    for (const ports of Object.values(byRaddr)) {
+      if (ports.size > bestSize) { bestPorts = ports; bestSize = ports.size; }
+    }
+    if (!bestPorts || bestSize === 0) return 'nodata';
+    if (i2 < 0 || bestSize === 1) return 'unknown';
+    return bestSize > 1 ? 'symmetric' : 'cone';
+  };
 
-  if (srflx1.length === 0) { setNAT(nb,'','нет данных','STUN не ответил'); return; }
+  // First probe
+  const r1 = await probe();
+  const v1 = classify(r1);
 
-  const r = srflx1[0];
-  // No NAT: public IP
-  if (r.localIp && r.ip === r.localIp) {
-    setNAT(nb,'ok','без NAT','публичный IP · P2P работает в любом случае'); return;
+  // Get external IP/port for display
+  let extPort = null;
+  for (const ports of Object.values(r1)) {
+    if (ports.size > 0) { extPort = [...ports][0]; break; }
   }
 
-  if (i2 < 0 || srflx2.length === 0) {
-    setNAT(nb,'warn','NAT · тип не определён',`только один STUN сервер · ${r.ip}:${r.port}`); return;
-  }
+  // Second probe to confirm
+  const r2 = await probe();
+  const v2 = classify(r2);
 
-  const port1 = srflx1[0].port;
-  const port2 = srflx2[0].port;
+  // Third only if split
+  let v3 = 'unknown';
+  if (v1 !== v2) v3 = classify(await probe());
 
-  if (port1 !== port2) {
-    // Different external ports for different remote STUN addresses → Symmetric NAT
-    setNAT(nb,'warn','Symmetric NAT',`порты ${port1} / ${port2} · соединение может работать, попробуйте`);
+  const votes = { cone: 0, symmetric: 0, unknown: 0, nodata: 0 };
+  [v1, v2, v3].forEach(v => votes[v]++);
+
+  if (votes.nodata >= 2) { setNAT(nb,'','нет данных','STUN не ответил'); return; }
+
+  if (votes.cone >= votes.symmetric) {
+    setNAT(nb,'ok','Cone NAT', (extPort ? `внешний порт ${extPort} · ` : '') + 'P2P работает');
+  } else if (votes.symmetric > 0) {
+    setNAT(nb,'warn','Symmetric NAT','соединение может работать, попробуйте');
   } else {
-    // Same external port regardless of destination → Cone NAT
-    setNAT(nb,'ok','Cone NAT',`внешний порт ${port1} · P2P работает`);
+    setNAT(nb,'warn','NAT · тип не определён', extPort ? `порт ${extPort}` : 'недостаточно данных');
   }
 }
 
@@ -6059,20 +6080,14 @@ async function mcallEnableVideo(){
   const p = VIDEO_PROFILES[s.videoProfile] || VIDEO_PROFILES.std;
   let videoTrack;
   try{
+    // No facingMode constraint — let browser pick default (usually back camera on mobile)
     const vs = await navigator.mediaDevices.getUserMedia({
       audio: false,
-      video: { facingMode: {exact: _mcFacingMode}, width:{ideal:p.width}, height:{ideal:p.height}, frameRate:{ideal:p.frameRate} }
+      video: { width:{ideal:p.width}, height:{ideal:p.height}, frameRate:{ideal:p.frameRate} }
     });
     videoTrack = vs.getVideoTracks()[0];
-  }catch(_){
-    try{
-      const vs2 = await navigator.mediaDevices.getUserMedia({
-        audio: false, video: { facingMode: _mcFacingMode }
-      });
-      videoTrack = vs2.getVideoTracks()[0];
-    }catch(e){
-      toast('Нет доступа к камере: ' + (e.message || e.name)); return;
-    }
+  }catch(e){
+    toast('Нет доступа к камере: ' + (e.message || e.name)); return;
   }
   if(!videoTrack){ toast('Нет видеотрека'); return; }
 

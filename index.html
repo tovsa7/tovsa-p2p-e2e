@@ -1188,7 +1188,7 @@ textarea::placeholder{color:var(--mu)}
             <div id="fp-ludicrous-radio" class="srv-radio" style="flex-shrink:0"></div>
             <div style="flex:1">
               <div style="font-size:12px;font-weight:700">Максимум ⚡</div>
-              <div style="font-size:10px;color:var(--mu);margin-top:2px">Чанки 1 МБ · буфер 32 МБ · окно 32 — всё на пределе канала</div>
+              <div style="font-size:10px;color:var(--mu);margin-top:2px">Чанки 256 КБ · буфер 16 МБ · окно 64 — максимальный параллелизм, всё на пределе канала</div>
             </div>
           </label>
         </div>
@@ -1672,6 +1672,10 @@ textarea::placeholder{color:var(--mu)}
     </div>
     <div class="mcall-stat-chip good" id="mcall-stat-bw">
       <div class="msc-dot"></div><span id="mcall-stat-bw-val">↑— ↓—</span>
+    </div>
+    <!-- Лог камеры: видно только при проблемах -->
+    <div class="mcall-stat-chip ok" id="mcall-cam-log" style="display:none;max-width:220px;white-space:normal;pointer-events:all;cursor:pointer" onclick="this.style.display='none'">
+      <div class="msc-dot"></div><span id="mcall-cam-log-val">камера</span>
     </div>
   </div>
 
@@ -4086,9 +4090,12 @@ const VIDEO_PROFILES = {
 };
 
 const FILE_PROFILES = {
-  normal:    { chunk: 65536,    buffer: 65536 * 16,   window: 8  },
-  turbo:     { chunk: 262144,   buffer: 262144 * 16,  window: 16 },
-  ludicrous: { chunk: 1048576,  buffer: 1048576 * 32, window: 32 },
+  normal:    { chunk: 65536,   buffer: 65536  * 16, window: 8  },
+  turbo:     { chunk: 262144,  buffer: 262144 * 16, window: 16 },
+  ludicrous: { chunk: 262144,  buffer: 262144 * 64, window: 64 },
+  // Note: chunk size is capped at 256KB — WebRTC DataChannel dc.send() limit.
+  // "ludicrous" gets speed from a larger window (more parallel encrypt tasks)
+  // and a much larger buffer (16MB) so flow control almost never stalls.
 };
 
 function _loadMediaSettings() {
@@ -5986,27 +5993,24 @@ document.addEventListener('visibilitychange', async () => {
 async function _mcRestoreVideoTrack(){
   if(_mcRestoringVideo || !_mc.video || !_mc.localStream) return;
   _mcRestoringVideo = true;
+  _mcCamLog('Восстановление видео…');
   try{
-    const s = getMediaSettings();
-    const p = VIDEO_PROFILES[s.videoProfile] || VIDEO_PROFILES.std;
-    const deviceId = await _mcGetCameraDeviceId(_mcFacingMode);
-    const constraints = deviceId
-      ? { audio: false, video: { deviceId: {exact: deviceId}, width:{ideal:p.width}, height:{ideal:p.height}, frameRate:{ideal:p.frameRate} } }
-      : { audio: false, video: { facingMode: {exact: _mcFacingMode}, width:{ideal:p.width}, height:{ideal:p.height}, frameRate:{ideal:p.frameRate} } };
-    const newStream = await navigator.mediaDevices.getUserMedia(constraints).catch(() =>
-      navigator.mediaDevices.getUserMedia({ audio: false, video: true })
-    );
+    const newStream = await _mcGetVideoStream(_mcFacingMode).catch(async e => {
+      _mcCamLog('restore fail: ' + e.name + ', any…', true);
+      return navigator.mediaDevices.getUserMedia({ audio:false, video:true });
+    });
     const newTrack = newStream && newStream.getVideoTracks()[0];
-    if(!newTrack){ _mcRestoringVideo = false; return; }
+    if(!newTrack){ _mcCamLog('restore: нет трека', true); _mcRestoringVideo = false; return; }
     const sender = _mc.localSenders.find(s => { try{ return s.track && s.track.kind==='video'; }catch(_){return false;} });
-    if(sender) await sender.replaceTrack(newTrack).catch(()=>{});
+    if(sender) await sender.replaceTrack(newTrack).catch(e => _mcCamLog('replaceTrack: '+e.name, true));
     _mc.localStream.getVideoTracks().forEach(t => { try{t.stop();}catch(_){} });
     const audio = _mc.localStream.getAudioTracks();
     const updated = new MediaStream([...audio, newTrack]);
     _mc.localStream = updated;
     const lv = $('mcall-local-video');
     if(lv){ lv.srcObject = updated; lv.style.display = 'block'; }
-  }catch(_){}
+    _mcCamLog('Видео восстановлено: ' + (newTrack.label || _mcFacingMode));
+  }catch(e){ _mcCamLog('restore error: ' + (e.message||e.name), true); }
   _mcRestoringVideo = false;
 }
 
@@ -6148,11 +6152,12 @@ async function mcallEnableVideo(){
   const p = VIDEO_PROFILES[s.videoProfile] || VIDEO_PROFILES.std;
   let videoTrack;
   try{
-    // Start with back (environment) camera — user can flip later
+    _mcCamLog('Запрос тыловой камеры…');
     const vs = await _mcGetVideoStream('environment', p);
     videoTrack = vs.getVideoTracks()[0];
     _mcFacingMode = 'environment';
   }catch(e){
+    _mcCamLog('enable video fail: ' + (e.message||e.name), true);
     toast('Нет доступа к камере: ' + (e.message || e.name)); return;
   }
   if(!videoTrack){ toast('Нет видеотрека'); return; }
@@ -6495,16 +6500,43 @@ async function camDiagRun(){
   }
 }
 
+// ── Лог камеры — показывает что происходит в реальном времени ──────────────
+function _mcCamLog(msg, isErr){
+  const el = document.getElementById('mcall-cam-log');
+  const val = document.getElementById('mcall-cam-log-val');
+  if(!el || !val) { console.log('[cam]', msg); return; }
+  val.textContent = msg;
+  el.className = 'mcall-stat-chip ' + (isErr ? 'bad' : 'ok');
+  el.style.display = 'flex';
+  // Auto-hide after 6s if not error
+  if(!isErr) setTimeout(() => { if(val.textContent === msg) el.style.display = 'none'; }, 6000);
+}
+
 async function _mcGetVideoStream(facing, profile){
   const p = profile || (VIDEO_PROFILES[getMediaSettings().videoProfile] || VIDEO_PROFILES.std);
   const base = { width:{ideal:p.width}, height:{ideal:p.height}, frameRate:{ideal:p.frameRate} };
   const deviceId = await _mcGetCameraDeviceId(facing);
-  // Try deviceId first (most reliable), then exact facingMode, then any video
+  _mcCamLog(`Камера: ${facing}, deviceId: ${deviceId ? deviceId.slice(0,8)+'…' : 'нет'}`);
+
   if(deviceId){
-    try{ return await navigator.mediaDevices.getUserMedia({ audio:false, video:{deviceId:{exact:deviceId},...base} }); }catch(_){}
+    try{
+      const s = await navigator.mediaDevices.getUserMedia({ audio:false, video:{deviceId:{exact:deviceId},...base} });
+      const t = s.getVideoTracks()[0];
+      _mcCamLog(`OK deviceId: ${t.label || deviceId.slice(0,8)}`);
+      return s;
+    }catch(e){ _mcCamLog(`deviceId fail: ${e.name}`, true); }
   }
-  try{ return await navigator.mediaDevices.getUserMedia({ audio:false, video:{facingMode:{exact:facing},...base} }); }catch(_){}
-  return await navigator.mediaDevices.getUserMedia({ audio:false, video:{facingMode:facing} });
+  try{
+    const s = await navigator.mediaDevices.getUserMedia({ audio:false, video:{facingMode:{exact:facing},...base} });
+    const t = s.getVideoTracks()[0];
+    _mcCamLog(`OK exact: ${t.label || facing}`);
+    return s;
+  }catch(e){ _mcCamLog(`exact fail: ${e.name}, try ideal…`, true); }
+
+  const s = await navigator.mediaDevices.getUserMedia({ audio:false, video:{facingMode:facing} });
+  const t = s.getVideoTracks()[0];
+  _mcCamLog(`OK ideal: ${t.label || facing}`);
+  return s;
 }
 
 async function mcallFlipCamera(){

@@ -488,6 +488,20 @@ textarea::placeholder{color:var(--mu)}
 /* settings screen */
 #sn{overflow-x:hidden;display:none;flex-direction:column}
 #sn.on{display:flex}
+/* theme cards */
+.theme-card{border-radius:12px;overflow:hidden;cursor:pointer;border:2px solid var(--bd);transition:border-color .15s,transform .15s;-webkit-tap-highlight-color:transparent}
+.theme-card:active{transform:scale(.97)}
+.theme-card.active{border-color:var(--a)}
+.theme-card-preview{padding:10px;display:flex;flex-direction:column;gap:6px}
+.tc-dot{width:6px;height:6px;border-radius:50%}
+.tc-hdr{display:flex;align-items:center;gap:6px;padding:5px 7px;border-radius:6px}
+.tc-msgs{display:flex;flex-direction:column;gap:4px}
+.tc-msg{padding:5px 8px;border-radius:7px;font-size:9px;line-height:1.3}
+.tc-msg.in{align-self:flex-start;border-bottom-left-radius:2px;max-width:85%}
+.tc-msg.out{align-self:flex-end;border-bottom-right-radius:2px;max-width:85%}
+.theme-card-label{padding:6px 10px;display:flex;align-items:center;justify-content:space-between;font-size:10px;border-top-width:1px;border-top-style:solid}
+.theme-card-label .tc-check{font-size:11px;opacity:0}
+.theme-card.active .tc-check{opacity:1}
 /* settings sub-screens */
 .sn-page{display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden}
 .sn-page.on{display:flex}
@@ -915,6 +929,14 @@ textarea::placeholder{color:var(--mu)}
       </div>
       <div class="sn-row-arrow">›</div>
     </div>
+    <div class="sn-row" onclick="snOpen('sn-theme')">
+      <div class="sn-row-icon">🎨</div>
+      <div class="sn-row-body">
+        <div class="sn-row-title">Тема</div>
+        <div class="sn-row-desc" id="sn-theme-desc">Matrix</div>
+      </div>
+      <div class="sn-row-arrow">›</div>
+    </div>
     <div class="sn-row" onclick="snOpen('sn-debug')">
       <div class="sn-row-icon">🖥</div>
       <div class="sn-row-body">
@@ -923,6 +945,15 @@ textarea::placeholder{color:var(--mu)}
       </div>
       <div class="sn-row-arrow">›</div>
     </div>
+  </div>
+
+  <!-- ══ ПОД-ЭКРАН: Тема ══ -->
+  <div class="sn-page" id="sn-theme">
+    <div class="sh-back" onclick="snBack()">← назад</div>
+    <div class="sn-section">
+      <div class="sn-label">Тема оформления</div>
+    </div>
+    <div id="theme-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px"></div>
   </div>
 
   <!-- ══ ПОД-ЭКРАН: Видимость в сети ══ -->
@@ -2955,12 +2986,89 @@ function snOpen(pageId){
   // Trigger lazy renders
   if(pageId==='sn-privacy'){ renderPresenceContactList(); _updateGlobalHiddenUI(); }
   if(pageId==='sn-data'){ updateStorageBar(); initStorageLimitUI(); }
+  if(pageId==='sn-theme'){ renderThemeGrid(); }
 }
 function snBack(){
   document.querySelectorAll('#sn .sn-page').forEach(p=>p.classList.remove('on'));
   const home = $('sn-home');
   if(home) home.classList.add('on');
 }
+
+// ── THEME SYSTEM ─────────────────────────────────────────────────────────────
+const THEMES = [
+  { id:'matrix',   name:'Matrix',   desc:'оригинальная',
+    vars:{'--bg':'#0a0a0f','--sf':'#12121a','--bd':'#2c2c42','--a':'#00ff9d','--ad':'rgba(0,255,157,.08)','--am':'rgba(0,255,157,.15)','--tx':'#e0e0f0','--mu':'#9090b8','--sn':'#003322','--rc':'#1a1a2e','--w':'#e5c07b','--e':'#e06c75'} },
+  { id:'midnight', name:'Midnight', desc:'фиолетовый',
+    vars:{'--bg':'#0d0d1a','--sf':'#13132b','--bd':'#2a2a55','--a':'#7c6fff','--ad':'rgba(124,111,255,.08)','--am':'rgba(124,111,255,.15)','--tx':'#dcdcf8','--mu':'#8080bb','--sn':'#1a1038','--rc':'#16163a','--w':'#f0b86e','--e':'#e06c75'} },
+  { id:'amber',    name:'Amber',    desc:'золотой',
+    vars:{'--bg':'#110e00','--sf':'#1a1600','--bd':'#3d3300','--a':'#ffb700','--ad':'rgba(255,183,0,.08)','--am':'rgba(255,183,0,.15)','--tx':'#f0e8cc','--mu':'#998840','--sn':'#2a2000','--rc':'#1e1a00','--w':'#ff7c3a','--e':'#e06c75'} },
+  { id:'nord',     name:'Nord',     desc:'арктический',
+    vars:{'--bg':'#1a1f2e','--sf':'#222840','--bd':'#3b4263','--a':'#88c0d0','--ad':'rgba(136,192,208,.08)','--am':'rgba(136,192,208,.15)','--tx':'#d8dee9','--mu':'#7a8aaa','--sn':'#1e2d38','--rc':'#252b3e','--w':'#ebcb8b','--e':'#bf616a'} },
+  { id:'rose',     name:'Rose',     desc:'розовый',
+    vars:{'--bg':'#13090f','--sf':'#1c0f18','--bd':'#3d1f35','--a':'#ff6eb0','--ad':'rgba(255,110,176,.08)','--am':'rgba(255,110,176,.15)','--tx':'#f0d8e8','--mu':'#9a7090','--sn':'#2a0a20','--rc':'#1e0e1a','--w':'#f0c070','--e':'#e06c75'} },
+  { id:'forest',   name:'Forest',   desc:'зелёный',
+    vars:{'--bg':'#070f08','--sf':'#0f1a10','--bd':'#1e3320','--a':'#4dff6e','--ad':'rgba(77,255,110,.08)','--am':'rgba(77,255,110,.15)','--tx':'#d0ead2','--mu':'#708870','--sn':'#0a1e0c','--rc':'#0e1e10','--w':'#d4a84b','--e':'#e06c75'} },
+  { id:'ice',      name:'Ice',      desc:'светлый',
+    vars:{'--bg':'#f0f4f8','--sf':'#ffffff','--bd':'#c8d8e8','--a':'#0077ff','--ad':'rgba(0,119,255,.08)','--am':'rgba(0,119,255,.15)','--tx':'#1a2a3a','--mu':'#6a8aaa','--sn':'#d0e8ff','--rc':'#e8f0f8','--w':'#d4830a','--e':'#cc3344'} },
+  { id:'sepia',    name:'Sepia',    desc:'тёплый',
+    vars:{'--bg':'#1a1410','--sf':'#221c16','--bd':'#3a2e24','--a':'#c8956a','--ad':'rgba(200,149,106,.08)','--am':'rgba(200,149,106,.15)','--tx':'#e8d8c0','--mu':'#9a8070','--sn':'#2a1e14','--rc':'#20180e','--w':'#e8b060','--e':'#e06060'} },
+];
+
+let _activeThemeId = localStorage.getItem('tovsa_theme') || 'matrix';
+
+function applyTheme(id){
+  const theme = THEMES.find(t => t.id === id);
+  if(!theme) return;
+  const root = document.documentElement;
+  Object.entries(theme.vars).forEach(([k,v]) => root.style.setProperty(k, v));
+  // theme-color meta для браузерного chrome
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if(meta) meta.content = theme.vars['--bg'];
+  _activeThemeId = id;
+  localStorage.setItem('tovsa_theme', id);
+  // Обновляем подпись в меню настроек
+  const desc = document.getElementById('sn-theme-desc');
+  if(desc) desc.textContent = theme.name;
+}
+
+function renderThemeGrid(){
+  const grid = document.getElementById('theme-grid');
+  if(!grid) return;
+  grid.innerHTML = '';
+  THEMES.forEach(theme => {
+    const v = theme.vars;
+    const card = document.createElement('div');
+    card.className = 'theme-card' + (theme.id === _activeThemeId ? ' active' : '');
+    card.style.background     = v['--sf'];
+    card.style.borderColor    = theme.id === _activeThemeId ? v['--a'] : v['--bd'];
+
+    card.innerHTML = `
+      <div class="theme-card-preview" style="background:${v['--bg']}">
+        <div class="tc-hdr" style="background:${v['--sf']};border-bottom:1px solid ${v['--bd']}">
+          <div class="tc-dot" style="background:${v['--a']};box-shadow:0 0 5px ${v['--a']}"></div>
+          <span style="font-size:9px;font-weight:700;color:${v['--a']};letter-spacing:1.5px">TOVSA</span>
+        </div>
+        <div class="tc-msgs">
+          <div class="tc-msg in" style="background:${v['--rc']};border:1px solid ${v['--bd']};color:${v['--tx']}">привет!</div>
+          <div class="tc-msg out" style="background:${v['--sn']};border:1px solid ${v['--am']};color:${v['--tx']}">привет 👋</div>
+        </div>
+      </div>
+      <div class="theme-card-label" style="background:${v['--sf']};border-top-color:${v['--bd']};color:${v['--mu']}">
+        <span style="color:${v['--a']};font-weight:700">${theme.name}</span>
+        <span class="tc-check" style="color:${v['--a']}">✓</span>
+      </div>`;
+
+    card.addEventListener('click', () => {
+      applyTheme(theme.id);
+      renderThemeGrid(); // перерисовываем для обновления active
+    });
+
+    grid.appendChild(card);
+  });
+}
+
+// Применяем сохранённую тему при старте
+applyTheme(_activeThemeId);
 
 // Contacts tab button: restore last sub-screen
 function showContactsTab(){

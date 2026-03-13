@@ -372,14 +372,19 @@ textarea::placeholder{color:var(--mu)}
 #sk{flex-direction:column}
 .sk-hdr{padding:16px 20px;border-bottom:1px solid var(--bd);font-size:12px;font-weight:700;letter-spacing:1px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
 .sk-empty{flex:1;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--mu);text-align:center;line-height:2}
-.citem{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--bd);transition:background .12s;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.citem{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--bd);transition:background .12s;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.ci-avatar-wrap{position:relative;flex-shrink:0;width:44px;height:44px}
+.ci-avatar{width:44px;height:44px;border-radius:50%;background-size:cover;background-position:center;background-color:var(--bd);overflow:hidden;display:flex;align-items:center;justify-content:center}
+.ci-avatar-letter{font-size:17px;font-weight:700;color:var(--mu);background:var(--bd)}
+.ci-avatar-wrap .ci-presence-dot{position:absolute;bottom:1px;right:1px;width:10px;height:10px;border:2px solid var(--sf);border-radius:50%}
+.ci-avatar-wrap .ci-online-dot{position:absolute;bottom:1px;right:1px;width:10px;height:10px;border:2px solid var(--sf);border-radius:50%}
 .citem:hover{background:var(--sf)}
 .citem.active-peer{background:rgba(0,255,157,.03);border-left:2px solid var(--a)}
 /* Офлайн-очередь */
 .msg.pending{opacity:.65}
 .msg.pending .mmeta::after{content:' ⏳';font-size:9px;color:var(--w)}
 .citem-queue-badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;background:var(--w);color:#000;font-size:9px;font-weight:700;border-radius:8px;margin-left:6px;letter-spacing:0}
-.ci-online-dot{width:9px;height:9px;border-radius:50%;background:var(--a);box-shadow:0 0 6px var(--a);flex-shrink:0;animation:blink 2s infinite}
+.ci-online-dot{width:9px;height:9px;border-radius:50%;background:var(--a);box-shadow:0 0 6px var(--a);animation:blink 2s infinite}
 .ci-presence-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;transition:background .3s,box-shadow .3s}
 .ci-presence-dot.online{background:var(--a);box-shadow:0 0 5px var(--a)}
 .ci-presence-dot.offline{background:var(--mu);box-shadow:none}
@@ -414,13 +419,50 @@ textarea::placeholder{color:var(--mu)}
 /* history screen */
 #sh{flex-direction:column}
 .sh-hdr{padding:12px 16px;border-bottom:1px solid var(--bd);background:var(--sf);flex-shrink:0;display:flex;align-items:center;gap:10px}
-.sh-name{font-size:13px;font-weight:700;flex:1}
+.sh-name{font-size:13px;font-weight:700;flex:1;cursor:pointer;transition:color .15s}.sh-name:hover{color:var(--a)}
 .sh-fp{font-size:10px;color:var(--mu)}
 .sh-empty{flex:1;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--mu)}
 /* identity panel */
 .idpanel{padding:10px 16px;border-bottom:1px solid var(--bd);background:var(--sf);display:flex;align-items:center;gap:10px;flex-shrink:0;font-size:11px}
 /* Кнопка звонка в хедере */
 .hdr-call-btn{background:none;border:none;cursor:pointer;padding:6px 8px;border-radius:10px;font-size:18px;color:var(--mu);transition:color .15s,background .15s;flex-shrink:0;-webkit-tap-highlight-color:transparent}
+/* ── Профиль контакта ── */
+#profile-modal{display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);align-items:flex-end;justify-content:center}
+#profile-modal.on{display:flex}
+#profile-sheet{background:var(--sf);border-radius:22px 22px 0 0;border-top:1px solid var(--bd);width:100%;max-width:600px;max-height:92dvh;overflow-y:auto;display:flex;flex-direction:column;animation:slideUp .22s ease;scrollbar-width:none}
+#profile-sheet::-webkit-scrollbar{display:none}
+.prof-hero{display:flex;flex-direction:column;align-items:center;gap:0;padding:28px 24px 20px;position:relative}
+.prof-close{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.07);border:none;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;color:var(--mu);-webkit-tap-highlight-color:transparent}
+.prof-avatar-wrap{position:relative;margin-bottom:14px;cursor:pointer}
+.prof-avatar{width:88px;height:88px;border-radius:50%;background:var(--bd);display:flex;align-items:center;justify-content:center;font-size:40px;overflow:hidden;border:2px solid var(--bd);transition:border-color .2s}
+.prof-avatar img{width:100%;height:100%;object-fit:cover}
+.prof-avatar-wrap:hover .prof-avatar{border-color:var(--a)}
+.prof-avatar-edit{position:absolute;bottom:0;right:0;width:24px;height:24px;border-radius:50%;background:var(--a);border:2px solid var(--sf);display:flex;align-items:center;justify-content:center;font-size:10px;pointer-events:none}
+.prof-name-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.prof-name{font-size:18px;font-weight:800;color:var(--tx);text-align:center;cursor:pointer;border-bottom:1px dashed transparent;transition:border-color .15s}
+.prof-name:hover{border-color:var(--mu)}
+.prof-name-input{font-size:18px;font-weight:800;color:var(--tx);text-align:center;background:none;border:none;border-bottom:1px solid var(--a);outline:none;width:100%;max-width:260px;font-family:inherit;padding:2px 0}
+.prof-online{font-size:11px;color:var(--a);display:flex;align-items:center;gap:5px;margin-bottom:4px}
+.prof-online-dot{width:6px;height:6px;border-radius:50%;background:var(--a)}
+.prof-fp{font-size:9px;color:var(--mu);opacity:.7;letter-spacing:.03em;margin-top:2px;text-align:center}
+.prof-section{padding:12px 20px;border-top:1px solid var(--bd);display:flex;flex-direction:column;gap:8px}
+.prof-section-title{font-size:10px;color:var(--mu);font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px}
+.prof-stat-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.prof-stat{background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:10px 12px}
+.prof-stat-label{font-size:10px;color:var(--mu);margin-bottom:2px}
+.prof-stat-val{font-size:17px;font-weight:700;color:var(--tx)}
+.prof-note-area{width:100%;background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;color:var(--tx);font-family:inherit;font-size:12px;resize:none;outline:none;min-height:56px;transition:border-color .15s;box-sizing:border-box}
+.prof-note-area:focus{border-color:var(--a)}
+.prof-pubkey{font-size:9px;color:var(--mu);word-break:break-all;line-height:1.6;padding:10px 12px;background:var(--bg);border-radius:10px;border:1px solid var(--bd)}
+.prof-action{display:flex;align-items:center;gap:10px;width:100%;padding:11px 14px;border-radius:12px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);font-size:13px;font-family:inherit;cursor:pointer;transition:border-color .15s,background .15s;-webkit-tap-highlight-color:transparent;text-align:left}
+.prof-action:hover,.prof-action:active{border-color:var(--a);background:rgba(0,255,157,.04)}
+.prof-action.danger{border-color:rgba(224,108,117,.3);color:var(--e)}
+.prof-action.danger:hover{border-color:var(--e);background:rgba(224,108,117,.04)}
+.prof-action .pa-icon{font-size:16px;width:22px;text-align:center;flex-shrink:0}
+.prof-verify-result{display:none;margin-top:6px;font-size:11px;padding:8px 12px;border-radius:8px;line-height:1.6}
+.prof-save-bar{padding:14px 20px 28px;display:flex;gap:10px}
+.prof-save-btn{flex:1;padding:13px;border-radius:14px;border:none;background:var(--a);color:#000;font-weight:800;font-size:14px;font-family:inherit;cursor:pointer;transition:opacity .15s}
+.prof-save-btn:hover{opacity:.85}
 .hdr-call-btn:hover,.hdr-call-btn:active{color:var(--a);background:rgba(0,255,157,.08)}
 /* Кнопка 3 точек */
 .hdr-more-btn{background:none;border:none;cursor:pointer;padding:6px 8px;border-radius:10px;font-size:18px;color:var(--mu);transition:color .15s,background .15s;flex-shrink:0;-webkit-tap-highlight-color:transparent;letter-spacing:1px;line-height:1}
@@ -480,7 +522,7 @@ textarea::placeholder{color:var(--mu)}
 .search-highlight.current{background:rgba(255,183,0,.7);outline:1px solid rgba(255,183,0,.9)}
 .idfp{font-size:18px;letter-spacing:2px;line-height:1}
 .idinfo{flex:1;min-width:0}
-.idname{font-weight:700;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.idname{font-weight:700;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;transition:color .15s}.idname:hover{color:var(--a)}
 .idbadge{font-size:10px;margin-top:2px}
 .idbadge.known{color:var(--a)}
 .idbadge.unknown{color:var(--w)}
@@ -912,7 +954,13 @@ textarea::placeholder{color:var(--mu)}
       <div class="sn-label">Мой контакт</div>
       <div style="display:flex;flex-direction:column;gap:6px">
         <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px">
-          <div id="my-fp-emoji" style="font-size:22px;flex-shrink:0">⏳</div>
+          <!-- Аватарка своего профиля -->
+          <div id="my-avatar-wrap" onclick="triggerSelfAvatarUpload()" title="Изменить фото"
+            style="position:relative;width:44px;height:44px;flex-shrink:0;cursor:pointer">
+            <div id="my-avatar" style="width:44px;height:44px;border-radius:50%;background:var(--bd);display:flex;align-items:center;justify-content:center;font-size:20px;overflow:hidden;transition:opacity .15s">⏳</div>
+            <div style="position:absolute;bottom:0;right:0;width:16px;height:16px;border-radius:50%;background:var(--a);border:2px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:8px;pointer-events:none">✎</div>
+          </div>
+          <input type="file" id="my-avatar-file" accept="image/*" style="display:none" onchange="onSelfAvatarFile(this)">
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:6px">
               <input id="my-name-input" placeholder="Ваше имя..." maxlength="32"
@@ -1550,8 +1598,9 @@ textarea::placeholder{color:var(--mu)}
 <div class="scr" id="sh">
   <div class="sh-back" onclick="showTab('sk')">← назад к контактам</div>
   <div class="sh-hdr">
+    <div id="sh-avatar" onclick="if(_historyFp)openProfileModal(_historyFp)" style="width:34px;height:34px;border-radius:50%;background:var(--bd);display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;flex-shrink:0;overflow:hidden;transition:opacity .15s" title="Профиль">👤</div>
     <div style="flex:1;min-width:0">
-      <div class="sh-name" id="sh-name"></div>
+      <div class="sh-name" id="sh-name" onclick="if(_historyFp)openProfileModal(_historyFp)" style="cursor:pointer" title="Профиль"></div>
       <span id="sh-size" style="font-size:10px;color:var(--mu)"></span>
     </div>
     <button id="sh-conn-btn" class="ci-conn-btn" style="display:none" onclick="connectToContact(_historyFp)">→ связь</button>
@@ -1642,45 +1691,73 @@ textarea::placeholder{color:var(--mu)}
 </div>
 
 <!-- Модальное окно информации о контакте -->
-<div class="modal-bg" id="info-modal" style="display:none" onclick="if(event.target===this)closeInfoModal()">
-  <div class="modal">
-    <div style="display:flex;align-items:center;gap:12px">
-      <div id="info-emoji" style="font-size:36px;line-height:1;flex-shrink:0"></div>
-      <div style="flex:1;min-width:0">
-        <div id="info-name" style="font-size:15px;font-weight:700;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
-        <div id="info-fp" style="font-size:10px;color:var(--mu);margin-top:3px"></div>
+<!-- Профиль контакта -->
+<div id="profile-modal" onclick="if(event.target===this)closeProfileModal()">
+  <div id="profile-sheet">
+    <!-- Hero: аватарка + имя -->
+    <div class="prof-hero">
+      <button class="prof-close" onclick="closeProfileModal()">✕</button>
+      <div class="prof-avatar-wrap" onclick="triggerAvatarUpload()" title="Изменить фото">
+        <div class="prof-avatar" id="prof-avatar">👤</div>
+        <div class="prof-avatar-edit">✎</div>
+      </div>
+      <input type="file" id="prof-avatar-input" accept="image/*" style="display:none" onchange="onAvatarFile(this)">
+      <!-- Имя: клик → редактировать -->
+      <div class="prof-name-row">
+        <div class="prof-name" id="prof-name" onclick="startEditProfName()"></div>
+      </div>
+      <input class="prof-name-input" id="prof-name-input" style="display:none" maxlength="60"
+        onblur="stopEditProfName()" onkeydown="if(event.key==='Enter')this.blur()">
+      <div id="prof-online-status" style="display:none" class="prof-online">
+        <div class="prof-online-dot"></div><span>онлайн</span>
+      </div>
+      <div id="prof-lastseen-status" style="font-size:11px;color:var(--mu);margin-bottom:2px"></div>
+      <div class="prof-fp" id="prof-fp"></div>
+    </div>
+
+    <!-- Статистика -->
+    <div class="prof-section">
+      <div class="prof-section-title">Переписка</div>
+      <div class="prof-stat-row">
+        <div class="prof-stat"><div class="prof-stat-label">Сообщений</div><div class="prof-stat-val" id="prof-msgs">0</div></div>
+        <div class="prof-stat"><div class="prof-stat-label">Занято</div><div class="prof-stat-val" id="prof-size">0 Б</div></div>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <div style="background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px 12px">
-        <div style="font-size:10px;color:var(--mu);margin-bottom:3px">Сообщений</div>
-        <div id="info-msgs" style="font-size:16px;font-weight:700;color:var(--tx)">0</div>
-      </div>
-      <div style="background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px 12px">
-        <div style="font-size:10px;color:var(--mu);margin-bottom:3px">Занято</div>
-        <div id="info-size" style="font-size:16px;font-weight:700;color:var(--tx)">0 Б</div>
-      </div>
+
+    <!-- Заметка -->
+    <div class="prof-section">
+      <div class="prof-section-title">Заметка</div>
+      <textarea class="prof-note-area" id="prof-note" placeholder="Добавить заметку..." rows="2"></textarea>
     </div>
-    <div>
-      <div style="font-size:10px;color:var(--mu);margin-bottom:4px">Заметка</div>
-      <div id="info-note" style="font-size:12px;color:var(--tx);line-height:1.5;padding:8px 10px;background:var(--bg);border-radius:6px;border:1px solid var(--bd);min-height:32px"></div>
+
+    <!-- Публичный ключ + верификация -->
+    <div class="prof-section">
+      <div class="prof-section-title">Публичный ключ</div>
+      <div class="prof-pubkey" id="prof-pubkey">—</div>
+      <button class="prof-action" id="prof-verify-btn" onclick="verifyContactKey()">
+        <span class="pa-icon">🔍</span>Проверить ключ и fingerprint
+      </button>
+      <div class="prof-verify-result" id="info-verify-result"></div>
     </div>
-    <div>
-      <div style="font-size:10px;color:var(--mu);margin-bottom:4px">Публичный ключ</div>
-      <div id="info-pubkey" style="font-size:9px;color:var(--mu);word-break:break-all;line-height:1.5;padding:8px 10px;background:var(--bg);border-radius:6px;border:1px solid var(--bd)">—</div>
+
+    <!-- Действия -->
+    <div class="prof-section">
+      <div class="prof-section-title">Настройки</div>
+      <button class="prof-action" id="info-hide-presence-btn" onclick="toggleContactHidePresence(_infoFp)">
+        <span class="pa-icon" id="prof-hide-icon">🙈</span>
+        <span id="prof-hide-label">Скрыть статус от этого контакта</span>
+      </button>
+      <button class="prof-action danger" onclick="profDeleteHistory()">
+        <span class="pa-icon">🗑</span>Удалить историю переписки
+      </button>
+      <button class="prof-action danger" onclick="profDeleteContact()">
+        <span class="pa-icon">✕</span>Удалить контакт
+      </button>
     </div>
-    <div>
-      <div style="font-size:10px;color:var(--mu);margin-bottom:6px">Верификация</div>
-      <button class="action-btn" id="info-verify-btn" onclick="verifyContactKey()" style="width:100%;justify-content:center">🔍 Проверить соответствие ключа и fingerprint</button>
-      <div id="info-verify-result" style="display:none;margin-top:8px;font-size:11px;padding:8px 10px;border-radius:6px;line-height:1.6"></div>
-    </div>
-    <div>
-      <div style="font-size:10px;color:var(--mu);margin-bottom:6px;letter-spacing:1px;text-transform:uppercase">Видимость статуса</div>
-      <button class="gbtn" id="info-hide-presence-btn" style="width:100%;padding:10px;text-align:center;font-size:12px"
-        onclick="toggleContactHidePresence(_infoFp)">🙈 Скрыть статус от этого контакта</button>
-    </div>
-    <div class="modal-row">
-      <button class="btn" onclick="closeInfoModal()">Закрыть</button>
+
+    <!-- Сохранить -->
+    <div class="prof-save-bar">
+      <button class="prof-save-btn" onclick="saveProfileModal()">Сохранить</button>
     </div>
   </div>
 </div>
@@ -1740,8 +1817,9 @@ textarea::placeholder{color:var(--mu)}
 <div class="scr" id="sc">
   <div class="idpanel" id="idpanel">
     <button class="gbtn" onclick="minimizeChat()" title="Свернуть" style="flex-shrink:0;padding:8px 10px;font-size:14px">←</button>
+    <div id="hdr-avatar" onclick="if(currentPeerFp)openProfileModal(currentPeerFp)" style="width:34px;height:34px;border-radius:50%;background:var(--bd);display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;flex-shrink:0;overflow:hidden;transition:opacity .15s" title="Профиль">👤</div>
     <div class="idinfo" style="flex:1;min-width:0">
-      <div class="idname" id="peer-name">Неизвестный</div>
+      <div class="idname" id="peer-name" onclick="if(currentPeerFp)openProfileModal(currentPeerFp)" style="cursor:pointer" title="Профиль">Неизвестный</div>
       <div id="peer-lastseen" style="font-size:10px;color:var(--mu);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
       <div id="peer-fp" style="font-size:9px;color:var(--mu);opacity:.7;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
       <div id="typing-indicator" style="display:none;font-size:9px;color:var(--a);margin-top:1px">печатает...</div>
@@ -2692,6 +2770,16 @@ async function makeIdentityMsg(recipientPubHex){
     const sub = await reg.pushManager.getSubscription();
     pushEnabled = !!sub && !!localStorage.getItem('_pushFp');
   }catch(_){}
+  // Аватарка — берём из IDB, уже сжата до 400×400 JPEG
+  let avatarB64 = null;
+  try {
+    const raw = await idbGet('meta', 'avatar_self');
+    if(raw) {
+      // Дополнительно уменьшаем для передачи: 80×80 px JPEG 60%
+      avatarB64 = await _resizeAvatarForTransfer(raw, 80, 0.60);
+    }
+  } catch(_){}
+
   return JSON.stringify({
     _t:'id',
     pub:Array.from(myPubKeyRaw),
@@ -2702,7 +2790,23 @@ async function makeIdentityMsg(recipientPubHex){
     rPub: rHex || undefined,
     name: name||undefined,
     push: pushEnabled,
-    pushPub: _pushPubKeyRaw ? Array.from(_pushPubKeyRaw) : undefined
+    pushPub: _pushPubKeyRaw ? Array.from(_pushPubKeyRaw) : undefined,
+    avatar: avatarB64 || undefined,
+  });
+}
+
+// Сжимает dataUrl до targetSize×targetSize, возвращает base64 jpeg
+async function _resizeAvatarForTransfer(dataUrl, size, quality){
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = size;
+      canvas.getContext('2d').drawImage(img, 0, 0, size, size);
+      res(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => res(null);
+    img.src = dataUrl;
   });
 }
 
@@ -2776,7 +2880,7 @@ async function _encryptPushPayload(recipientPubKeyRaw, payload){
 
 async function verifyIdentityMsg(msg){
   try{
-    const {_t,pub,ts,sig,name,push,pushPub,v,rPub}=JSON.parse(msg);
+    const {_t,pub,ts,sig,name,push,pushPub,v,rPub,avatar}=JSON.parse(msg);
     if(_t!=='id')return null;
     if(Math.abs(Date.now()-ts)>300000)return {valid:false,reason:'timestamp'}; // 5 min
     const pubBytes=new Uint8Array(pub);
@@ -2799,7 +2903,7 @@ async function verifyIdentityMsg(msg){
     if(!ok)return{valid:false,reason:'signature'};
     const hash=await sha256(pubBytes);
     const fp=bytesToFingerprint(hash);
-    return{valid:true,fp,pubHex:Array.from(pubBytes).map(b=>b.toString(16).padStart(2,'0')).join(''),name:name||'',push:!!push,pushPub:pushPub?new Uint8Array(pushPub):null};
+    return{valid:true,fp,pubHex:Array.from(pubBytes).map(b=>b.toString(16).padStart(2,'0')).join(''),name:name||'',push:!!push,pushPub:pushPub?new Uint8Array(pushPub):null,avatar:avatar||null};
   }catch(e){ return null; }
 }
 
@@ -3108,8 +3212,18 @@ function _buildContactEl(fp, c, h, isConnected){
   const queueCount = _offlineQueue.filter(m => m.fp === fp).length;
   const queueBadge = queueCount > 0 ? `<span class="citem-queue-badge">${queueCount}</span>` : '';
 
+  const cachedAva = _avatarCache[fp];
+  const _initLetter = esc((c.name||'?').replace(/[\p{Emoji_Presentation}\p{Emoji}\uFE0F]/gu,'').trim()[0]?.toUpperCase() || '?');
+  const avatarHtml = (cachedAva && cachedAva !== 'loading')
+    ? `<div class="ci-avatar" style="background-image:url('${cachedAva}')"></div>`
+    : `<div class="ci-avatar ci-avatar-letter">${_initLetter}</div>`;
+
   return `<div class="citem${activeClass}" data-fp="${fp}" onclick="openHistory('${fp}')" ${ctxAttr}>
-    ${onlineDot}${presenceDot}
+    <div class="ci-avatar-wrap">
+      ${avatarHtml}
+      ${presenceDot}
+      ${onlineDot}
+    </div>
     <div class="ciinfo">
       <div class="ciname">${nameHtml}${pinHtml}${unconfHtml}${queueBadge}</div>
       ${fpHint}
@@ -3140,6 +3254,8 @@ async function renderContacts(){
     return;
   }
   empty.style.display = 'none';
+  // Предзагружаем аватарки из IDB в память (только незагруженные)
+  await Promise.all(entries.map(([fp]) => _getAvatarCached(fp)));
   list.innerHTML = entries.map(([fp, c]) => _buildContactEl(fp, c, h, isConnected)).join('');
 }
 
@@ -3483,6 +3599,17 @@ async function openHistory(fp){
   const contacts=await getContacts();
   const contact=contacts[fp];
   $('sh-name').textContent=contact?.name||'Неизвестный';
+  // Аватарка в хедере истории
+  _getAvatarCached(fp).then(ava => {
+    const shAva = document.getElementById('sh-avatar');
+    if(!shAva) return;
+    if(ava){ shAva.innerHTML=`<img src="${ava}" style="width:100%;height:100%;object-fit:cover">`; }
+    else {
+      const nm = contact?.name||'';
+      const em = nm.match(/(\p{Emoji_Presentation}|\p{Emoji}\uFE0F)/u);
+      shAva.textContent = em ? em[0] : (nm[0]||'?').toUpperCase();
+    }
+  });
   // Показываем кнопку "позвать онлайн" если нет активного соединения
   currentPeerFp = fp;
   const callBtn = $('call-online-btn');
@@ -3679,17 +3806,106 @@ async function ctxPin(){
 function ctxEdit(){
   const fp=_ctxFp;
   closeCtxMenu();
-  openEditModal(fp);
+  openProfileModal(fp);
 }
 
 function ctxInfo(){
   const fp=_ctxFp;
   closeCtxMenu();
-  openInfoModal(fp);
+  openProfileModal(fp);
 }
 
 let _infoFp=null;
-async function openInfoModal(fp){
+
+// ── Аватарка-кэш (in-memory) ─────────────────────────────────────────────
+const _avatarCache = {}; // fp → dataUrl | null
+async function _getAvatarCached(fp){
+  if(fp in _avatarCache) return _avatarCache[fp];
+  const v = await getAvatar(fp);
+  _avatarCache[fp] = v || null;
+  return v || null;
+}
+
+// ── Аватарки (IDB meta, ключ avatar_<fp>) ─────────────────────────────────
+async function getAvatar(fp){
+  try{ return await idbGet('meta','avatar_'+fp); }catch(_){ return null; }
+}
+async function setAvatar(fp, dataUrl){
+  try{ await idbSet('meta','avatar_'+fp, dataUrl); }catch(_){}
+}
+async function delAvatar(fp){
+  try{ await idbSet('meta','avatar_'+fp, null); }catch(_){}
+}
+
+function _renderAvatar(fp, dataUrl, name){
+  const el = $('prof-avatar');
+  if(!el) return;
+  if(dataUrl){
+    el.innerHTML = `<img src="${dataUrl}" alt="">`;
+  } else {
+    const emojiMatch=(name||'').match(/(\p{Emoji_Presentation}|\p{Emoji}\uFE0F)/u);
+    el.textContent = emojiMatch ? emojiMatch[0] : '👤';
+  }
+}
+
+function triggerAvatarUpload(){
+  $('prof-avatar-input').value='';
+  $('prof-avatar-input').click();
+}
+
+function onAvatarFile(input){
+  const file=input.files[0];
+  if(!file||!_infoFp) return;
+  const MAX=400;
+  const img=new Image();
+  const url=URL.createObjectURL(file);
+  img.onload=()=>{
+    URL.revokeObjectURL(url);
+    const canvas=document.createElement('canvas');
+    const size=Math.min(img.naturalWidth,img.naturalHeight,MAX);
+    canvas.width=canvas.height=size;
+    const ctx=canvas.getContext('2d');
+    const sx=(img.naturalWidth-size)/2, sy=(img.naturalHeight-size)/2;
+    ctx.drawImage(img,sx,sy,size,size,0,0,size,size);
+    const dataUrl=canvas.toDataURL('image/jpeg',0.88);
+    _avatarCache[_infoFp] = dataUrl;
+    setAvatar(_infoFp,dataUrl);
+    _renderAvatar(_infoFp,dataUrl,$('prof-name').textContent);
+    // Обновляем аватарку в списке контактов
+    _refreshContactAvatars(_infoFp,dataUrl);
+  };
+  img.src=url;
+}
+
+function _refreshContactAvatars(fp,dataUrl){
+  renderContacts();
+}
+function _updateHdrAvatar(fp, dataUrl){
+  // Если этот контакт открыт в чате — можно обновить что-то в хедере
+  // (пока хедер чата не показывает аватарку, но готово для расширения)
+}
+
+// ── Редактирование имени inline ───────────────────────────────────────────
+function startEditProfName(){
+  const nameEl=$('prof-name');
+  const inp=$('prof-name-input');
+  inp.value=nameEl.textContent;
+  nameEl.style.display='none';
+  inp.style.display='';
+  inp.focus();
+  inp.select();
+}
+function stopEditProfName(){
+  const nameEl=$('prof-name');
+  const inp=$('prof-name-input');
+  const val=inp.value.trim();
+  if(val) nameEl.textContent=val;
+  inp.style.display='none';
+  nameEl.style.display='';
+}
+
+// ── Открытие профиля ──────────────────────────────────────────────────────
+async function openProfileModal(fp){
   _infoFp=fp;
   const contacts=await getContacts();
   const c=contacts[fp]||{};
@@ -3697,30 +3913,105 @@ async function openInfoModal(fp){
   const msgs=h[fp]||[];
   const sz=await contactSize(fp);
   const name=c.name||'Неизвестный';
-  const emojiMatch=name.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F)/u);
-  $('info-emoji').textContent=emojiMatch?emojiMatch[0]:'👤';
-  $('info-name').textContent=name;
-  $('info-fp').textContent=fp;
-  $('info-msgs').textContent=msgs.length;
-  $('info-size').textContent=fmtSize(sz);
-  $('info-note').textContent=c.note||'—';
-  $('info-pubkey').textContent=c.pubKeyHex||'—';
-  $('info-modal').style.display='flex';
-  // Обновляем кнопку скрытия
+
+  // Аватарка
+  const avatarData=await getAvatar(fp);
+  _renderAvatar(fp,avatarData,name);
+
+  // Имя
+  $('prof-name').textContent=name;
+  $('prof-name').style.display='';
+  $('prof-name-input').style.display='none';
+
+  // Онлайн статус
+  const pstate=_presenceCache[fp];
+  const onlineEl=$('prof-online-status');
+  const lsEl=$('prof-lastseen-status');
+  if(pstate==='online'){
+    onlineEl.style.display='flex';
+    lsEl.textContent='';
+  } else {
+    onlineEl.style.display='none';
+    const ls=_fmtLastSeen(fp);
+    lsEl.textContent=ls?'был(а) '+ls:'';
+  }
+
+  // FP, статистика, заметка, ключ
+  $('prof-fp').textContent=fp;
+  $('prof-msgs').textContent=msgs.length;
+  $('prof-size').textContent=fmtSize(sz);
+  $('prof-note').value=c.note||'';
+  $('prof-pubkey').textContent=c.pubKeyHex||'—';
+
+  // Сброс верификации
+  const vr=$('info-verify-result');
+  vr.style.display='none';
+  $('prof-verify-btn').querySelector('span:last-child').textContent='Проверить ключ и fingerprint';
+
+  // Скрытие статуса
   _updateHidePresenceBtnUI(fp, !!c.hidePresence);
+
+  $('profile-modal').classList.add('on');
 }
 
-function closeInfoModal(){
-  $('info-modal').style.display='none';
+// Для обратной совместимости с openInfoModal вызовами
+function openInfoModal(fp){ return openProfileModal(fp); }
+
+function closeProfileModal(){
+  $('profile-modal').classList.remove('on');
   _infoFp=null;
-  $('info-verify-result').style.display='none';
+}
+function closeInfoModal(){ closeProfileModal(); }
+
+// ── Сохранение из профиля ──────────────────────────────────────────────────
+async function saveProfileModal(){
+  if(!_infoFp) return;
+  const fp=_infoFp;
+  const name=$('prof-name').textContent.trim() || $('prof-name-input').value.trim();
+  if(!name){ toast('Введите имя'); return; }
+  const contacts=await getContacts();
+  const existing=contacts[fp]||{};
+  contacts[fp]={...existing,name,note:$('prof-note').value.trim(),savedAt:existing.savedAt||Date.now()};
+  await saveContacts(contacts);
+  closeProfileModal();
+  // Инвалидируем кэш имени (аватарка инвалидируется при загрузке)
+  delete _avatarCache[fp];
+  renderContacts();
+  _refreshPairBeacons();
+  if(currentPeerFp===fp) showPeerIdentity(fp,true,name);
+  if(_historyFp===fp) $('sh-name').textContent=name;
+  toast('Сохранено');
+}
+
+// ── Действия в профиле ─────────────────────────────────────────────────────
+async function profDeleteHistory(){
+  if(!_infoFp) return;
+  if(!confirm('Удалить всю историю переписки?')) return;
+  const h=await getHistory();
+  delete h[_infoFp];
+  await idbSet('history','all',h);
+  await idbSet('contacts','pins_'+_infoFp,[]);
+  if(currentPeerFp===_infoFp){ _pins=[]; _renderPinBar(); }
+  renderContacts();
+  toast('История удалена');
+  // обновляем статистику
+  $('prof-msgs').textContent='0';
+  $('prof-size').textContent='0 Б';
+}
+
+async function profDeleteContact(){
+  if(!_infoFp) return;
+  if(!confirm('Удалить контакт и всю историю?')) return;
+  const fp=_infoFp;
+  closeProfileModal();
+  await deleteContact(fp,null);
 }
 
 async function verifyContactKey(){
-  const btn=$('info-verify-btn');
+  const btn=$('prof-verify-btn');
   const result=$('info-verify-result');
-  const pubHex=$('info-pubkey').textContent;
-  const storedFp=$('info-fp').textContent;
+  const pubHex=$('prof-pubkey').textContent;
+  const storedFp=$('prof-fp').textContent;
 
   if(!pubHex||pubHex==='—'){
     result.style.display='block';
@@ -3731,7 +4022,7 @@ async function verifyContactKey(){
     return;
   }
 
-  btn.textContent='🔍 Проверяем...';
+  btn.querySelector && btn.querySelector('span:last-child') ? btn.querySelector('span:last-child').textContent='🔍 Проверяем...' : (btn.textContent='🔍 Проверяем...');
   btn.disabled=true;
 
   try{
@@ -3759,7 +4050,7 @@ async function verifyContactKey(){
     result.style.color='var(--e)';
     result.textContent='✗ Ошибка при проверке: '+e.message;
   }finally{
-    btn.textContent='🔍 Проверить соответствие ключа и fingerprint';
+    (btn.querySelector && btn.querySelector('span:last-child') ? btn.querySelector('span:last-child').textContent='Проверить ключ и fingerprint' : (btn.textContent='🔍 Проверить ключ и fingerprint'));
     btn.disabled=false;
   }
 }
@@ -4003,10 +4294,27 @@ function showPeerIdentity(fp,known,name){
   currentPeerFp=fp;
   if(known){
     $('peer-name').textContent=name||'Контакт';
+  // Обновляем аватарку в хедере
+  _getAvatarCached(fp).then(ava => {
+    const hdrAva = document.getElementById('hdr-avatar');
+    if(!hdrAva) return;
+    if(ava){ hdrAva.innerHTML=`<img src="${ava}" style="width:100%;height:100%;object-fit:cover">`; }
+    else {
+      const em = (name||'').match(/(\p{Emoji_Presentation}|\p{Emoji}\uFE0F)/u);
+      hdrAva.textContent = em ? em[0] : (name||'?')[0].toUpperCase();
+    }
+  });
     $('idsavebtn').style.display='none';
     $('peer-fp').style.display='none';
   }else{
     $('peer-name').textContent=name||'Неизвестный';
+  // Сброс аватарки в хедере для незнакомца
+  _getAvatarCached(fp||'').then(ava => {
+    const hdrAva = document.getElementById('hdr-avatar');
+    if(!hdrAva) return;
+    if(ava){ hdrAva.innerHTML=`<img src="${ava}" style="width:100%;height:100%;object-fit:cover">`; }
+    else { hdrAva.textContent='👤'; hdrAva.innerHTML='👤'; }
+  });
     $('idsavebtn').style.display='block';
     $('peer-fp').style.display='';
     $('peer-fp').textContent=fp||'';
@@ -4057,6 +4365,8 @@ function resetPeerIdentity(){
   currentPeerPubKeyHex=null;
   currentPeerOfferedName=null;
   $('peer-name').textContent='Неизвестный';
+  const _hdrAvaReset = document.getElementById('hdr-avatar');
+  if(_hdrAvaReset){ _hdrAvaReset.innerHTML=''; _hdrAvaReset.textContent='👤'; }
   $('peer-fp').textContent='';
   $('peer-lastseen').textContent='';
   $('idsavebtn').style.display='none';
@@ -6587,6 +6897,8 @@ openDB().then(async ()=>{
   renderContacts();
   // Загружаем обои из IDB
   _loadWallpaper();
+  // Загружаем свою аватарку
+  _loadSelfAvatar();
   // Загружаем lastSeen из IDB — сохраняется между сессиями
   try{
     const saved = await idbGet('meta', _LAST_SEEN_IDB_KEY);
@@ -7426,6 +7738,16 @@ async function _handleIdentityPacket(data, setIdDone){
       }
       // Кешируем pubKeyHex для push-уведомлений (даже если контакт не сохранён)
       try { const _pc=JSON.parse(localStorage.getItem('_ntfyPubCache')||'{}'); _pc[res.fp]=res.pubHex; localStorage.setItem('_ntfyPubCache',JSON.stringify(_pc)); } catch(_){}
+      // Аватарка от собеседника — сохраняем если у нас её нет
+      if(res.avatar){
+        try{
+          const existing = await idbGet('meta', 'avatar_' + res.fp);
+          if(!existing){
+            await idbSet('meta', 'avatar_' + res.fp, res.avatar);
+            _avatarCache[res.fp] = res.avatar;
+          }
+        }catch(_){}
+      }
       if(contact){
         if(!contact.pubKeyHex) contact.pubKeyHex = res.pubHex;
         contact.lastSeen = Date.now();
@@ -12375,17 +12697,12 @@ async function toggleContactHidePresence(fp) {
 }
 
 function _updateHidePresenceBtnUI(fp, hidden) {
-  const btn = document.getElementById('info-hide-presence-btn');
-  if(!btn) return;
-  if(hidden) {
-    btn.textContent = '👁 Показывать статус этому контакту';
-    btn.style.borderColor = 'rgba(229,192,123,.4)';
-    btn.style.color = 'var(--w)';
-  } else {
-    btn.textContent = '🙈 Скрыть статус от этого контакта';
-    btn.style.borderColor = 'var(--bd)';
-    btn.style.color = 'var(--mu)';
-  }
+  const icon  = document.getElementById('prof-hide-icon');
+  const label = document.getElementById('prof-hide-label');
+  if(icon)  icon.textContent  = hidden ? '👁' : '🙈';
+  if(label) label.textContent = hidden
+    ? 'Показывать статус этому контакту'
+    : 'Скрыть статус от этого контакта';
 }
 
 // Позвать собеседника онлайн — отправляем push и начинаем следить за presence
@@ -12878,6 +13195,56 @@ function generateNameFromBytes(bytes){
   const adj  = NAME_ADJ[bytes[0]  % NAME_ADJ.length];
   const noun = NAME_NOUN[bytes[1] % NAME_NOUN.length];
   return adj + ' ' + noun;
+}
+
+// ── Своя аватарка (IDB meta, ключ avatar_self) ───────────────────────────────
+let _mySelfAvatarB64 = null; // in-memory
+
+async function _loadSelfAvatar(){
+  try{
+    const v = await idbGet('meta', 'avatar_self');
+    _mySelfAvatarB64 = v || null;
+    _renderSelfAvatar(v);
+  }catch(_){}
+}
+
+function _renderSelfAvatar(dataUrl){
+  const el = document.getElementById('my-avatar');
+  if(!el) return;
+  if(dataUrl){
+    el.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover" alt="">`;
+  } else {
+    // Показываем первую букву имени или эмодзи fingerprint
+    const fpEmoji = document.getElementById('my-fp-emoji');
+    el.textContent = fpEmoji?.textContent || '👤';
+  }
+}
+
+function triggerSelfAvatarUpload(){
+  const inp = document.getElementById('my-avatar-file');
+  if(inp){ inp.value=''; inp.click(); }
+}
+
+function onSelfAvatarFile(input){
+  const file = input.files[0];
+  if(!file) return;
+  const MAX = 400;
+  const img = new Image();
+  const url = URL.createObjectURL(file);
+  img.onload = async () => {
+    URL.revokeObjectURL(url);
+    const canvas = document.createElement('canvas');
+    const size = Math.min(img.naturalWidth, img.naturalHeight, MAX);
+    canvas.width = canvas.height = size;
+    const sx = (img.naturalWidth - size) / 2, sy = (img.naturalHeight - size) / 2;
+    canvas.getContext('2d').drawImage(img, sx, sy, size, size, 0, 0, size, size);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+    _mySelfAvatarB64 = dataUrl;
+    await idbSet('meta', 'avatar_self', dataUrl);
+    _renderSelfAvatar(dataUrl);
+    toast('Аватарка сохранена');
+  };
+  img.src = url;
 }
 
 function saveMyName(val){

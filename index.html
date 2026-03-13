@@ -3411,12 +3411,16 @@ async function openHistory(fp){
         d.dataset.ts=m.ts;
       } else {
         d=document.createElement('div');
-        d.className='msg '+(m.type==='out'?'out':'in');
+        // Помечаем pending если сообщение ещё в офлайн-очереди
+        const _isPending = m.type==='out' && _offlineQueue.some(q=>q.fp===fp&&Number(q.ts)===Number(m.ts));
+        d.className='msg '+(m.type==='out'?'out':'in')+(_isPending?' pending':'');
+        if(_isPending) d.dataset.pending='1';
         d.dataset.ts=m.ts;
         const h2=m.text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         const t=new Date(m.ts).toLocaleString('ru',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
         const quoteHtml=m.replyText?buildQuoteHtml(m.replySender,m.replyText,m.replyTs):'';
-        d.innerHTML=`<div class="msender">${esc(sender)}</div>${quoteHtml}${h2}<div class="mmeta">${t}</div>`;
+        const fwdHdrSh = m.fwdFrom ? buildFwdHtml(m.fwdFrom) : '';
+        d.innerHTML=`<div class="msender">${esc(sender)}</div>${fwdHdrSh}${quoteHtml}${h2}<div class="mmeta">${t}</div>`;
       }
       attachMsgLongPress(d,m.__file__?('[файл] '+(m.name||'')):m.text,sender,m.ts,fp);
       return d;
@@ -8874,7 +8878,7 @@ function sendMsg(){
     addMsg(t,'out',_replyText||null,_replySender||null,_replyTs||null,ts);
     if(_replyText) cancelReply();
     i.value=''; i.style.height='auto'; i.focus();
-    toast('📤 Отправится когда восстановится соединение');
+    
     return;
   }
   const ts=Date.now();
@@ -9193,13 +9197,30 @@ async function _doFwdToContact(fp, contact){
     } else {
       _e2eSend(JSON.stringify({ __msg__:true, ts, text: queueItem.text, fwdFrom: senderName }));
     }
-    if(activeTab === 'sc' && currentPeerFp === fp) addMsg(queueItem.text||'[файл] '+msg.fileName, 'out', null, null, null, ts, null, senderName);
+    // fwdFrom на 9-й позиции — у отправителя плашка "Переслано от X" тоже видна
+    if(activeTab === 'sc' && currentPeerFp === fp) addMsg(queueItem.text||'[файл] '+msg.fileName, 'out', null, null, null, ts, null, null, senderName);
     toast('Переслано');
   } else {
     // Офлайн — в очередь (подхватится при reconnect)
     _offlineQueue.push(queueItem);
     idbSet('meta','offlineQueue', _offlineQueue).catch(()=>{});
-    toast('📤 Переслано — отправится когда контакт будет онлайн');
+    // Показываем pending-пузырь в истории контакта если она сейчас открыта
+    if(_historyFp === fp){
+      const container = $('sh-msgs');
+      if(container){
+        const d = document.createElement('div');
+        d.className = 'msg out pending';
+        d.dataset.ts = ts;
+        d.dataset.pending = '1';
+        const t = new Date(ts).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
+        const fwdHdr = senderName ? buildFwdHtml(senderName) : '';
+        const txt = (queueItem.text||'[файл] '+msg.fileName).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        d.innerHTML = fwdHdr + txt + '<div class="mmeta">'+t+' <span style="opacity:.5">⏳</span></div>';
+        container.appendChild(d);
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+    
   }
 
   renderContacts();
@@ -9209,6 +9230,7 @@ async function msgCtxDelete(){
   const el=_msgCtxEl;
   const fp=_msgCtxFp;
   const ts=Number(_msgCtxTs);
+  const isPending = el && el.dataset.pending === '1';
   closeMsgCtx();
   try{ if(el && el.parentNode) el.parentNode.removeChild(el); }catch(e){}
   if(fp==='__fav__' && ts){
@@ -9221,6 +9243,17 @@ async function msgCtxDelete(){
       h[fp]=h[fp].filter(m=>Number(m.ts)!==ts);
       await idbSet('history','all',h);
       if(activeTab==='contacts') renderContacts();
+    }
+    // Если сообщение ещё не отправлено — убираем из офлайн-очереди
+    if(isPending){
+      const before = _offlineQueue.length;
+      _offlineQueue = _offlineQueue.filter(m => !(m.fp===fp && Number(m.ts)===ts));
+      if(_offlineQueue.length !== before){
+        idbSet('meta','offlineQueue',_offlineQueue).catch(()=>{});
+        _updateQueueBadge(fp);
+        toast('Отложенное сообщение отменено');
+        return;
+      }
     }
   }
   toast('Сообщение удалено');

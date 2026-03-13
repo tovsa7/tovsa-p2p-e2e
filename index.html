@@ -426,11 +426,53 @@ textarea::placeholder{color:var(--mu)}
 .idpanel{padding:10px 16px;border-bottom:1px solid var(--bd);background:var(--sf);display:flex;align-items:center;gap:10px;flex-shrink:0;font-size:11px}
 /* Кнопка звонка в хедере */
 .hdr-call-btn{background:none;border:none;cursor:pointer;padding:6px 8px;border-radius:10px;font-size:18px;color:var(--mu);transition:color .15s,background .15s;flex-shrink:0;-webkit-tap-highlight-color:transparent}
+/* ── Info drawer (второй шит из профиля) ── */
+#info-drawer-modal{display:none;position:fixed;inset:0;z-index:700;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);align-items:flex-end;justify-content:center}
+#info-drawer-modal.on{display:flex}
+#info-drawer-sheet{background:var(--sf);border-radius:22px 22px 0 0;border-top:1px solid var(--bd);width:100%;max-width:600px;max-height:80dvh;overflow-y:auto;display:flex;flex-direction:column;animation:slideUp .2s ease;scrollbar-width:none}
+#info-drawer-sheet::-webkit-scrollbar{display:none}
+.idr-header{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--bd);flex-shrink:0}
+.idr-header-name{font-size:15px;font-weight:700;color:var(--tx);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.idr-close{background:rgba(255,255,255,.07);border:none;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;color:var(--mu);flex-shrink:0;-webkit-tap-highlight-color:transparent}
+
+/* ── Галерея медиа в профиле ── */
+.prof-gallery-tabs{display:flex;gap:0;border-bottom:1px solid var(--bd);margin:0 0 0 0}
+.pgt{flex:1;padding:10px 0;background:none;border:none;border-bottom:2px solid transparent;color:var(--mu);font-size:12px;font-weight:700;letter-spacing:.04em;cursor:pointer;font-family:inherit;transition:color .15s,border-color .15s;-webkit-tap-highlight-color:transparent}
+.pgt.on{color:var(--a);border-bottom-color:var(--a)}
+#prof-gallery-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;padding:2px 0}
+.pgm-cell{aspect-ratio:1;background:var(--bd);overflow:hidden;cursor:pointer;position:relative;-webkit-tap-highlight-color:transparent}
+.pgm-cell img,.pgm-cell video{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.pgm-cell-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.25)}
+.pgm-cell-play svg{width:24px;height:24px;fill:#fff;opacity:.9}
+.pgm-cell-gif{position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,.55);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;letter-spacing:.05em}
+.prof-gallery-empty{padding:32px 20px;text-align:center;color:var(--mu);font-size:12px}
+#prof-gallery-files{display:flex;flex-direction:column;gap:0}
+.pgf-item{display:flex;align-items:center;gap:12px;padding:11px 20px;border-bottom:1px solid var(--bd);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s}
+.pgf-item:hover,.pgf-item:active{background:rgba(255,255,255,.04)}
+.pgf-icon{width:38px;height:38px;border-radius:10px;background:var(--bd);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.pgf-info{flex:1;min-width:0}
+.pgf-name{font-size:12px;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pgf-meta{font-size:10px;color:var(--mu);margin-top:2px}
+.pgf-dl{background:none;border:none;color:var(--mu);font-size:16px;cursor:pointer;padding:6px;flex-shrink:0;-webkit-tap-highlight-color:transparent;transition:color .15s}
+.pgf-dl:hover{color:var(--a)}
+/* Лайтбокс */
+#prof-lightbox{display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.95);flex-direction:column;align-items:center;justify-content:center}
+#prof-lightbox.on{display:flex}
+#prof-lightbox-media{max-width:100%;max-height:calc(100dvh - 80px);object-fit:contain;border-radius:8px}
+#prof-lightbox-close{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.1);border:none;border-radius:50%;width:36px;height:36px;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#prof-lightbox-caption{position:absolute;bottom:20px;left:0;right:0;text-align:center;color:rgba(255,255,255,.5);font-size:11px;padding:0 20px}
+
 /* ── Профиль контакта ── */
 #profile-modal{display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);align-items:flex-end;justify-content:center}
 #profile-modal.on{display:flex}
-#profile-sheet{background:var(--sf);border-radius:22px 22px 0 0;border-top:1px solid var(--bd);width:100%;max-width:600px;max-height:92dvh;overflow-y:auto;display:flex;flex-direction:column;animation:slideUp .22s ease;scrollbar-width:none}
-#profile-sheet::-webkit-scrollbar{display:none}
+#profile-sheet{background:var(--sf);border-radius:22px 22px 0 0;border-top:1px solid var(--bd);width:100%;max-width:600px;max-height:92dvh;display:flex;flex-direction:column;animation:slideUp .22s ease}
+.prof-body{flex:1;overflow-y:auto;display:flex;flex-direction:column;scrollbar-width:none}
+.prof-body::-webkit-scrollbar{display:none}
+/* Галерея — sticky вкладки + ограниченная высота содержимого */
+.prof-gallery-sticky{position:sticky;top:0;z-index:2;background:var(--sf)}
+.prof-gallery-content{max-height:260px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bd) transparent}
+.prof-gallery-content::-webkit-scrollbar{width:3px}
+.prof-gallery-content::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
 .prof-hero{display:flex;flex-direction:column;align-items:center;gap:0;padding:28px 24px 20px;position:relative}
 .prof-close{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.07);border:none;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;color:var(--mu);-webkit-tap-highlight-color:transparent}
 .prof-avatar-wrap{position:relative;margin-bottom:14px;cursor:pointer}
@@ -1713,14 +1755,66 @@ textarea::placeholder{color:var(--mu)}
       </div>
       <div id="prof-lastseen-status" style="font-size:11px;color:var(--mu);margin-bottom:2px"></div>
       <div class="prof-fp" id="prof-fp"></div>
+    </div><!-- /.prof-hero -->
+
+    <div class="prof-body">
+    <!-- Кнопка информации -->
+    <div style="padding:12px 20px 4px">
+      <button class="prof-action" onclick="openInfoDrawer()" style="background:rgba(0,255,157,.06);border-color:rgba(0,255,157,.2);color:var(--a)">
+        <span class="pa-icon">ℹ</span><span>Информация о контакте</span>
+        <span style="margin-left:auto;font-size:16px;opacity:.5">›</span>
+      </button>
+    </div>
+
+    <!-- Галерея медиа/файлов -->
+    <div class="prof-section" style="padding:0;gap:0;border-top:1px solid var(--bd)">
+      <div class="prof-gallery-sticky">
+        <div style="padding:12px 20px 0;font-size:10px;color:var(--mu);font-weight:700;letter-spacing:.08em;text-transform:uppercase">Медиа и файлы</div>
+        <div class="prof-gallery-tabs">
+          <button class="pgt on" id="pgt-media" onclick="switchGalleryTab('media')">Медиа</button>
+          <button class="pgt" id="pgt-files" onclick="switchGalleryTab('files')">Файлы</button>
+          <button class="pgt" id="pgt-voice" onclick="switchGalleryTab('voice')">Голос</button>
+        </div>
+      </div>
+      <div class="prof-gallery-content">
+        <div id="prof-gallery-media">
+          <div id="prof-gallery-grid"></div>
+        </div>
+        <div id="prof-gallery-files" style="display:none"></div>
+        <div id="prof-gallery-voice" style="display:none"></div>
+      </div>
+    </div>
+
+  </div><!-- /.prof-body -->
+</div><!-- /#profile-sheet -->
+</div><!-- /#profile-modal -->
+
+<!-- Info drawer -->
+<div id="info-drawer-modal" onclick="if(event.target===this)closeInfoDrawer()">
+  <div id="info-drawer-sheet">
+    <div class="idr-header">
+      <!-- Аватарка контакта (кликабельна — смена фото) -->
+      <div id="idr-avatar-wrap" onclick="triggerAvatarUpload()" title="Изменить фото"
+        style="position:relative;width:44px;height:44px;flex-shrink:0;cursor:pointer">
+        <div id="idr-avatar" style="width:44px;height:44px;border-radius:50%;background:var(--bd);display:flex;align-items:center;justify-content:center;font-size:20px;overflow:hidden">👤</div>
+        <div style="position:absolute;bottom:0;right:0;width:16px;height:16px;border-radius:50%;background:var(--a);border:2px solid var(--sf);display:flex;align-items:center;justify-content:center;font-size:8px;pointer-events:none">✎</div>
+      </div>
+      <!-- Имя контакта (редактируемое) -->
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+        <div id="idr-name" class="idr-header-name" onclick="startEditIdrName()" title="Редактировать имя" style="cursor:pointer"></div>
+        <input id="idr-name-input" style="display:none;font-size:15px;font-weight:700;color:var(--tx);background:none;border:none;border-bottom:1px solid var(--a);outline:none;font-family:inherit;padding:2px 0;width:100%" maxlength="60"
+          onblur="stopEditIdrName()" onkeydown="if(event.key==='Enter')this.blur()">
+        <div style="font-size:10px;color:var(--mu)" id="idr-fp-hint">нажмите на имя чтобы изменить</div>
+      </div>
+      <button class="idr-close" onclick="closeInfoDrawer()">✕</button>
     </div>
 
     <!-- Статистика -->
     <div class="prof-section">
       <div class="prof-section-title">Переписка</div>
       <div class="prof-stat-row">
-        <div class="prof-stat"><div class="prof-stat-label">Сообщений</div><div class="prof-stat-val" id="prof-msgs">0</div></div>
-        <div class="prof-stat"><div class="prof-stat-label">Занято</div><div class="prof-stat-val" id="prof-size">0 Б</div></div>
+        <div class="prof-stat"><div class="prof-stat-label">Сообщений</div><div class="prof-stat-val" id="idr-msgs">0</div></div>
+        <div class="prof-stat"><div class="prof-stat-label">Занято</div><div class="prof-stat-val" id="idr-size">0 Б</div></div>
       </div>
     </div>
 
@@ -1740,7 +1834,7 @@ textarea::placeholder{color:var(--mu)}
       <div class="prof-verify-result" id="info-verify-result"></div>
     </div>
 
-    <!-- Действия -->
+    <!-- Настройки -->
     <div class="prof-section">
       <div class="prof-section-title">Настройки</div>
       <button class="prof-action" id="info-hide-presence-btn" onclick="toggleContactHidePresence(_infoFp)">
@@ -1789,8 +1883,7 @@ textarea::placeholder{color:var(--mu)}
 <div class="ctx-bg" id="ctx-bg" style="display:none" onclick="closeCtxMenu()"></div>
 <div class="ctx-menu" id="ctx-menu" style="display:none">
   <button class="ctx-item" id="ctx-pin" onclick="ctxPin()">Закрепить</button>
-  <button class="ctx-item" onclick="ctxEdit()">Изменить</button>
-  <button class="ctx-item" onclick="ctxInfo()">Информация</button>
+  <button class="ctx-item" onclick="ctxInfo()">Профиль</button>
 </div>
 
 <!-- Контекстное меню сообщения -->
@@ -1807,6 +1900,14 @@ textarea::placeholder{color:var(--mu)}
 </div>
 
 <!-- Пикер контакта для пересылки -->
+<!-- Лайтбокс медиа -->
+<div id="prof-lightbox" onclick="closeLightbox()">
+  <button id="prof-lightbox-close" onclick="closeLightbox()">✕</button>
+  <img id="prof-lightbox-img" style="display:none;max-width:100%;max-height:calc(100dvh - 80px);object-fit:contain;border-radius:8px" alt="">
+  <video id="prof-lightbox-video" style="display:none;max-width:100%;max-height:calc(100dvh - 80px);border-radius:8px" controls playsinline></video>
+  <div id="prof-lightbox-caption"></div>
+</div>
+
 <div class="ctx-bg" id="fwd-picker-bg" style="display:none" onclick="closeFwdPicker()"></div>
 <div id="fwd-picker" style="display:none;position:fixed;z-index:310;background:var(--bg);border:1px solid var(--bd);border-radius:14px;padding:12px 0;min-width:240px;max-width:320px;max-height:60vh;overflow-y:auto;box-shadow:0 4px 24px rgba(0,0,0,.18)">
   <div style="padding:4px 16px 10px;font-size:12px;color:var(--mu);font-weight:600;letter-spacing:.04em">ПЕРЕСЛАТЬ</div>
@@ -3871,7 +3972,9 @@ function onAvatarFile(input){
     _avatarCache[_infoFp] = dataUrl;
     setAvatar(_infoFp,dataUrl);
     _renderAvatar(_infoFp,dataUrl,$('prof-name').textContent);
-    // Обновляем аватарку в списке контактов
+    // Синхронизируем idr-avatar
+    const idrAva = document.getElementById('idr-avatar');
+    if(idrAva) idrAva.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover" alt="">`;
     _refreshContactAvatars(_infoFp,dataUrl);
   };
   img.src=url;
@@ -3938,8 +4041,9 @@ async function openProfileModal(fp){
 
   // FP, статистика, заметка, ключ
   $('prof-fp').textContent=fp;
-  $('prof-msgs').textContent=msgs.length;
-  $('prof-size').textContent=fmtSize(sz);
+  // Кешируем для info-drawer
+  document.getElementById('profile-modal').dataset.msgs = msgs.length;
+  document.getElementById('profile-modal').dataset.size = fmtSize(sz);
   $('prof-note').value=c.note||'';
   $('prof-pubkey').textContent=c.pubKeyHex||'—';
 
@@ -3950,6 +4054,14 @@ async function openProfileModal(fp){
 
   // Скрытие статуса
   _updateHidePresenceBtnUI(fp, !!c.hidePresence);
+
+  // Сброс галереи и загрузка
+  _galleryTab = 'media';
+  switchGalleryTab('media');
+  document.getElementById('prof-gallery-grid').innerHTML = '<div class="prof-gallery-empty" style="padding:20px;text-align:center;color:var(--mu);font-size:11px">Загрузка...</div>';
+  document.getElementById('prof-gallery-files').innerHTML = '';
+  document.getElementById('prof-gallery-voice').innerHTML = '';
+  loadProfileGallery(fp);
 
   $('profile-modal').classList.add('on');
 }
@@ -3967,14 +4079,18 @@ function closeInfoModal(){ closeProfileModal(); }
 async function saveProfileModal(){
   if(!_infoFp) return;
   const fp=_infoFp;
-  const name=$('prof-name').textContent.trim() || $('prof-name-input').value.trim();
+  // Имя может быть изменено в idr-name или prof-name
+  const idrNameEl = document.getElementById('idr-name');
+  const idrInpEl  = document.getElementById('idr-name-input');
+  const idrNameVal = (idrInpEl?.style.display !== 'none' ? idrInpEl?.value : idrNameEl?.textContent)?.trim();
+  const name = idrNameVal || $('prof-name').textContent.trim() || $('prof-name-input').value.trim();
   if(!name){ toast('Введите имя'); return; }
   const contacts=await getContacts();
   const existing=contacts[fp]||{};
   contacts[fp]={...existing,name,note:$('prof-note').value.trim(),savedAt:existing.savedAt||Date.now()};
   await saveContacts(contacts);
+  closeInfoDrawer();
   closeProfileModal();
-  // Инвалидируем кэш имени (аватарка инвалидируется при загрузке)
   delete _avatarCache[fp];
   renderContacts();
   _refreshPairBeacons();
@@ -3994,9 +4110,14 @@ async function profDeleteHistory(){
   if(currentPeerFp===_infoFp){ _pins=[]; _renderPinBar(); }
   renderContacts();
   toast('История удалена');
-  // обновляем статистику
-  $('prof-msgs').textContent='0';
-  $('prof-size').textContent='0 Б';
+  document.getElementById('profile-modal').dataset.msgs = '0';
+  document.getElementById('profile-modal').dataset.size = '0 Б';
+  if(document.getElementById('info-drawer-modal')?.classList.contains('on')){
+    document.getElementById('idr-msgs').textContent = '0';
+    document.getElementById('idr-size').textContent = '0 Б';
+  }
+  // Перезагружаем галерею
+  if(_infoFp) loadProfileGallery(_infoFp);
 }
 
 async function profDeleteContact(){
@@ -9693,6 +9814,259 @@ async function clearWallpaper(){
   _applyWallpaper();
   _syncWallpaperPreview();
   toast('Обои удалены');
+}
+
+
+// ── Галерея медиа/файлов в профиле ───────────────────────────────────────────
+let _galleryTab = 'media';
+let _galleryItems = []; // все медиа-сообщения текущего контакта
+
+function switchGalleryTab(tab){
+  _galleryTab = tab;
+  ['media','files','voice'].forEach(t => {
+    document.getElementById('pgt-'+t)?.classList.toggle('on', t===tab);
+    document.getElementById('prof-gallery-'+t)?.style && (document.getElementById('prof-gallery-'+t).style.display = t===tab ? '' : 'none');
+  });
+}
+
+async function loadProfileGallery(fp){
+  const h = await getHistory();
+  const msgs = (h[fp] || []).filter(m => m.__file__ && m.fileId);
+
+  _galleryItems = msgs;
+
+  // Сортируем: новые сверху
+  const sorted = [...msgs].reverse();
+
+  const media  = sorted.filter(m => m.mime && (m.mime.startsWith('image/') || m.mime.startsWith('video/')));
+  const files  = sorted.filter(m => m.mime && !m.mime.startsWith('image/') && !m.mime.startsWith('video/') && !(m.mime.startsWith('audio/') && (m.kind === 'voice' || m.kind === 'circle')));
+  const voices = sorted.filter(m => m.mime && m.mime.startsWith('audio/') && (m.kind === 'voice' || m.kind === 'circle'));
+
+  // ── Медиа-сетка ───────────────────────────────────────────────────────────
+  const grid = document.getElementById('prof-gallery-grid');
+  if(media.length === 0){
+    grid.innerHTML = '<div class="prof-gallery-empty">Нет фото и видео</div>';
+  } else {
+    grid.innerHTML = '';
+    media.forEach((m, idx) => {
+      const cell = document.createElement('div');
+      cell.className = 'pgm-cell';
+      cell.dataset.idx = idx;
+      cell.onclick = () => openLightbox(media, idx);
+
+      const isGif = m.mime === 'image/gif';
+      const isVideo = m.mime?.startsWith('video/');
+
+      if(isVideo){
+        cell.innerHTML = `<div class="pgm-cell-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>`;
+      } else if(isGif){
+        cell.innerHTML = `<div style="width:100%;height:100%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:20px">🎞</div><div class="pgm-cell-gif">GIF</div>`;
+      }
+
+      // Загружаем превью асинхронно
+      getFileFromIDB(m.fileId).then(blob => {
+        if(!blob) return;
+        const url = URL.createObjectURL(blob);
+        if(isVideo){
+          const v = document.createElement('video');
+          v.src = url; v.muted = true; v.preload = 'metadata';
+          v.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;pointer-events:none';
+          v.onloadedmetadata = () => { v.currentTime = 0.5; };
+          cell.prepend(v);
+        } else {
+          const img = document.createElement('img');
+          img.src = url;
+          img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block';
+          if(isGif) cell.innerHTML = '';
+          cell.prepend(img);
+        }
+      });
+
+      grid.appendChild(cell);
+    });
+  }
+
+  // ── Список файлов ──────────────────────────────────────────────────────────
+  const filesEl = document.getElementById('prof-gallery-files');
+  if(files.length === 0){
+    filesEl.innerHTML = '<div class="prof-gallery-empty">Нет файлов</div>';
+  } else {
+    filesEl.innerHTML = files.map((m, idx) => {
+      const ext = (m.name||'').split('.').pop().toLowerCase();
+      const icon = {pdf:'📄',doc:'📝',docx:'📝',xls:'📊',xlsx:'📊',
+        ppt:'📊',pptx:'📊',zip:'🗜',rar:'🗜','7z':'🗜',
+        txt:'📄',csv:'📊',json:'📄',mp3:'🎵',mp4:'🎬',
+      }[ext] || '📎';
+      const date = new Date(m.ts).toLocaleDateString('ru',{day:'numeric',month:'short',year:'numeric'});
+      const size = fmtSize(m.size||0);
+      return `<div class="pgf-item" data-fileidx="${idx}">
+        <div class="pgf-icon">${icon}</div>
+        <div class="pgf-info">
+          <div class="pgf-name">${esc(m.name||'файл')}</div>
+          <div class="pgf-meta">${size} · ${date}</div>
+        </div>
+        <button class="pgf-dl" onclick="event.stopPropagation();downloadGalleryFile(${idx},'files')" title="Скачать">↓</button>
+      </div>`;
+    }).join('');
+    // Клик на строку — тоже скачивает
+    filesEl.querySelectorAll('.pgf-item').forEach(el => {
+      el.addEventListener('click', () => downloadGalleryFile(+el.dataset.fileidx, 'files'));
+    });
+  }
+
+  // ── Голосовые ─────────────────────────────────────────────────────────────
+  const voiceEl = document.getElementById('prof-gallery-voice');
+  if(voices.length === 0){
+    voiceEl.innerHTML = '<div class="prof-gallery-empty">Нет голосовых сообщений</div>';
+  } else {
+    voiceEl.innerHTML = voices.map((m, idx) => {
+      const date = new Date(m.ts).toLocaleDateString('ru',{day:'numeric',month:'short'});
+      const time = new Date(m.ts).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
+      const isCircle = m.kind === 'circle';
+      const icon = isCircle ? '⭕' : '🎤';
+      const dur = m.duration ? ` · ${Math.round(m.duration)}с` : '';
+      const who = m.type === 'out' ? 'Вы' : (document.getElementById('prof-name')?.textContent||'');
+      return `<div class="pgf-item" data-voiceidx="${idx}">
+        <div class="pgf-icon">${icon}</div>
+        <div class="pgf-info">
+          <div class="pgf-name">${isCircle?'Видеосообщение':'Голосовое'}${dur}</div>
+          <div class="pgf-meta">${who} · ${date}, ${time}</div>
+        </div>
+        <button class="pgf-dl" onclick="event.stopPropagation();downloadGalleryFile(${idx},'voice')" title="Скачать">↓</button>
+      </div>`;
+    }).join('');
+    voiceEl.querySelectorAll('.pgf-item').forEach(el => {
+      el.addEventListener('click', () => playGalleryVoice(+el.dataset.voiceidx));
+    });
+  }
+
+  // Обновляем счётчики на вкладках
+  document.getElementById('pgt-media').textContent = `Медиа${media.length?' ('+media.length+')':''}`;
+  document.getElementById('pgt-files').textContent = `Файлы${files.length?' ('+files.length+')':''}`;
+  document.getElementById('pgt-voice').textContent = `Голос${voices.length?' ('+voices.length+')':''}`;
+
+  // Сохраняем для скачивания
+  window._galleryMedia = media;
+  window._galleryFiles = files;
+  window._galleryVoices = voices;
+}
+
+async function downloadGalleryFile(idx, type){
+  const arr = type==='files' ? window._galleryFiles : window._galleryVoices;
+  const m = arr?.[idx];
+  if(!m) return;
+  const blob = await getFileFromIDB(m.fileId);
+  if(!blob){ toast('Файл не найден'); return; }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = m.name || 'file';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+async function playGalleryVoice(idx){
+  const m = window._galleryVoices?.[idx];
+  if(!m) return;
+  const blob = await getFileFromIDB(m.fileId);
+  if(!blob){ toast('Файл не найден'); return; }
+  const url = URL.createObjectURL(blob);
+  const audio = new Audio(url);
+  audio.play();
+  audio.onended = () => URL.revokeObjectURL(url);
+}
+
+// ── Лайтбокс ──────────────────────────────────────────────────────────────────
+let _lbUrls = []; // blob URLs открытых элементов
+
+async function openLightbox(mediaArr, startIdx){
+  const m = mediaArr[startIdx];
+  if(!m) return;
+  const blob = await getFileFromIDB(m.fileId);
+  if(!blob){ toast('Файл не найден'); return; }
+
+  // Освобождаем старые URL
+  _lbUrls.forEach(u => URL.revokeObjectURL(u));
+  _lbUrls = [];
+
+  const url = URL.createObjectURL(blob);
+  _lbUrls.push(url);
+
+  const img = document.getElementById('prof-lightbox-img');
+  const vid = document.getElementById('prof-lightbox-video');
+  const cap = document.getElementById('prof-lightbox-caption');
+
+  const isVideo = m.mime?.startsWith('video/');
+  img.style.display = isVideo ? 'none' : 'block';
+  vid.style.display = isVideo ? 'block' : 'none';
+
+  if(isVideo){
+    vid.src = url;
+    vid.play().catch(()=>{});
+  } else {
+    img.src = url;
+  }
+
+  const date = new Date(m.ts).toLocaleDateString('ru',{day:'numeric',month:'long',year:'numeric'});
+  cap.textContent = (m.name || '') + (m.name ? ' · ' : '') + date;
+
+  document.getElementById('prof-lightbox').classList.add('on');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox(){
+  const lb = document.getElementById('prof-lightbox');
+  lb.classList.remove('on');
+  document.getElementById('prof-lightbox-video').pause?.();
+  document.getElementById('prof-lightbox-video').src = '';
+  document.getElementById('prof-lightbox-img').src = '';
+  _lbUrls.forEach(u => URL.revokeObjectURL(u));
+  _lbUrls = [];
+  document.body.style.overflow = '';
+}
+
+// ── Info drawer ──────────────────────────────────────────────────────────────
+function openInfoDrawer(){
+  if(!_infoFp) return;
+  // Заполняем имя в шапке
+  const name = document.getElementById('prof-name')?.textContent || '';
+  const idrName = document.getElementById('idr-name');
+  if(idrName) idrName.textContent = name;
+  // Статистика (уже в prof-msgs/prof-size в openProfileModal, тянем оттуда)
+  const pm = document.getElementById('profile-modal');
+  const msgs = pm?.dataset.msgs || '0';
+  const size = pm?.dataset.size || '0 Б';
+  const idrMsgs = document.getElementById('idr-msgs');
+  const idrSize = document.getElementById('idr-size');
+  if(idrMsgs) idrMsgs.textContent = msgs;
+  if(idrSize) idrSize.textContent = size;
+  document.getElementById('info-drawer-modal').classList.add('on');
+}
+function startEditIdrName(){
+  const nameEl = document.getElementById('idr-name');
+  const inp    = document.getElementById('idr-name-input');
+  const hint   = document.getElementById('idr-fp-hint');
+  inp.value = nameEl.textContent.trim();
+  nameEl.style.display = 'none';
+  inp.style.display = '';
+  if(hint) hint.textContent = 'Enter — сохранить';
+  inp.focus(); inp.select();
+}
+function stopEditIdrName(){
+  const nameEl = document.getElementById('idr-name');
+  const inp    = document.getElementById('idr-name-input');
+  const hint   = document.getElementById('idr-fp-hint');
+  const val = inp.value.trim();
+  if(val) nameEl.textContent = val;
+  nameEl.style.display = '';
+  inp.style.display = 'none';
+  if(hint) hint.textContent = 'нажмите на имя чтобы изменить';
+  // Синхронизируем с prof-name
+  const profName = document.getElementById('prof-name');
+  if(profName && val) profName.textContent = val;
+}
+
+function closeInfoDrawer(){
+  document.getElementById('info-drawer-modal').classList.remove('on');
 }
 
 // ── Меню 3 точек истории ─────────────────────────────────────────────────────

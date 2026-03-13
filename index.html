@@ -20,12 +20,8 @@
   font-src   'self' https://fonts.gstatic.com;
   img-src    'self' data: blob:;
   connect-src 'self'
-              wss://tovsa-signaling.onrender.com
-              https://tovsa-signaling.onrender.com
-              https://subs.tovsa7.workers.dev
-              https://fonts.googleapis.com
-              https://fonts.gstatic.com
-              https://cdnjs.cloudflare.com
+              wss:
+              https:
               blob:;
   worker-src 'self' blob:;
   manifest-src 'self';
@@ -2388,7 +2384,7 @@ function safeBase64(u8){
 // ── Identity (Ed25519 key pair + fingerprint) ──
 const ID_KEY='p2p_identity_v1';
 // IndexedDB replaces localStorage for contacts, history, favourites
-const DB_NAME='fpv_drun_v1';
+const DB_NAME='tovsa_v1';
 const DB_VER=3;
 let _db=null;
 
@@ -2807,7 +2803,7 @@ async function backupData(){
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
   const date=new Date().toISOString().slice(0,10);
-  a.href=url;a.download=`fpv-backup-${date}.json`;
+  a.href=url;a.download=`tovsa-backup-${date}.json`;
   document.body.appendChild(a);a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
@@ -3308,6 +3304,10 @@ function _buildContactEl(fp, c, h, isConnected){
   const connBtn = isOnline ? `<button class="ci-conn-btn" onclick="event.stopPropagation();connectToContact('${fp}')">→ связь</button>` : '';
   const ctxAttr = c._stranger ? '' : `oncontextmenu="openCtxMenu(event,'${fp}');return false"`;
   const nameHtml = esc(c.name || 'Неизвестный');
+  const _homeWs = buildWsUrl(currentSrv());
+  const fedBadge = (c.signalingUrl && _isValidSigUrl(c.signalingUrl) && c.signalingUrl !== _homeWs)
+    ? `<span title="Федеративный контакт: ${esc(new URL(c.signalingUrl.replace('wss://','https://')).hostname)}" style="font-size:10px;opacity:.7;margin-left:4px">🌐</span>`
+    : '';
   const fpHint = c._stranger ? `<div style="font-size:9px;color:var(--mu);opacity:.7">${fp}</div>` : '';
 
   const queueCount = _offlineQueue.filter(m => m.fp === fp).length;
@@ -3326,7 +3326,7 @@ function _buildContactEl(fp, c, h, isConnected){
       ${onlineDot}
     </div>
     <div class="ciinfo">
-      <div class="ciname">${nameHtml}${pinHtml}${unconfHtml}${queueBadge}</div>
+      <div class="ciname">${nameHtml}${fedBadge}${pinHtml}${unconfHtml}${queueBadge}</div>
       ${fpHint}
       ${lastHtml}
     </div>
@@ -5198,6 +5198,98 @@ async function _wsPresenceQuery(ids, timeoutMs = 5000) {
     }
   });
 }
+
+// ── Федеративный presence-запрос ─────────────────────────────────────────────
+// Открывает временный анонимный WS к чужому серверу, шлёт PRESENCE, закрывает.
+// Использует анонимный ID (chk-) — не требует challenge-response.
+// Возвращает Set<onlinePid> или null при ошибке/таймауте.
+async function _federatedPresenceQuery(wsUrl, pids, timeoutMs = 6000) {
+  return new Promise(resolve => {
+    let done = false;
+    const finish = (result) => {
+      if(done) return; done = true;
+      clearTimeout(timer);
+      try{ ws.close(); }catch(_){}
+      resolve(result);
+    };
+
+    const timer = setTimeout(() => finish(null), timeoutMs);
+
+    let ws;
+    try{
+      ws = new WebSocket(wsUrl);
+    } catch(_){
+      clearTimeout(timer);
+      resolve(null);
+      return;
+    }
+
+    const anonId = 'chk-fed-' + Math.random().toString(36).slice(2, 14);
+    let helloSent = false;
+
+    ws.onopen = () => {};
+    ws.onmessage = (e) => {
+      let msg;
+      try{ msg = JSON.parse(e.data); }catch(_){ return; }
+
+      if(msg.type === 'HELLO_REQ' && !helloSent){
+        helloSent = true;
+        ws.send(JSON.stringify({ type: 'HELLO', id: anonId }));
+        return;
+      }
+      if(msg.type === 'OPEN'){
+        // Сразу шлём PRESENCE и закрываем после ответа
+        const reqId = 'fed-' + Math.random().toString(36).slice(2, 10);
+        ws.send(JSON.stringify({ type: 'PRESENCE', reqId, ids: pids }));
+        ws.onmessage = (e2) => {
+          let r;
+          try{ r = JSON.parse(e2.data); }catch(_){ return; }
+          if(r.type === 'PRESENCE-RESULT' && r.reqId === reqId){
+            finish(new Set(Array.isArray(r.online) ? r.online : []));
+          }
+        };
+        return;
+      }
+      if(msg.type === 'ERR'){ finish(null); }
+    };
+    ws.onerror = () => finish(null);
+    ws.onclose = () => { if(!done) finish(null); };
+  });
+}
+
+// ── Валидация федеративных URL ────────────────────────────────────────────────
+// Защита от поддельных инвайтов с произвольными URL.
+// signalingUrl должен быть wss:// и оканчиваться на /signal.
+// pushUrl должен быть https://.
+function _isValidSigUrl(url) {
+  if(!url || typeof url !== 'string') return false;
+  try {
+    const u = new URL(url);
+    return u.protocol === 'wss:' && u.pathname === '/signal' && u.hostname.length > 3;
+  } catch(_) { return false; }
+}
+
+function _isValidPushUrl(url) {
+  if(!url || typeof url !== 'string') return false;
+  try {
+    const u = new URL(url);
+    return u.protocol === 'https:' && u.hostname.length > 3;
+  } catch(_) { return false; }
+}
+
+// Санирует объект контакта — обнуляет невалидные федеративные URL
+function _sanitizeContactUrls(contact) {
+  if(contact.signalingUrl && !_isValidSigUrl(contact.signalingUrl)){
+    console.warn('[federation] отклонён невалидный signalingUrl:', contact.signalingUrl);
+    contact.signalingUrl = null;
+  }
+  if(contact.pushUrl && !_isValidPushUrl(contact.pushUrl)){
+    console.warn('[federation] отклонён невалидный pushUrl:', contact.pushUrl);
+    contact.pushUrl = null;
+  }
+  return contact;
+}
+
 
 // ── PresenceBatcher: единый батчевый планировщик presence-запросов ─────────────
 // Копит запросы от контактов и всех групп в течение PRESENCE_BATCH_WINDOW_MS,
@@ -12044,9 +12136,9 @@ function hideInfoBanner(){
   observer.observe(orig, { characterData: true, childList: true, attributes: true });
 })();
 
-function _sigRoomId(code){ return 'fpvdrun-' + code.trim().toLowerCase().replace(/[^a-z0-9]/g,''); }
+function _sigRoomId(code){ return 'tovsa-' + code.trim().toLowerCase().replace(/[^a-z0-9]/g,''); }
 
-async function joinSigRoom(overrideCode, callerFp){
+async function joinSigRoom(overrideCode, callerFp, peerSigUrl){
   const code = overrideCode || $('sig-room-input').value.trim();
   if(!code) return;
 
@@ -12075,12 +12167,25 @@ async function joinSigRoom(overrideCode, callerFp){
     sigModalError(msg);
   }
 
-  const _srv    = currentSrv();
+  // Федерация: если передан peerSigUrl и он отличается от нашего — идём к серверу контакта.
+  // Наш маяк (_presencePeer) остаётся на домашнем сервере.
+  const _homeSrv    = currentSrv();
+  const _homeWsUrl  = buildWsUrl(_homeSrv);
+  const _targetWsUrl = (peerSigUrl && peerSigUrl !== _homeWsUrl) ? peerSigUrl : _homeWsUrl;
+  const _isFederated = _targetWsUrl !== _homeWsUrl;
+
+  if(_isFederated){
+    connMsg('🌐 Федеративное соединение → ' + new URL(_targetWsUrl.replace('wss://','https://')).hostname);
+  }
+
+  const _srv    = _homeSrv;
   const _srvCfg = buildPeerConfig(_srv);
 
   // ── Хост ──────────────────────────────────────────────────────────────────────
   // Занимаем hostId. Получаем offer через RELAY, отвечаем answer через RELAY.
-  const peerHost = createAuthPeer(hostId, _srvCfg);
+  const peerHost = new FakePeer(hostId, _targetWsUrl, {
+    privKey: myPrivKey, pubKey: myPubKeyRaw, iceServers: getIce(),
+  });
   _sigPeer = peerHost;
 
   peerHost.on('open', () => {
@@ -12142,9 +12247,10 @@ async function joinSigRoom(overrideCode, callerFp){
     hint.textContent = '⏳ Комната занята — подключаемся к хосту...';
     sigModalStep(1, 'Комната найдена — подключаемся к хосту...');
     connMsg('🔄 Комната занята — подключаемся к хосту...');
-    const peerGuest = createAuthPeer(guestId, _srvCfg);
+    const peerGuest = new FakePeer(guestId, _targetWsUrl, {
+      privKey: myPrivKey, pubKey: myPubKeyRaw, iceServers: getIce(),
+    });
     _sigPeer = peerGuest;
-    let guestTimer = null;
 
     peerGuest.on('open', () => {
       hint.textContent = '⏳ Соединяемся с хостом...';
@@ -12474,7 +12580,11 @@ async function _syncPairBeaconsInner() {
     _beaconDelay = 400;
     if(!_pjOk) break; // сигналинг упал пока ждали — прерываем
     try{
-      const peer = createAuthPeer(pairId, { ...buildPeerConfig(currentSrv()) });
+      // Федерация: маяк регистрируем на сервере контакта (там где он нас ищет)
+      const _beaconSigUrl = _isValidSigUrl(contacts[fp]?.signalingUrl) ? contacts[fp].signalingUrl : buildWsUrl(currentSrv());
+      const peer = new FakePeer(pairId, _beaconSigUrl, {
+        privKey: myPrivKey, pubKey: myPubKeyRaw, iceServers: getIce(),
+      });
       peer.on('open', () => {
         // Ставим реальный peer только если:
         // 1. sentinel ещё на месте (нас не вытеснили)
@@ -12526,7 +12636,7 @@ function _beaconConnect(ctx){
     const _hiddenSuffix = _presenceGlobalHidden
       ? '-ghost-' + Math.random().toString(36).slice(2, 10)
       : '';
-    const peerId = 'fpvp-' + myPresenceId + ctx.idSuffix + _hiddenSuffix;
+    const peerId = 'tvp-' + myPresenceId + ctx.idSuffix + _hiddenSuffix;
     const p = createAuthPeer(peerId, { ...buildPeerConfig(srv) });
     _presencePeer = p;
 
@@ -12906,7 +13016,7 @@ async function _fpToPid(pubKeyHex){
   const key = 'pid:' + pubKeyHex;
   if(_pidCache.has(key)) return _pidCache.get(key);
   const pubKeyBytes = new Uint8Array(pubKeyHex.match(/.{2}/g).map(h=>parseInt(h,16)));
-  const pid = 'fpvp-' + await sha256hex(pubKeyBytes, 24);
+  const pid = 'tvp-' + await sha256hex(pubKeyBytes, 24);
   _pidCache.set(key, pid);
   return pid;
 }
@@ -12922,7 +13032,7 @@ async function _fpToPairPid(contactPubKeyHex){
   const key = 'pair:my:' + contactPubKeyHex;
   if(_pidCache.has(key)) return _pidCache.get(key);
   const combined = new TextEncoder().encode('beacon:' + myPubKeyHex + ':' + contactPubKeyHex);
-  const pid = 'fpvpp-' + await sha256hex(combined, 24);
+  const pid = 'tvpp-' + await sha256hex(combined, 24);
   _pidCache.set(key, pid);
   return pid;
 }
@@ -12934,7 +13044,7 @@ async function _fpToContactPairPid(contactPubKeyHex){
   const key = 'pair:ct:' + contactPubKeyHex;
   if(_pidCache.has(key)) return _pidCache.get(key);
   const combined = new TextEncoder().encode('beacon:' + contactPubKeyHex + ':' + myPubKeyHex);
-  const pid = 'fpvpp-' + await sha256hex(combined, 24);
+  const pid = 'tvpp-' + await sha256hex(combined, 24);
   _pidCache.set(key, pid);
   return pid;
 }
@@ -13286,7 +13396,8 @@ async function refreshPresence(){
 /** @param {string} fp @param {{stayInChat?: boolean}} [opts] */
 async function connectToContact(fp, opts={}){
   if(!_pjOk){ if(!opts.stayInChat) toast('Signaling недоступен'); return; }
-  const pubKeyHex = getPubKeyHex(fp, await getContacts());
+  const contacts = await getContacts();
+  const pubKeyHex = getPubKeyHex(fp, contacts);
   // После await — проверяем не отменили ли реконнект (например goBack)
   if(opts.stayInChat && _p2pReconnectStopped) return;
   if(!pubKeyHex){ if(!opts.stayInChat) toast('Нет ключа контакта'); return; }
@@ -13307,7 +13418,10 @@ async function connectToContact(fp, opts={}){
     // STUN недоступен — откладываем, следующая попытка сама разберётся
     return;
   }
-  joinSigRoom(roomCode, myFingerprint);
+
+  // Федерация: если у контакта своя signalingUrl — идём к его серверу
+  const peerSigUrl = _isValidSigUrl(contacts[fp]?.signalingUrl) ? contacts[fp].signalingUrl : null;
+  joinSigRoom(roomCode, myFingerprint, peerSigUrl);
 }
 
 // ── Heartbeat для контактов ─────────────────────────────────────────────────────
@@ -13386,31 +13500,62 @@ async function _presenceHeartbeatTick(force=false){
     });
     await renderContacts();
 
-    // Метод 1: WS PRESENCE query через батчер (объединяет запросы от контактов и групп)
-    const pidList = stale.map(fp => fpToPid[fp]);
-    const onlineSet = await PresenceBatcher.query(pidList, 6000);
+    // Метод 1: WS PRESENCE query
+    // Федерация: группируем контакты по их signalingUrl.
+    // Домашние контакты → PresenceBatcher (домашний WS).
+    // Федеративные контакты → отдельный эфемерный WS к их серверу.
+    const homeWsUrl = buildWsUrl(currentSrv());
+    const byServer = new Map(); // wsUrl → [fp]
+    stale.forEach(fp => {
+      const url = _isValidSigUrl(contacts[fp]?.signalingUrl) ? contacts[fp].signalingUrl : homeWsUrl;
+      if(!byServer.has(url)) byServer.set(url, []);
+      byServer.get(url).push(fp);
+    });
+
+    // Запрашиваем все серверы параллельно
+    const serverResults = await Promise.all([...byServer.entries()].map(async ([wsUrl, fps]) => {
+      const pids = fps.map(fp => fpToPid[fp]).filter(Boolean);
+      if(!pids.length) return { fps, onlineSet: new Set() };
+
+      let onlineSet = null;
+      if(wsUrl === homeWsUrl) {
+        // Домашний сервер — через PresenceBatcher (батчует с группами)
+        onlineSet = await PresenceBatcher.query(pids, 6000);
+      } else {
+        // Федеративный сервер — эфемерный анонимный WS
+        onlineSet = await _federatedPresenceQuery(wsUrl, pids, 6000);
+      }
+      return { fps, onlineSet };
+    }));
 
     if(myGen !== _presenceHbGen) return; // новый тик запустился
 
-    if(onlineSet !== null){
-      // WS ответил — применяем результаты (только для перепроверенных)
-      stale.forEach(fp => {
-        const result = onlineSet.has(fpToPid[fp]) ? 'online' : 'offline';
-        if(result === 'online') _dbgPush('log', ['[presence] ONLINE ' + fp]);
-        _applyPresenceResult(fp, result);
-      });
-    } else {
-      // WS не ответил (маяк недоступен) — fallback на WebRTC
+    // Применяем результаты; null → fallback на WebRTC для этой группы
+    let needWebRtcFps = [];
+    serverResults.forEach(({ fps, onlineSet }) => {
+      if(onlineSet !== null){
+        fps.forEach(fp => {
+          const result = onlineSet.has(fpToPid[fp]) ? 'online' : 'offline';
+          if(result === 'online') _dbgPush('log', ['[presence] ONLINE ' + fp]);
+          _applyPresenceResult(fp, result);
+        });
+      } else {
+        needWebRtcFps = needWebRtcFps.concat(fps);
+      }
+    });
+
+    // WebRTC fallback только для тех у кого WS не ответил
+    if(needWebRtcFps.length){
       let checkPeer;
       try{ checkPeer = await _getCheckPeer(); }
       catch(e){
         _releaseCheckPeer();
         _dbgPush('warn', ['[presence] checkPeer: ' + e.message]);
-        fpsWithPid.forEach(fp => _applyPresenceResult(fp, 'offline'));
+        needWebRtcFps.forEach(fp => _applyPresenceResult(fp, 'offline'));
         return;
       }
       try{
-        await _refreshPresenceViaWebRTC(stale, fpToPid, checkPeer, myGen);
+        await _refreshPresenceViaWebRTC(needWebRtcFps, fpToPid, checkPeer, myGen);
       } finally {
         _releaseCheckPeer();
       }
@@ -16299,7 +16444,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
 
   // ── Cloudflare Workers Push ────────────────────────────────────────────────
   // Замените на URL вашего воркера после деплоя на Cloudflare
-  const PUSH_SERVER = 'https://subs.tovsa7.workers.dev';
+  const PUSH_SERVER = 'https://tovsa-signaling.tovsa7.workers.dev';
 
   function _b64ToUint8(b64) {
     const p = '='.repeat((4 - b64.length % 4) % 4);
@@ -16409,10 +16554,13 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
 
       const authFields = await _signNotify(fp);
       if (!authFields) { console.warn('[push] ключ не готов, пропускаем notify'); return; }
-      // Транспортное шифрование обеспечивается RFC 8291 (VAPID) на стороне воркера
-      const body = JSON.stringify({ targetFp: fp, senderName: senderName || 'Tovsa', text: text || 'Новое сообщение', ...authFields });
+      // Воркер v2 не принимает senderName/text — только targetFp + подпись.
+      // Реальное содержимое собеседник получит через WebRTC после пробуждения.
+      const body = JSON.stringify({ targetFp: fp, ...authFields });
 
-      const res = await fetch(PUSH_SERVER + '/push/notify', {
+      const _rawPushUrl = (await getContacts())[targetFp]?.pushUrl;
+      const _contactPushUrl = _isValidPushUrl(_rawPushUrl) ? _rawPushUrl : PUSH_SERVER;
+      const res = await fetch(_contactPushUrl + '/push/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body
@@ -16433,7 +16581,8 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
         const serverFp = await _pubHexToFp(pubKeyHex);
         const authFields = await _signNotify(serverFp);
         if (!authFields) return;
-        const body = JSON.stringify({ targetFp: serverFp, senderName: senderName || 'Tovsa', text: text || 'Новое сообщение', ...authFields });
+        // Воркер v2: только targetFp, без контента
+        const body = JSON.stringify({ targetFp: serverFp, ...authFields });
 
         await fetch(PUSH_SERVER + '/push/notify', {
           method: 'POST',
@@ -16469,438 +16618,306 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
   };
 
   // ════════════════════════════════════════════════════════════════════
-  // INVITE & CONTACT REQUESTS
+  // INVITE v2
+  // ════════════════════════════════════════════════════════════════════
+  //
+  // Протокол privacy-first (TovsaInviteV2):
+  //   • Сервер хранит только зашифрованные blob-ы
+  //   • ownerName / ownerPubHex никогда не передаются в открытом виде
+  //   • Токен = base64url(32-byte-secret) — ID и ключ одновременно
+  //   • Federation URI: tovsa2://host/inv#<token>
+  //
+  // Деривация ключей (HKDF-SHA256, salt="tovsa-inv-v2"):
+  //   kvKey32    = HKDF(secret, "id",     16) → hex
+  //   encKey     = HKDF(secret, "enc",    32) → AES-256-GCM для blob
+  //   notifyKey64= HKDF(secret, "notify", 32) → hex, транзитно для push
   // ════════════════════════════════════════════════════════════════════
 
-  // Подписать строку вида "invite:create:{ts}" нашим Ed25519 ключом
-  async function _signInvite(tpl) {
+  const INV_V2_HKDF_SALT = new TextEncoder().encode('tovsa-inv-v2');
+
+  async function _invHkdf(secret, info, len) {
+    const key = await crypto.subtle.importKey('raw', secret, 'HKDF', false, ['deriveBits']);
+    return new Uint8Array(await crypto.subtle.deriveBits(
+      { name: 'HKDF', hash: 'SHA-256', salt: INV_V2_HKDF_SALT, info: new TextEncoder().encode(info) },
+      key, len * 8
+    ));
+  }
+
+  async function _invAesEncrypt(keyBytes, plaintext) {
+    const key = await crypto.subtle.importKey('raw', keyBytes, 'AES-GCM', false, ['encrypt']);
+    const iv  = crypto.getRandomValues(new Uint8Array(12));
+    const ct  = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(plaintext)));
+    const out = new Uint8Array(12 + ct.length);
+    out.set(iv, 0); out.set(ct, 12);
+    return out;
+  }
+
+  async function _invAesDecrypt(keyBytes, data) {
+    const key = await crypto.subtle.importKey('raw', keyBytes, 'AES-GCM', false, ['decrypt']);
+    return new TextDecoder().decode(new Uint8Array(
+      await crypto.subtle.decrypt({ name: 'AES-GCM', iv: data.slice(0,12) }, key, data.slice(12))
+    ));
+  }
+
+  function _invB64u(bytes) {
+    // Цикл вместо spread — spread падает на больших Uint8Array
+    let s = ''; for (const b of bytes) s += String.fromCharCode(b);
+    return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+
+  function _invFromB64u(s) {
+    return Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')), c => c.charCodeAt(0));
+  }
+
+  function _invToHex(bytes) {
+    return Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+
+  // Вывести все рабочие ключи из 32-байтного секрета одним вызовом
+  async function _invDeriveKeys(secret) {
+    const [kvKeyBytes, encKey, notifyKeyBytes] = await Promise.all([
+      _invHkdf(secret, 'id',     16),
+      _invHkdf(secret, 'enc',    32),
+      _invHkdf(secret, 'notify', 32),
+    ]);
+    return {
+      kvKey:          _invToHex(kvKeyBytes),   // 32 hex — ключ в KV
+      encKey,                                   // Uint8Array(32) — для blob
+      notifyKey:      _invToHex(notifyKeyBytes),// 64 hex — для /use
+      notifyKeyBytes,                           // Uint8Array(32) — для шифрования pushSub
+    };
+  }
+
+  // Подписать строку для воркера нашим Ed25519 ключом
+  async function _invSign(message) {
+    if (!myPrivKey || !myPubKeyRaw) throw new Error('ключ не готов');
     const ts = Math.floor(Date.now() / 1000);
-    const msg = new TextEncoder().encode(tpl.replace('{ts}', ts));
+    const msg = new TextEncoder().encode(message.replace('{ts}', String(ts)));
     const sigBuf = await crypto.subtle.sign('Ed25519', myPrivKey, msg);
-    const sig = safeBase64(new Uint8Array(sigBuf))
-      .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    const sig = _invB64u(new Uint8Array(sigBuf));
     const pubKeyHex = Array.from(myPubKeyRaw).map(b=>b.toString(16).padStart(2,'0')).join('');
     return { sig, pubKeyHex, ts };
   }
 
-  // Создать инвайт-ссылку (maxUses=0 → безлимит, expiresIn=0 → бессрочно)
-  window._createInvite = async function({ maxUses = 1, expiresIn = 604800, name } = {}) {
-    if (!myPrivKey) throw new Error('ключ не готов');
-    const auth = await _signInvite('invite:create:{ts}');
-    const myName = name || localStorage.getItem('myName') || 'Пользователь';
-    const res = await fetch(PUSH_SERVER + '/invite/create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ maxUses, expiresIn, name: myName, ...auth })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || res.status);
-    return data; // { ok, token, expiresAt, maxUses }
-  };
-
-  // Получить информацию о ссылке (публично, без авторизации)
-  window._getInviteInfo = async function(token) {
-    const res = await fetch(PUSH_SERVER + '/invite/' + encodeURIComponent(token));
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || res.status);
-    return data; // { ownerName, ownerPubHex, remaining, expiresAt }
-  };
-
-  // Использовать ссылку — подать заявку владельцу
-  window._requestViaInvite = async function(token) {
-    if (!myPrivKey) throw new Error('ключ не готов');
-    const auth = await _signInvite(`invite:use:${token}:{ts}`);
-    const myName = localStorage.getItem('myName') || 'Пользователь';
-    const res = await fetch(PUSH_SERVER + '/invite/request', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, name: myName, ...auth })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || res.status);
-    return data; // { ok, ownerName }
-  };
-
-  // ── П1: получить входящие заявки ──────────────────────────────────────────
-  window._fetchIncomingRequests = async function() {
-    if (!myPrivKey || !PUSH_SERVER || PUSH_SERVER.includes('ВАШ')) return [];
-    const auth = await _signInvite('invite:requests:incoming:{ts}');
-    const res = await fetch(PUSH_SERVER + '/invite/requests/incoming', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...auth })
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.requests || [];
-  };
-
-  // ── П1: принять или отклонить заявку ─────────────────────────────────────
-  window._respondToRequest = async function(requesterFp, accept) {
-    if (!myPrivKey) throw new Error('ключ не готов');
-    const action = accept ? 'accept' : 'decline';
-    const ts = Math.floor(Date.now() / 1000);
-    const msg = new TextEncoder().encode(`invite:respond:${requesterFp}:${action}:${ts}`);
-    const sigBuf = await crypto.subtle.sign('Ed25519', myPrivKey, msg);
-    const sig = safeBase64(new Uint8Array(sigBuf)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-    const pubKeyHex = Array.from(myPubKeyRaw).map(b=>b.toString(16).padStart(2,'0')).join('');
-    const myName = localStorage.getItem('myName') || 'Пользователь';
-    const res = await fetch(PUSH_SERVER + '/invite/requests/respond', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requesterFp, accept, ownerName: myName, sig, pubKeyHex, ts })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || res.status);
-    return data;
-  };
-
-  // ── П2: получить статус своих заявок + принятые ───────────────────────────
-  window._fetchOutgoingRequests = async function() {
-    if (!myPrivKey || !PUSH_SERVER || PUSH_SERVER.includes('ВАШ')) return { requests: [], accepted: [] };
-    const auth = await _signInvite('invite:requests:outgoing:{ts}');
-    const res = await fetch(PUSH_SERVER + '/invite/requests/outgoing', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...auth })
-    });
-    if (!res.ok) return { requests: [], accepted: [] };
-    const data = await res.json();
-    return { requests: data.requests || [], accepted: data.accepted || [] };
-  };
-
-  // ── П2: подтвердить добавление принятого контакта ────────────────────────
-  window._confirmContact = async function(ownerFp) {
-    if (!myPrivKey) return;
-    const ts = Math.floor(Date.now() / 1000);
-    const msg = new TextEncoder().encode(`invite:confirm:${ownerFp}:${ts}`);
-    const sigBuf = await crypto.subtle.sign('Ed25519', myPrivKey, msg);
-    const sig = safeBase64(new Uint8Array(sigBuf)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-    const pubKeyHex = Array.from(myPubKeyRaw).map(b=>b.toString(16).padStart(2,'0')).join('');
-    await fetch(PUSH_SERVER + '/invite/requests/confirm', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ownerFp, sig, pubKeyHex, ts })
-    });
-  };
-
-  // ── П2: отменить заявку ───────────────────────────────────────────────────
-  window._cancelRequest = async function(ownerFp) {
-    if (!myPrivKey) return;
-    const ts = Math.floor(Date.now() / 1000);
-    const msg = new TextEncoder().encode(`invite:cancel:${ownerFp}:${ts}`);
-    const sigBuf = await crypto.subtle.sign('Ed25519', myPrivKey, msg);
-    const sig = safeBase64(new Uint8Array(sigBuf)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-    const pubKeyHex = Array.from(myPubKeyRaw).map(b=>b.toString(16).padStart(2,'0')).join('');
-    const res = await fetch(PUSH_SERVER + '/invite/requests/cancel', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ownerFp, sig, pubKeyHex, ts })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || res.status);
-  };
-
-  // Создать инвайт-ссылку
-  window._createInvite = async function({ maxUses = 1, expiresIn = 604800, name } = {}) {
-    if (!myPrivKey) throw new Error('ключ не готов');
-    const auth = await _signInvite('invite:create:{ts}');
-    const myName = name || localStorage.getItem('myName') || 'Пользователь';
-    const res = await fetch(PUSH_SERVER + '/invite/create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ maxUses, expiresIn, name: myName, ...auth })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || res.status);
-    return data;
-  };
-
-  // Получить информацию о ссылке (публично)
-  window._getInviteInfo = async function(token) {
-    const res = await fetch(PUSH_SERVER + '/invite/' + encodeURIComponent(token));
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || res.status);
-    return data;
-  };
-
-  // Список своих ссылок
-  window._listInvites = async function() {
-    if (!myPrivKey) throw new Error('ключ не готов');
-    const auth = await _signInvite('invite:list:{ts}');
-    const res = await fetch(PUSH_SERVER + '/invite/list', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...auth })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || res.status);
-    return data.invites;
-  };
-
-  // Отозвать ссылку
-  window._revokeInvite = async function(token) {
-    if (!myPrivKey) throw new Error('ключ не готов');
-    const auth = await _signInvite(`invite:revoke:${token}:{ts}`);
-    const res = await fetch(PUSH_SERVER + '/invite/revoke', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, ...auth })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || res.status);
-    return data;
-  };
-
-  // ══ CONTACT REQUESTS UI ════════════════════════════════════════════════════
-
-  // Рендерит секцию заявок в списке контактов
-  // incoming — массив входящих (для П1), outgoing — массив исходящих (для П2)
-  window._renderContactRequests = function(incoming, outgoing) {
-    const containerId = 'contact-requests-section';
-    let section = document.getElementById(containerId);
-
-    // Фильтруем: только pending для входящих, только pending/accepted для исходящих
-    const pendingIn  = (incoming  || []).filter(r => r.status === 'pending');
-    const pendingOut = (outgoing  || []).filter(r => r.status === 'pending');
-
-    if (!pendingIn.length && !pendingOut.length) {
-      if (section) section.remove();
-      return;
+  // Распарсить токен из строки:
+  //   tovsa2://host/inv#<b64url>  — federation URI
+  //   #inv2:<b64url>              — fragment приложения
+  //   <b64url>                    — голый токен
+  function _invParseToken(input) {
+    if (!input) throw new Error('токен не передан');
+    if (input.startsWith('tovsa2://')) {
+      const u = new URL(input.replace('tovsa2://', 'https://'));
+      const secret = _invFromB64u(u.hash.slice(1));
+      if (secret.length !== 32) throw new Error('неверная длина секрета');
+      return { secret, serverUrl: `https://${u.hostname}` };
     }
-
-    if (!section) {
-      section = document.createElement('div');
-      section.id = containerId;
-      section.style.cssText = 'border-bottom:1px solid var(--bd)';
-      // Вставляем в самый верх sk-list
-      const list = document.getElementById('sk-list');
-      if (list) list.prepend(section);
-    }
-
-    let html = `<div style="padding:10px 16px 4px;font-size:10px;color:var(--mu);letter-spacing:1.5px;text-transform:uppercase">Заявки</div>`;
-
-    // Входящие заявки (П1 видит)
-    for (const req of pendingIn) {
-      const safeName = esc(req.name || 'Пользователь');
-      const safeFp   = esc(req.fp);
-      const safePub  = esc(req.pubKeyHex);
-      const timeStr  = new Date(req.ts * 1000).toLocaleDateString('ru', { day:'numeric', month:'short' });
-      html += `
-        <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--ad);border-bottom:1px solid var(--bd)" id="req-in-${safeFp}">
-          <div style="width:36px;height:36px;border-radius:50%;background:var(--sf);border:1px solid var(--a);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">👤</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:700;color:var(--tx)">${safeName}</div>
-            <div style="font-size:10px;color:var(--mu);margin-top:1px">хочет добавить вас · ${timeStr}</div>
-          </div>
-          <div style="display:flex;gap:6px;flex-shrink:0">
-            <button onclick="acceptContactRequest('${safeFp}','${safePub}','${safeName}')" style="padding:6px 12px;background:var(--a);border:none;border-radius:8px;color:#000;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer">✓</button>
-            <button onclick="declineContactRequest('${safeFp}')" style="padding:6px 10px;background:none;border:1px solid var(--bd);border-radius:8px;color:var(--mu);font-family:inherit;font-size:11px;cursor:pointer">✕</button>
-          </div>
-        </div>`;
-    }
-
-    // Исходящие заявки (П2 видит)
-    for (const req of pendingOut) {
-      const safeName  = esc(req.ownerName || 'Пользователь');
-      const safeOwner = esc(req.ownerFp);
-      const timeStr   = new Date(req.ts * 1000).toLocaleDateString('ru', { day:'numeric', month:'short' });
-      html += `
-        <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--bd)" id="req-out-${safeOwner}">
-          <div style="width:36px;height:36px;border-radius:50%;background:var(--sf);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;opacity:.6">👤</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:700;color:var(--tx)">${safeName}</div>
-            <div style="font-size:10px;color:var(--mu);margin-top:1px">заявка отправлена · ${timeStr}</div>
-          </div>
-          <button onclick="cancelContactRequest('${safeOwner}', this)" style="padding:6px 10px;background:none;border:1px solid var(--bd);border-radius:8px;color:var(--mu);font-family:inherit;font-size:10px;cursor:pointer">отменить</button>
-        </div>`;
-    }
-
-    section.innerHTML = html;
-  };
-
-  // П1: принять заявку
-  window.acceptContactRequest = async function(requesterFp, requesterPubHex, requesterName) {
-    try {
-      await window._respondToRequest(requesterFp, true);
-
-      // Добавляем П2 в неподтверждённые контакты (confirmed станет true когда П2 подтвердит)
-      const contacts = await getContacts();
-      if (!contacts[requesterFp]) {
-        contacts[requesterFp] = {
-          pubKeyHex:   requesterPubHex,
-          name:        requesterName || 'Пользователь',
-          _unconfirmed: true,
-          savedAt:     Date.now()
-        };
-        await saveContacts(contacts);
-      }
-
-      // Убираем карточку заявки
-      const el = document.getElementById(`req-in-${requesterFp}`);
-      if (el) {
-        el.style.transition = 'opacity .3s';
-        el.style.opacity = '0';
-        setTimeout(() => { el.remove(); _cleanRequestsSection(); }, 300);
-      }
-
-      toast(`${esc(requesterName)} принят — ожидаем подтверждения`);
-      renderContacts();
-    } catch(e) {
-      toast('Ошибка: ' + e.message);
-    }
-  };
-
-  // П1: отклонить заявку
-  window.declineContactRequest = async function(requesterFp) {
-    try {
-      await window._respondToRequest(requesterFp, false);
-      const el = document.getElementById(`req-in-${requesterFp}`);
-      if (el) {
-        el.style.transition = 'opacity .3s';
-        el.style.opacity = '0';
-        setTimeout(() => { el.remove(); _cleanRequestsSection(); }, 300);
-      }
-    } catch(e) {
-      toast('Ошибка: ' + e.message);
-    }
-  };
-
-  // П2: отменить исходящую заявку
-  window.cancelContactRequest = async function(ownerFp, btn) {
-    if (btn) btn.disabled = true;
-    try {
-      await window._cancelRequest(ownerFp);
-      const el = document.getElementById(`req-out-${ownerFp}`);
-      if (el) {
-        el.style.transition = 'opacity .3s';
-        el.style.opacity = '0';
-        setTimeout(() => { el.remove(); _cleanRequestsSection(); }, 300);
-      }
-      toast('Заявка отменена');
-    } catch(e) {
-      if (btn) btn.disabled = false;
-      toast('Ошибка: ' + e.message);
-    }
-  };
-
-  function _cleanRequestsSection() {
-    const section = document.getElementById('contact-requests-section');
-    if (!section) return;
-    // Если внутри только заголовок — убираем всю секцию
-    const cards = section.querySelectorAll('[id^="req-in-"], [id^="req-out-"]');
-    if (!cards.length) section.remove();
+    let raw = input;
+    if (raw.startsWith('#')) raw = raw.slice(1);
+    if (raw.startsWith('inv2:')) raw = raw.slice(5);
+    const secret = _invFromB64u(raw);
+    if (secret.length !== 32) throw new Error('неверная длина секрета');
+    return { secret, serverUrl: PUSH_SERVER };
   }
 
-  // Опрашиваем сервер при открытии вкладки контактов и при старте
-  window._syncContactRequests = async function() {
-    if (!myPrivKey || !PUSH_SERVER || PUSH_SERVER.includes('ВАШ')) return;
+  // ── Создать инвайт ────────────────────────────────────────────────────────
+  window._createInvite = async function({ maxUses = 30, expiresIn = 604800 } = {}) {
+    const myHex  = localStorage.getItem('_myPubHex');
+    const myName = localStorage.getItem('_myName') || 'Tovsa User';
+    if (!myHex) throw new Error('ключ не готов');
+
+    const myFp   = await _pubHexToFp(myHex);
+    const secret = crypto.getRandomValues(new Uint8Array(32));
+    const { kvKey, encKey, notifyKey, notifyKeyBytes } = await _invDeriveKeys(secret);
+
+    // Шифруем данные владельца — сервер никогда не увидит plaintext
+    const mySrv = currentSrv();
+    const blob = _invB64u(await _invAesEncrypt(encKey, JSON.stringify({
+      ownerPubHex:  myHex,
+      ownerName:    myName,
+      ownerFp:      myFp,
+      signalingUrl: `wss://${mySrv.host}${mySrv.port !== 443 ? ':' + mySrv.port : ''}/signal`,
+      pushUrl:      PUSH_SERVER,
+      v:            2,
+    })));
+
+    // Шифруем push-подписку для транзитного уведомления при /use
+    let notifyBlob = null;
     try {
-      const [incoming, { requests: outgoing, accepted }] = await Promise.all([
-        window._fetchIncomingRequests(),
-        window._fetchOutgoingRequests(),
-      ]);
-
-      // П2: обрабатываем принятые заявки — добавляем в контакты и подтверждаем серверу
-      for (const acc of (accepted || [])) {
-        if (!acc.ownerPubHex) continue;
-        const fp = await _pubHexToFp(acc.ownerPubHex);
-        const contacts = await getContacts();
-        if (!contacts[fp]) {
-          contacts[fp] = {
-            pubKeyHex:  acc.ownerPubHex,
-            name:       acc.ownerName || 'Пользователь',
-            savedAt:    Date.now()
-          };
-          await saveContacts(contacts);
-          renderContacts();
-          if (typeof _refreshPairBeacons === 'function') _refreshPairBeacons();
-          toast(`✓ ${esc(acc.ownerName || 'Контакт')} добавил вас — вы теперь в контактах`);
-        } else if (contacts[fp]._unconfirmed) {
-          // Уже есть как неподтверждённый — подтверждаем
-          delete contacts[fp]._unconfirmed;
-          await saveContacts(contacts);
-          renderContacts();
-        }
-        // Подтверждаем серверу — убирает из req_resp
-        await window._confirmContact(fp);
-        // Убираем из исходящих заявок в UI
-        const outEl = document.getElementById(`req-out-${acc.ownerFp}`);
-        if (outEl) outEl.remove();
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        const subJson = sub.toJSON();
+        notifyBlob = _invB64u(await _invAesEncrypt(notifyKeyBytes, JSON.stringify({
+          endpoint: subJson.endpoint,
+          keys: { p256dh: subJson.keys?.p256dh, auth: subJson.keys?.auth },
+        })));
       }
+    } catch(_) { /* push не критичен */ }
 
-      // П1: снимаем _unconfirmed с контактов которые подтвердили (статус confirmed в incoming)
-      const confirmedIn = (incoming || []).filter(r => r.status === 'confirmed');
-      if (confirmedIn.length) {
-        const contacts = await getContacts();
-        let changed = false;
-        for (const req of confirmedIn) {
-          if (contacts[req.fp]?._unconfirmed) {
-            delete contacts[req.fp]._unconfirmed;
-            changed = true;
-          }
-        }
-        if (changed) {
-          await saveContacts(contacts);
-          renderContacts();
-        }
-      }
+    const ts = Math.floor(Date.now() / 1000);
+    const auth = await _invSign(`invite2:create:${ts}`);
 
-      // Рендерим секцию заявок
-      window._renderContactRequests(incoming, outgoing);
-    } catch(e) { /* silent */ }
+    const res = await fetch(PUSH_SERVER + '/invite2/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kvKey, blob, notifyBlob, maxUses, expiresIn, ...auth }),
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || 'create failed'); }
+
+    const result  = await res.json();
+    const tokenB64 = _invB64u(secret);
+    const host = new URL(PUSH_SERVER).hostname;
+
+    // Сохраняем секрет локально для последующего отзыва
+    try {
+      const store = JSON.parse(localStorage.getItem('_invSecrets') || '{}');
+      store[kvKey] = tokenB64;
+      localStorage.setItem('_invSecrets', JSON.stringify(store));
+    } catch(_) {}
+
+    return {
+      kvKey,
+      token:         tokenB64,
+      url:           location.origin + location.pathname + '#inv2:' + tokenB64,
+      federationUrl: `tovsa2://${host}/inv#${tokenB64}`,
+      expiresAt:     result.expiresAt,
+      maxUses:       result.maxUses,
+    };
   };
 
-  // ── Invite UI ──────────────────────────────────────────────────────────────
+  // ── Получить данные инвайта (расшифровать локально) ───────────────────────
+  window._getInviteInfo = async function(tokenInput) {
+    const { secret, serverUrl } = _invParseToken(tokenInput);
+    const { kvKey, encKey } = await _invDeriveKeys(secret);
 
-  // Создать ссылку и показать модалку с ней
+    const res = await fetch(serverUrl + '/invite2/fetch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kvKey }),
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || 'fetch failed'); }
+
+    const { blob, expiresAt, maxUses, remaining } = await res.json();
+    // Расшифровываем локально — сервер не знал plaintext
+    const data = JSON.parse(await _invAesDecrypt(encKey, _invFromB64u(blob)));
+    if (!data.ownerPubHex) throw new Error('повреждённые данные');
+    return { ...data, expiresAt, maxUses, remaining };
+  };
+
+  // ── Использовать инвайт ───────────────────────────────────────────────────
+  window._requestViaInvite = async function(tokenInput) {
+    const { secret, serverUrl } = _invParseToken(tokenInput);
+    const { kvKey, notifyKey } = await _invDeriveKeys(secret);
+
+    // Клиентская проверка "нельзя добавить себя"
+    const info = await window._getInviteInfo(tokenInput);
+    const myHex = localStorage.getItem('_myPubHex');
+    const myFp  = myHex ? await _pubHexToFp(myHex) : null;
+    if (info.ownerFp && myFp && info.ownerFp === myFp) throw new Error('нельзя добавить себя');
+
+    const ts = Math.floor(Date.now() / 1000);
+    const auth = await _invSign(`invite2:use:${kvKey}:${ts}`);
+
+    const res = await fetch(serverUrl + '/invite2/use', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // name намеренно НЕ передаётся — сервер не должен знать кто принял инвайт
+      body: JSON.stringify({ kvKey, notifyKey, ...auth }),
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || 'use failed'); }
+
+    return {
+      ok:           true,
+      ownerPubHex:  info.ownerPubHex,
+      ownerName:    info.ownerName,
+      ownerFp:      info.ownerFp,
+      signalingUrl: info.signalingUrl || null,
+      pushUrl:      info.pushUrl      || null,
+    };
+  };
+
+  // ── Список своих инвайтов ─────────────────────────────────────────────────
+  window._listInvites = async function() {
+    const auth = await _invSign('invite2:list:{ts}');
+    const ts   = auth.ts;
+    const res  = await fetch(PUSH_SERVER + '/invite2/list', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...auth }),
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || 'list failed'); }
+    const data = await res.json();
+    return data.invites || [];
+  };
+
+  // ── Отозвать инвайт ───────────────────────────────────────────────────────
+  window._revokeInvite = async function(kvKey) {
+    const auth = await _invSign(`invite2:revoke:${kvKey}:{ts}`);
+    const res  = await fetch(PUSH_SERVER + '/invite2/revoke', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kvKey, ...auth }),
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || 'revoke failed'); }
+    // Удаляем секрет из локального хранилища
+    try {
+      const store = JSON.parse(localStorage.getItem('_invSecrets') || '{}');
+      delete store[kvKey];
+      localStorage.setItem('_invSecrets', JSON.stringify(store));
+    } catch(_) {}
+    return true;
+  };
+
+  // ── Invite UI ─────────────────────────────────────────────────────────────
+
+  // Создать инвайт и показать модалку с ссылкой + список активных
   window.inviteCreateAndShow = async function() {
     const btn = document.getElementById('invite-create-btn');
-    if (btn) { btn.disabled = true; btn.textContent = '...'; }
     try {
-      const { token } = await _createInvite({ maxUses: 30, expiresIn: 604800 });
-      const link = (window._safeOrigin ? window._safeOrigin() : location.origin) + location.pathname + '?invite=' + token;
+      if (btn) { btn.disabled = true; btn.textContent = '...'; }
+      const { url, federationUrl } = await window._createInvite({ maxUses: 30, expiresIn: 604800 });
       let modal = document.getElementById('invite-modal');
       if (!modal) {
         modal = document.createElement('div');
         modal.id = 'invite-modal';
-        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
         modal.innerHTML = `
-          <div style="background:var(--sf);border:1px solid var(--bd);border-radius:16px;padding:24px;max-width:360px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.4)">
-            <div style="font-size:15px;font-weight:700;margin-bottom:8px">Ссылка-приглашение</div>
-            <div style="font-size:11px;color:var(--mu);margin-bottom:14px">Действует 7 дней · до 30 использований · добавление по подтверждению</div>
-            <div id="invite-link-text" style="font-size:11px;word-break:break-all;background:var(--bg);padding:10px;border-radius:8px;border:1px solid var(--bd);color:var(--a);margin-bottom:14px"></div>
-            <div style="display:flex;gap:8px">
+          <div style="background:var(--sf);border:1px solid var(--bd);border-radius:18px;padding:24px;max-width:360px;width:100%;display:flex;flex-direction:column;gap:14px">
+            <div style="font-size:14px;font-weight:700;color:var(--tx)">Ссылка-приглашение</div>
+            <div id="invite-link-text" style="font-size:11px;word-break:break-all;background:var(--bg);padding:10px;border-radius:8px;border:1px solid var(--bd);color:var(--a);margin-bottom:4px"></div>
+            <div style="font-size:10px;color:var(--mu)">🔒 Сервер не видит ваше имя — оно зашифровано в ссылке</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="action-btn" style="flex:1" onclick="inviteCopyLink()">📋 скопировать</button>
               <button class="action-btn" style="flex:1" onclick="inviteShare()">↗ поделиться</button>
               <button class="action-btn" onclick="inviteCloseModal()" style="color:var(--mu);border-color:var(--bd)">✕</button>
             </div>
+            <div id="invite-list-wrap"></div>
           </div>`;
         document.body.appendChild(modal);
         modal.addEventListener('click', e => { if (e.target === modal) inviteCloseModal(); });
       }
-      document.getElementById('invite-link-text').textContent = link;
-      window._currentInviteLink = link;
-      modal.style.display = 'flex';
+      // Показываем federation URI — он работает с любым сервером
+      document.getElementById('invite-link-text').textContent = federationUrl;
+      window._currentInviteLink = federationUrl;
+      if (btn) { btn.disabled = false; btn.textContent = '+ пригласить'; }
       await _refreshInviteList();
     } catch(e) {
+      if (btn) { btn.disabled = false; btn.textContent = '+ пригласить'; }
       toast('Ошибка: ' + e.message);
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = '+ создать ссылку'; }
     }
   };
 
   window.inviteCopyLink = function() {
     const link = window._currentInviteLink;
     if (!link) return;
-    navigator.clipboard.writeText(link).then(() => toast('Ссылка скопирована ✓')).catch(() => fallbackCopy(link, () => toast('Ссылка скопирована ✓')));
+    navigator.clipboard.writeText(link).then(() => toast('Скопировано ✓')).catch(() => toast('Не удалось скопировать'));
   };
 
   window.inviteShare = function() {
     const link = window._currentInviteLink;
     if (!link) return;
     if (navigator.share) {
-      navigator.share({ title: 'Tovsa', text: 'Добавь меня в Tovsa', url: link }).catch(()=>{});
+      navigator.share({ title: 'Tovsa', url: link }).catch(() => inviteCopyLink());
     } else {
       inviteCopyLink();
     }
@@ -16908,55 +16925,51 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
 
   window.inviteCloseModal = function() {
     const modal = document.getElementById('invite-modal');
-    if (modal) modal.style.display = 'none';
+    if (modal) modal.remove();
   };
 
   async function _refreshInviteList() {
     const wrap = document.getElementById('invite-list-wrap');
     if (!wrap) return;
-    wrap.innerHTML = '<div style="font-size:11px;color:var(--mu);padding:6px 0">загрузка...</div>';
     try {
-      const invites = await _listInvites();
+      const invites = await window._listInvites();
       if (!invites || !invites.length) {
-        wrap.innerHTML = '<div style="font-size:11px;color:var(--mu);padding:6px 0">нет активных ссылок</div>';
+        wrap.innerHTML = '<div style="font-size:11px;color:var(--mu);text-align:center">нет активных ссылок</div>';
         return;
       }
-      const now = Math.floor(Date.now() / 1000);
-      wrap.innerHTML = invites.map(inv => {
-        const exp = inv.expiresAt > 0
-          ? new Date(inv.expiresAt * 1000).toLocaleDateString('ru', { day:'numeric', month:'short' })
-          : '∞';
-        const uses = inv.maxUses > 0
-          ? `${inv.usedCount}/${inv.maxUses}`
-          : `${inv.usedCount}/∞`;
-        const expired = inv.expiresAt > 0 && now > inv.expiresAt;
-        const safeToken = esc(inv.token||'');
-        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bd)">
-          <div>
-            <span style="font-size:11px;font-family:monospace;color:var(--a)">${safeToken.slice(0,8)}…</span>
-            <span style="font-size:10px;color:var(--mu);margin-left:8px">${uses} · до ${exp}${expired ? ' (истекла)' : ''}</span>
-          </div>
-          <div style="display:flex;gap:6px;align-items:center">
-            <button class="action-btn" style="padding:3px 8px;font-size:10px" onclick="inviteCopyToken('${safeToken}')">📋</button>
-            <button class="action-btn" style="padding:3px 8px;font-size:10px;color:var(--e);border-color:var(--e)" onclick="inviteRevoke('${safeToken}', this)">✕</button>
-          </div>
-        </div>`;
-      }).join('');
+      const secrets = JSON.parse(localStorage.getItem('_invSecrets') || '{}');
+      wrap.innerHTML = '<div style="font-size:11px;color:var(--mu);margin-bottom:6px">Активные ссылки:</div>' +
+        invites.map(inv => {
+          const exp = inv.expiresAt ? new Date(inv.expiresAt * 1000).toLocaleDateString() : '∞';
+          const uses = inv.maxUses > 0 ? `${inv.usedCount}/${inv.maxUses}` : `${inv.usedCount}/∞`;
+          const safeKey = inv.kvKey.replace(/[^0-9a-f]/g,'');
+          return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-top:1px solid var(--bd);font-size:10px;color:var(--mu)">
+            <span style="flex:1">использований: ${uses} · до ${exp}</span>
+            <button class="action-btn" style="padding:3px 8px;font-size:10px" onclick="inviteCopyKvKey('${safeKey}')">📋</button>
+            <button class="action-btn" style="padding:3px 8px;font-size:10px;color:var(--e);border-color:var(--e)" onclick="inviteRevoke('${safeKey}', this)">✕</button>
+          </div>`;
+        }).join('');
     } catch(e) {
-      wrap.innerHTML = `<div style="font-size:11px;color:var(--e);padding:6px 0">${esc(String(e.message||e))}</div>`;
+      wrap.innerHTML = '<div style="font-size:11px;color:var(--e)">Ошибка загрузки</div>';
     }
   }
 
-  window.inviteCopyToken = function(token) {
-    const link = (window._safeOrigin ? window._safeOrigin() : location.origin) + location.pathname + '?invite=' + token;
-    navigator.clipboard.writeText(link).then(() => toast('Ссылка скопирована ✓')).catch(() => fallbackCopy(link, () => toast('Ссылка скопирована ✓')));
+  // Скопировать federation URL инвайта из сохранённых секретов
+  window.inviteCopyKvKey = function(kvKey) {
+    try {
+      const secrets = JSON.parse(localStorage.getItem('_invSecrets') || '{}');
+      const tokenB64 = secrets[kvKey];
+      if (!tokenB64) { toast('Секрет не найден локально'); return; }
+      const host = new URL(PUSH_SERVER).hostname;
+      const link = `tovsa2://${host}/inv#${tokenB64}`;
+      navigator.clipboard.writeText(link).then(() => toast('Скопировано ✓')).catch(() => toast('Не удалось'));
+    } catch(e) { toast('Ошибка: ' + e.message); }
   };
 
-  window.inviteRevoke = async function(token, btn) {
-    if (!confirm('Отозвать эту ссылку?')) return;
-    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  window.inviteRevoke = async function(kvKey, btn) {
     try {
-      await _revokeInvite(token);
+      if (btn) { btn.disabled = true; btn.textContent = '...'; }
+      await window._revokeInvite(kvKey);
       await _refreshInviteList();
     } catch(e) {
       toast('Ошибка: ' + e.message);
@@ -16964,12 +16977,27 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     }
   };
 
-  // ── Обработка ?invite= при открытии ──────────────────────────────────────
+  // ── Обработка входящих инвайтов при открытии ─────────────────────────────
+  // Поддерживает оба формата:
+  //   ?invite=<token>          — старые ссылки (совместимость)
+  //   #inv2:<token>            — новый формат fragment
+  //   tovsa2://host/inv#<token> — federation URI (обрабатывается как #inv2:)
   async function _checkInviteParam() {
-    const token = new URLSearchParams(location.search).get('invite');
-    if (!token) return;
-    history.replaceState(null, '', location.pathname);
+    // Проверяем ?invite= (старый формат, для совместимости)
+    let tokenInput = new URLSearchParams(location.search).get('invite');
+    if (tokenInput) {
+      history.replaceState(null, '', location.pathname);
+    } else {
+      // Проверяем #inv2: в fragment
+      const hash = location.hash;
+      if (hash.startsWith('#inv2:') || hash.startsWith('#tovsa2:')) {
+        tokenInput = hash.slice(1);
+        history.replaceState(null, '', location.pathname);
+      }
+    }
+    if (!tokenInput) return;
 
+    // Ждём готовности ключей
     let waited = 0;
     while (!myPrivKey && waited < 8000) {
       await new Promise(r => setTimeout(r, 200));
@@ -16978,9 +17006,8 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     if (!myPrivKey) { toast('Не удалось загрузить ключ'); return; }
 
     try {
-      const info = await _getInviteInfo(token);
+      const info = await window._getInviteInfo(tokenInput);
 
-      // Красивый диалог подтверждения
       const ok = await new Promise(resolve => {
         const overlay = document.createElement('div');
         overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
@@ -16994,34 +17021,62 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
             </div>
             <div style="display:flex;gap:8px">
               <button id="_inv_cancel" style="flex:1;padding:12px;background:transparent;border:1px solid var(--bd);border-radius:10px;color:var(--mu);font-family:inherit;font-size:12px;cursor:pointer">Отмена</button>
-              <button id="_inv_accept" style="flex:1;padding:12px;background:var(--a);border:none;border-radius:10px;color:#000;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">Отправить заявку</button>
+              <button id="_inv_accept" style="flex:1;padding:12px;background:var(--a);border:none;border-radius:10px;color:#000;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">Добавить</button>
             </div>
           </div>`;
         document.body.appendChild(overlay);
         overlay.querySelector('#_inv_accept').onclick = () => { document.body.removeChild(overlay); resolve(true); };
         overlay.querySelector('#_inv_cancel').onclick = () => { document.body.removeChild(overlay); resolve(false); };
-        overlay.onclick = e => { if(e.target === overlay){ document.body.removeChild(overlay); resolve(false); } };
+        overlay.onclick = e => { if(e.target===overlay){ document.body.removeChild(overlay); resolve(false); } };
       });
 
       if (!ok) return;
 
-      await window._requestViaInvite(token);
-      toast(`Заявка отправлена — ждём подтверждения от ${esc(info.ownerName || 'владельца')}`);
-      if(typeof showTab === 'function') setTimeout(() => showTab('sk'), 600);
+      const result = await window._requestViaInvite(tokenInput);
 
-      // Сразу показываем исходящую заявку в UI
-      await window._syncContactRequests();
+      // Сразу добавляем контакт локально — не ждём подтверждения
+      if (result.ownerPubHex) {
+        const contacts = await getContacts();
+        const fp = await _pubHexToFp(result.ownerPubHex);
+        if (!contacts[fp]) {
+          // Новый контакт — создаём
+          contacts[fp] = _sanitizeContactUrls({
+            name:         result.ownerName || 'Tovsa User',
+            pubKeyHex:    result.ownerPubHex,
+            addedAt:      Date.now(),
+            signalingUrl: result.signalingUrl || null,
+            pushUrl:      result.pushUrl      || null,
+          });
+          await saveContacts(contacts);
+          toast(`${esc(result.ownerName || 'Пользователь')} добавлен ✓`);
+        } else {
+          // Контакт уже есть — обновляем только федеративные URL если они изменились
+          let changed = false;
+          const newSig  = _isValidSigUrl(result.signalingUrl)  ? result.signalingUrl  : null;
+          const newPush = _isValidPushUrl(result.pushUrl) ? result.pushUrl : null;
+          if(newSig  && newSig  !== contacts[fp].signalingUrl){ contacts[fp].signalingUrl = newSig;  changed = true; }
+          if(newPush && newPush !== contacts[fp].pushUrl){      contacts[fp].pushUrl      = newPush; changed = true; }
+          if(changed){
+            await saveContacts(contacts);
+            // Пересинхронизируем маяки — контакт мог переехать на другой сервер
+            _refreshPairBeacons();
+            toast(`${esc(result.ownerName || 'Пользователь')} — сервер обновлён ✓`);
+          } else {
+            toast(`${esc(result.ownerName || 'Пользователь')} уже в контактах`);
+          }
+        }
+        if (typeof showTab === 'function') setTimeout(() => showTab('sk'), 600);
+      }
 
     } catch(e) {
       const msg = e.message || 'ошибка';
-      if(msg.includes('истек') || msg.includes('исчерпан') || msg.includes('не найдена')) {
+      if (msg.includes('истёк') || msg.includes('исчерпан') || msg.includes('не найден')) {
         toast('Ссылка больше не действует');
       } else {
         toast('Ошибка: ' + msg);
       }
     }
   }
-
   // ── Notifications UI ───────────────────────────────────────────────────────
   function _updateNotifUI() {
     const btn      = document.getElementById('notif-btn');

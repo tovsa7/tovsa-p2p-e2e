@@ -394,6 +394,8 @@ textarea::placeholder{color:var(--mu)}
 .cilast-text{font-size:11px;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
 .cilast-time{font-size:10px;color:var(--mu);opacity:.6;flex-shrink:0;white-space:nowrap}
 .cilast-lastseen{font-size:10px;color:var(--mu);opacity:.65}
+.msg-fwd-header{font-size:11px;color:var(--a);opacity:.85;margin-bottom:3px;padding:2px 0}
+.msg-fwd-name{font-weight:600}
 .citem-fav{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .12s;background:var(--sf)}
 .citem-fav:hover{background:#16161f}
 .citem-fav-icon{font-size:22px;flex-shrink:0;line-height:1}
@@ -1674,8 +1676,16 @@ textarea::placeholder{color:var(--mu)}
   <button class="ctx-item" id="msg-ctx-pin" onclick="msgCtxPin()">Закрепить</button>
   <button class="ctx-item" id="msg-ctx-edit" onclick="msgCtxEdit()">Редактировать</button>
   <button class="ctx-item" onclick="msgCtxFwd()">В избранное</button>
+  <button class="ctx-item" id="msg-ctx-fwd-contact" onclick="msgCtxFwdToContact()">Переслать контакту</button>
   <button class="ctx-item" onclick="msgCtxCopy()">Скопировать</button>
   <button class="ctx-item danger" onclick="msgCtxDelete()">Удалить</button>
+</div>
+
+<!-- Пикер контакта для пересылки -->
+<div class="ctx-bg" id="fwd-picker-bg" style="display:none" onclick="closeFwdPicker()"></div>
+<div id="fwd-picker" style="display:none;position:fixed;z-index:310;background:var(--bg);border:1px solid var(--bd);border-radius:14px;padding:12px 0;min-width:240px;max-width:320px;max-height:60vh;overflow-y:auto;box-shadow:0 4px 24px rgba(0,0,0,.18)">
+  <div style="padding:4px 16px 10px;font-size:12px;color:var(--mu);font-weight:600;letter-spacing:.04em">ПЕРЕСЛАТЬ</div>
+  <div id="fwd-picker-list"></div>
 </div>
 
 <!-- Чат -->
@@ -2795,12 +2805,13 @@ async function getHistory(){
  * @param {string} [replySender]
  * @param {number} [replyTs]
  */
-async function saveMsg(fp,text,type,ts,replyText,replySender,replyTs){
+async function saveMsg(fp,text,type,ts,replyText,replySender,replyTs,fwdFrom){
   if(await isOverLimit()){toast('Лимит хранилища превышен — сообщение не сохранено');return;}
   const h=await getHistory();
   if(!h[fp])h[fp]=[];
   const entry={text,type,ts:ts||Date.now()};
   if(replyText){entry.replyText=replyText;entry.replySender=replySender||'';entry.replyTs=replyTs||null;}
+  if(fwdFrom) entry.fwdFrom = fwdFrom;
   h[fp].push(entry);
   await idbSet('history','all',h);
   checkStorageAndNotify();
@@ -3730,7 +3741,8 @@ async function buildFavNode(m, contacts){
     const txt = m.text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     const t = new Date(m.ts).toLocaleString('ru',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
     const quoteHtml = m.replyText ? buildQuoteHtml(m.replySender,m.replyText,m.replyTs) : '';
-    d.innerHTML = quoteHtml+txt+'<div class="mmeta">'+t+'</div>';
+    const fwdHdrFav = m.fwdFrom ? buildFwdHtml(m.fwdFrom) : '';
+    d.innerHTML = fwdHdrFav+quoteHtml+txt+'<div class="mmeta">'+t+'</div>';
   }
   if(m.originFp&&m.originTs){
     const cname = contacts[m.originFp]?.name||'Неизвестный';
@@ -7241,7 +7253,7 @@ async function _handleServicePacket(j, idDone){
       } else if(j.replySender === 'peer'){
         senderName = 'Вы';
       }
-      addMsg(j.text, 'in', j.replyText, senderName, j.replyTs, j.ts);
+      addMsg(j.text, 'in', j.replyText, senderName, j.replyTs, j.ts, null, null, j.fwdFrom||null);
       _hideTyping();
       _clearShadowMsg();
       setTimeout(_sendReadReceipt, 100);
@@ -7485,7 +7497,8 @@ async function renderHistoryNodes(msgs, fp, peerName, prepend){
       const txt = msg.text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
       const t = new Date(msg.ts).toLocaleString('ru',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
       const quoteHtml = msg.replyText ? buildQuoteHtml(msg.replySender,msg.replyText,msg.replyTs) : '';
-      d.innerHTML = quoteHtml+txt+'<div class="mmeta">'+t+'</div>';
+      const fwdHdr = msg.fwdFrom ? buildFwdHtml(msg.fwdFrom) : '';
+      d.innerHTML = fwdHdr+quoteHtml+txt+'<div class="mmeta">'+t+'</div>';
     }
     attachMsgLongPress(d, msg.__file__?('[файл] '+(msg.name||'')):msg.text, sender, msg.ts, fp);
     return d;
@@ -7730,6 +7743,7 @@ async function onConn(){
         if(dc && dc.readyState === 'open'){
           const pkt = {__msg__:true, ts:item.ts, text:item.text};
           if(item.replyText){ pkt.replyText=item.replyText; pkt.replySender=item.replySender; pkt.replyTs=item.replyTs; }
+          if(item.fwdFrom) pkt.fwdFrom = item.fwdFrom;
           _e2eSend(JSON.stringify(pkt));
         }
       }
@@ -9070,6 +9084,127 @@ async function msgCtxFwd(){
   toast('Переслано в избранное');
 }
 
+// ── Пересылка контакту ───────────────────────────────────────────────────────
+
+let _fwdPendingMsg = null; // { text, el, originFp, originTs, isFile, fileName, fileId }
+
+function msgCtxFwdToContact(){
+  // Сохраняем данные пересылаемого сообщения
+  _fwdPendingMsg = {
+    text:     _msgCtxText,
+    el:       _msgCtxEl,
+    originFp: _msgCtxFp !== '__fav__' ? _msgCtxFp : null,
+    originTs: _msgCtxTs,
+    isFile:   !!(_msgCtxEl && _msgCtxEl.querySelector('.msg-file')),
+    fileName: _msgCtxEl?.querySelector('.msg-file-name')?.textContent || 'файл',
+    fileId:   _msgCtxEl?.dataset?.ts ? Number(_msgCtxEl.dataset.ts) : null,
+  };
+  closeMsgCtx();
+  openFwdPicker();
+}
+
+async function openFwdPicker(){
+  const contacts = await getContacts();
+  const list = $('fwd-picker-list');
+  list.innerHTML = '';
+
+  const myFp = myFingerprint;
+  const entries = Object.entries(contacts)
+    .filter(([fp, c]) => !c._stranger && c.pubKeyHex && fp !== myFp)
+    .sort((a, b) => (a[1].name||'').localeCompare(b[1].name||'', 'ru'));
+
+  if(!entries.length){
+    list.innerHTML = '<div style="padding:10px 16px;color:var(--mu);font-size:13px">Нет контактов</div>';
+  } else {
+    entries.forEach(([fp, c]) => {
+      const online = _presenceCache[fp] === 'online';
+      const row = document.createElement('button');
+      row.className = 'ctx-item';
+      row.style.cssText = 'display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:9px 16px';
+      const dot = online
+        ? '<span style="width:7px;height:7px;border-radius:50%;background:var(--a);flex-shrink:0;display:inline-block"></span>'
+        : '<span style="width:7px;height:7px;border-radius:50%;background:var(--bd);flex-shrink:0;display:inline-block"></span>';
+      const sub = online ? 'онлайн' : (_fmtLastSeen(fp) ? 'был(а) '+_fmtLastSeen(fp) : 'офлайн');
+      row.innerHTML = `${dot}<div style="min-width:0"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.name||'Неизвестный')}</div><div style="font-size:10px;color:var(--mu)">${esc(sub)}</div></div>`;
+      row.onclick = () => { closeFwdPicker(); _doFwdToContact(fp, c); };
+      list.appendChild(row);
+    });
+  }
+
+  // Позиционируем по центру
+  const picker = $('fwd-picker');
+  picker.style.display = 'block';
+  $('fwd-picker-bg').style.display = 'block';
+  picker.style.left = Math.round((window.innerWidth - picker.offsetWidth) / 2) + 'px';
+  picker.style.top  = Math.round((window.innerHeight - picker.offsetHeight) / 2) + 'px';
+}
+
+function closeFwdPicker(){
+  $('fwd-picker').style.display = 'none';
+  $('fwd-picker-bg').style.display = 'none';
+}
+
+async function _doFwdToContact(fp, contact){
+  const msg = _fwdPendingMsg;
+  _fwdPendingMsg = null;
+  if(!msg) return;
+
+  const myName = ($('my-name-input')?.value || localStorage.getItem('myName') || 'Tovsa').trim();
+  const ts = Date.now();
+
+  // Формируем текст с ником отправителя оригинала
+  // originFp = fp того чьё сообщение пересылаем (null = своё из избранного)
+  let senderName = 'Вы';
+  if(msg.originFp && msg.originFp !== myFingerprint){
+    const contacts = await getContacts();
+    senderName = contacts[msg.originFp]?.name || 'Неизвестный';
+  }
+
+  // Сохраняем в историю как 'out'
+  const h = await getHistory();
+  if(!h[fp]) h[fp] = [];
+
+  let queueItem;
+  if(msg.isFile && msg.fileId){
+    // Файл — пересылаем по fileId (blob уже в IDB)
+    queueItem = { fp, __fwd_file__: true, fileId: msg.fileId, fileName: msg.fileName,
+                  fwdFrom: senderName, ts };
+    h[fp].push({ type:'out', __fwd_file__:true, fileId:msg.fileId, name:msg.fileName,
+                 fwdFrom:senderName, ts });
+  } else {
+    // Текст с плашкой "Переслано от X"
+    const fwdText = msg.text;
+    queueItem = { fp, text: fwdText, fwdFrom: senderName, ts };
+    h[fp].push({ type:'out', text: fwdText, fwdFrom: senderName, ts });
+  }
+  await idbSet('history','all', h).catch(()=>{});
+
+  // Если собеседник сейчас активен в чате — отправляем сразу
+  const isActive = currentPeerFp === fp && dc && dc.readyState === 'open';
+  if(isActive){
+    if(msg.isFile && msg.fileId){
+      // Файловая пересылка через существующий механизм
+      const blob = await getFileFromIDB(msg.fileId).catch(()=>null);
+      if(blob){
+        const file = new File([blob], msg.fileName, { type: blob.type });
+        file._fwdFrom = senderName;
+        _sendFileMsg(file);
+      }
+    } else {
+      _e2eSend(JSON.stringify({ __msg__:true, ts, text: queueItem.text, fwdFrom: senderName }));
+    }
+    if(activeTab === 'sc' && currentPeerFp === fp) addMsg(queueItem.text||'[файл] '+msg.fileName, 'out', null, null, null, ts, null, senderName);
+    toast('Переслано');
+  } else {
+    // Офлайн — в очередь (подхватится при reconnect)
+    _offlineQueue.push(queueItem);
+    idbSet('meta','offlineQueue', _offlineQueue).catch(()=>{});
+    toast('📤 Переслано — отправится когда контакт будет онлайн');
+  }
+
+  renderContacts();
+}
+
 async function msgCtxDelete(){
   const el=_msgCtxEl;
   const fp=_msgCtxFp;
@@ -9258,6 +9393,11 @@ async function applyEdit(newText, isFav){
 function cancelFavReply(){
   _favReplyText=null;_favReplySender=null;_favReplyTs=null;
   $('fav-reply-bar').classList.remove('on');
+}
+
+function buildFwdHtml(fwdFrom){
+  if(!fwdFrom) return '';
+  return `<div class="msg-fwd-header">↷ Переслано от <span class="msg-fwd-name">${esc(fwdFrom)}</span></div>`;
 }
 
 function buildQuoteHtml(sender,text,originTs){
@@ -9736,7 +9876,7 @@ function connMsg(text){
   showStatusBanner(icon, text.replace(/^[⚠️🔗🔄📡⏳✓]\s*/u, ''));
 }
 
-async function addMsg(text,type,replyText,replySender,replyTs,forcedTs){
+async function addMsg(text,type,replyText,replySender,replyTs,forcedTs,_r,_e,fwdFrom){
   const m=$('msgs'),d=document.createElement('div');
   d.className='msg '+type;
   const h=text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -9744,7 +9884,8 @@ async function addMsg(text,type,replyText,replySender,replyTs,forcedTs){
   d.dataset.ts=ts;
   const t=new Date(ts).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
   const quoteHtml=replyText?buildQuoteHtml(replySender,replyText,replyTs):'';
-  d.innerHTML=quoteHtml+h+'<div class="mmeta">'+t+'</div>';
+  const fwdHtml=fwdFrom?buildFwdHtml(fwdFrom):'';
+  d.innerHTML=fwdHtml+quoteHtml+h+'<div class="mmeta">'+t+'</div>';
   const contacts=await getContacts();
   const sender=type==='out'?'Вы':(currentPeerFp&&contacts[currentPeerFp]?.name)||'Неизвестный';
   attachMsgLongPress(d,text,sender,ts,currentPeerFp);
@@ -9758,7 +9899,7 @@ async function addMsg(text,type,replyText,replySender,replyTs,forcedTs){
     // Если приложение свёрнуто — всегда помечаем как непрочитанное
     if(!atBottom || !inChat || document.hidden) _addUnread();
   }
-  if(currentPeerFp) await saveMsg(currentPeerFp,text,type,ts,replyText,replySender,replyTs);
+  if(currentPeerFp) await saveMsg(currentPeerFp,text,type,ts,replyText,replySender,replyTs,fwdFrom);
 }
 
 // ── File transfer ──

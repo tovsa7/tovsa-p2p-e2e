@@ -125,7 +125,8 @@ textarea::placeholder{color:var(--mu)}
 #sc{flex-direction:column;position:relative;overflow:hidden;touch-action:pan-y}
 #sfav,#sh{overflow:hidden;touch-action:pan-y;overscroll-behavior:none}
 #sfav .msgs,#sh .msgs,#sc .msgs{overscroll-behavior:contain}
-.msgs{flex:1;overflow-y:auto;overflow-x:hidden;padding:16px;display:flex;flex-direction:column;gap:8px;scroll-behavior:smooth;touch-action:pan-y;background-image:var(--chat-pat);background-size:var(--chat-pat-size)}
+.msgs{flex:1;overflow-y:auto;overflow-x:hidden;padding:16px;display:flex;flex-direction:column;gap:8px;scroll-behavior:smooth;touch-action:pan-y;background-image:var(--chat-pat);background-size:var(--chat-pat-size);position:relative}
+.msgs[data-wall='1']{background-size:cover!important;background-position:center!important}
 .msg.shadow-in{background:var(--sf);color:var(--mu);border:1px dashed var(--bd);opacity:.85;font-style:italic}
 
 .msgs::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
@@ -418,6 +419,53 @@ textarea::placeholder{color:var(--mu)}
 .sh-empty{flex:1;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--mu)}
 /* identity panel */
 .idpanel{padding:10px 16px;border-bottom:1px solid var(--bd);background:var(--sf);display:flex;align-items:center;gap:10px;flex-shrink:0;font-size:11px}
+/* Кнопка звонка в хедере */
+.hdr-call-btn{background:none;border:none;cursor:pointer;padding:6px 8px;border-radius:10px;font-size:18px;color:var(--mu);transition:color .15s,background .15s;flex-shrink:0;-webkit-tap-highlight-color:transparent}
+.hdr-call-btn:hover,.hdr-call-btn:active{color:var(--a);background:rgba(0,255,157,.08)}
+/* Кнопка 3 точек */
+.hdr-more-btn{background:none;border:none;cursor:pointer;padding:6px 8px;border-radius:10px;font-size:18px;color:var(--mu);transition:color .15s,background .15s;flex-shrink:0;-webkit-tap-highlight-color:transparent;letter-spacing:1px;line-height:1}
+.hdr-more-btn:hover,.hdr-more-btn:active{color:var(--tx);background:rgba(255,255,255,.06)}
+/* Дроп-меню 3 точек */
+#chat-more-menu,#sh-more-menu{display:none;position:fixed;z-index:400;background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:6px 0;min-width:200px;box-shadow:0 8px 32px rgba(0,0,0,.4);animation:pop .15s ease}
+#chat-more-menu.on,#sh-more-menu.on{display:block}
+.chat-more-item{display:flex;align-items:center;gap:12px;width:100%;padding:11px 16px;background:none;border:none;color:var(--tx);font-size:13px;font-family:inherit;cursor:pointer;text-align:left;transition:background .12s;-webkit-tap-highlight-color:transparent}
+.chat-more-item:active,.chat-more-item:hover{background:rgba(255,255,255,.05)}
+.chat-more-item .cmi-icon{font-size:16px;width:22px;text-align:center;flex-shrink:0}
+.chat-more-item .cmi-label{flex:1}
+/* Диалог звонка */
+#call-type-modal{display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);align-items:center;justify-content:center}
+#call-type-modal.on{display:flex}
+#call-type-box{background:var(--sf);border:1px solid var(--bd);border-radius:20px;padding:28px 24px 20px;width:min(320px,90vw);display:flex;flex-direction:column;align-items:center;gap:20px;box-shadow:0 16px 48px rgba(0,0,0,.5);animation:pop .2s ease}
+.call-type-name{font-size:15px;font-weight:700;color:var(--tx)}
+.call-type-sub{font-size:11px;color:var(--mu);margin-top:2px}
+.call-type-btns{display:flex;gap:16px;width:100%}
+.call-type-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;padding:18px 10px;border-radius:16px;border:1px solid var(--bd);background:var(--bg);cursor:pointer;transition:border-color .15s,background .15s;-webkit-tap-highlight-color:transparent}
+.call-type-btn:hover,.call-type-btn:active{border-color:var(--a);background:rgba(0,255,157,.06)}
+.call-type-btn .ctb-icon{font-size:28px}
+.call-type-btn .ctb-label{font-size:12px;color:var(--mu);font-weight:600}
+.call-type-cancel{width:100%;padding:12px;border-radius:12px;border:none;background:rgba(255,255,255,.06);color:var(--mu);font-size:13px;font-family:inherit;cursor:pointer;transition:background .15s}
+.call-type-cancel:hover{background:rgba(255,255,255,.1)}
+/* Меню обоев */
+#wallpaper-modal{display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);flex-direction:column;align-items:center;justify-content:flex-end}
+#wallpaper-modal.on{display:flex}
+#wallpaper-sheet{background:var(--sf);border-radius:20px 20px 0 0;border-top:1px solid var(--bd);width:100%;max-width:600px;padding:20px 20px 32px;display:flex;flex-direction:column;gap:16px;animation:slideUp .22s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.wm-title{font-size:14px;font-weight:700;color:var(--tx);text-align:center}
+.wm-preview{width:100%;aspect-ratio:9/5;border-radius:14px;border:1px solid var(--bd);overflow:hidden;background:var(--bg);background-image:var(--chat-pat);background-size:var(--chat-pat-size);display:flex;flex-direction:column;gap:6px;padding:12px;justify-content:flex-end;position:relative;transition:background-image .3s}
+.wm-preview-img{position:absolute;inset:0;background-size:cover;background-position:center;opacity:var(--wall-opacity,1)}
+.wm-preview-msg{position:relative;z-index:1}
+.wm-preview-msg.in{align-self:flex-start;background:rgba(20,20,28,.85);border:1px solid rgba(255,255,255,.08);padding:7px 11px;border-radius:4px 12px 12px 12px;font-size:12px;max-width:70%}
+.wm-preview-msg.out{align-self:flex-end;background:rgba(0,255,157,.15);border:1px solid rgba(0,255,157,.25);padding:7px 11px;border-radius:12px 4px 12px 12px;font-size:12px;max-width:70%}
+.wm-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.wm-action-btn{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 10px;border-radius:14px;border:1px solid var(--bd);background:var(--bg);cursor:pointer;transition:border-color .15s;-webkit-tap-highlight-color:transparent}
+.wm-action-btn:hover,.wm-action-btn:active{border-color:var(--a)}
+.wm-action-btn .wab-icon{font-size:22px}
+.wm-action-btn .wab-label{font-size:11px;color:var(--mu);text-align:center}
+.wm-slider-row{display:flex;flex-direction:column;gap:6px}
+.wm-slider-label{display:flex;justify-content:space-between;font-size:11px;color:var(--mu)}
+.wm-slider-label span:last-child{color:var(--tx);font-variant-numeric:tabular-nums}
+.wm-settings-link{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border-radius:12px;border:1px solid var(--bd);background:none;color:var(--mu);font-size:12px;font-family:inherit;cursor:pointer;transition:border-color .15s,color .15s;width:100%}
+.wm-settings-link:hover{border-color:var(--a);color:var(--a)}
 /* Search bar */
 #search-bar, .search-bar-generic{display:none;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--bd);background:var(--sf);flex-shrink:0}
 #search-bar.on, .search-bar-generic.on{display:flex}
@@ -1508,7 +1556,7 @@ textarea::placeholder{color:var(--mu)}
     </div>
     <button id="sh-conn-btn" class="ci-conn-btn" style="display:none" onclick="connectToContact(_historyFp)">→ связь</button>
     <button id="sh-invite-btn" class="ci-conn-btn" style="display:none;background:none;border-color:var(--mu);color:var(--mu)" onclick="inviteFromHistory()">📣 позвать</button>
-    <button onclick="openChatSearch('sh-msgs')" title="Поиск" style="background:none;border:none;cursor:pointer;font-size:15px;padding:5px;color:var(--mu);transition:color .15s;flex-shrink:0" onmouseover="this.style.color='var(--a)'" onmouseout="this.style.color='var(--mu)'">🔍</button>
+    <button class="hdr-more-btn" onclick="openShMoreMenu(event)" title="Ещё">···</button>
   </div>
   <div id="search-bar-sh" class="search-bar-generic">
     <button class="search-nav-btn" onclick="closeChatSearch('sh-msgs')" style="font-size:13px;color:var(--mu)">✕</button>
@@ -1692,7 +1740,7 @@ textarea::placeholder{color:var(--mu)}
 <div class="scr" id="sc">
   <div class="idpanel" id="idpanel">
     <button class="gbtn" onclick="minimizeChat()" title="Свернуть" style="flex-shrink:0;padding:8px 10px;font-size:14px">←</button>
-    <div class="idinfo">
+    <div class="idinfo" style="flex:1;min-width:0">
       <div class="idname" id="peer-name">Неизвестный</div>
       <div id="peer-lastseen" style="font-size:10px;color:var(--mu);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
       <div id="peer-fp" style="font-size:9px;color:var(--mu);opacity:.7;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
@@ -1701,11 +1749,85 @@ textarea::placeholder{color:var(--mu)}
     <div id="peer-push-badge" title="Статус уведомлений" style="display:none;font-size:10px;padding:3px 7px;border-radius:8px;border:1px solid var(--bd);color:var(--mu);flex-shrink:0;cursor:default"></div>
     <button class="idsave" id="idsavebtn" onclick="saveContact()" style="display:none">+ сохранить</button>
     <button id="call-online-btn" onclick="callPeerOnline()" title="Позвать онлайн" style="display:none;background:none;border:1px solid var(--a);color:var(--a);border-radius:10px;padding:5px 10px;font-size:11px;cursor:pointer;flex-shrink:0">📣</button>
-    <div id="mcall-hdr-btns" style="display:none;gap:4px">
-      <button onclick="mcallStart(false)" title="Аудиозвонок" style="background:none;border:1px solid var(--bd);border-radius:8px;padding:5px 9px;font-size:14px;cursor:pointer;color:var(--mu);transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='var(--a)';this.style.color='var(--a)'" onmouseout="this.style.borderColor='var(--bd)';this.style.color='var(--mu)'">🎤</button>
-      <button onclick="mcallStart(true)" title="Видеозвонок" style="background:none;border:1px solid var(--bd);border-radius:8px;padding:5px 9px;font-size:14px;cursor:pointer;color:var(--mu);transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='var(--a)';this.style.color='var(--a)'" onmouseout="this.style.borderColor='var(--bd)';this.style.color='var(--mu)'">📹</button>
+    <!-- Единая кнопка звонка -->
+    <button class="hdr-call-btn" id="hdr-call-btn" onclick="openCallTypeModal()" title="Звонок" style="display:none">📞</button>
+    <!-- 3 точки -->
+    <button class="hdr-more-btn" onclick="openChatMoreMenu(event)" title="Ещё">···</button>
+  </div>
+
+  <!-- Диалог выбора типа звонка -->
+  <div id="call-type-modal" onclick="if(event.target===this)closeCallTypeModal()">
+    <div id="call-type-box">
+      <div style="text-align:center">
+        <div class="call-type-name" id="call-type-peer-name">Контакт</div>
+        <div class="call-type-sub">Выберите тип звонка</div>
+      </div>
+      <div class="call-type-btns">
+        <button class="call-type-btn" onclick="closeCallTypeModal();mcallStart(false)">
+          <span class="ctb-icon">🎤</span>
+          <span class="ctb-label">Аудио</span>
+        </button>
+        <button class="call-type-btn" onclick="closeCallTypeModal();mcallStart(true)">
+          <span class="ctb-icon">📹</span>
+          <span class="ctb-label">Видео</span>
+        </button>
+      </div>
+      <button class="call-type-cancel" onclick="closeCallTypeModal()">Отмена</button>
     </div>
-    <button onclick="openChatSearch('msgs')" title="Поиск" style="background:none;border:none;cursor:pointer;font-size:15px;padding:5px;color:var(--mu);transition:color .15s;flex-shrink:0" onmouseover="this.style.color='var(--a)'" onmouseout="this.style.color='var(--mu)'">🔍</button>
+  </div>
+
+  <!-- Меню 3 точек -->
+  <div id="chat-more-menu">
+    <button class="chat-more-item" onclick="closeChatMoreMenu();openChatSearch('msgs')">
+      <span class="cmi-icon">🔍</span><span class="cmi-label">Поиск в переписке</span>
+    </button>
+    <button class="chat-more-item" onclick="closeChatMoreMenu();openWallpaperModal()">
+      <span class="cmi-icon">🖼</span><span class="cmi-label">Обои чата</span>
+    </button>
+  </div>
+
+  <!-- Меню 3 точек истории -->
+  <div id="sh-more-menu">
+    <button class="chat-more-item" onclick="closeShMoreMenu();openChatSearch('sh-msgs')">
+      <span class="cmi-icon">🔍</span><span class="cmi-label">Поиск в переписке</span>
+    </button>
+    <button class="chat-more-item" onclick="closeShMoreMenu();openWallpaperModal()">
+      <span class="cmi-icon">🖼</span><span class="cmi-label">Обои чата</span>
+    </button>
+  </div>
+
+  <!-- Меню обоев -->
+  <div id="wallpaper-modal" onclick="if(event.target===this)closeWallpaperModal()">
+    <div id="wallpaper-sheet">
+      <div class="wm-title">Обои чата</div>
+      <!-- Превью -->
+      <div class="wm-preview" id="wm-preview">
+        <div class="wm-preview-img" id="wm-preview-img"></div>
+        <div class="wm-preview-msg in">Привет!</div>
+        <div class="wm-preview-msg out">Привет 👋</div>
+      </div>
+      <!-- Слайдер яркости если есть картинка -->
+      <div class="wm-slider-row" id="wm-opacity-row" style="display:none">
+        <div class="wm-slider-label"><span>Яркость обоев</span><span id="wm-opacity-val">100%</span></div>
+        <input type="range" id="wm-opacity-slider" min="10" max="100" value="100" oninput="onWallpaperOpacity(this.value)">
+      </div>
+      <!-- Действия -->
+      <div class="wm-actions">
+        <button class="wm-action-btn" onclick="triggerWallpaperUpload()">
+          <span class="wab-icon">📁</span>
+          <span class="wab-label">Загрузить фото</span>
+        </button>
+        <button class="wm-action-btn" onclick="clearWallpaper()">
+          <span class="wab-icon">✕</span>
+          <span class="wab-label">Убрать обои</span>
+        </button>
+      </div>
+      <input type="file" id="wallpaper-file-input" accept="image/*" style="display:none" onchange="onWallpaperFile(this)">
+      <!-- Ссылка в настройки -->
+      <button class="wm-settings-link" onclick="closeWallpaperModal();showTab('sn');setTimeout(()=>snOpen('sn-appearance'),60)">
+        ⚙️ Тема и паттерны — Настройки внешнего вида
+      </button>
+    </div>
   </div>
 
   <!-- Search bar -->
@@ -3891,6 +4013,12 @@ function showPeerIdentity(fp,known,name){
   }
   // Показываем "был(а) N назад" сразу при открытии чата
   _updatePeerLastSeenHeader(fp);
+  // Кнопка звонка — показываем только если есть соединение
+  const _callBtn = document.getElementById('hdr-call-btn');
+  if(_callBtn) _callBtn.style.display = known ? '' : 'none';
+  // Обновляем имя в диалоге звонка
+  const _ctpn = document.getElementById('call-type-peer-name');
+  if(_ctpn) _ctpn.textContent = name || 'Контакт';
   // Открываем чат после верификации identity (если ждали)
   if($('sc').dataset.waitingIdentity === '1'){
     $('sc').dataset.waitingIdentity = '';
@@ -3900,9 +4028,7 @@ function showPeerIdentity(fp,known,name){
   // Сбрасываем бейдж при смене собеседника
   _showPeerPushBadge(null);
   updateActiveBanner();
-  // Показываем кнопки звонка
-  const hdrBtns = $('mcall-hdr-btns');
-  if(hdrBtns) hdrBtns.style.display = 'flex';
+
 }
 
 function _showPeerPushBadge(pushEnabled){
@@ -3934,8 +4060,8 @@ function resetPeerIdentity(){
   $('peer-fp').textContent='';
   $('peer-lastseen').textContent='';
   $('idsavebtn').style.display='none';
-  const hdrBtns = $('mcall-hdr-btns');
-  if(hdrBtns) hdrBtns.style.display = 'none';
+  const _callBtnR = document.getElementById('hdr-call-btn');
+  if(_callBtnR) _callBtnR.style.display = 'none';
 }
 
 
@@ -6459,6 +6585,8 @@ buildStuns();
 openDB().then(async ()=>{
   updateFavLast();
   renderContacts();
+  // Загружаем обои из IDB
+  _loadWallpaper();
   // Загружаем lastSeen из IDB — сохраняется между сессиями
   try{
     const saved = await idbGet('meta', _LAST_SEEN_IDB_KEY);
@@ -8307,9 +8435,9 @@ function _mcUpdateUI(){
   const active  = _mc.state === 'active';
   const name    = $('peer-name').textContent || 'Звонок';
 
-  // Кнопки в хедере чата — скрываем во время звонка
-  const hdrBtns = $('mcall-hdr-btns');
-  if(hdrBtns) hdrBtns.style.display = (_mc.state === 'idle' && dc?.readyState === 'open') ? 'flex' : 'none';
+  // Кнопка звонка в хедере — скрываем во время активного звонка
+  const _hdrCallBtn = document.getElementById('hdr-call-btn');
+  if(_hdrCallBtn) _hdrCallBtn.style.display = (_mc.state === 'idle' && dc?.readyState === 'open') ? '' : 'none';
 
   if(!active) return;
 
@@ -9094,6 +9222,169 @@ async function msgCtxFwd(){
   if(contactsSubScreen==='sfav') await renderFavMsgs();
   toast('Переслано в избранное');
 }
+
+// ── Хедер чата: кнопка звонка ────────────────────────────────────────────────
+function openCallTypeModal(){
+  $('call-type-modal').classList.add('on');
+}
+function closeCallTypeModal(){
+  $('call-type-modal').classList.remove('on');
+}
+
+// ── Хедер чата: меню 3 точек ──────────────────────────────────────────────────
+let _chatMoreMenuOpen = false;
+function openChatMoreMenu(e){
+  e.stopPropagation();
+  const menu = $('chat-more-menu');
+  const rect = e.currentTarget.getBoundingClientRect();
+  menu.style.top  = (rect.bottom + 6) + 'px';
+  menu.style.right = (window.innerWidth - rect.right) + 'px';
+  menu.classList.add('on');
+  _chatMoreMenuOpen = true;
+  // Закрыть при клике вне
+  setTimeout(() => document.addEventListener('click', _closeChatMoreOnOutside, { once: true }), 10);
+}
+function _closeChatMoreOnOutside(){
+  closeChatMoreMenu();
+}
+function closeChatMoreMenu(){
+  $('chat-more-menu').classList.remove('on');
+  _chatMoreMenuOpen = false;
+}
+
+// ── Обои чата (хранятся в IDB meta, ключ 'wallpaper') ────────────────────────
+let _wallpaperB64 = '';
+let _wallpaperOpacity = 1;
+
+async function _loadWallpaper(){
+  try {
+    const saved = await idbGet('meta', 'wallpaper');
+    if(saved){
+      _wallpaperB64    = saved.img    || '';
+      _wallpaperOpacity = saved.opacity != null ? saved.opacity : 1;
+    }
+  } catch(_){}
+  _applyWallpaper();
+}
+
+async function _saveWallpaper(){
+  try {
+    if(_wallpaperB64){
+      await idbSet('meta', 'wallpaper', { img: _wallpaperB64, opacity: _wallpaperOpacity });
+    } else {
+      await idbSet('meta', 'wallpaper', null);
+    }
+  } catch(_){ toast('Не удалось сохранить обои'); }
+}
+
+function _applyWallpaper(){
+  document.querySelectorAll('.msgs').forEach(el => {
+    if(_wallpaperB64){
+      el.style.backgroundImage = `linear-gradient(rgba(0,0,0,${1 - _wallpaperOpacity}),rgba(0,0,0,${1 - _wallpaperOpacity})),url(${_wallpaperB64})`;
+      el.style.backgroundSize = 'cover, cover';
+      el.style.backgroundPosition = 'center, center';
+      el.dataset.wall = '1';
+    } else {
+      el.style.backgroundImage = 'var(--chat-pat)';
+      el.style.backgroundSize = 'var(--chat-pat-size)';
+      el.style.backgroundPosition = '';
+      el.removeAttribute('data-wall');
+    }
+  });
+}
+
+function _syncWallpaperPreview(){
+  const previewImg = $('wm-preview-img');
+  const opacityRow = $('wm-opacity-row');
+  const opacitySlider = $('wm-opacity-slider');
+  const opacityVal = $('wm-opacity-val');
+  if(_wallpaperB64){
+    previewImg.style.backgroundImage = `url(${_wallpaperB64})`;
+    previewImg.style.backgroundSize = 'cover';
+    previewImg.style.backgroundPosition = 'center';
+    previewImg.style.opacity = _wallpaperOpacity;
+    opacityRow.style.display = '';
+    opacitySlider.value = Math.round(_wallpaperOpacity * 100);
+    opacityVal.textContent = Math.round(_wallpaperOpacity * 100) + '%';
+  } else {
+    previewImg.style.backgroundImage = '';
+    previewImg.style.opacity = 1;
+    opacityRow.style.display = 'none';
+  }
+  const preview = $('wm-preview');
+  preview.style.backgroundImage = 'var(--chat-pat)';
+  preview.style.backgroundSize = 'var(--chat-pat-size)';
+}
+
+function openWallpaperModal(){
+  _syncWallpaperPreview();
+  $('wallpaper-modal').classList.add('on');
+}
+
+function closeWallpaperModal(){
+  $('wallpaper-modal').classList.remove('on');
+}
+
+function triggerWallpaperUpload(){
+  $('wallpaper-file-input').value = '';
+  $('wallpaper-file-input').click();
+}
+
+function onWallpaperFile(input){
+  const file = input.files[0];
+  if(!file) return;
+  // Сжимаем до разумного размера чтобы не разрывать IDB
+  const MAX_PX = 1920;
+  const img = new Image();
+  const objectUrl = URL.createObjectURL(file);
+  img.onload = () => {
+    URL.revokeObjectURL(objectUrl);
+    const canvas = document.createElement('canvas');
+    let w = img.naturalWidth, h = img.naturalHeight;
+    if(w > MAX_PX || h > MAX_PX){
+      if(w > h){ h = Math.round(h * MAX_PX / w); w = MAX_PX; }
+      else      { w = Math.round(w * MAX_PX / h); h = MAX_PX; }
+    }
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    _wallpaperB64 = canvas.toDataURL('image/jpeg', 0.85);
+    _wallpaperOpacity = 1;
+    _applyWallpaper();
+    _saveWallpaper();
+    _syncWallpaperPreview();
+  };
+  img.src = objectUrl;
+}
+
+function onWallpaperOpacity(val){
+  _wallpaperOpacity = val / 100;
+  $('wm-opacity-val').textContent = val + '%';
+  $('wm-preview-img').style.opacity = _wallpaperOpacity;
+  _applyWallpaper();
+  _saveWallpaper();
+}
+
+async function clearWallpaper(){
+  _wallpaperB64 = '';
+  _wallpaperOpacity = 1;
+  await _saveWallpaper();
+  _applyWallpaper();
+  _syncWallpaperPreview();
+  toast('Обои удалены');
+}
+
+// ── Меню 3 точек истории ─────────────────────────────────────────────────────
+function openShMoreMenu(e){
+  e.stopPropagation();
+  const menu = $('sh-more-menu');
+  const rect = e.currentTarget.getBoundingClientRect();
+  menu.style.top  = (rect.bottom + 6) + 'px';
+  menu.style.right = (window.innerWidth - rect.right) + 'px';
+  menu.classList.add('on');
+  setTimeout(() => document.addEventListener('click', _closeShMoreOnOutside, { once: true }), 10);
+}
+function _closeShMoreOnOutside(){ closeShMoreMenu(); }
+function closeShMoreMenu(){ $('sh-more-menu').classList.remove('on'); }
 
 // ── Пересылка контакту ───────────────────────────────────────────────────────
 

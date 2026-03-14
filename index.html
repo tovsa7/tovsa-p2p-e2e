@@ -5073,7 +5073,7 @@ async function openHistory(fp){
   showTab('sh');
 }
 
-function toggleContacts(){ showTab('sk'); }
+function toggleContacts(){ showTab('schats'); }
 
 // ── Офлайн-сообщения из истории ──────────────────────────────────────────────
 function handleShMiKey(e){
@@ -10030,7 +10030,7 @@ async function onConn(){
 
 function handleBack(){
   // Only called from history back button now
-  showTab('sk');
+  showTab('schats');
 }
 
 function minimizeChat(){
@@ -10081,7 +10081,7 @@ function goBack(){
   $('reconnect-bar').style.display='none';
   hideInfoBanner();
   if(contactsSubScreen==='sc') contactsSubScreen='sk';
-  showTab(wasInChat ? 'contacts' : 'connect');
+  showTab(wasInChat ? 'schats' : 'connect');
 }
 
 function waitIce(){
@@ -12509,14 +12509,14 @@ if('serviceWorker' in navigator){
       // П1 получил push о входящей заявке — синхронизируем с сервером
       if(typeof window._syncContactRequests === 'function')
         setTimeout(() => window._syncContactRequests(), 500);
-      if(typeof showTab === 'function') showTab('sk');
+      if(typeof showTab === 'function') showTab('schats');
     }
     if(e.data?.action === 'contact-accepted'){
       window.focus();
       // П2 получил push о принятии — синхронизируем (добавит П1 в контакты)
       if(typeof window._syncContactRequests === 'function')
         setTimeout(() => window._syncContactRequests(), 500);
-      if(typeof showTab === 'function') showTab('sk');
+      if(typeof showTab === 'function') showTab('schats');
     }
     if(e.data?.action === 'contact-confirmed'){
       window.focus();
@@ -18239,7 +18239,7 @@ document.addEventListener('visibilitychange', ()=>{
             toast(`${esc(result.ownerName || 'Пользователь')} уже в контактах`);
           }
         }
-        if (typeof showTab === 'function') setTimeout(() => showTab('sk'), 600);
+        if (typeof showTab === 'function') setTimeout(() => showTab('schats'), 600);
       }
 
     } catch(e) {
@@ -18582,13 +18582,33 @@ function _attachSwipeReply(el, text, sender, ts, fp){
 
   let startX = 0, startY = 0;
   let active = false, dismissed = false, maybeSwipe = false;
-  let currentScreen = null;
+  let currentScreen = null, _currentBackTarget = 'schats', _currentOnBack = null;
 
+  // Возвращает { el, back, onBack? } — куда вернуться после свайпа
   function getActiveScreen(){
     const sub = typeof contactsSubScreen !== 'undefined' ? contactsSubScreen : '';
-    if(sub === 'sc')   return document.getElementById('sc');
-    if(sub === 'sh')   return document.getElementById('sh');
-    if(sub === 'sfav') return document.getElementById('sfav');
+    const tab = typeof activeTab !== 'undefined' ? activeTab : '';
+
+    // Вкладка "Связь" — жест отключён
+    if(tab === 'connect') return null;
+
+    // Под-страницы настроек — возврат на главную настроек
+    if(tab === 'sn'){
+      const activePage = document.querySelector('#sn .sn-page.on');
+      const isHome = activePage && activePage.id === 'sn-home';
+      if(!isHome && activePage) {
+        return { el: activePage, back: null, onBack: () => snBack() };
+      }
+      return null; // на главной настроек жест не нужен
+    }
+
+    if(sub === 'sc')                  return { el: document.getElementById('sc'),         back: 'schats' };
+    if(sub === 'sh')                  return { el: document.getElementById('sh'),         back: 'schats' };
+    if(sub === 'sfav')                return { el: document.getElementById('sfav'),       back: 'schats' };
+    if(tab === 'rooms'    && document.getElementById('sroom-chat')?.classList.contains('on'))
+                                      return { el: document.getElementById('sroom-chat'), back: 'schats' };
+    if(tab === 'channels' && document.getElementById('sch-view')?.classList.contains('on'))
+                                      return { el: document.getElementById('sch-view'),  back: 'schats' };
     return null;
   }
 
@@ -18624,7 +18644,10 @@ function _attachSwipeReply(el, text, sender, ts, fp){
 
   document.addEventListener('touchstart', e => {
     // Только если открыт нужный экран
-    currentScreen = getActiveScreen();
+    const screenInfo = getActiveScreen();
+    currentScreen = screenInfo ? screenInfo.el : null;
+    _currentBackTarget = screenInfo ? screenInfo.back : 'schats';
+    _currentOnBack = screenInfo ? (screenInfo.onBack || null) : null;
     if(!currentScreen){ active = false; return; }
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
@@ -18668,7 +18691,11 @@ function _attachSwipeReply(el, text, sender, ts, fp){
       const _screen = currentScreen;
       setTimeout(()=>{
         resetDrag(_screen, false);
-        typeof showTab === 'function' && showTab('sk');
+        if(_currentOnBack) {
+          _currentOnBack();
+        } else {
+          typeof showTab === 'function' && showTab(_currentBackTarget || 'schats');
+        }
       }, 200);
     } else {
       resetDrag(currentScreen, true);
@@ -18682,19 +18709,21 @@ function _attachSwipeReply(el, text, sender, ts, fp){
   const tabbar = document.getElementById('tabbar');
   if(!tabbar) return;
 
-  // Порядок вкладок
-  const TABS = ['connect', 'contacts', 'grp', 'sn'];
+  // Порядок вкладок (3-колонная навигация: Связь / Чаты / Настройки)
+  const TABS = ['connect', 'chats', 'sn'];
   function getCurrentTabIdx(){
     if(typeof activeTab === 'undefined') return 0;
-    const map = { connect:0, contacts:1, grp:2, sn:3 };
+    // chats охватывает все суб-экраны чатов
+    const chatsStates = new Set(['chats','contacts','rooms','channels']);
+    if(chatsStates.has(activeTab)) return 1;
+    const map = { connect: 0, sn: 2 };
     return map[activeTab] ?? 0;
   }
   function switchToTab(idx){
     const clamped = Math.max(0, Math.min(TABS.length - 1, idx));
     const t = TABS[clamped];
-    if(t === 'contacts')       { typeof showContactsTab === 'function' && showContactsTab(); }
-
-    else                       { typeof showTab         === 'function' && showTab(t);         }
+    if(t === 'chats') { typeof showTab === 'function' && showTab('schats'); }
+    else              { typeof showTab === 'function' && showTab(t); }
   }
 
   let sx = 0, sy = 0;
@@ -18753,17 +18782,12 @@ function _attachSwipeReply(el, text, sender, ts, fp){
       };
     }
 
-    // Список групп — с throttle по таймеру
-    if(activeTab === 'grp'){
+    // Список чатов
+    if(activeTab === 'chats'){
       return {
-        el: document.getElementById('grp-list'),
+        el: document.getElementById('chats-list'),
         onRefresh: async () => {
-          if(typeof _grpAll === 'undefined' || typeof _grpCheckPresence !== 'function') return;
-          const codes = Object.keys(_grpAll);
-          if(!codes.length) return;
-          // force=true — игнорируем throttle при ручном обновлении
-          await Promise.all(codes.map(code => _grpCheckPresence(code, true)));
-
+          if(typeof renderChatsList === 'function') await renderChatsList();
         }
       };
     }

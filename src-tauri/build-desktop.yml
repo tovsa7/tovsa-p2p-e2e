@@ -87,12 +87,11 @@ jobs:
           HASH=$(git rev-parse --short HEAD)
           DATE=$(date +%Y%m%d)
           echo "VERSION=${DATE}-${HASH}" >> $GITHUB_OUTPUT
-          # Semver для Tauri — каждый компонент должен быть <= 255
-          # Используем: MAJOR.MINOR.PATCH = 1.YY+MM.DDHH (все <= 255)
-          MAJOR=1
-          MINOR=$(date +%y%m | node -e "process.stdin.on('data',d=>console.log(parseInt(d.trim())%256))")
-          PATCH=$(date +%d%H | node -e "process.stdin.on('data',d=>console.log(parseInt(d.trim())%256))")
-          echo "SEMVER=${MAJOR}.${MINOR}.${PATCH}" >> $GITHUB_OUTPUT
+          # Semver для Tauri — каждый компонент <= 255
+          # 1.MONTH(1-12).DAY(1-31) — просто и надёжно на всех платформах
+          MM=$(date +%-m 2>/dev/null || date +%m | sed 's/^0//')
+          DD=$(date +%-d 2>/dev/null || date +%d | sed 's/^0//')
+          echo "SEMVER=1.${MM}.${DD}" >> $GITHUB_OUTPUT
 
       - name: Inject pubkey and version into tauri.conf.json
         shell: bash
@@ -200,10 +199,9 @@ jobs:
         run: |
           HASH=$(git rev-parse --short HEAD)
           echo "VERSION=$(date +%Y%m%d)-${HASH}" >> $GITHUB_OUTPUT
-          MAJOR=1
-          MINOR=$(date +%y%m | node -e "process.stdin.on('data',d=>console.log(parseInt(d.trim())%256))")
-          PATCH=$(date +%d%H | node -e "process.stdin.on('data',d=>console.log(parseInt(d.trim())%256))")
-          echo "SEMVER=${MAJOR}.${MINOR}.${PATCH}" >> $GITHUB_OUTPUT
+          MM=$(date +%-m 2>/dev/null || date +%m | sed 's/^0//')
+          DD=$(date +%-d 2>/dev/null || date +%d | sed 's/^0//')
+          echo "SEMVER=1.${MM}.${DD}" >> $GITHUB_OUTPUT
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4

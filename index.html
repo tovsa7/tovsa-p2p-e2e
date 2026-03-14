@@ -922,17 +922,36 @@ textarea::placeholder{color:var(--mu)}
 .grp-empty{padding:40px 24px;text-align:center;font-size:11px;color:var(--mu);line-height:2.2}
 
 /* ── Unified Chats Screen ─────────────────────────────────────────────────── */
-#schats{display:none;flex-direction:column;flex:1;min-height:0;background:var(--bg)}
+#schats{display:none;flex-direction:column;flex:1;min-height:0;background:var(--bg);touch-action:pan-y}
 #schats.on{display:flex}
 
 /* Folders pill row */
 .folders-bar{display:flex;align-items:center;gap:6px;padding:8px 14px;overflow-x:auto;flex-shrink:0;border-bottom:1px solid var(--bd);scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .folders-bar::-webkit-scrollbar{display:none}
-.folder-pill{flex-shrink:0;padding:5px 12px;border-radius:20px;border:1px solid var(--bd);background:var(--bg);color:var(--mu);font-size:11px;font-family:inherit;cursor:pointer;transition:all .15s;white-space:nowrap;-webkit-tap-highlight-color:transparent}
-.folder-pill:hover{border-color:var(--a);color:var(--a)}
-.folder-pill.act{background:var(--a);border-color:var(--a);color:#0a0a0f;font-weight:700}
+.folder-pill{flex-shrink:0;padding:5px 12px;border-radius:20px;border:1px solid var(--bd);background:transparent;color:var(--mu);font-size:11px;font-family:inherit;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;position:relative;z-index:1;transition:color .18s ease}
+.folder-pill:hover{color:var(--a)}
+.folder-pill.act{color:#0a0a0f;font-weight:700;border-color:transparent}
+/* Скользящий фон-пилюля */
+.folders-bar{position:relative}
+.folder-pill-bg{
+  position:absolute; top:50%; transform:translateY(-50%);
+  left:0; height:28px; border-radius:20px; background:var(--a);
+  transition:left .22s cubic-bezier(.4,0,.2,1), width .22s cubic-bezier(.4,0,.2,1);
+  pointer-events:none; z-index:0; will-change:left,width;
+}
 .folder-pill-add{flex-shrink:0;padding:5px 10px;border-radius:20px;border:1px dashed var(--bd);background:none;color:var(--mu);font-size:13px;cursor:pointer;transition:all .15s}
 .folder-pill-add:hover{border-color:var(--a);color:var(--a)}
+
+/* ── Анимация переключения папок ────────────────────────────────────────────── */
+@keyframes slideInRight { from { opacity:0; transform:translateX(40px) } to { opacity:1; transform:none } }
+@keyframes slideInLeft  { from { opacity:0; transform:translateX(-40px) } to { opacity:1; transform:none } }
+.chats-list.anim-right { animation: slideInRight .22s cubic-bezier(.4,0,.2,1) both }
+.chats-list.anim-left  { animation: slideInLeft  .22s cubic-bezier(.4,0,.2,1) both }
+
+
+
+/* Индикатор активной папки — подчёркивание под баром */
+
 
 /* Search */
 .chats-search-wrap{padding:8px 14px;flex-shrink:0;border-bottom:1px solid var(--bd)}
@@ -941,7 +960,7 @@ textarea::placeholder{color:var(--mu)}
 .chats-search::placeholder{color:var(--mu)}
 
 /* Chat list */
-.chats-list{flex:1;overflow-y:auto}
+.chats-list{flex:1;overflow-y:auto;touch-action:pan-y}
 .chat-item{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .12s;-webkit-tap-highlight-color:transparent;position:relative}
 .chat-item:hover{background:var(--sf)}
 .chat-item-avatar{width:44px;height:44px;border-radius:50%;background:var(--bd);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;position:relative;overflow:hidden}
@@ -2085,7 +2104,7 @@ if (typeof globalThis !== 'undefined') {
 
 <!-- История (внутри вкладки Контакты) -->
 <div class="scr" id="sh">
-  <div class="sh-back" onclick="showTab('schats')">← назад</div>
+  <div class="sh-back" onclick="if(typeof _tabState!=='undefined'){_tabState.chats.subScreen=null;_tabState.chats.subId=null;}showTab('schats')">← назад</div>
   <div class="sh-hdr">
     <div id="sh-avatar" onclick="if(_historyFp)openProfileModal(_historyFp)" style="width:34px;height:34px;border-radius:50%;background:var(--bd);display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;flex-shrink:0;overflow:hidden;transition:opacity .15s" title="Профиль">👤</div>
     <div style="flex:1;min-width:0">
@@ -2140,7 +2159,7 @@ if (typeof globalThis !== 'undefined') {
 
 <!-- Избранное -->
 <div class="scr" id="sfav">
-  <div class="sh-back" onclick="showTab('schats')">← назад</div>
+  <div class="sh-back" onclick="if(typeof _tabState!=='undefined'){_tabState.chats.subScreen=null;_tabState.chats.subId=null;}showTab('schats')">← назад</div>
   <div class="sh-hdr">
     <div style="flex:1;min-width:0">
       <div class="sh-name">Избранное</div>
@@ -2561,7 +2580,7 @@ if (typeof globalThis !== 'undefined') {
 <!-- ROOM CHAT ──────────────────────────────────────────────────────────── -->
 <div class="scr" id="sroom-chat">
   <div class="room-chat-hdr">
-    <button class="room-chat-back" onclick="if(_activeRoomId)roomStopPolling(_activeRoomId);_activeRoomId=null;showTab('srooms');roomsRenderList()">←</button>
+    <button class="room-chat-back" onclick="if(_activeRoomId)roomStopPolling(_activeRoomId);_activeRoomId=null;if(typeof _tabState!=='undefined'){_tabState.chats.subScreen=null;_tabState.chats.subId=null;}showTab('schats')">←</button>
     <div class="room-chat-name" id="room-chat-title">Группа</div>
     <div style="display:flex;gap:6px;flex-shrink:0">
       <button onclick="roomInviteUI()" title="Пригласить" style="background:none;border:1px solid var(--bd);border-radius:6px;padding:5px 8px;color:var(--mu);cursor:pointer;font-size:12px;transition:all .15s" onmouseover="this.style.borderColor='var(--a)';this.style.color='var(--a)'" onmouseout="this.style.borderColor='var(--bd)';this.style.color='var(--mu)'">+ пригласить</button>
@@ -2611,7 +2630,7 @@ if (typeof globalThis !== 'undefined') {
 <!-- CHANNEL VIEW ────────────────────────────────────────────────────────── -->
 <div class="scr" id="sch-view">
   <div class="room-chat-hdr">
-    <button class="room-chat-back" onclick="showTab('schannels');channelsRenderList()">←</button>
+    <button class="room-chat-back" onclick="if(typeof _tabState!=='undefined'){_tabState.chats.subScreen=null;_tabState.chats.subId=null;}showTab('schats')">←</button>
     <div class="room-chat-name" id="ch-view-title">Канал</div>
     <div id="ch-view-actions" style="display:flex;gap:6px;flex-shrink:0"></div>
   </div>
@@ -4626,119 +4645,171 @@ async function renderContacts(){
 
 // ── Tab navigation ──
 let activeTab='connect';
+
+// ── Состояние вкладок (сохраняется при переключении) ─────────────────────────
+const _tabState = {
+  sn: {
+    subPage:    'sn-home',   // текущая под-страница настроек
+  },
+  chats: {
+    folderId:   'all',       // активная папка
+    scrollTop:  0,           // позиция скролла
+    search:     '',          // поисковый запрос
+    subScreen:  null,        // 'sc'|'sh'|'sfav'|'sroom-chat'|'sch-view' — если был открыт
+    subId:      null,        // ID активной комнаты/канала/контакта
+  },
+};
 // Contacts sub-state
 let contactsSubScreen='sk'; // 'sk' | 'sh' | 'sfav'
 let contactsScrollTop=0;
 
 function showTab(tab){
-  // Move sliding pill to the target tab
+  // ── Сохраняем состояние уходящей вкладки ────────────────────────────────
+  if(activeTab === 'sn'){
+    // Запоминаем под-страницу настроек
+    const activeSn = document.querySelector('#sn .sn-page.on');
+    if(activeSn) _tabState.sn.subPage = activeSn.id;
+  }
+  // Сохраняем состояние чатов только когда уходим НА ДРУГУЮ вкладку (не при возврате внутри чатов)
+  const _leavingChatsArea = (activeTab === 'chats' || activeTab === 'contacts' || activeTab === 'rooms' || activeTab === 'channels');
+  const _goingToChatsArea = (tab === 'schats' || tab === 'sc' || tab === 'sk' || tab === 'sh' || tab === 'sfav'
+                             || tab === 'srooms' || tab === 'sroom-chat' || tab === 'schannels' || tab === 'sch-view');
+  if(_leavingChatsArea && !_goingToChatsArea){
+    // Уходим на другую вкладку (connect/sn) — сохраняем полное состояние
+    const cl = document.getElementById('chats-list');
+    if(cl) _tabState.chats.scrollTop = cl.scrollTop;
+    _tabState.chats.folderId = typeof _activeFolderId !== 'undefined' ? _activeFolderId : 'all';
+    _tabState.chats.search   = typeof _chatsSearchQuery !== 'undefined' ? _chatsSearchQuery : '';
+    if(activeTab === 'contacts' && contactsSubScreen === 'sc')
+      { _tabState.chats.subScreen = 'sc';         _tabState.chats.subId = currentPeerFp || null; }
+    else if(activeTab === 'contacts' && contactsSubScreen === 'sh')
+      { _tabState.chats.subScreen = 'sh';         _tabState.chats.subId = currentPeerFp || null; }
+    else if(activeTab === 'contacts' && contactsSubScreen === 'sfav')
+      { _tabState.chats.subScreen = 'sfav';        _tabState.chats.subId = null; }
+    else if(activeTab === 'rooms' && document.getElementById('sroom-chat')?.classList.contains('on'))
+      { _tabState.chats.subScreen = 'sroom-chat'; _tabState.chats.subId = typeof _activeRoomId !== 'undefined' ? _activeRoomId : null; }
+    else if(activeTab === 'channels' && document.getElementById('sch-view')?.classList.contains('on'))
+      { _tabState.chats.subScreen = 'sch-view';   _tabState.chats.subId = typeof _activeChannelId !== 'undefined' ? _activeChannelId : null; }
+    else
+      { _tabState.chats.subScreen = null; _tabState.chats.subId = null; }
+    if($('sk')?.classList.contains('on')) contactsScrollTop = $('sk').scrollTop;
+  }
+
+  // ── Общий сброс видимости ─────────────────────────────────────────────────
   const tabIdMap = {
-    connect:'tab-connect', sk:'tab-contacts', sh:'tab-contacts',
-    sfav:'tab-contacts', sc:'tab-contacts', sn:'tab-net',
+    connect:'tab-connect', sn:'tab-net',
     schats:'tab-chats',
     sk:'tab-chats', sh:'tab-chats', sfav:'tab-chats', sc:'tab-chats',
     srooms:'tab-chats', 'sroom-chat':'tab-chats',
     schannels:'tab-chats', 'sch-view':'tab-chats'
   };
-  const targetTabId = tabIdMap[tab] || 'tab-connect';
-  movePill(targetTabId);
-  // Save contacts scroll before leaving
-  if(activeTab==='contacts'){
-    if($('sk').classList.contains('on')) contactsScrollTop=$('sk').scrollTop;
-  }
+  movePill(tabIdMap[tab] || 'tab-connect');
 
   const isContactsArea = tab==='sk'||tab==='sh'||tab==='sfav'||tab==='sc';
   const isChatsArea    = tab==='schats'||isContactsArea||tab==='srooms'||tab==='sroom-chat'||tab==='schannels'||tab==='sch-view';
-  const isNetArea = tab==='sn';
-  if (isNetArea && typeof _refreshInviteList === 'function') _refreshInviteList();
-  const isRoomsArea    = tab==='srooms'||tab==='sroom-chat';
-  const isChannelsArea = tab==='schannels'||tab==='sch-view';
-  const isConnect = !isChatsArea && !isNetArea;
+  const isNetArea      = tab==='sn';
+  const isConnect      = !isChatsArea && !isNetArea;
 
-  hide('sr');hide('ss');hide('sc');hide('sk');hide('sh');hide('sn');hide('sfav');hide('schats');hide('srooms');hide('sroom-chat');hide('schannels');hide('sch-view');
+  hide('sr');hide('ss');hide('sc');hide('sk');hide('sh');hide('sn');hide('sfav');
+  hide('schats');hide('srooms');hide('sroom-chat');hide('schannels');hide('sch-view');
 
-  $('tagline').style.display='block';
+  $('tagline').style.display = 'block';
   $('tabbar').classList.remove('hidden');
   $('tab-connect').classList.toggle('act', isConnect);
   $('tab-net').classList.toggle('act', isNetArea);
-
   const tabChats = document.getElementById('tab-chats');
   if(tabChats) tabChats.classList.toggle('act', isChatsArea);
 
-  if(tab==='connect'){
-    activeTab='connect';
-    // Если идёт sig-modal соединение — не показывать экран шагов
-    const sigModalActive = $('sig-modal') && $('sig-modal').classList.contains('on');
+  // ── Показываем нужный экран ───────────────────────────────────────────────
+  if(tab === 'connect'){
+    activeTab = 'connect';
+    const sigModalActive = $('sig-modal')?.classList.contains('on');
     if(role && !sigModalActive) show('ss');
     else { show('sr'); if(!_infoBannerDismissed) showInfoBanner('role'); }
 
-  } else if(tab==='sc'){
-    activeTab='contacts';
-    hideInfoBanner();
-    contactsSubScreen='sc';
-    $('sc').dataset.active='1';
+  } else if(tab === 'sc'){
+    activeTab = 'contacts'; hideInfoBanner();
+    contactsSubScreen = 'sc';
+    $('sc').dataset.active = '1';
     show('sc');
-    $('tagline').style.display='none';
+    $('tagline').style.display = 'none';
     requestAnimationFrame(()=>{ const m=$('msgs'); m.scrollTop=m.scrollHeight; _clearUnread(); });
     setTimeout(_sendReadReceipt, 150);
 
-  } else if(tab==='sk'){
-    activeTab='contacts';
-    contactsSubScreen='sk';
+  } else if(tab === 'sk'){
+    activeTab = 'contacts'; contactsSubScreen = 'sk';
     renderContacts();
     show('sk');
-    requestAnimationFrame(()=>{ $('sk').scrollTop=contactsScrollTop; });
-    // Синхронизируем заявки при открытии вкладки
+    requestAnimationFrame(()=>{ $('sk').scrollTop = contactsScrollTop; });
     if(typeof window._syncContactRequests === 'function') window._syncContactRequests();
-    // Обновляем статусы при заходе на вкладку, но не чаще чем раз в 10 секунд
     if(_pjOk && !_presenceHbRunning){
       const sinceLastTick = Date.now() - (_presenceLastHbAt||0);
       if(sinceLastTick > 10000) _presenceHeartbeatTick();
     }
 
-  } else if(tab==='sh'){
-    activeTab='contacts';
-    contactsSubScreen='sh';
-    show('sh');
+  } else if(tab === 'sh'){
+    activeTab = 'contacts'; contactsSubScreen = 'sh'; show('sh');
 
-  } else if(tab==='sfav'){
-    activeTab='contacts';
-    contactsSubScreen='sfav';
-    show('sfav');
+  } else if(tab === 'sfav'){
+    activeTab = 'contacts'; contactsSubScreen = 'sfav'; show('sfav');
 
-  } else if(tab==='sn'){
-    activeTab='sn';
+  } else if(tab === 'sn'){
+    activeTab = 'sn';
     show('sn');
-    snBack(); // всегда показываем главный экран при переходе на вкладку
-    updateStorageBar();
-    renderPresenceContactList(); _updateGlobalHiddenUI();
-    initStorageLimitUI();
-    // Не трогаем signaling при открытии вкладки
+    // ── Восстанавливаем под-страницу настроек ────────────────────────────
+    const restoredSn = _tabState.sn.subPage || 'sn-home';
+    if(restoredSn !== 'sn-home') {
+      snOpen(restoredSn); // восстанавливаем под-страницу
+    } else {
+      snBack();
+      // Lazy renders для главной
+      updateStorageBar();
+      renderPresenceContactList(); _updateGlobalHiddenUI();
+      initStorageLimitUI();
+    }
+    if (typeof _refreshInviteList === 'function') _refreshInviteList();
 
+  } else if(tab === 'schats'){
+    activeTab = 'chats';
+    // Сбрасываем contactsSubScreen — список чатов не является под-экраном контактов
+    contactsSubScreen = '';
+    // ── Восстанавливаем состояние чатов ──────────────────────────────────
+    const st = _tabState.chats;
+    // Восстанавливаем папку и поиск
+    if(typeof _activeFolderId !== 'undefined' && st.folderId)
+      _activeFolderId = st.folderId;
+    // Если был открыт конкретный экран — возвращаемся в него
+    if(st.subScreen === 'sc' && st.subId && currentPeerFp === st.subId && $('sc').dataset.active === '1'){
+      show('sc'); $('tagline').style.display = 'none';
+      activeTab = 'contacts'; contactsSubScreen = 'sc';
+    } else if(st.subScreen === 'sh'){
+      show('sh'); activeTab = 'contacts'; contactsSubScreen = 'sh';
+    } else if(st.subScreen === 'sfav'){
+      show('sfav'); activeTab = 'contacts'; contactsSubScreen = 'sfav';
+    } else if(st.subScreen === 'sroom-chat' && st.subId){
+      show('sroom-chat'); activeTab = 'rooms';
+    } else if(st.subScreen === 'sch-view' && st.subId){
+      show('sch-view'); activeTab = 'channels';
+    } else {
+      // Список чатов — восстанавливаем скролл
+      show('schats');
+      renderChatsList().then(() => {
+        const cl = document.getElementById('chats-list');
+        if(cl && st.scrollTop) cl.scrollTop = st.scrollTop;
+      });
+    }
 
+  } else if(tab === 'srooms'){
+    activeTab = 'rooms'; show('srooms'); roomsRenderList();
 
-  } else if(tab==='schats'){
-    activeTab='chats';
-    show('schats');
-    renderChatsList();
+  } else if(tab === 'sroom-chat'){
+    activeTab = 'rooms'; show('sroom-chat');
 
-  } else if(tab==='srooms'){
-    activeTab='rooms';
-    show('srooms');
-    roomsRenderList();
+  } else if(tab === 'schannels'){
+    activeTab = 'channels'; show('schannels'); channelsRenderList();
 
-  } else if(tab==='sroom-chat'){
-    activeTab='rooms';
-    show('sroom-chat');
-
-  } else if(tab==='schannels'){
-    activeTab='channels';
-    show('schannels');
-    channelsRenderList();
-
-  } else if(tab==='sch-view'){
-    activeTab='channels';
-    show('sch-view');
+  } else if(tab === 'sch-view'){
+    activeTab = 'channels'; show('sch-view');
   }
 }
 
@@ -4747,7 +4818,9 @@ function snOpen(pageId){
   document.querySelectorAll('#sn .sn-page').forEach(p=>p.classList.remove('on'));
   const page = $(pageId);
   if(page) page.classList.add('on');
-  // Trigger lazy renders
+  // Сохраняем под-страницу
+  _tabState.sn.subPage = pageId;
+  // Lazy renders
   if(pageId==='sn-privacy')  { renderPresenceContactList(); _updateGlobalHiddenUI(); }
   if(pageId==='sn-data')     { updateStorageBar(); initStorageLimitUI(); }
   if(pageId==='sn-appearance'){ renderThemeGrid(); renderPatOptions(); renderBrOptions(); renderFsOptions(); }
@@ -4757,6 +4830,7 @@ function snBack(){
   document.querySelectorAll('#sn .sn-page').forEach(p=>p.classList.remove('on'));
   const home = $('sn-home');
   if(home) home.classList.add('on');
+  _tabState.sn.subPage = 'sn-home';
 }
 
 // ── THEME SYSTEM ─────────────────────────────────────────────────────────────
@@ -10029,15 +10103,23 @@ async function onConn(){
 }
 
 function handleBack(){
-  // Only called from history back button now
+  // Сбрасываем subScreen — возвращаемся в список
+  if(typeof _tabState !== 'undefined') {
+    _tabState.chats.subScreen = null;
+    _tabState.chats.subId     = null;
+  }
   showTab('schats');
 }
 
 function minimizeChat(){
   closeChatSearch('msgs');
   _histFp=null; _histOffset=0; _histBottom=0; _histTotal=0; _histLoading=false;
-  const target = (contactsSubScreen && contactsSubScreen !== 'sc') ? contactsSubScreen : 'sk';
-  showTab(target);
+  // Сбрасываем subScreen чтобы showTab('schats') показал список, а не вернулся в чат
+  if(typeof _tabState !== 'undefined') {
+    _tabState.chats.subScreen = null;
+    _tabState.chats.subId     = null;
+  }
+  showTab('schats');
 }
 
 function updateActiveBanner(){
@@ -16553,12 +16635,18 @@ function initMyContactCard(){
   // Fingerprint — ждём пока появится
   function trySetFp(){
     if(myFingerprint && myPubKeyRaw){
-      $('my-fp-emoji').textContent = myFingerprint;
-      $('my-fp-text').textContent = 'fingerprint · нажмите чтобы скопировать';
-      $('my-fp-text').style.cursor = 'pointer';
-      $('my-fp-text').onclick = () => {
-        navigator.clipboard.writeText(myFingerprint).then(() => toast('Fingerprint скопирован')).catch(()=>{});
-      };
+      // my-fp-emoji может отсутствовать — пропускаем
+      const fpEmoji = $('my-fp-emoji');
+      if(fpEmoji) fpEmoji.textContent = myFingerprint;
+      // my-fp-text показывает сокращённый fingerprint
+      const fpText = $('my-fp-text');
+      if(fpText){
+        fpText.textContent = myFingerprint;
+        fpText.style.cursor = 'pointer';
+        fpText.onclick = () => {
+          navigator.clipboard.writeText(myFingerprint).then(() => toast('Fingerprint скопирован')).catch(()=>{});
+        };
+      }
 
       // Автогенерируем имя если не задано
       let name = '';
@@ -18694,6 +18782,11 @@ function _attachSwipeReply(el, text, sender, ts, fp){
         if(_currentOnBack) {
           _currentOnBack();
         } else {
+          // Сбрасываем subScreen — показываем список, не восстанавливаем тот же экран
+          if(typeof _tabState !== 'undefined') {
+            _tabState.chats.subScreen = null;
+            _tabState.chats.subId     = null;
+          }
           typeof showTab === 'function' && showTab(_currentBackTarget || 'schats');
         }
       }, 200);
@@ -18782,15 +18875,9 @@ function _attachSwipeReply(el, text, sender, ts, fp){
       };
     }
 
-    // Список чатов
-    if(activeTab === 'chats'){
-      return {
-        el: document.getElementById('chats-list'),
-        onRefresh: async () => {
-          if(typeof renderChatsList === 'function') await renderChatsList();
-        }
-      };
-    }
+    // Список чатов — не используем pull-to-refresh (список обновляется автоматически)
+    // Горизонтальный свайп на этом экране переключает папки
+    if(activeTab === 'chats') return null;
 
     return null;
   }
@@ -18849,6 +18936,81 @@ function _attachSwipeReply(el, text, sender, ts, fp){
 // ══════════════════════════════════════════════════════════════════════════════
 // END GESTURES MODULE
 // ══════════════════════════════════════════════════════════════════════════════
+
+// ── Свайп по папкам ─────────────────────────────────────────────────────────
+// touchmove детектирует направление (как свайп-назад), touchend применяет
+(function(){
+  const THRESHOLD = 50;
+
+  let startX = 0, startY = 0, maybeSwipe = false, isHoriz = false;
+
+  function isChatsOpen() {
+    return document.getElementById('schats')?.classList.contains('on')
+        && typeof activeTab !== 'undefined' && activeTab === 'chats';
+  }
+
+  async function getVisibleFolders() {
+    try {
+      const [custom, settings] = await Promise.all([foldersLoad(), folderSettingsLoad()]);
+      const hidden = new Set(settings.hidden || []);
+      const order  = {};
+      (settings.order || []).forEach((id, i) => { order[id] = i; });
+      return [...SYSTEM_FOLDERS, ...custom]
+        .filter(f => f.alwaysVisible || !hidden.has(f.id))
+        .sort((a, b) => (order[a.id] ?? 999) - (order[b.id] ?? 999));
+    } catch(_) { return []; }
+  }
+
+  document.addEventListener('touchstart', e => {
+    maybeSwipe = false; isHoriz = false;
+    if(!isChatsOpen()) return;
+    if(e.target.closest('.chats-fab,.fab-menu,.folder-modal-bg')) return;
+    // Не перехватываем если touch начался на баре папок (там горизонтальный скролл)
+    if(e.target.closest('.folders-bar')) return;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    maybeSwipe = true;
+  }, { passive: true });
+
+  document.addEventListener('touchmove', e => {
+    if(!maybeSwipe || isHoriz) return;
+    const dx = Math.abs(e.touches[0].clientX - startX);
+    const dy = Math.abs(e.touches[0].clientY - startY);
+    if(dy > dx + 5) { maybeSwipe = false; return; }
+    if(dx > 10) isHoriz = true;
+  }, { passive: true });
+
+  document.addEventListener('touchend', async e => {
+    const wasHoriz = isHoriz;
+    maybeSwipe = false; isHoriz = false;
+    if(!wasHoriz || !isChatsOpen()) return;
+
+    const dx = e.changedTouches[0].clientX - startX;
+    if(Math.abs(dx) < THRESHOLD) return;
+
+    const folders = await getVisibleFolders();
+    if(!folders.length) return;
+
+    const cur  = folders.findIndex(f => f.id === (typeof _activeFolderId !== 'undefined' ? _activeFolderId : 'all'));
+    const idx  = Math.max(0, cur);
+    const next = dx < 0
+      ? Math.min(idx + 1, folders.length - 1)
+      : Math.max(idx - 1, 0);
+    if(next === idx) return;
+
+    vibrate(8);
+    // direction: 'left' — список уезжает влево (свайп влево = следующая папка)
+    //            'right' — список уезжает вправо (свайп вправо = предыдущая папка)
+    // свайп влево (следующая) → список уезжает влево, новый приходит слева
+    const direction = dx < 0 ? 'right' : 'left';
+    setActiveFolder(folders[next].id, direction);
+    requestAnimationFrame(() => {
+      document.querySelector('#folders-bar .folder-pill.act')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    });
+  }, { passive: true });
+})();
+
 })();
 </script>
 
@@ -18872,7 +19034,8 @@ async function idrInviteToRoom(){
     // Предлагаем создать новую
     if(!confirm('У вас нет групп где вы администратор. Создать новую?')) return;
     closeInfoDrawer();
-    showTab('srooms');
+    if(typeof _activeFolderId!=='undefined') _activeFolderId='groups';
+    showTab('schats');
     return;
   }
 
@@ -18920,8 +19083,8 @@ async function idrSubscribeToChannel(){
     });
     toast('📢 Запрос подписки отправлен. Ожидайте подтверждения.');
     closeInfoDrawer();
-    showTab('schannels');
-    channelsRenderList();
+    if(typeof _activeFolderId!=='undefined') _activeFolderId='channels';
+    showTab('schats');
   } catch(e){
     toast('Ошибка: ' + e.message);
   }
@@ -19852,12 +20015,21 @@ async function renderFolderPills(customFolders) {
       return oa - ob;
     });
 
-  bar.innerHTML = allFolders.map(f => `
+  // Скользящий фон-пилюля — первый элемент (z-index:0, под текстом кнопок)
+  const bgHtml = `<div class="folder-pill-bg" id="folder-pill-bg"></div>`;
+
+  // Сохраняем позицию bg ДО перерисовки
+  _savePillBgPos();
+
+  bar.innerHTML = bgHtml + allFolders.map(f => `
     <button class="folder-pill ${f.id === _activeFolderId ? 'act' : ''}"
       onclick="setActiveFolder('${f.id}')">
       ${f.icon ? f.icon + ' ' : ''}${f.name}
     </button>
   `).join('') + `<button class="folder-pill-add" onclick="openFolderModal()" title="Управление папками">⋯</button>`;
+
+  // Восстанавливаем bg и анимируем к новой позиции
+  requestAnimationFrame(() => _updatePillBg());
 }
 
 function _fmtChatTime(ts) {
@@ -19957,9 +20129,80 @@ async function renderChatsList() {
 
 // ── Действия ──────────────────────────────────────────────────────────────────
 
-function setActiveFolder(folderId) {
+
+// updateFolderIndicator removed — используем pill-anim
+
+// ── Скользящий фон активной пилюли ───────────────────────────────────────────
+// Проблема: renderFolderPills пересоздаёт innerHTML — новый bg всегда стартует с left:0.
+// Решение: сохраняем позицию ДО перерисовки, после — мгновенно ставим старую,
+// затем в следующем frame анимируем к новой.
+
+let _prevPillLeft  = null; // позиция ДО перерисовки
+let _prevPillWidth = null;
+
+// Вызывается ДО renderFolderPills — запоминаем текущую позицию
+function _savePillBgPos() {
+  const bg = document.getElementById('folder-pill-bg');
+  if (bg) {
+    _prevPillLeft  = parseFloat(bg.style.left)  || null;
+    _prevPillWidth = parseFloat(bg.style.width) || null;
+  }
+}
+
+// Вызывается ПОСЛЕ renderFolderPills
+function _updatePillBg() {
+  const bar    = document.getElementById('folders-bar');
+  const bg     = document.getElementById('folder-pill-bg');
+  const active = bar?.querySelector('.folder-pill.act');
+  if (!bar || !bg || !active) return;
+
+  const newLeft  = active.offsetLeft;
+  const newWidth = active.offsetWidth;
+
+  // Если есть сохранённая позиция — ставим её мгновенно, потом анимируем к новой
+  if (_prevPillLeft !== null) {
+    bg.style.transition = 'none';
+    bg.style.left       = _prevPillLeft  + 'px';
+    bg.style.width      = (_prevPillWidth || newWidth) + 'px';
+    _prevPillLeft = _prevPillWidth = null;
+
+    // Следующий frame: включаем transition и анимируем к новой позиции
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        bg.style.transition = '';
+        bg.style.left  = newLeft  + 'px';
+        bg.style.width = newWidth + 'px';
+      });
+    });
+  } else {
+    // Первый рендер или без предыдущей позиции — ставим без анимации
+    bg.style.transition = 'none';
+    bg.style.left       = newLeft  + 'px';
+    bg.style.width      = newWidth + 'px';
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => { bg.style.transition = ''; });
+    });
+  }
+}
+
+function setActiveFolder(folderId, direction) {
+  const prev = _activeFolderId;
   _activeFolderId = folderId;
-  renderChatsList();
+
+  // Анимация списка чатов
+  const list = document.getElementById('chats-list');
+  if (list && direction && prev !== folderId) {
+    list.classList.remove('anim-left', 'anim-right');
+    void list.offsetWidth;
+    list.classList.add(direction === 'left' ? 'anim-left' : 'anim-right');
+    setTimeout(() => list.classList.remove('anim-left', 'anim-right'), 300);
+  }
+
+  renderChatsList().then(() => {
+    // Прокручиваем активную пилюлю в видимую зону
+    const pill = document.querySelector('#folders-bar .folder-pill.act');
+    if (pill) pill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  });
 }
 
 function chatsFilterSearch(query) {
@@ -20335,6 +20578,10 @@ Object.assign(window, {
   folderToggleVisible, folderDragStart, folderDragOver, folderDragEnd, folderDrop,
   folderOpenPicker, folderPickerChange,
 });
+
+
+
+
 
 
 // ── SLIDING PILL ──────────────────────────────────────────────────────────────

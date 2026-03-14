@@ -30,8 +30,14 @@ EOF
 
 # gradle wrapper
 mkdir -p gradle/wrapper
-printf 'distributionUrl=https\\://services.gradle.org/distributions/gradle-8.2-bin.zip\n' \
+
+# gradle-wrapper.jar — нужен для запуска gradlew
+curl -fsSL 'https://github.com/gradle/gradle/raw/v8.2.0/gradle/wrapper/gradle-wrapper.jar' \
+  -o gradle/wrapper/gradle-wrapper.jar
+
+printf 'distributionUrl=https\\://services.gradle.org/distributions/gradle-8.2-bin.zip\ndistributionBase=GRADLE_USER_HOME\ndistributionPath=wrapper/dists\nzipStoreBase=GRADLE_USER_HOME\nzipStorePath=wrapper/dists\n' \
   > gradle/wrapper/gradle-wrapper.properties
+
 curl -fsSL https://raw.githubusercontent.com/gradle/gradle/v8.2.0/gradlew -o gradlew
 chmod +x gradlew
 
@@ -125,5 +131,5 @@ EOF
 cp "${WS}/icon-192.png" app/src/main/res/mipmap-xxxhdpi/ic_launcher.png 2>/dev/null || true
 
 # Собираем
-./gradlew assembleRelease --no-daemon
+./gradlew assembleRelease --no-daemon -x test 2>&1 | tail -50
 echo "APK built at: $(find . -name '*.apk' | head -1)"

@@ -1,8 +1,8 @@
 const C        = 'tovsa-v8';
 const C_FONTS  = 'tovsa-fonts-v1';
 const ICON_URL = './icon-192.png';
-const DB_NAME  = 'fpv_drun_v1';
-const DB_VER   = 3; // sync with main app (v3 adds 'meta' store)
+const DB_NAME  = 'tovsa_v1';
+const DB_VER   = 4; // v4 adds 'voice' store
 
 const PRECACHE = [
   './',
@@ -226,7 +226,7 @@ function _swOpenDB() {
     const req = indexedDB.open(DB_NAME, DB_VER);
     req.onupgradeneeded = e => {
       const db = e.target.result;
-      ['contacts','history','fav','files','keys','meta'].forEach(s => {
+      ['contacts','history','fav','files','voice','keys','meta','rooms','channels'].forEach(s => {
         if (!db.objectStoreNames.contains(s)) db.createObjectStore(s);
       });
     };

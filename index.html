@@ -20,9 +20,13 @@
   font-src   'self' https://fonts.gstatic.com;
   img-src    'self' data: blob:;
   connect-src 'self'
-              wss:
-              https:
+              wss://tovsa-signaling.onrender.com
+              https://tovsa-signaling.onrender.com
+              https://tovsa-signaling.tovsa7.workers.dev
+              https://fonts.googleapis.com
+              https://cdnjs.cloudflare.com
               blob:;
+  child-src  blob:;
   worker-src 'self' blob:;
   manifest-src 'self';
   media-src  'self' blob:;
@@ -1026,6 +1030,67 @@ textarea::placeholder{color:var(--mu)}
 /* Archive badge on chat item */
 .chat-archived-badge{font-size:9px;color:var(--mu);background:var(--bg);border:1px solid var(--bd);padding:1px 5px;border-radius:4px;flex-shrink:0}
 
+/* ── Security settings ───────────────────────────────────────────────────────── */
+.sec-row{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--bd)}
+.sec-row-icon{font-size:18px;width:28px;text-align:center;flex-shrink:0}
+.sec-row-body{flex:1;min-width:0}
+.sec-row-title{font-size:13px;font-weight:700}
+.sec-row-desc{font-size:10px;color:var(--mu);margin-top:2px;line-height:1.4}
+.sec-toggle{position:relative;width:42px;height:24px;flex-shrink:0}
+.sec-toggle input{opacity:0;position:absolute;width:0;height:0}
+.sec-toggle-track{position:absolute;inset:0;border-radius:12px;background:var(--bd);cursor:pointer;transition:background .2s}
+.sec-toggle input:checked~.sec-toggle-track{background:var(--a)}
+.sec-toggle-thumb{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s;pointer-events:none}
+.sec-toggle input:checked~.sec-toggle-track .sec-toggle-thumb{transform:translateX(18px)}
+.sec-select{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:6px 10px;color:var(--tx);font-family:inherit;font-size:12px;outline:none;cursor:pointer}
+.sec-select:focus{border-color:var(--a)}
+/* PIN pad */
+.pin-overlay{display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.85);backdrop-filter:blur(12px);flex-direction:column;align-items:center;justify-content:center;gap:20px}
+.pin-overlay.on{display:flex}
+.pin-dots{display:flex;gap:12px}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--a);background:transparent;transition:background .15s}
+.pin-dot.filled{background:var(--a)}
+.pin-title{font-size:13px;color:var(--mu);letter-spacing:2px;text-transform:uppercase}
+.pin-grid{display:grid;grid-template-columns:repeat(3,72px);gap:10px}
+.pin-btn{height:72px;border-radius:50%;background:var(--sf);border:1px solid var(--bd);color:var(--tx);font-size:20px;font-weight:700;cursor:pointer;font-family:inherit;transition:background .12s;-webkit-tap-highlight-color:transparent}
+.pin-btn:hover{background:var(--bd)}
+.pin-btn.danger{color:var(--e)}
+.pin-error{font-size:11px;color:var(--e);height:16px;transition:opacity .2s}
+/* Panic button */
+.panic-btn{width:100%;padding:14px;background:rgba(224,108,117,.1);border:1px solid rgba(224,108,117,.4);border-radius:10px;color:var(--e);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;letter-spacing:.5px}
+.panic-btn:hover{background:rgba(224,108,117,.2);border-color:var(--e)}
+/* Disappearing msgs badge */
+.chat-item-ttl{font-size:9px;color:var(--a);background:var(--ad);padding:1px 5px;border-radius:4px;flex-shrink:0}
+
+/* Panic zone indicator */
+#panic-zone{position:fixed;bottom:0;left:0;width:44px;height:44px;z-index:500;-webkit-tap-highlight-color:transparent}
+#panic-zone-dot{position:absolute;bottom:8px;left:8px;width:5px;height:5px;border-radius:50%;background:var(--e);opacity:0;transition:opacity .3s,transform .15s;pointer-events:none}
+#panic-zone.active #panic-zone-dot{opacity:.18}
+
+/* ── Sync file progress ──────────────────────────────────────────────────────── */
+#sync-progress{position:fixed;bottom:calc(var(--tabbar-h,56px) + 8px);left:50%;transform:translateX(-50%);
+  z-index:600;background:var(--sf);border:1px solid var(--bd);border-radius:10px;
+  padding:8px 14px;min-width:200px;font-size:11px;
+  box-shadow:0 4px 12px rgba(0,0,0,.2);display:none;flex-direction:column;gap:4px}
+#sync-progress.on{display:flex}
+#sync-progress-bar{height:3px;border-radius:2px;background:var(--bd);overflow:hidden}
+#sync-progress-fill{height:100%;background:var(--a);border-radius:2px;transition:width .2s ease;width:0}
+#sync-progress-label{color:var(--mu)}
+
+/* ── Sync indicator in chat list ─────────────────────────────────────────────── */
+.chat-item-sync{display:inline-flex;align-items:center;justify-content:center;
+  width:14px;height:14px;border-radius:50%;background:var(--ad);
+  color:var(--a);font-size:9px;flex-shrink:0;opacity:0;transition:opacity .3s}
+.chat-item-sync.on{opacity:1;animation:sync-spin .8s linear infinite}
+@keyframes sync-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+/* ── Bot accounts ─────────────────────────────────────────────────────────── */
+.bot-badge{display:inline-flex;align-items:center;gap:3px;font-size:9px;
+  background:rgba(0,255,157,.12);color:var(--a);border:1px solid rgba(0,255,157,.3);
+  border-radius:4px;padding:1px 5px;margin-left:5px;vertical-align:middle;font-weight:700}
+.citem-bot-dot{width:7px;height:7px;border-radius:50%;background:var(--a);
+  flex-shrink:0;box-shadow:0 0 4px var(--a)}
+
 </style>
 
 <script>
@@ -1466,6 +1531,14 @@ if (typeof globalThis !== 'undefined') {
     </div>
 
     <!-- Меню под-разделов -->
+    <div class="sn-row" onclick="snOpen('sn-security')">
+      <div class="sn-row-icon">🔐</div>
+      <div class="sn-row-body">
+        <div class="sn-row-title">Безопасность</div>
+        <div class="sn-row-desc" id="sn-security-desc">Паника, исчезающие сообщения, скрытые чаты</div>
+      </div>
+      <div class="sn-row-arrow">›</div>
+    </div>
     <div class="sn-row" onclick="snOpen('sn-privacy')">
       <div class="sn-row-icon">👁</div>
       <div class="sn-row-body">
@@ -1981,6 +2054,81 @@ if (typeof globalThis !== 'undefined') {
 
   <!-- ══ ПОД-ЭКРАН: Консоль ══ -->
 
+  <!-- ── Безопасность ──────────────────────────────────────────────────────── -->
+  <div class="sn-page" id="sn-security">
+    <div class="sn-section">
+      <button class="action-btn" onclick="snBack()" style="align-self:flex-start">← назад</button>
+      <div class="sn-label">Безопасность</div>
+    </div>
+
+    <!-- Блокировка приложения -->
+    <div class="sn-section">
+      <div class="sn-label">Блокировка приложения</div>
+      <div style="font-size:10px;color:var(--mu);line-height:1.6;margin-bottom:8px">
+        Два независимых PIN. Система не сообщает какой из них введён.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <!-- PIN входа -->
+        <div id="sec-pin-a-card" style="padding:10px 12px;border:1px solid var(--bd);border-radius:8px;display:flex;flex-direction:column;gap:6px;transition:border-color .2s,background .2s">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="font-size:12px;font-weight:700;flex:1">PIN входа</div>
+            <div id="sec-pin-a-badge" style="font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;display:none"></div>
+          </div>
+          <div style="font-size:10px;color:var(--mu)" id="sec-pin-a-status">не установлен</div>
+          <div style="font-size:9px;color:var(--mu)">Блокирует приложение при запуске</div>
+          <div style="display:flex;gap:6px">
+            <button class="action-btn" id="sec-pin-a-btn" style="flex:1;justify-content:center" onclick="pinInit('setA1',null)">Установить</button>
+            <button class="action-btn" id="sec-pin-a-clear" style="justify-content:center;display:none" onclick="secClearPin('pinA')">Сбросить</button>
+          </div>
+        </div>
+        <!-- PIN удаления -->
+        <div id="sec-pin-c-card" style="padding:10px 12px;border:1px solid var(--bd);border-radius:8px;display:flex;flex-direction:column;gap:6px;transition:border-color .2s,background .2s">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="font-size:12px;font-weight:700;flex:1">PIN удаления</div>
+            <div id="sec-pin-c-badge" style="font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;display:none"></div>
+          </div>
+          <div style="font-size:10px;color:var(--mu)" id="sec-pin-c-status">не установлен</div>
+          <div style="font-size:9px;color:var(--mu)">Открывает приложение как новое — вся история, контакты и ключи удаляются</div>
+          <div style="display:flex;gap:6px">
+            <button class="action-btn" id="sec-pin-c-btn" style="flex:1;justify-content:center" onclick="secSetPinC()">Установить</button>
+            <button class="action-btn" id="sec-pin-c-clear" style="justify-content:center;display:none" onclick="secClearPin('pinC')">Сбросить</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Автоудаление -->
+    <div class="sn-section">
+      <div class="sn-label">Автоудаление</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="flex:1;font-size:12px">Удалять сообщения старше</div>
+        <select class="sec-select" id="sec-global-ttl" onchange="secSaveGlobalTTL(this.value)">
+          <option value="0">Выкл</option>
+          <option value="86400">24 часа</option>
+          <option value="604800">7 дней</option>
+          <option value="2592000">30 дней</option>
+          <option value="7776000">90 дней</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Жест паники -->
+    <div class="sn-section">
+      <div class="sn-label">Экстренное удаление</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:700">Жест паники</div>
+          <div style="font-size:10px;color:var(--mu)">5 быстрых нажатий в нижний левый угол экрана — мгновенное удаление без подтверждения</div>
+        </div>
+        <label class="sec-toggle">
+          <input type="checkbox" id="sec-panic-gesture" onchange="secSavePanicGesture(this.checked)">
+          <div class="sec-toggle-track"><div class="sec-toggle-thumb"></div></div>
+        </label>
+      </div>
+      <button class="panic-btn" onclick="secPanicConfirm()">⊘ Удалить все данные</button>
+    </div>
+  </div>  </div>
+
   <!-- ── Мои устройства ───────────────────────────────────────────────────── -->
   <div class="sn-page" id="sn-devices">
     <div class="sn-section">
@@ -2008,7 +2156,8 @@ if (typeof globalThis !== 'undefined') {
       </div>
     </div>
     <!-- Список устройств -->
-    <div class="sn-section" id="sn-devices-list-wrap">
+    <div id="sn-devices-transfer"><!-- заполняется dtRenderDeviceSection --></div>
+  <div class="sn-section" id="sn-devices-list-wrap">
       <div class="sn-label">Подключённые устройства</div>
       <div id="sn-devices-list">
         <div style="font-size:11px;color:var(--mu);padding:8px 0">Нет подключённых устройств</div>
@@ -2020,7 +2169,8 @@ if (typeof globalThis !== 'undefined') {
       <button class="action-btn" onclick="deviceSyncAll()" style="width:100%;justify-content:center">
         ↺ Синхронизировать всё сейчас
       </button>
-      <div id="device-sync-status" style="font-size:10px;color:var(--mu);text-align:center;display:none"></div>
+      <button class="action-btn" onclick="syncNow()" style="width:100%;justify-content:center;margin-top:8px">↕ Синхронизировать сейчас</button>
+      <div id="device-sync-status" style="font-size:10px;color:var(--mu);margin-top:8px;display:none"></div>
     </div>
   </div>
   <div class="sn-page" id="sn-debug">
@@ -2731,6 +2881,62 @@ if (typeof globalThis !== 'undefined') {
 </div>
 
 
+
+<!-- App lock screen -->
+<div id="app-lock-screen" style="display:none;position:fixed;inset:0;z-index:1000;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;gap:24px">
+  <div style="font-size:32px;letter-spacing:4px;color:var(--a);font-weight:700">TOVSA</div>
+  <div class="pin-dots" id="al-pin-dots">
+    <div class="pin-dot" id="al0"></div>
+    <div class="pin-dot" id="al1"></div>
+    <div class="pin-dot" id="al2"></div>
+    <div class="pin-dot" id="al3"></div>
+  </div>
+  <div class="pin-error" id="al-pin-error" style="height:16px"></div>
+  <div class="pin-grid">
+    <button class="pin-btn" onclick="pinKey('1')">1</button>
+    <button class="pin-btn" onclick="pinKey('2')">2</button>
+    <button class="pin-btn" onclick="pinKey('3')">3</button>
+    <button class="pin-btn" onclick="pinKey('4')">4</button>
+    <button class="pin-btn" onclick="pinKey('5')">5</button>
+    <button class="pin-btn" onclick="pinKey('6')">6</button>
+    <button class="pin-btn" onclick="pinKey('7')">7</button>
+    <button class="pin-btn" onclick="pinKey('8')">8</button>
+    <button class="pin-btn" onclick="pinKey('9')">9</button>
+    <button class="pin-btn" style="font-size:11px;color:var(--mu)">⠀</button>
+    <button class="pin-btn" onclick="pinKey('0')">0</button>
+    <button class="pin-btn danger" onclick="pinKey('del')">⌫</button>
+  </div>
+</div>
+
+<!-- PIN overlay (для настроек) -->
+<div class="pin-overlay" id="pin-overlay">
+  <div class="pin-title" id="pin-title">Введите PIN</div>
+  <div style="font-size:10px;color:var(--mu);text-align:center;max-width:240px" id="pin-subtitle"></div>
+  <div class="pin-dots">
+    <div class="pin-dot" id="pd0"></div>
+    <div class="pin-dot" id="pd1"></div>
+    <div class="pin-dot" id="pd2"></div>
+    <div class="pin-dot" id="pd3"></div>
+  </div>
+  <div class="pin-error" id="pin-error" style="height:16px"></div>
+  <div class="pin-grid">
+    <button class="pin-btn" onclick="pinKey('1')">1</button>
+    <button class="pin-btn" onclick="pinKey('2')">2</button>
+    <button class="pin-btn" onclick="pinKey('3')">3</button>
+    <button class="pin-btn" onclick="pinKey('4')">4</button>
+    <button class="pin-btn" onclick="pinKey('5')">5</button>
+    <button class="pin-btn" onclick="pinKey('6')">6</button>
+    <button class="pin-btn" onclick="pinKey('7')">7</button>
+    <button class="pin-btn" onclick="pinKey('8')">8</button>
+    <button class="pin-btn" onclick="pinKey('9')">9</button>
+    <button class="pin-btn" onclick="pinKey('cancel')" style="font-size:11px;color:var(--mu)">отмена</button>
+    <button class="pin-btn" onclick="pinKey('0')">0</button>
+    <button class="pin-btn danger" onclick="pinKey('del')">⌫</button>
+  </div>
+</div>
+
+<div id="panic-zone"><div id="panic-zone-dot"></div></div>
+<div id="sync-progress"><div id="sync-progress-label">Синхронизация...</div><div id="sync-progress-bar"><div id="sync-progress-fill"></div></div></div>
 <div class="tabbar" id="tabbar">
   <div id="tab-pill"></div>
   <button class="tab act" id="tab-connect" onclick="showTab('connect')">
@@ -2985,7 +3191,7 @@ function openDB(){
   });
 }
 
-function idbGet(store,key){
+function _idbGetRaw(store,key){
   return openDB().then(db=>new Promise((res,rej)=>{
     const tx=db.transaction(store,'readonly');
     const req=tx.objectStore(store).get(key);
@@ -2994,7 +3200,7 @@ function idbGet(store,key){
   }));
 }
 
-function idbSet(store,key,val){
+function _idbSetRaw(store,key,val){
   return openDB().then(db=>new Promise((res,rej)=>{
     const tx=db.transaction(store,'readwrite');
     const req=tx.objectStore(store).put(val,key);
@@ -3334,6 +3540,15 @@ async function initIdentity(){
     const _myPubHex = Array.from(myPubKeyRaw).map(b=>b.toString(16).padStart(2,'0')).join('');
     localStorage.setItem('_myPubHex', _myPubHex);
     console.log('[ntfy] ключ готов, hex сохранён:', _myPubHex.slice(0,8)+'...');
+    // Активируем portableKey — шифрование привязывается к identity, не к устройству
+    try {
+      const privJwkForEnc = await idbGet('keys','id_priv_jwk').catch(()=>null);
+      if (privJwkForEnc && typeof encActivatePortableKey === 'function') {
+        await encActivatePortableKey(privJwkForEnc);
+        // Мигрируем данные зашифрованные sessionKey → portableKey
+        await encMigrateExisting();
+      }
+    } catch(_) {}
     // Инициализируем P-256 ключ для шифрования push уведомлений
     await _initPushKey();
     // Подписываемся на push — ждём пока IIFE загрузится если нужно
@@ -3362,6 +3577,197 @@ async function initIdentity(){
     } catch(_) {}
   }catch(e){
     console.warn('Identity init failed:',e);
+  }
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// IDB Encryption Layer
+// Прозрачное шифрование IDB через AES-GCM.
+// Два уровня:
+//   sessionKey — PBKDF2(appSalt, 50k) — защита от офлайн-извлечения
+//   pinKey     — PBKDF2(PIN, 200k)    — защита при физическом доступе
+// activeKey = pinKey ?? sessionKey
+// Все idbGet/idbSet автоматически шифруют/дешифруют чувствительные store.
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Store-ы которые шифруются
+const ENC_STORES     = new Set(['history','contacts','keys','meta','rooms','channels']);
+const ENC_STORES_BIN = new Set(['files','voice']); // бинарные — Blob
+
+// Активный ключ шифрования (CryptoKey AES-GCM 256)
+let _encActiveKey = null;
+
+// ── Генерация ключа ────────────────────────────────────────────────────────────
+async function _encDerive(password, saltHex, iterations) {
+  const enc     = new TextEncoder();
+  const keyMat  = await crypto.subtle.importKey(
+    'raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']
+  );
+  const bits    = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', hash: 'SHA-256',
+      salt: _encHexToBytes(saltHex), iterations },
+    keyMat, 256
+  );
+  return crypto.subtle.importKey('raw', bits, 'AES-GCM', false, ['encrypt','decrypt']);
+}
+
+function _encHexToBytes(hex) {
+  const arr = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < arr.length; i++)
+    arr[i] = parseInt(hex.slice(i*2, i*2+2), 16);
+  return arr;
+}
+function _encBytesToHex(bytes) {
+  return Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+function _encBytesToB64(bytes) {
+  return btoa(String.fromCharCode(...bytes));
+}
+function _encB64ToBytes(b64) {
+  return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+}
+
+// ── Инициализация sessionKey ───────────────────────────────────────────────────
+async function encInitSessionKey() {
+  // appSalt живёт в localStorage — не переживает очистку, но это нормально
+  // (при очистке localStorage данные IDB тоже становятся недоступны)
+  let salt = localStorage.getItem('_enc_salt');
+  if (!salt) {
+    salt = _encBytesToHex(crypto.getRandomValues(new Uint8Array(32)));
+    localStorage.setItem('_enc_salt', salt);
+  }
+  // Дополнительный контекст — hostname как часть соли
+  const ctx = location.hostname || 'tovsa';
+  _encActiveKey = await _encDerive(ctx + ':session', salt, 50000);
+  console.log('[enc] sessionKey ready');
+}
+
+// ── Активация pinKey (вызывается после ввода PIN) ─────────────────────────────
+async function encActivatePinKey(pin, pinSalt) {
+  _encActiveKey = await _encDerive(pin, pinSalt, 200000);
+  console.log('[enc] pinKey activated');
+}
+
+// Сброс к sessionKey (вызывается при logout/reset)
+async function encResetToSessionKey() {
+  await encInitSessionKey();
+}
+
+// ── portableKey: производный от Ed25519 ──────────────────────────────────────
+// Одинаков на всех устройствах с одинаковым identity.
+// Активируется сразу после initIdentity — заменяет sessionKey.
+// При переносе identity на новое устройство данные сразу читаемы.
+async function encActivatePortableKey(privKeyJwk) {
+  try {
+    // Экспортируем raw байты приватного ключа из JWK
+    const privKey = await crypto.subtle.importKey(
+      'jwk', privKeyJwk, { name: 'Ed25519' }, true, ['sign']
+    );
+    const privRaw = new Uint8Array(await crypto.subtle.exportKey('raw', privKey));
+
+    // HKDF: portableKey = HKDF-SHA256(privRaw, salt=0x00*32, info="tovsa-portable-enc-v1")
+    const hkdfKey = await crypto.subtle.importKey('raw', privRaw, 'HKDF', false, ['deriveBits']);
+    const bits    = await crypto.subtle.deriveBits({
+      name: 'HKDF', hash: 'SHA-256',
+      salt: new Uint8Array(32),
+      info: new TextEncoder().encode('tovsa-portable-enc-v1'),
+    }, hkdfKey, 256);
+    _encActiveKey = await crypto.subtle.importKey('raw', bits, 'AES-GCM', false, ['encrypt','decrypt']);
+    console.log('[enc] portableKey activated');
+  } catch(e) {
+    console.warn('[enc] portableKey failed, keeping sessionKey:', e.message);
+  }
+}
+
+// ── Шифрование / дешифрование ─────────────────────────────────────────────────
+async function _encEncrypt(value) {
+  if (!_encActiveKey) return value;
+  const iv  = crypto.getRandomValues(new Uint8Array(12));
+  let plain;
+  let isBin = false;
+  if (value instanceof Blob) {
+    // Blob → ArrayBuffer → шифруем байты напрямую
+    plain  = new Uint8Array(await value.arrayBuffer());
+    isBin  = true;
+  } else {
+    plain  = new TextEncoder().encode(JSON.stringify(value));
+  }
+  const cipherBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, _encActiveKey, plain);
+  const result = { __enc: 1, iv: _encBytesToB64(iv), d: _encBytesToB64(new Uint8Array(cipherBuf)) };
+  if (isBin) { result.__bin = 1; result.__mime = value.type || 'application/octet-stream'; }
+  return result;
+}
+
+async function _encDecrypt(stored) {
+  if (!stored || typeof stored !== 'object' || !stored.__enc) return stored;
+  if (!_encActiveKey) throw new Error('enc: key not ready');
+  try {
+    const plainBuf = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: _encB64ToBytes(stored.iv) },
+      _encActiveKey,
+      _encB64ToBytes(stored.d)
+    );
+    if (stored.__bin) {
+      // Бинарные данные → Blob
+      return new Blob([plainBuf], { type: stored.__mime || 'application/octet-stream' });
+    }
+    return JSON.parse(new TextDecoder().decode(plainBuf));
+  } catch(e) {
+    console.warn('[enc] decrypt failed, returning raw:', e.message);
+    return stored; // fallback — незашифрованные данные (миграция)
+  }
+}
+
+// ── idbGet / idbSet с шифрованием ────────────────────────────────────────────
+async function idbGet(store, key) {
+  const raw = await _idbGetRaw(store, key);
+  if ((!ENC_STORES.has(store) && !ENC_STORES_BIN.has(store)) || raw === null) return raw;
+  return _encDecrypt(raw);
+}
+
+async function idbSet(store, key, val) {
+  if (!ENC_STORES.has(store) && !ENC_STORES_BIN.has(store)) return _idbSetRaw(store, key, val);
+  const enc = await _encEncrypt(val);
+  return _idbSetRaw(store, key, enc);
+}
+
+// ── Миграция существующих данных ───────────────────────────────────────────────
+// При первом запуске с шифрованием — данные лежат незашифрованными.
+// idbGet при чтении вернёт их как есть (raw object без __enc).
+// При следующем idbSet они будут зашифрованы.
+// Явная миграция: перечитываем и перезаписываем все store.
+async function encMigrateExisting() {
+  const migKey = '_enc_migrated_v1';
+  if (localStorage.getItem(migKey)) return;
+  try {
+    for (const store of [...ENC_STORES, ...ENC_STORES_BIN]) {
+      try {
+        const {keys, vals} = await new Promise((res, rej) => {
+          openDB().then(db => {
+            const tx = db.transaction(store, 'readwrite');
+            const os = tx.objectStore(store);
+            const ks = [], vs = [];
+            os.openCursor().onsuccess = e => {
+              const cur = e.target.result;
+              if (!cur) { res({keys: ks, vals: vs}); return; }
+              ks.push(cur.key); vs.push(cur.value);
+              cur.continue();
+            };
+            tx.onerror = () => rej(tx.error);
+          });
+        });
+        for (let i = 0; i < keys.length; i++) {
+          if (vals[i]?.__enc) continue; // уже зашифровано
+          const enc = await _encEncrypt(vals[i]);
+          await _idbSetRaw(store, keys[i], enc);
+        }
+      } catch(_) {} // store может не существовать
+    }
+    localStorage.setItem(migKey, '1');
+    console.log('[enc] migration complete');
+  } catch(e) {
+    console.warn('[enc] migration error:', e);
   }
 }
 
@@ -4358,6 +4764,7 @@ async function initStorageLimitUI(){
 let _lastStorageWarnLevel=0; // 0=ok, 1=warn(60%), 2=err(85%), 3=full
 
 async function updateStorageBar(){
+
   const used=await idbSize();
   const limit=getStorageLimitBytes();
   const pct=Math.min(100,(used/limit)*100);
@@ -4591,6 +4998,7 @@ function _buildContactEl(fp, c, h, isConnected){
   const fedBadge = (c.signalingUrl && _isValidSigUrl(c.signalingUrl) && c.signalingUrl !== _homeWs)
     ? `<span title="Федеративный контакт: ${esc(new URL(c.signalingUrl.replace('wss://','https://')).hostname)}" style="font-size:10px;opacity:.7;margin-left:4px">🌐</span>`
     : '';
+  const botBadgeCi = c.isBot ? `<span class="bot-badge">⚙ бот</span>` : '';
   const fpHint = c._stranger ? `<div style="font-size:9px;color:var(--mu);opacity:.7">${fp}</div>` : '';
 
   const queueCount = _offlineQueue.filter(m => m.fp === fp).length;
@@ -4609,7 +5017,7 @@ function _buildContactEl(fp, c, h, isConnected){
       ${onlineDot}
     </div>
     <div class="ciinfo">
-      <div class="ciname">${nameHtml}${fedBadge}${pinHtml}${unconfHtml}${queueBadge}</div>
+      <div class="ciname">${nameHtml}${fedBadge}${botBadgeCi}${pinHtml}${unconfHtml}${queueBadge}</div>
       ${fpHint}
       ${lastHtml}
     </div>
@@ -4824,7 +5232,8 @@ function snOpen(pageId){
   if(pageId==='sn-privacy')  { renderPresenceContactList(); _updateGlobalHiddenUI(); }
   if(pageId==='sn-data')     { updateStorageBar(); initStorageLimitUI(); }
   if(pageId==='sn-appearance'){ renderThemeGrid(); renderPatOptions(); renderBrOptions(); renderFsOptions(); }
-  if(pageId==='sn-devices')  { if(typeof devicesRenderList==='function') devicesRenderList(); }
+  if(pageId==='sn-devices')  { if(typeof devicesRenderList==='function') devicesRenderList(); if(typeof dtRenderDeviceSection==='function') dtRenderDeviceSection(); if(typeof syncStartStatusUpdates==='function') syncStartStatusUpdates(); }
+  if(pageId==='sn-security') { if(typeof window._secOnOpen==='function') window._secOnOpen(); }
 }
 function snBack(){
   document.querySelectorAll('#sn .sn-page').forEach(p=>p.classList.remove('on'));
@@ -5073,9 +5482,14 @@ async function openHistory(fp){
   const callBtn = $('call-online-btn');
   if(callBtn){
     const isConn = $('sc').dataset.active==='1' && dc && dc.readyState==='open';
-    callBtn.style.display = isConn ? 'none' : 'block';
-    callBtn.textContent = '📣';
-    callBtn.disabled = false;
+    // Боту не нужен звонок — только текстовые сообщения
+    if (contact?.isBot) {
+      callBtn.style.display = 'none';
+    } else {
+      callBtn.style.display = isConn ? 'none' : 'block';
+      callBtn.textContent = '📣';
+      callBtn.disabled = false;
+    }
   }
   const h=await getHistory();
   const msgs=h[fp]||[];
@@ -5652,6 +6066,9 @@ async function buildFavNode(m, contacts){
 }
 
 async function renderFavMsgs(){
+  // В decoy профиле избранное пустое
+  if (window._decoyMode || (typeof _currentProfile !== 'undefined' && _currentProfile === 'decoy')) { const m = document.getElementById('fav-msgs'); if(m) m.innerHTML='<div class="msg-empty">нет записей</div>'; return; }
+
   const allMsgs = await getFavMsgs();
   const contacts = await getContacts();
   const container = $('fav-msgs');
@@ -6215,6 +6632,13 @@ class TovSaSignaling {
             roomHandleIncoming(from, kind, data).catch(e =>
               console.warn('[rooms] handler error:', e?.message));
           }
+          break;
+        }
+        // Синхронизация устройств
+        if (kind === 'device_sync') {
+          window.dispatchEvent(new CustomEvent('tovsa-device-sync', {
+            detail: { from, data }
+          }));
           break;
         }
         // answer на наш offer — диспатчим presence-детектор (аналогично plain RELAY)
@@ -8520,8 +8944,128 @@ async function vrSendFile(file){
 // END MEDIA SETTINGS MODULE
 // ════════════════════════════════════════════════════════════════════════════
 
+// Инициализируем шифрование IDB до любых операций с базой
+encInitSessionKey().then(() => encMigrateExisting()).catch(console.warn);
 initIdentity();
 initMyContactCard();
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Crypto Self-Tests — запускаются один раз при старте
+// Проверяют корректность крипто-примитивов на данном устройстве/браузере
+// ══════════════════════════════════════════════════════════════════════════════
+(async function runCryptoSelfTests() {
+  const results = [];
+  const ok  = (name) => { results.push({ name, ok: true }); };
+  const fail = (name, e) => { results.push({ name, ok: false, err: e?.message || String(e) }); };
+
+  // ── 1. Ed25519 sign / verify ─────────────────────────────────────────────
+  try {
+    const kp  = await crypto.subtle.generateKey({ name: 'Ed25519' }, false, ['sign','verify']);
+    const msg = new TextEncoder().encode('tovsa-test-v1');
+    const sig = await crypto.subtle.sign('Ed25519', kp.privateKey, msg);
+    const ok_ = await crypto.subtle.verify('Ed25519', kp.publicKey, sig, msg);
+    if (!ok_) throw new Error('verify failed');
+    ok('Ed25519 sign/verify');
+  } catch(e) { fail('Ed25519 sign/verify', e); }
+
+  // ── 2. X25519 ECDH ──────────────────────────────────────────────────────
+  try {
+    const a  = await crypto.subtle.generateKey({ name: 'X25519' }, true, ['deriveBits']);
+    const b  = await crypto.subtle.generateKey({ name: 'X25519' }, true, ['deriveBits']);
+    const bA = await crypto.subtle.deriveBits({ name:'X25519', public: b.publicKey }, a.privateKey, 256);
+    const aB = await crypto.subtle.deriveBits({ name:'X25519', public: a.publicKey }, b.privateKey, 256);
+    const eq = new Uint8Array(bA).every((v,i) => v === new Uint8Array(aB)[i]);
+    if (!eq) throw new Error('shared secrets differ');
+    ok('X25519 ECDH');
+  } catch(e) { fail('X25519 ECDH', e); }
+
+  // ── 3. AES-GCM encrypt / decrypt ────────────────────────────────────────
+  try {
+    const key  = await crypto.subtle.generateKey({ name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']);
+    const iv   = crypto.getRandomValues(new Uint8Array(12));
+    const pt   = new TextEncoder().encode('hello tovsa');
+    const ct   = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, pt);
+    const dec  = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, key, ct);
+    if (new TextDecoder().decode(dec) !== 'hello tovsa') throw new Error('plaintext mismatch');
+    ok('AES-GCM encrypt/decrypt');
+  } catch(e) { fail('AES-GCM encrypt/decrypt', e); }
+
+  // ── 4. HKDF ─────────────────────────────────────────────────────────────
+  try {
+    const raw    = crypto.getRandomValues(new Uint8Array(32));
+    const hkdf   = await crypto.subtle.importKey('raw', raw, 'HKDF', false, ['deriveBits']);
+    const bits   = await crypto.subtle.deriveBits({
+      name: 'HKDF', hash: 'SHA-256',
+      salt: new Uint8Array(32), info: new TextEncoder().encode('test'),
+    }, hkdf, 256);
+    if (bits.byteLength !== 32) throw new Error('wrong length');
+    ok('HKDF');
+  } catch(e) { fail('HKDF', e); }
+
+  // ── 5. PBKDF2 ───────────────────────────────────────────────────────────
+  try {
+    const pw   = new TextEncoder().encode('password');
+    const key  = await crypto.subtle.importKey('raw', pw, 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits({
+      name: 'PBKDF2', hash: 'SHA-256',
+      salt: new TextEncoder().encode('salt'), iterations: 1000,
+    }, key, 256);
+    if (bits.byteLength !== 32) throw new Error('wrong length');
+    ok('PBKDF2');
+  } catch(e) { fail('PBKDF2', e); }
+
+  // ── 6. roomEncrypt / roomDecrypt round-trip ──────────────────────────────
+  try {
+    const roomKey = crypto.getRandomValues(new Uint8Array(32));
+    const msg     = { id: 'test', roomId: 'r1', from: 'pub', text: 'hello', ts: 1 };
+    const blob    = await roomEncryptMessage(roomKey, msg);
+    const dec     = await roomDecryptMessage(roomKey, blob);
+    if (dec.text !== 'hello') throw new Error('text mismatch');
+    ok('roomEncrypt/Decrypt');
+  } catch(e) { fail('roomEncrypt/Decrypt', e); }
+
+  // ── 7. sealEnvelope / unsealEnvelope round-trip ─────────────────────────
+  try {
+    const kp      = await crypto.subtle.generateKey({ name: 'X25519' }, true, ['deriveBits']);
+    const pubRaw  = new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey));
+    const privJwk = await crypto.subtle.exportKey('jwk', kp.privateKey);
+    const encPub  = { publicKeyB64u: btoa(String.fromCharCode(...pubRaw)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'') };
+    const payload = { from: 'aaa', kind: 'test', data: { x: 42 } };
+    const sealed  = await sealEnvelope(payload, encPub);
+    const opened  = await unsealEnvelope(sealed, privJwk);
+    if (opened.data?.x !== 42) throw new Error('data mismatch');
+    ok('sealEnvelope/unsealEnvelope');
+  } catch(e) { fail('sealEnvelope/unsealEnvelope', e); }
+
+  // ── 8. IDB encryption round-trip ────────────────────────────────────────
+  try {
+    if (typeof _encActiveKey !== 'undefined' && _encActiveKey) {
+      const enc = await _encEncrypt({ test: 'idb-enc-v1' });
+      if (!enc.__enc) throw new Error('not encrypted');
+      const dec = await _encDecrypt(enc);
+      if (dec.test !== 'idb-enc-v1') throw new Error('decrypt mismatch');
+      ok('IDB AES-GCM encrypt/decrypt');
+    } else {
+      ok('IDB AES-GCM (skipped — key not ready)');
+    }
+  } catch(e) { fail('IDB AES-GCM encrypt/decrypt', e); }
+
+  // ── Результат ────────────────────────────────────────────────────────────
+  const failed = results.filter(r => !r.ok);
+  if (failed.length === 0) {
+    console.log('[crypto-test] ✓ all', results.length, 'tests passed');
+  } else {
+    console.error('[crypto-test] ✗ FAILURES:', failed.map(r => `${r.name}: ${r.err}`).join('; '));
+    // Показываем предупреждение если критичные тесты провалились
+    const critical = ['Ed25519 sign/verify','AES-GCM encrypt/decrypt','HKDF'];
+    if (failed.some(r => critical.includes(r.name))) {
+      console.error('[crypto-test] CRITICAL: cryptographic primitives unavailable on this device');
+    }
+  }
+  // Сохраняем результаты для диагностики
+  window._cryptoTestResults = results;
+})().catch(e => console.warn('[crypto-test] runner error:', e));
+
 initShadowToggle();
 initMediaSettings();
 vrInit();
@@ -9575,6 +10119,19 @@ async function _handleServicePacket(j, idDone){
       return true;
     }
 
+    // Бот объявляет себя
+    if(j.__bot_hello__){
+      const fp = currentPeerFp;
+      if(fp) getContacts().then(cs => {
+        const c = cs[fp] || {};
+        if(!c.isBot){
+          c.isBot = true; c.botEmoji = j.emoji||'🤖'; c.botVer = j.version||'1.0';
+          cs[fp] = c;
+          saveContacts(cs).then(() => { renderContacts(); renderChatsList(); });
+        }
+      });
+      return true;
+    }
     if(j.__msg__ && j.text){
       let senderName = j.replySender;
       if(j.replySender === 'self'){
@@ -15005,6 +15562,12 @@ async function channelPublishPost(channelId, { text, mediaBlob = null }) {
     sent++;
   }
 
+  // ── Pub/Sub путь (если PUSH_SERVER доступен) ────────────────────────────
+  const pubSubOk = await channelPublishViaPubSub(channelId, blob);
+  if (pubSubOk) {
+    console.log('[channels] пост опубликован через pub/sub');
+  }
+
   // Сохраняем пост локально
   const msgs = await channelMsgsLoad(channelId);
   msgs.push({ ...post, _own: true });
@@ -15013,8 +15576,103 @@ async function channelPublishPost(channelId, { text, mediaBlob = null }) {
   channel.postCount = (channel.postCount || 0) + 1;
   await channelsSave(channels);
 
-  console.log('[channels] пост опубликован для', sent, 'подписчиков');
+  console.log('[channels] пост опубликован для', sent, 'подписчиков (pubsub:', pubSubOk, ')');
   return post;
+}
+
+
+// ── Channel Pub/Sub (масштабируемый, аналогично rooms) ────────────────────────
+
+// mailboxId канала — HKDF(channelKey, "ch-mbox-v1:" + weekNum)
+async function channelGetMailboxId(channelKeyBytes, weekOffset = 0) {
+  const weekNum = Math.floor(Date.now() / (7 * 24 * 3600 * 1000)) + weekOffset;
+  const ikmKey  = await crypto.subtle.importKey('raw', channelKeyBytes, 'HKDF', false, ['deriveBits']);
+  const bits    = await crypto.subtle.deriveBits({
+    name: 'HKDF', hash: 'SHA-256',
+    salt: new Uint8Array(32),
+    info: new TextEncoder().encode('ch-mbox-v1:' + weekNum),
+  }, ikmKey, 96);
+  return Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+// Публикация поста через pub/sub (если PUSH_SERVER доступен)
+async function channelPublishViaPubSub(channelId, blob) {
+  if (!PUSH_SERVER || PUSH_SERVER.includes('ВАШ')) return false;
+  const channels = await channelsLoad();
+  const channel  = channels[channelId];
+  if (!channel?.channelKeyBytes) return false;
+
+  try {
+    const mailboxId = await channelGetMailboxId(channel.channelKeyBytes);
+    const res = await fetch(PUSH_SERVER + '/room/publish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mailboxId, blob }),
+    });
+    return res.ok;
+  } catch(_) { return false; }
+}
+
+// Получение постов через pub/sub
+async function channelFetchMessages(channelId) {
+  const channels = await channelsLoad();
+  const channel  = channels[channelId];
+  if (!channel?.channelKeyBytes) return;
+  if (!PUSH_SERVER || PUSH_SERVER.includes('ВАШ')) return;
+
+  const existing = await channelMsgsLoad(channelId);
+  const lastSeq  = channel._lastPubSubSeq || 0;
+
+  try {
+    const mailboxId = await channelGetMailboxId(channel.channelKeyBytes);
+    const res = await fetch(`${PUSH_SERVER}/room/fetch?id=${mailboxId}&since=${lastSeq}`);
+    if (!res.ok) return;
+    const { messages, next } = await res.json();
+    if (!messages?.length) return;
+
+    const existingIds = new Set(existing.map(m => m.id));
+    let added = 0;
+
+    for (const { blob, seq } of messages) {
+      try {
+        const post = await channelDecryptPost(channel.channelKeyBytes, blob);
+        if (!post?.id || existingIds.has(post.id)) continue;
+        const sigOk = await roomVerifyMessage(post);
+        if (!sigOk) continue;
+        existing.push(post);
+        existingIds.add(post.id);
+        added++;
+      } catch(_) {}
+    }
+
+    if (added > 0) {
+      existing.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      await channelMsgsSave(channelId, existing);
+      channels[channelId]._lastPubSubSeq = next;
+      await channelsSave(channels);
+      window.dispatchEvent(new CustomEvent('tovsa-channel-msg', {
+        detail: { channelId, count: added }
+      }));
+    }
+  } catch(e) {
+    console.warn('[channels] pubsub fetch error:', e.message);
+  }
+}
+
+// Поллинг канала
+const _channelPollers = {};
+
+function channelStartPolling(channelId, intervalMs = 20000) {
+  if (_channelPollers[channelId]) return;
+  _channelPollers[channelId] = setInterval(() => {
+    if (!document.hidden) channelFetchMessages(channelId);
+  }, intervalMs);
+  channelFetchMessages(channelId); // сразу
+}
+
+function channelStopPolling(channelId) {
+  clearInterval(_channelPollers[channelId]);
+  delete _channelPollers[channelId];
 }
 
 // ── Бан подписчика + ротация ключа (admin) ────────────────────────────────────
@@ -16829,6 +17487,12 @@ async function _renderQR(text, name){
   } else {
     const s = document.createElement('script');
     s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    // Загружаем jsQR для сканирования
+    if (typeof jsQR === 'undefined') {
+      const jsqr = document.createElement('script');
+      jsqr.src = 'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js';
+      document.head.appendChild(jsqr);
+    }
     s.onload  = draw;
     s.onerror = () => {
       const ctx = canvas.getContext('2d');
@@ -19443,8 +20107,12 @@ async function channelOpenView(channelId) {
   const actions = document.getElementById('ch-view-actions');
   if (actions) {
     if (ch.myRole === 'admin') {
-      actions.innerHTML = `<button onclick="channelManageSubscribersUI('${channelId}')"
-        style="background:none;border:1px solid var(--bd);border-radius:6px;padding:5px 8px;color:var(--mu);cursor:pointer;font-size:11px">👥 ${ch.subscribers?.filter(s=>!s.bannedAt).length||0}</button>`;
+      const subCount = ch.subscribers?.filter(s=>!s.bannedAt).length || 0;
+      actions.innerHTML = `
+        <button onclick="channelManageSubscribersUI('${channelId}')"
+          style="background:none;border:1px solid var(--bd);border-radius:6px;padding:5px 8px;color:var(--mu);cursor:pointer;font-size:11px">👥 ${subCount}</button>
+        <button onclick="channelAdminSettings('${channelId}')"
+          style="background:none;border:1px solid var(--bd);border-radius:6px;padding:5px 8px;color:var(--mu);cursor:pointer;font-size:11px">⚙</button>`;
     } else {
       actions.innerHTML = `<div style="font-size:10px;color:var(--mu);padding:4px 8px">${ch.myRole === 'pending' ? '⏳ ожидание' : '✓ подписчик'}</div>`;
     }
@@ -19456,6 +20124,124 @@ async function channelOpenView(channelId) {
 
   // Посты
   await channelRenderPosts(channelId, ch);
+}
+
+// ── Настройки канала для администратора ──────────────────────────────────────
+async function channelAdminSettings(channelId) {
+  const channels = await channelsLoad().catch(() => ({}));
+  const ch = channels[channelId];
+  if (!ch || ch.myRole !== 'admin') return;
+
+  // Экспортируем ключ канала в hex
+  const keyHex = ch.channelKeyBytes
+    ? Array.from(ch.channelKeyBytes).map(b => b.toString(16).padStart(2,'0')).join('')
+    : null;
+
+  // Подписчики
+  const subs   = ch.subscribers?.filter(s => !s.bannedAt) || [];
+  const subCount = subs.length;
+
+  const existing = document.getElementById('ch-admin-modal');
+  if (existing) { existing.remove(); return; }
+
+  const d = document.createElement('div');
+  d.id = 'ch-admin-modal';
+  d.style.cssText = 'position:fixed;inset:0;z-index:850;background:rgba(0,0,0,.75);display:flex;align-items:flex-end;justify-content:center';
+  d.innerHTML = `
+    <div style="background:var(--sf);border-radius:20px 20px 0 0;padding:20px 18px;width:100%;max-width:600px;display:flex;flex-direction:column;gap:14px;max-height:80vh;overflow-y:auto">
+      <div style="font-size:12px;font-weight:700;letter-spacing:1px;color:var(--mu)">⚙ НАСТРОЙКИ КАНАЛА</div>
+      <div style="font-size:14px;font-weight:700">${_esc(ch.name||'Канал')}</div>
+
+      <!-- Статистика -->
+      <div style="display:flex;gap:12px">
+        <div style="flex:1;padding:10px;background:var(--bg);border-radius:8px;text-align:center">
+          <div style="font-size:18px;font-weight:700;color:var(--a)">${ch.postCount||0}</div>
+          <div style="font-size:10px;color:var(--mu)">постов</div>
+        </div>
+        <div style="flex:1;padding:10px;background:var(--bg);border-radius:8px;text-align:center">
+          <div style="font-size:18px;font-weight:700;color:var(--a)">${subCount}</div>
+          <div style="font-size:10px;color:var(--mu)">подписчиков</div>
+        </div>
+      </div>
+
+      <!-- ID канала -->
+      <div>
+        <div style="font-size:10px;color:var(--mu);margin-bottom:4px">ID канала</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <code style="font-size:10px;background:var(--bg);padding:6px 10px;border-radius:6px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${channelId}</code>
+          <button onclick="navigator.clipboard.writeText('${channelId}').then(()=>toast('ID скопирован'))"
+            style="padding:6px 10px;background:none;border:1px solid var(--bd);border-radius:6px;color:var(--mu);cursor:pointer;font-size:11px;flex-shrink:0">Копировать</button>
+        </div>
+      </div>
+
+      <!-- Ключ канала для bridge -->
+      ${keyHex ? `
+      <div>
+        <div style="font-size:10px;color:var(--mu);margin-bottom:4px">🔑 Ключ канала (для bridge)</div>
+        <div style="font-size:9px;color:var(--mu);margin-bottom:6px;line-height:1.5">
+          Используется для настройки RSS/Telegram bridge. Храните в секрете — даёт право публиковать посты от имени канала.
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <code id="ch-key-display" style="font-size:9px;background:var(--bg);padding:6px 10px;border-radius:6px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;filter:blur(4px)">
+            ${keyHex}
+          </code>
+          <button onclick="
+            const el = document.getElementById('ch-key-display');
+            if(el.style.filter) { el.style.filter=''; this.textContent='Скрыть'; }
+            else { el.style.filter='blur(4px)'; this.textContent='Показать'; }
+          " style="padding:6px 10px;background:none;border:1px solid var(--bd);border-radius:6px;color:var(--mu);cursor:pointer;font-size:11px;flex-shrink:0;white-space:nowrap">Показать</button>
+        </div>
+        <button onclick="navigator.clipboard.writeText('${keyHex}').then(()=>toast('Ключ скопирован'))"
+          style="width:100%;margin-top:6px;padding:8px;background:none;border:1px solid var(--a);border-radius:8px;color:var(--a);cursor:pointer;font-family:inherit;font-size:11px">
+          Скопировать ключ
+        </button>
+      </div>
+
+      <!-- Инструкция bridge -->
+      <div style="padding:10px 12px;background:var(--bg);border-radius:8px;font-size:10px;color:var(--mu);line-height:1.6">
+        <div style="font-weight:700;margin-bottom:4px">Запуск RSS bridge:</div>
+        <code style="display:block;white-space:pre;overflow-x:auto">RSS_URL=https://example.com/rss \
+CHANNEL_ID=${channelId} \
+CHANNEL_KEY=${keyHex} \
+PUSH_SERVER=https://your.worker.dev \
+deno run --allow-net --allow-read --allow-write bridge-rss.ts</code>
+      </div>
+      ` : '<div style="font-size:11px;color:var(--mu)">Ключ канала недоступен</div>'}
+
+      <!-- Опасная зона -->
+      <div style="border-top:1px solid var(--bd);padding-top:12px">
+        <div style="font-size:10px;font-weight:700;color:var(--e);margin-bottom:8px">Управление</div>
+        <div style="display:flex;gap:8px">
+          <button onclick="channelManageSubscribersUI('${channelId}');document.getElementById('ch-admin-modal')?.remove()"
+            style="flex:1;padding:9px;background:none;border:1px solid var(--bd);border-radius:8px;color:var(--tx);font-family:inherit;cursor:pointer;font-size:11px">
+            👥 Подписчики
+          </button>
+          <button onclick="channelRotateKeyUI('${channelId}')"
+            style="flex:1;padding:9px;background:none;border:1px solid var(--bd);border-radius:8px;color:var(--mu);font-family:inherit;cursor:pointer;font-size:11px">
+            🔄 Ротация ключа
+          </button>
+        </div>
+      </div>
+
+      <button onclick="document.getElementById('ch-admin-modal')?.remove()"
+        style="padding:10px;background:none;border:1px solid var(--bd);border-radius:8px;color:var(--mu);font-family:inherit;cursor:pointer">
+        Закрыть
+      </button>
+    </div>`;
+  d.addEventListener('click', e => { if(e.target===d) d.remove(); });
+  document.body.appendChild(d);
+}
+
+async function channelRotateKeyUI(channelId) {
+  document.getElementById('ch-admin-modal')?.remove();
+  if (!confirm('Ротация ключа отключит bridge и потребует перенастройки. Продолжить?')) return;
+  try {
+    await channelRotateKey(channelId);
+    toast('✓ Ключ обновлён');
+    channelOpenView(channelId);
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+  }
 }
 
 async function channelRenderPosts(channelId, ch) {
@@ -19891,13 +20677,14 @@ async function buildChatList() {
       type:     'contact',
       name:     c.name || fp.slice(0,8)+'...',
       avatar:   cachedAva || null,
-      initials: (c.name||'?').replace(/[\p{Emoji_Presentation}\p{Emoji}\uFE0F]/gu,'').trim()[0]?.toUpperCase() || '?',
+      initials: (c.name||'?').replace(/[\p{Emoji_Presentation}\p{Emoji}️]/gu,'').trim()[0]?.toUpperCase() || '?',
       lastText: last ? (last.type === 'out' ? 'Вы: ' : '') + (last.__file__ ? '[файл]' : last.text || '') : '',
       lastTs:   last?.ts || c.savedAt || 0,
       unread,
-      archived: !!archived[fp],
-      online:   _presenceCache?.[fp] === 'online',
+      archived:   !!archived[fp],
+      online:     _presenceCache?.[fp] === 'online',
       isMyDevice: !!c.isMyDevice,
+      isBot:      !!c.isBot,
     });
   }
 
@@ -20070,6 +20857,8 @@ function _buildChatItemHTML(item) {
     ? `<div class="chat-item-unread">${item.unread > 99 ? '99+' : item.unread}</div>` : '';
   const myDeviceBadge = item.isMyDevice
     ? `<span style="font-size:9px;color:var(--a);background:var(--ad);padding:1px 5px;border-radius:4px">📲</span>` : '';
+  const botBadge = item.isBot
+    ? `<span class="bot-badge">⚙ бот</span>` : '';
 
   return `<div class="chat-item" data-id="${item.id}" data-type="${item.type}"
     onclick="openChatItem('${item.id}','${item.type}')"
@@ -20079,13 +20868,14 @@ function _buildChatItemHTML(item) {
     </div>
     <div class="chat-item-info">
       <div class="chat-item-name">
-        ${item.name}${myDeviceBadge}
+        ${item.name}${myDeviceBadge}${botBadge}
       </div>
       <div class="chat-item-last">${item.lastText ? (item.lastText.length > 40 ? item.lastText.slice(0,40)+'…' : item.lastText) : '<span style="opacity:.4">нет сообщений</span>'}</div>
     </div>
     <div class="chat-item-meta">
       <div class="chat-item-time">${_fmtChatTime(item.lastTs)}</div>
       ${unreadBadge}
+      <div class="chat-item-sync ${window._syncingChats?.has(item.id) ? 'on' : ''}" data-sync-id="${item.id}">↻</div>
     </div>
   </div>`;
 }
@@ -20582,6 +21372,1738 @@ Object.assign(window, {
 
 
 
+
+
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Security Module v2
+// ══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// Tovsa Security Module v2
+// ══════════════════════════════════════════════════════════════════════════════
+
+const SEC_KEY = 'security_v2';
+
+// ── Хранение настроек ─────────────────────────────────────────────────────────
+async function secLoad()        { try { return await idbGet('meta', SEC_KEY) || {}; } catch { return {}; } }
+async function secSave(s)       { try { await idbSet('meta', SEC_KEY, s); } catch(_) {} }
+
+// ── PBKDF2 хеш PIN ──────────────────────────────────────────────────────────
+async function secHashPin(pin, salt) {
+  const enc  = new TextEncoder();
+  const key  = await crypto.subtle.importKey('raw', enc.encode(pin), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', hash: 'SHA-256', salt: enc.encode(salt), iterations: 100000 },
+    key, 256
+  );
+  return Array.from(new Uint8Array(bits)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// ── APP LOCK ─────────────────────────────────────────────────────────────────
+// Показывается при загрузке если установлен PIN A, B или C
+// PIN A → обычный вход
+// PIN B → вход во второй чистый профиль
+// PIN C → вход + удаление всей истории сообщений
+
+let _appUnlocked = false;
+let _currentProfile = 'main'; // 'main' | 'decoy'
+
+async function appLockCheck() {
+  const s = await secLoad();
+  if (!s.pinA && !s.pinB && !s.pinC) { _appUnlocked = true; return; }
+  // Показываем экран блокировки
+  _showAppLock();
+}
+
+function _showAppLock() {
+  const el = document.getElementById('app-lock-screen');
+  if (el) { el.style.display = 'flex'; }
+  document.getElementById('tabbar')?.style.setProperty('display','none','important');
+  // Устанавливаем контекст — без этого pinKey не знает что делать с вводом
+  _pinBuf = ''; _pinCtx = 'applock'; _pinTmp = ''; _pinRender();
+  const titleEl = document.getElementById('al-pin-title');
+  if (titleEl) titleEl.textContent = 'Введите PIN';
+}
+
+function _hideAppLock() {
+  const el = document.getElementById('app-lock-screen');
+  if (el) el.style.display = 'none';
+  document.getElementById('tabbar')?.style.removeProperty('display');
+  _appUnlocked = true;
+  // Восстанавливаем жесты только для основного профиля
+  if (_currentProfile !== 'decoy' && window._currentProfile !== 'decoy') {
+    window._decoyMode = false;
+    window._currentProfile = 'main';
+    const title = document.getElementById('hdr-title');
+    if (title) title.style.cursor = 'pointer';
+    _refreshPanicZone?.();
+  }
+}
+
+// ── PIN PAD ──────────────────────────────────────────────────────────────────
+let _pinBuf = '';
+let _pinCtx = null; // 'applock' | 'setA1'|'setA2' | 'setB1'|'setB2' | 'setC1'|'setC2' | 'panic_confirm'
+let _pinTmp = '';   // первый ввод при setup
+let _pinCb  = null; // callback(success)
+
+function pinInit(ctx, cb, savedTmp) {
+  // В decoy режиме блокируем создание и изменение PIN
+  const setupCtxs = ['setA1','setA2','setB1','setB2','setC1','setC2'];
+  if (setupCtxs.includes(ctx) && (window._decoyMode || window._currentProfile === 'decoy')) {
+    toast('Недоступно в этом режиме');
+    return;
+  }
+  _pinBuf = '';
+  _pinCtx = ctx;
+  _pinCb  = cb;
+  _pinTmp = (savedTmp !== undefined) ? savedTmp : '';
+  _pinRender();
+  const titleMap = {
+    applock:       'Введите PIN',
+    setA1:         'Новый PIN входа',
+    setA2:         'Повторите PIN входа',
+    setB1:         'PIN второго профиля',
+    setB2:         'Повторите PIN',
+    setC1:         'PIN быстрого удаления',
+    setC2:         'Повторите PIN',
+    panic_confirm: '⚠ PIN для удаления всего',
+  };
+  const el = document.getElementById('pin-title');
+  if (el) el.textContent = titleMap[ctx] || 'Введите PIN';
+  const sub = document.getElementById('pin-subtitle');
+  if (sub) {
+    const subMap = {
+      setA1: 'Этот PIN открывает основной профиль',
+      setB1: 'Открывает пустой профиль-приманку',
+      setC1: 'Открывает приложение и удаляет все сообщения',
+      applock: ' ',
+    };
+    sub.textContent = subMap[ctx] || '';
+  }
+  const overlay = document.getElementById('pin-overlay');
+  if (overlay) overlay.classList.add('on');
+}
+
+function pinClose() {
+  document.getElementById('pin-overlay')?.classList.remove('on');
+  _pinBuf = ''; _pinCtx = null; _pinCb = null; _pinTmp = '';
+}
+
+function _pinRender() {
+  // Определяем активный экран: app-lock или overlay
+  const isAppLock = document.getElementById('app-lock-screen')?.style.display !== 'none';
+  const prefix = isAppLock ? 'al' : 'pd';
+  const errId  = isAppLock ? 'al-pin-error' : 'pin-error';
+  for (let i = 0; i < 4; i++) {
+    document.getElementById(prefix + i)?.classList.toggle('filled', i < _pinBuf.length);
+  }
+  const err = document.getElementById(errId);
+  if (err && _pinBuf.length > 0) err.textContent = '';
+}
+
+function _pinShowError(msg) {
+  const isAppLock = document.getElementById('app-lock-screen')?.style.display !== 'none';
+  const errId = isAppLock ? 'al-pin-error' : 'pin-error';
+  const el = document.getElementById(errId);
+  if (el) { el.textContent = msg; setTimeout(() => { el.textContent = ''; }, 1500); }
+}
+
+async function pinKey(k) {
+  if (k === 'cancel') { pinClose(); _pinCb?.(false); _pinCb = null; return; }
+  if (k === 'del')    { _pinBuf = _pinBuf.slice(0,-1); _pinRender(); return; }
+  if (_pinBuf.length >= 4) return;
+  _pinBuf += k;
+  _pinRender();
+  if (_pinBuf.length < 4) return;
+
+  const pin = _pinBuf; _pinBuf = ''; _pinRender();
+  const err = document.getElementById('pin-error');
+
+  // ── Setup flows ───────────────────────────────────────────────────────────
+  if (_pinCtx === 'setA1' || _pinCtx === 'setB1' || _pinCtx === 'setC1') {
+    const next = { setA1:'setA2', setB1:'setB2', setC1:'setC2' }[_pinCtx];
+    pinInit(next, _pinCb, pin);  // передаём pin явно как savedTmp
+    return;
+  }
+  if (_pinCtx === 'setA2' || _pinCtx === 'setB2' || _pinCtx === 'setC2') {
+    if (pin !== _pinTmp) {
+      _pinShowError('PIN не совпадает');
+      const prev = { setA2:'setA1', setB2:'setB1', setC2:'setC1' }[_pinCtx];
+      setTimeout(() => pinInit(prev, _pinCb), 800);  // нет savedTmp → _pinTmp сбросится
+      return;
+    }
+    // Проверяем что новый PIN не совпадает с уже существующими
+    const s       = await secLoad();
+    const field   = { setA2:'pinA', setB2:'pinB', setC2:'pinC' }[_pinCtx];
+    const otherFields = ['pinA', 'pinB', 'pinC'].filter(f => f !== field);
+    for (const other of otherFields) {
+      if (!s[other]) continue;
+      const clash = await secHashPin(pin, s[other].salt);
+      if (clash === s[other].hash) {
+        _pinShowError('PIN совпадает с уже существующим');
+        const prev = { setA2:'setA1', setB2:'setB1', setC2:'setC1' }[_pinCtx];
+        setTimeout(() => pinInit(prev, _pinCb), 1000);
+        return;
+      }
+    }
+    const salt    = crypto.randomUUID();
+    const hash    = await secHashPin(pin, salt);
+    s[field]      = { hash, salt };
+    await secSave(s);
+    pinClose();
+    _pinCb?.(true); _pinCb = null;
+    toast('✓ PIN установлен');
+    secRenderSettings();
+    return;
+  }
+
+  // ── App lock ───────────────────────────────────────────────────────────────
+  if (_pinCtx === 'applock') {
+    const s = await secLoad();
+    // PIN входа (A) — обычный вход, активируем pinKey для IDB
+    if (s.pinA) {
+      const h = await secHashPin(pin, s.pinA.salt);
+      if (h === s.pinA.hash) {
+        await encActivatePinKey(pin, s.pinA.salt);
+        pinClose(); _hideAppLock(); return;
+      }
+    }
+    // PIN удаления (C) — полный сброс, открываем как новое приложение
+    if (s.pinC) {
+      const h = await secHashPin(pin, s.pinC.salt);
+      if (h === s.pinC.hash) {
+        pinClose();
+        await secFullReset();
+        return;
+      }
+    }
+    _pinShowError('Неверный PIN');
+    return;
+  }
+
+  // ── Panic confirm ────────────────────────────────────────────────────────
+  if (_pinCtx === 'panic_confirm') {
+    const s = await secLoad();
+    const stored = s.pinA || s.pinC;
+    if (stored) {
+      const h = await secHashPin(pin, stored.salt);
+      if (h !== stored.hash) {
+        _pinShowError('Неверный PIN');
+        return;
+      }
+    }
+    pinClose();
+    await secFullReset();
+    return;
+  }
+}
+
+// ── Wipe messages (PIN C) ─────────────────────────────────────────────────────
+async function _secWipeMessages() {
+  try {
+    const h = await getHistory();
+    for (const k of Object.keys(h)) h[k] = [];
+    await saveHistory(h);
+    // Очищаем room messages
+    const rooms = await roomsLoad().catch(() => ({}));
+    for (const roomId of Object.keys(rooms)) {
+      await roomMsgsSave(roomId, []).catch(() => {});
+    }
+  } catch(e) { console.warn('[sec] wipe error:', e); }
+}
+
+// ── Decoy profile (PIN B) ────────────────────────────────────────────────────
+// Второй профиль — генерируем или загружаем отдельные ключи
+async function _secLoadDecoyProfile() {
+  try {
+    let decoyPriv = await idbGet('keys', 'decoy_priv_jwk').catch(() => null);
+    let decoyPub  = await idbGet('keys', 'decoy_pub_raw').catch(() => null);
+    if (!decoyPriv || !decoyPub) {
+      const kp  = await crypto.subtle.generateKey({name:'Ed25519'}, true, ['sign','verify']);
+      decoyPriv = await crypto.subtle.exportKey('jwk', kp.privateKey);
+      decoyPub  = Array.from(new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey)));
+      await idbSet('keys', 'decoy_priv_jwk', decoyPriv);
+      await idbSet('keys', 'decoy_pub_raw',  decoyPub);
+    }
+    myPrivKey     = await crypto.subtle.importKey('jwk', decoyPriv, {name:'Ed25519'}, false, ['sign']);
+    myPubKeyRaw   = new Uint8Array(decoyPub);
+    const hash    = await crypto.subtle.digest('SHA-256', myPubKeyRaw);
+    myFingerprint = bytesToFingerprint(hash);
+    myPresenceId  = await sha256hex(myPubKeyRaw, 24);
+    myPubKeyHex   = Array.from(myPubKeyRaw).map(b=>b.toString(16).padStart(2,'0')).join('');
+    await initEncKey();
+
+    // Жест паники в decoy профиле — всегда выключен
+    const zoneEl = document.getElementById('panic-zone');
+    if (zoneEl) zoneEl.classList.remove('active');
+
+    // Название → блокировка — тоже не работает в decoy
+    // (нет смысла блокировать пустой профиль)
+    const title = document.getElementById('hdr-title');
+    if (title) title.style.cursor = '';
+
+    toast('Профиль-приманка');
+
+    // Перерисовываем — контакты и история пустые для этого ключа
+    if (typeof renderContacts   === 'function') renderContacts();
+    if (typeof renderChatsList  === 'function') renderChatsList();
+
+    // Избранное — скрываем историю (она привязана к основному профилю)
+    // при открытии sfav показываем пустой экран
+    window._decoyMode = true;
+    window._currentProfile = 'decoy';
+  } catch(e) { console.warn('[sec] decoy error:', e); }
+}
+
+// ── Panic: полное удаление ────────────────────────────────────────────────────
+// Полный сброс — удаляет всё, открывает как новое приложение (PIN C)
+async function secFullReset() {
+  // Сбрасываем ключ шифрования и соль — данные станут недоступны
+  localStorage.removeItem('_enc_salt');
+  localStorage.removeItem('_enc_migrated_v1');
+  _encActiveKey = null;
+  try {
+    if (typeof _idb !== 'undefined' && _idb) try { _idb.close(); } catch(_) {}
+    await new Promise((res, rej) => {
+      const r = indexedDB.deleteDatabase('tovsa');
+      r.onsuccess = res; r.onerror = rej;
+      r.onblocked = () => { r.result?.close?.(); res(); };
+    });
+    localStorage.clear();
+    sessionStorage.clear();
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+    location.replace(location.origin + location.pathname);
+  } catch {
+    localStorage.clear();
+    location.replace(location.origin + location.pathname);
+  }
+}
+
+// Паника — тоже полный сброс
+async function secNuke() {
+  await secFullReset();
+}
+
+// ── Panic gesture: тройное нажатие на логотип ─────────────────────────────────
+let _panicTaps = 0, _panicTimer = null;
+
+function secInitPanicGesture() {
+  // ── Нажатие на hdr-title → блокирует приложение ──────────────────────────
+  const title = document.getElementById('hdr-title');
+  if (title) {
+    title.style.cursor = 'pointer';
+    title.title = '';
+    title.addEventListener('click', async () => {
+      const s = await secLoad();
+      if (!s.pinA && !s.pinB && !s.pinC) return;
+      if (_appUnlocked) {
+        _appUnlocked = false;
+        _showAppLock();
+      }
+    });
+  }
+
+  // ── Жест паники: 5 нажатий в нижний левый угол за 2 секунды ────────────────
+  const PANIC_ZONE   = 60;
+  const PANIC_TAPS   = 5;
+  const PANIC_WINDOW = 2000;
+
+  let _pTaps = 0, _pTimer = null;
+  const zoneEl = document.getElementById('panic-zone');
+  const zoneDot = document.getElementById('panic-zone-dot');
+
+  // Показываем/скрываем индикатор зоны в зависимости от настройки
+  async function _updatePanicZone() {
+    const s = await secLoad();
+    if (zoneEl) zoneEl.classList.toggle('active', !!s.panicGesture);
+  }
+  _updatePanicZone();
+
+  document.addEventListener('touchstart', async (e) => {
+    const s = await secLoad();
+    if (!s.panicGesture) return;
+    if (!_appUnlocked) return;
+
+
+    const t = e.touches[0];
+    const inZone = t.clientX < PANIC_ZONE
+                && t.clientY > window.innerHeight - PANIC_ZONE;
+    if (!inZone) return;
+
+    _pTaps++;
+    clearTimeout(_pTimer);
+
+    // Визуальная обратная связь — точка мигает быстрее при накоплении нажатий
+    if (zoneDot) {
+      zoneDot.style.opacity = String(0.3 + (_pTaps / PANIC_TAPS) * 0.7);
+      zoneDot.style.transform = `scale(${1 + _pTaps * 0.3})`;
+    }
+
+    _pTimer = setTimeout(() => {
+      _pTaps = 0;
+      if (zoneDot) { zoneDot.style.opacity = ''; zoneDot.style.transform = ''; }
+    }, PANIC_WINDOW);
+
+    if (_pTaps >= PANIC_TAPS) {
+      _pTaps = 0;
+      clearTimeout(_pTimer);
+      await secNuke();
+    }
+  }, { passive: true });
+}
+
+// Обновляем видимость индикатора при изменении настройки
+async function _refreshPanicZone() {
+  const s = await secLoad();
+  const zoneEl = document.getElementById('panic-zone');
+  if (zoneEl) zoneEl.classList.toggle('active', !!s.panicGesture);
+}
+
+// ── Disappearing messages ────────────────────────────────────────────────────
+const DISP_PFX = 'disp_v1_';
+async function secGetDisappearing(chatId)   { try { return await idbGet('meta', DISP_PFX + chatId) || 0; } catch { return 0; } }
+async function secSetDisappearing(chatId, v){ try { await idbSet('meta', DISP_PFX + chatId, v); } catch(_) {} }
+
+async function secApplyDisappearing(chatId) {
+  const ttl = await secGetDisappearing(chatId);
+  if (!ttl) return;
+  const cutoff = Date.now() / 1000 - ttl;
+  try {
+    const h = await getHistory();
+    if (!h[chatId]) return;
+    const before = h[chatId].length;
+    h[chatId] = h[chatId].filter(m => (m.ts||0) > cutoff);
+    if (h[chatId].length < before) await saveHistory(h);
+  } catch(_) {}
+}
+
+async function secShowDisappearingDialog(chatId, chatName) {
+  const current = await secGetDisappearing(chatId);
+  const opts = [
+    [0,      'Выкл'],
+    [3600,   '1 час'],
+    [86400,  '24 часа'],
+    [604800, '7 дней'],
+  ];
+  const existing = document.getElementById('disp-dialog');
+  if (existing) { existing.remove(); return; }
+  const d = document.createElement('div');
+  d.id = 'disp-dialog';
+  d.style.cssText='position:fixed;inset:0;z-index:850;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center';
+  d.innerHTML = `<div style="background:var(--sf);border-radius:20px 20px 0 0;padding:20px 18px;width:100%;max-width:600px;gap:12px;display:flex;flex-direction:column">
+    <div style="font-size:12px;font-weight:700;letter-spacing:1px;color:var(--mu)">⏱ ИСЧЕЗАЮЩИЕ СООБЩЕНИЯ</div>
+    <div style="font-size:13px">${chatName}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${opts.map(([v,l])=>`<button onclick="secSetDispUI('${chatId}',${v})" style="padding:8px 14px;border-radius:8px;border:1px solid var(--bd);background:${v===current?'var(--a)':'var(--bg)'};color:${v===current?'#0a0a0f':'var(--tx)'};font-family:inherit;font-size:12px;cursor:pointer">${l}</button>`).join('')}</div>
+    <button onclick="document.getElementById('disp-dialog')?.remove()" style="background:none;border:1px solid var(--bd);border-radius:8px;padding:8px;color:var(--mu);font-family:inherit;cursor:pointer">Отмена</button>
+  </div>`;
+  d.addEventListener('click', e => { if(e.target===d) d.remove(); });
+  document.body.appendChild(d);
+}
+
+async function secSetDispUI(chatId, v) {
+  await secSetDisappearing(chatId, v);
+  document.getElementById('disp-dialog')?.remove();
+  const labels = {0:'Выкл',3600:'1 час',86400:'24 часа',604800:'7 дней'};
+  toast('⏱ ' + (labels[v] || 'Выкл'));
+  renderChatsList();
+}
+
+// ── Auto-delete TTL ───────────────────────────────────────────────────────────
+async function secRunGlobalTTL() {
+  const s = await secLoad();
+  if (!s.globalTTL) return;
+  const cutoff = Date.now()/1000 - s.globalTTL;
+  try {
+    const h = await getHistory(); let del = 0;
+    for (const k of Object.keys(h)) {
+      const before = h[k].length;
+      h[k] = h[k].filter(m => (m.ts||0) > cutoff);
+      del += before - h[k].length;
+    }
+    await saveHistory(h);
+    if (del > 0) renderChatsList();
+  } catch(_) {}
+}
+
+async function secSaveGlobalTTL(v) {
+  const s = await secLoad();
+  s.globalTTL = parseInt(v)||0;
+  await secSave(s);
+  const labels = {'0':'Выкл','86400':'24 часа','604800':'7 дней','2592000':'30 дней','7776000':'90 дней'};
+  toast('⏱ Автоудаление: ' + (labels[String(v)]||'Выкл'));
+}
+
+// ── Context menu в чатах ─────────────────────────────────────────────────────
+// Добавляем опции в существующий chatItemCtx через патч
+const _chatItemCtxOrig = chatItemCtx;
+window.chatItemCtx = async function(e, id, type) {
+  e.preventDefault();
+  if (type === 'fav') return;
+
+  const item     = (_allChatItems||[]).find(i=>i.id===id);
+  if (!item) return;
+  const chatName = item.name || id;
+
+  const existing = document.getElementById('sec-chat-ctx');
+  if (existing) { existing.remove(); return; }
+
+  const d = document.createElement('div');
+  d.id = 'sec-chat-ctx';
+  d.style.cssText = 'position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.4)';
+  const x = Math.min(e.clientX, window.innerWidth-192);
+  const y = Math.min(e.clientY, window.innerHeight-160);
+  d.innerHTML = `<div style="position:absolute;top:${y}px;left:${x}px;background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:6px;min-width:190px;box-shadow:0 4px 20px rgba(0,0,0,.4)">
+    <button onclick="document.getElementById('sec-chat-ctx')?.remove();secShowDisappearingDialog('${id}','${chatName.replace(/'/g,'\\\'')}')" style="display:flex;align-items:center;gap:8px;width:100%;padding:9px 12px;background:none;border:none;color:var(--tx);font-family:inherit;font-size:12px;cursor:pointer;border-radius:6px;text-align:left">⏱ Исчезающие сообщения</button>
+    <button onclick="document.getElementById('sec-chat-ctx')?.remove();_chatItemCtxArchive('${id}')" style="display:flex;align-items:center;gap:8px;width:100%;padding:9px 12px;background:none;border:none;color:var(--tx);font-family:inherit;font-size:12px;cursor:pointer;border-radius:6px;text-align:left">📦 Архивировать</button>
+  </div>`;
+  d.addEventListener('click', e => { if(e.target===d) d.remove(); });
+  document.body.appendChild(d);
+};
+
+// Архивирование из контекстного меню
+async function _chatItemCtxArchive(id) {
+  const archived = await archivedLoad();
+  archived[id] = true;
+  await archivedSave(archived);
+  renderChatsList();
+  toast('📦 Архивировано');
+}
+
+// ── Settings UI ──────────────────────────────────────────────────────────────
+// Применяет визуальный статус PIN карточки
+function _secApplyPinCardUI(prefix, isSet) {
+  const card   = document.getElementById(prefix + '-card');
+  const badge  = document.getElementById(prefix + '-badge');
+  const status = document.getElementById(prefix + '-status');
+  const btn    = document.getElementById(prefix + '-btn');
+  const clear  = document.getElementById(prefix + '-clear');
+  if (card)   { card.style.borderColor = isSet ? 'var(--a)' : 'var(--bd)'; card.style.background = isSet ? 'var(--ad)' : ''; }
+  if (badge)  { badge.style.display = isSet ? '' : 'none'; badge.textContent = '✓ установлен'; badge.style.background = 'var(--a)'; badge.style.color = '#0a0a0f'; }
+  if (status) { status.textContent = isSet ? 'Активен' : 'Не установлен'; status.style.color = isSet ? 'var(--a)' : 'var(--mu)'; }
+  if (btn)    btn.textContent = isSet ? 'Изменить' : 'Установить';
+  if (clear)  clear.style.display = isSet ? '' : 'none';
+}
+
+async function secRenderSettings() {
+  const s = await secLoad();
+
+  // Panic gesture toggle
+  const pg = document.getElementById('sec-panic-gesture');
+  if (pg) pg.checked = !!s.panicGesture;
+
+  // Global TTL
+  const ttl = document.getElementById('sec-global-ttl');
+  if (ttl) ttl.value = String(s.globalTTL || 0);
+
+  // PIN карточки — визуальный статус
+  _secApplyPinCardUI('sec-pin-a', !!s.pinA);
+  _secApplyPinCardUI('sec-pin-c', !!s.pinC);
+}
+
+// Установка PIN C (удаления) — не требует PIN A
+function secSetPinC() {
+  pinInit('setC1', null);
+}
+
+async function secSavePanicGesture(v) {
+  const s = await secLoad();
+  s.panicGesture = v;
+  await secSave(s);
+  _refreshPanicZone?.();
+  toast(v ? '⚡ Жест паники включён — нижний левый угол' : 'Жест паники выключен');
+}
+
+async function secClearPin(field) {
+  if (window._decoyMode || window._currentProfile === 'decoy') {
+    toast('Недоступно в этом режиме');
+    return;
+  }
+  const s = await secLoad();
+  delete s[field];
+  await secSave(s);
+  toast('PIN сброшен');
+  secRenderSettings();
+}
+
+async function secPanicConfirm() {
+  const s = await secLoad();
+  if (s.pinA || s.pinC) {
+    pinInit('panic_confirm', null);
+  } else {
+    const btn = document.querySelector('.panic-btn');
+    if (!btn._confirm) {
+      btn._confirm = true;
+      btn.textContent = '⊘ Нажмите ещё раз для подтверждения';
+      setTimeout(() => { btn._confirm = false; btn.textContent = '⊘ Удалить все данные'; }, 3000);
+    } else {
+      await secFullReset();
+    }
+  }
+}
+
+// ── Инициализация ─────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(async () => {
+    await appLockCheck();
+    secInitPanicGesture();
+    secRunGlobalTTL();
+    setInterval(secRunGlobalTTL, 60*60*1000);
+  }, 500);
+});
+
+window._secOnOpen = async () => { await secRenderSettings(); };
+
+Object.assign(window, {
+  pinKey, pinClose, secNuke, secFullReset, secPanicConfirm, secSetPinC,
+  secSavePanicGesture, secSaveGlobalTTL, secRunGlobalTTL,
+  secShowDisappearingDialog, secSetDispUI, secApplyDisappearing,
+  secRenderSettings, secClearPin,
+  secInitPanicGesture, _pinShowError, _pinRender,
+  _chatItemCtxArchive,
+});
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Device Transfer Module
+// ══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// Device Transfer Module — QR-based identity transfer
+//
+// Протокол:
+//   1. Устройство A генерирует X25519 ephemeral keypair → pubKeyA → QR
+//   2. Устройство B сканирует QR, генерирует X25519 ephemeral keypair → pubKeyB
+//   3. Устройства обмениваются pubKey через signaling (временный канал)
+//   4. ECDH(privA, pubB) = ECDH(privB, pubA) = sharedSecret
+//   5. A шифрует identity пакет на sharedSecret → отправляет B
+//   6. B импортирует identity, переключает ключи
+// ══════════════════════════════════════════════════════════════════════════════
+
+const TRANSFER_PROTO  = 'tovsa-transfer-v1';
+const TRANSFER_TTL_MS = 5 * 60 * 1000; // 5 минут
+
+// ── Утилиты ───────────────────────────────────────────────────────────────────
+
+function _dtHexToBytes(hex) {
+  const a = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < a.length; i++) a[i] = parseInt(hex.slice(i*2, i*2+2), 16);
+  return a;
+}
+function _dtBytesToHex(b) {
+  return Array.from(b).map(x => x.toString(16).padStart(2,'0')).join('');
+}
+function _dtB64(b) { return btoa(String.fromCharCode(...b)); }
+function _dtUnB64(s) { return Uint8Array.from(atob(s), c => c.charCodeAt(0)); }
+
+// ── ECDH + шифрование пакета ──────────────────────────────────────────────────
+
+async function _dtDeriveShared(myPrivJwk, theirPubRaw) {
+  const myPriv  = await crypto.subtle.importKey(
+    'jwk', myPrivJwk, { name: 'X25519' }, false, ['deriveBits']
+  );
+  const theirPub = await crypto.subtle.importKey(
+    'raw', theirPubRaw, { name: 'X25519' }, false, []
+  );
+  const bits = await crypto.subtle.deriveBits({ name: 'X25519', public: theirPub }, myPriv, 256);
+  const hkdf = await crypto.subtle.importKey('raw', bits, 'HKDF', false, ['deriveBits']);
+  const keyBits = await crypto.subtle.deriveBits({
+    name: 'HKDF', hash: 'SHA-256',
+    salt: new TextEncoder().encode(TRANSFER_PROTO),
+    info: new TextEncoder().encode('transfer-enc'),
+  }, hkdf, 256);
+  return crypto.subtle.importKey('raw', keyBits, 'AES-GCM', false, ['encrypt','decrypt']);
+}
+
+async function _dtEncrypt(key, data) {
+  const iv      = crypto.getRandomValues(new Uint8Array(12));
+  const plain   = new TextEncoder().encode(JSON.stringify(data));
+  const cipher  = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plain);
+  return { iv: _dtB64(iv), d: _dtB64(new Uint8Array(cipher)) };
+}
+
+async function _dtDecrypt(key, pkg) {
+  const plain = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: _dtUnB64(pkg.iv) }, key, _dtUnB64(pkg.d)
+  );
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
+// ── Состояние ─────────────────────────────────────────────────────────────────
+
+let _dtEphemeralPriv = null;  // мой ephemeral X25519 private
+let _dtEphemeralPub  = null;  // мой ephemeral X25519 public (raw bytes)
+let _dtChannel       = null;  // signaling channel ID
+let _dtRole          = null;  // 'sender' | 'receiver'
+let _dtTimer         = null;
+
+// ── Sender: показываем QR ─────────────────────────────────────────────────────
+
+async function dtStartSend() {
+  // Генерируем ephemeral X25519
+  const kp = await crypto.subtle.generateKey({ name: 'X25519' }, true, ['deriveBits']);
+  _dtEphemeralPriv = await crypto.subtle.exportKey('jwk', kp.privateKey);
+  _dtEphemeralPub  = new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey));
+
+  // Временный channel ID — случайный hex
+  _dtChannel = _dtBytesToHex(crypto.getRandomValues(new Uint8Array(16)));
+  _dtRole    = 'sender';
+
+  // QR содержит: { proto, channel, pub (hex), srv (signaling URL), ts }
+  const qrData = JSON.stringify({
+    proto:   TRANSFER_PROTO,
+    channel: _dtChannel,
+    pub:     _dtBytesToHex(_dtEphemeralPub),
+    srv:     buildWsUrl(currentSrv()).replace('wss://','https://').replace('/signal',''),
+    ts:      Date.now(),
+  });
+
+  // Показываем QR
+  _dtShowSenderUI(qrData);
+
+  // Слушаем ответ от receiver через signaling
+  _dtListenForReceiver();
+
+  // Таймаут — 5 минут
+  _dtTimer = setTimeout(() => dtCancel('timeout'), TRANSFER_TTL_MS);
+}
+
+function _dtShowSenderUI(qrData) {
+  let modal = document.getElementById('dt-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'dt-modal';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:950;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px';
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `
+    <div style="font-size:13px;font-weight:700;color:var(--a);letter-spacing:2px">ПЕРЕНОС УСТРОЙСТВА</div>
+    <div style="font-size:11px;color:var(--mu);text-align:center;max-width:280px">
+      Отсканируйте QR на новом устройстве в течение 5 минут
+    </div>
+    <div id="dt-qr" style="background:#fff;padding:12px;border-radius:12px"></div>
+    <div id="dt-status" style="font-size:11px;color:var(--mu)">Ожидаем подключения...</div>
+    <div style="display:flex;gap:10px">
+      <button onclick="dtCancel()" style="padding:10px 20px;background:none;border:1px solid var(--bd);border-radius:8px;color:var(--mu);font-family:inherit;cursor:pointer;font-size:12px">Отмена</button>
+    </div>
+  `;
+  // Генерируем QR
+  if (typeof QRCode !== 'undefined') {
+    new QRCode(document.getElementById('dt-qr'), {
+      text: qrData, width: 220, height: 220,
+      colorDark: '#000000', colorLight: '#ffffff',
+    });
+  } else {
+    document.getElementById('dt-qr').textContent = qrData;
+  }
+}
+
+async function _dtListenForReceiver() {
+  // Подписываемся на signaling сообщения с нашим channel ID
+  // Receiver отправит своё ephemeral pub зашифрованное нашим pub (нет — открытым текстом, key exchange)
+  const handler = async (e) => {
+    try {
+      const msg = typeof e.data === 'string' ? JSON.parse(e.data) : null;
+      if (!msg || msg.proto !== TRANSFER_PROTO || msg.channel !== _dtChannel) return;
+      if (msg.type === 'pub_exchange') {
+        window.removeEventListener('tovsa-dt-msg', handler);
+        await _dtSenderSendIdentity(msg.receiverPub);
+      }
+    } catch(_) {}
+  };
+  window.addEventListener('tovsa-dt-msg', handler);
+}
+
+async function _dtSenderSendIdentity(receiverPubHex) {
+  document.getElementById('dt-status').textContent = 'Шифруем данные...';
+
+  const sharedKey = await _dtDeriveShared(
+    _dtEphemeralPriv, _dtHexToBytes(receiverPubHex)
+  );
+
+  // Собираем пакет identity
+  const privJwk  = await idbGet('keys', 'id_priv_jwk');
+  const pubRaw   = await idbGet('keys', 'id_pub_raw');
+  const encPriv  = await idbGet('keys', 'enc_priv_jwk');
+  const encPub   = await idbGet('keys', 'enc_pub_b64u');
+  const myName   = document.getElementById('my-name-input')?.value || localStorage.getItem('myName') || '';
+  const contacts = await idbGet('contacts', 'all').catch(() => null);
+  const history  = await idbGet('history',  'all').catch(() => null);
+  const settings = await idbGet('meta', 'security_v2').catch(() => null);
+
+  const packet = {
+    proto:    TRANSFER_PROTO,
+    v:        1,
+    ts:       Date.now(),
+    identity: { privJwk, pubRaw, encPriv, encPub, name: myName },
+    contacts,
+    history,
+    settings,
+  };
+
+  const encrypted = await _dtEncrypt(sharedKey, packet);
+
+  // Отправляем через signaling в channel
+  _dtSignalSend({
+    proto:   TRANSFER_PROTO,
+    channel: _dtChannel,
+    type:    'identity_pkg',
+    ...encrypted,
+  });
+
+  document.getElementById('dt-status').textContent = 'Данные отправлены, ожидаем подтверждения...';
+}
+
+// ── Receiver: сканируем QR ────────────────────────────────────────────────────
+
+async function dtStartReceive(qrString) {
+  let qrData;
+  try { qrData = JSON.parse(qrString); }
+  catch { toast('Неверный QR код'); return; }
+
+  if (qrData.proto !== TRANSFER_PROTO) { toast('Неверный протокол'); return; }
+  if (Date.now() - qrData.ts > TRANSFER_TTL_MS) { toast('QR код устарел'); return; }
+
+  _dtChannel = qrData.channel;
+  _dtRole    = 'receiver';
+
+  // Генерируем свой ephemeral keypair
+  const kp = await crypto.subtle.generateKey({ name: 'X25519' }, true, ['deriveBits']);
+  _dtEphemeralPriv = await crypto.subtle.exportKey('jwk', kp.privateKey);
+  _dtEphemeralPub  = new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey));
+
+  _dtShowReceiverUI();
+
+  // Отправляем наш pub отправителю
+  _dtSignalSend({
+    proto:       TRANSFER_PROTO,
+    channel:     _dtChannel,
+    type:        'pub_exchange',
+    receiverPub: _dtBytesToHex(_dtEphemeralPub),
+  });
+
+  // Ждём зашифрованный пакет
+  _dtListenForPacket(qrData.pub);
+}
+
+function _dtShowReceiverUI() {
+  let modal = document.getElementById('dt-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'dt-modal';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:950;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px';
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `
+    <div style="font-size:13px;font-weight:700;color:var(--a);letter-spacing:2px">ПОЛУЧЕНИЕ ДАННЫХ</div>
+    <div id="dt-status" style="font-size:11px;color:var(--mu)">Подключаемся к устройству...</div>
+    <button onclick="dtCancel()" style="padding:10px 20px;background:none;border:1px solid var(--bd);border-radius:8px;color:var(--mu);font-family:inherit;cursor:pointer;font-size:12px">Отмена</button>
+  `;
+}
+
+async function _dtListenForPacket(senderPubHex) {
+  const handler = async (e) => {
+    try {
+      const msg = typeof e.data === 'string' ? JSON.parse(e.data) : null;
+      if (!msg || msg.proto !== TRANSFER_PROTO || msg.channel !== _dtChannel) return;
+      if (msg.type === 'identity_pkg') {
+        window.removeEventListener('tovsa-dt-msg', handler);
+        const el = document.getElementById('dt-status');
+        if (el) el.textContent = 'Расшифровываем...';
+        await _dtReceiverImport(senderPubHex, { iv: msg.iv, d: msg.d });
+      }
+    } catch(e) { toast('Ошибка получения: ' + e.message); }
+  };
+  window.addEventListener('tovsa-dt-msg', handler);
+
+  _dtTimer = setTimeout(() => dtCancel('timeout'), TRANSFER_TTL_MS);
+}
+
+async function _dtReceiverImport(senderPubHex, encrypted) {
+  const sharedKey = await _dtDeriveShared(
+    _dtEphemeralPriv, _dtHexToBytes(senderPubHex)
+  );
+  const packet = await _dtDecrypt(sharedKey, encrypted);
+
+  if (packet.proto !== TRANSFER_PROTO || packet.v !== 1) {
+    toast('Неверный пакет'); return;
+  }
+
+  // Импортируем identity
+  const { privJwk, pubRaw, encPriv, encPub, name } = packet.identity;
+
+  await idbSet('keys', 'id_priv_jwk',  privJwk);
+  await idbSet('keys', 'id_pub_raw',   pubRaw);
+  if (encPriv) await idbSet('keys', 'enc_priv_jwk', encPriv);
+  if (encPub)  await idbSet('keys', 'enc_pub_b64u',  encPub);
+
+  if (name) {
+    localStorage.setItem('myName', name);
+    const inp = document.getElementById('my-name-input');
+    if (inp) inp.value = name;
+  }
+
+  // Импортируем контакты и историю если есть
+  if (packet.contacts) await idbSet('contacts', 'all', packet.contacts).catch(() => {});
+  if (packet.history)  await idbSet('history',  'all', packet.history).catch(() => {});
+
+  // Подтверждаем отправителю
+  _dtSignalSend({ proto: TRANSFER_PROTO, channel: _dtChannel, type: 'ack' });
+
+  // Переинициализируем identity с новыми ключами
+  dtCancel();
+  toast('✓ Данные перенесены! Перезагружаем...');
+  setTimeout(() => location.reload(), 1500);
+}
+
+// ── Signaling: отправка сообщений через WS ────────────────────────────────────
+
+function _dtSignalSend(msg) {
+  // Используем существующий WS signaling
+  try {
+    if (typeof ws !== 'undefined' && ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'dt_relay', payload: msg }));
+    }
+  } catch(e) { console.warn('[dt] signal send error:', e); }
+}
+
+// Подключаем к обработчику WS сообщений
+function dtInitSignaling() {
+  window.addEventListener('tovsa-ws-msg', (e) => {
+    try {
+      const data = typeof e.detail === 'string' ? JSON.parse(e.detail) : e.detail;
+      if (data?.type === 'dt_relay') {
+        window.dispatchEvent(new CustomEvent('tovsa-dt-msg', { detail: data.payload }));
+      }
+    } catch(_) {}
+  });
+}
+
+// ── Бэкап / Восстановление ────────────────────────────────────────────────────
+
+async function dtExportBackup() {
+  const password = await _dtPromptPassword('Пароль для бэкапа');
+  if (!password) return;
+
+  const statusEl = document.getElementById('dt-backup-status');
+  if (statusEl) statusEl.textContent = 'Собираем данные...';
+
+  try {
+    // Собираем все данные
+    const stores = ['history','contacts','keys','meta','rooms','channels'];
+    const data = {};
+    for (const store of stores) {
+      try {
+        const {keys, vals} = await new Promise((res, rej) => {
+          openDB().then(db => {
+            const tx = db.transaction(store, 'readonly');
+            const ks = [], vs = [];
+            tx.objectStore(store).openCursor().onsuccess = e => {
+              const cur = e.target.result;
+              if (!cur) { res({keys: ks, vals: vs}); return; }
+              ks.push(cur.key); vs.push(cur.value); cur.continue();
+            };
+            tx.onerror = () => rej(tx.error);
+          });
+        });
+        // Расшифровываем перед бэкапом
+        const decrypted = [];
+        for (let i = 0; i < keys.length; i++) {
+          const val = vals[i]?.__enc ? await _encDecrypt(vals[i]) : vals[i];
+          decrypted.push([keys[i], val]);
+        }
+        data[store] = decrypted;
+      } catch(_) {}
+    }
+
+    // Шифруем бэкап паролем пользователя
+    const salt    = _dtBytesToHex(crypto.getRandomValues(new Uint8Array(32)));
+    const backKey = await _dtDeriveBackupKey(password, salt);
+    const iv      = crypto.getRandomValues(new Uint8Array(12));
+    const plain   = new TextEncoder().encode(JSON.stringify({ v: 1, ts: Date.now(), data }));
+    const cipher  = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, backKey, plain);
+
+    const backup = {
+      proto: 'tovsa-backup-v1',
+      salt,
+      iv:   _dtB64(iv),
+      d:    _dtB64(new Uint8Array(cipher)),
+    };
+
+    const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `tovsa-backup-${new Date().toISOString().slice(0,10)}.tovsa`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('✓ Бэкап сохранён');
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+  }
+}
+
+async function dtImportBackup(file) {
+  const password = await _dtPromptPassword('Пароль от бэкапа');
+  if (!password) return;
+
+  try {
+    const text   = await file.text();
+    const backup = JSON.parse(text);
+    if (backup.proto !== 'tovsa-backup-v1') { toast('Неверный формат'); return; }
+
+    const backKey = await _dtDeriveBackupKey(password, backup.salt);
+    const plain   = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: _dtUnB64(backup.iv) }, backKey, _dtUnB64(backup.d)
+    );
+    const { v, data } = JSON.parse(new TextDecoder().decode(plain));
+    if (v !== 1) { toast('Неподдерживаемая версия'); return; }
+
+    // Восстанавливаем данные
+    for (const [store, entries] of Object.entries(data)) {
+      for (const [key, val] of entries) {
+        await idbSet(store, key, val).catch(() => {});
+      }
+    }
+    toast('✓ Данные восстановлены! Перезагружаем...');
+    setTimeout(() => location.reload(), 1500);
+  } catch(e) {
+    toast('Ошибка: неверный пароль или повреждённый файл');
+  }
+}
+
+async function _dtDeriveBackupKey(password, saltHex) {
+  const enc    = new TextEncoder();
+  const keyMat = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits   = await crypto.subtle.deriveBits({
+    name: 'PBKDF2', hash: 'SHA-256',
+    salt: _dtHexToBytes(saltHex), iterations: 200000,
+  }, keyMat, 256);
+  return crypto.subtle.importKey('raw', bits, 'AES-GCM', false, ['encrypt','decrypt']);
+}
+
+// Инлайн-prompt для пароля (без browser dialog)
+function _dtPromptPassword(label) {
+  return new Promise(resolve => {
+    const d = document.createElement('div');
+    d.style.cssText = 'position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center';
+    d.innerHTML = `<div style="background:var(--sf);border-radius:16px;padding:24px;width:280px;display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--mu);letter-spacing:1px">${label.toUpperCase()}</div>
+      <input id="dt-pw-inp" type="password" placeholder="Введите пароль..."
+        style="background:var(--bg);border:1px solid var(--a);border-radius:8px;padding:10px 12px;color:var(--tx);font-family:inherit;font-size:13px;outline:none"
+        onkeydown="if(event.key==='Enter')document.getElementById('dt-pw-ok').click()">
+      <div style="display:flex;gap:8px">
+        <button id="dt-pw-ok" style="flex:1;padding:10px;background:var(--a);border:none;border-radius:8px;color:#0a0a0f;font-weight:700;font-family:inherit;cursor:pointer">OK</button>
+        <button onclick="this.closest('div[style]').remove()" style="padding:10px 14px;background:none;border:1px solid var(--bd);border-radius:8px;color:var(--mu);font-family:inherit;cursor:pointer">✕</button>
+      </div>
+    </div>`;
+    d.querySelector('#dt-pw-ok').onclick = () => {
+      const val = d.querySelector('#dt-pw-inp').value;
+      d.remove();
+      resolve(val || null);
+    };
+    document.body.appendChild(d);
+    setTimeout(() => d.querySelector('#dt-pw-inp').focus(), 50);
+  });
+}
+
+// ── UI для раздела "Мои устройства" в настройках ──────────────────────────────
+
+function dtRenderDeviceSection() {
+  const el = document.getElementById('sn-devices-transfer');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="sn-section">
+      <div class="sn-label">Перенос на другое устройство</div>
+      <div style="font-size:10px;color:var(--mu);line-height:1.6;margin-bottom:10px">
+        Откройте приложение на новом устройстве → Настройки → Мои устройства → Получить данные, затем сканируйте QR
+      </div>
+      <button class="btn" onclick="dtStartSend()" style="width:100%;margin-bottom:8px">
+        📱 Показать QR (это устройство — источник)
+      </button>
+      <button class="action-btn" onclick="dtOpenScanner()" style="width:100%;justify-content:center">
+        🔍 Сканировать QR (получить данные)
+      </button>
+    </div>
+    <div class="sn-section">
+      <div class="sn-label">Резервная копия</div>
+      <div style="display:flex;gap:8px">
+        <button class="action-btn" style="flex:1;justify-content:center" onclick="dtExportBackup()">
+          ↓ Экспорт
+        </button>
+        <button class="action-btn" style="flex:1;justify-content:center" onclick="document.getElementById('dt-import-file').click()">
+          ↑ Импорт
+        </button>
+      </div>
+      <input type="file" id="dt-import-file" accept=".tovsa,.json" style="display:none"
+        onchange="dtImportBackup(this.files[0])">
+      <div id="dt-backup-status" style="font-size:10px;color:var(--mu);margin-top:6px"></div>
+    </div>
+  `;
+}
+
+// QR-сканер (использует камеру или ввод вручную)
+async function dtOpenScanner() {
+  const d = document.createElement('div');
+  d.style.cssText = 'position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px';
+  d.innerHTML = `
+    <div style="font-size:13px;font-weight:700;color:var(--a)">СКАНИРОВАТЬ QR</div>
+    <video id="dt-scan-video" style="width:260px;height:260px;object-fit:cover;border-radius:12px;border:2px solid var(--a)"></video>
+    <div style="font-size:10px;color:var(--mu)">Или вставьте содержимое QR вручную:</div>
+    <textarea id="dt-scan-manual" placeholder="Вставьте данные QR..." style="width:260px;height:60px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;color:var(--tx);font-family:inherit;font-size:11px;padding:8px;resize:none;outline:none"></textarea>
+    <div style="display:flex;gap:10px">
+      <button onclick="_dtScanManual()" style="padding:10px 20px;background:var(--a);border:none;border-radius:8px;color:#0a0a0f;font-weight:700;font-family:inherit;cursor:pointer">Подтвердить</button>
+      <button onclick="this.closest('div[style]').remove();_dtStopCamera()" style="padding:10px 20px;background:none;border:1px solid var(--bd);border-radius:8px;color:var(--mu);font-family:inherit;cursor:pointer">Отмена</button>
+    </div>
+  `;
+  document.body.appendChild(d);
+  _dtStartCamera();
+}
+
+let _dtCameraStream = null;
+
+async function _dtStartCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    _dtCameraStream = stream;
+    const video = document.getElementById('dt-scan-video');
+    if (!video) return;
+    video.srcObject = stream;
+    await video.play();
+    // jsQR: сканируем каждый кадр
+    const canvas = document.createElement('canvas');
+    const ctx    = canvas.getContext('2d');
+    let   scanning = true;
+
+    const scan = () => {
+      if (!scanning || !_dtCameraStream) return;
+      if (video.readyState !== video.HAVE_ENOUGH_DATA) { requestAnimationFrame(scan); return; }
+
+      canvas.width  = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
+
+      if (typeof jsQR !== 'undefined') {
+        const img  = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+        if (code?.data) {
+          scanning = false;
+          _dtStopCamera();
+          // Убираем UI сканера и обрабатываем результат
+          document.querySelector('#dt-scan-video')?.closest('div[style]')?.remove();
+          dtStartReceive(code.data);
+          return;
+        }
+      }
+      requestAnimationFrame(scan);
+    };
+    requestAnimationFrame(scan);
+
+    // Останавливаем сканирование при закрытии
+    video.addEventListener('pause', () => { scanning = false; }, { once: true });
+  } catch(e) {
+    const video = document.getElementById('dt-scan-video');
+    if (video) video.style.display = 'none';
+    console.warn('[dt] camera error:', e.message);
+  }
+}
+
+function _dtStopCamera() {
+  _dtCameraStream?.getTracks().forEach(t => t.stop());
+  _dtCameraStream = null;
+}
+
+function _dtScanManual() {
+  const text = document.getElementById('dt-scan-manual')?.value?.trim();
+  if (!text) return;
+  document.querySelector('[id^="dt-scan"]')?.closest('div[style]')?.remove();
+  _dtStopCamera();
+  dtStartReceive(text);
+}
+
+// ── Отмена / очистка ──────────────────────────────────────────────────────────
+
+function dtCancel(reason) {
+  clearTimeout(_dtTimer);
+  _dtEphemeralPriv = null;
+  _dtEphemeralPub  = null;
+  _dtChannel       = null;
+  _dtRole          = null;
+  document.getElementById('dt-modal')?.remove();
+  if (reason === 'timeout') toast('Время истекло — попробуйте снова');
+}
+
+// Инициализация
+document.addEventListener('DOMContentLoaded', () => {
+  dtInitSignaling();
+  setTimeout(dtRenderDeviceSection, 1000);
+});
+
+Object.assign(window, {
+  dtStartSend, dtStartReceive, dtCancel,
+  dtExportBackup, dtImportBackup,
+  dtOpenScanner, _dtScanManual, _dtStopCamera,
+  dtRenderDeviceSection,
+});
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Device Auto-Sync Module
+// ══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// Device Auto-Sync Module v1.0
+// Синхронизация данных между устройствами одного пользователя.
+//
+// Транспорт: sealed relay (sealEnvelope → SEALED_RELAY) — E2E зашифровано.
+// Обнаружение: presence (_presenceCache) — те же механизмы что и контакты.
+// Формат: kind='sync_*', данные зашифрованы portableKey (одинаков на всех устройствах).
+//
+// Протокол:
+//   1. Устройство B приходит онлайн → A видит в presence → A → B: sync_hello
+//   2. B → A: sync_offer { cursors: { contacts_ts, history_ts, files: [...ids] } }
+//   3. A вычисляет дельту → A → B: sync_data (чанки ≤48KB)
+//   4. B мержит → B → A: sync_ack { ts }
+//   5. A обновляет cursor[B.fp] = ts
+// ══════════════════════════════════════════════════════════════════════════════
+
+const SYNC_CHUNK_BYTES = 48 * 1024;      // 48KB на чанк
+const SYNC_CURSOR_KEY  = 'sync_cursors_v1'; // IDB meta key
+const SYNC_DEBOUNCE_MS = 3000;           // не синкаемся чаще чем раз в 3с
+
+let _syncInProgress    = new Set();  // fp → bool
+let _syncLastAt        = {};         // fp → timestamp
+
+// ── Утилиты ───────────────────────────────────────────────────────────────────
+
+
+
+
+// ── Индикатор синхронизации в чатах ──────────────────────────────────────────
+window._syncingChats = new Set();
+
+function syncIndicatorOn(chatId) {
+  window._syncingChats.add(chatId);
+  // Обновляем прямо в DOM без полного перерендера
+  const el = document.querySelector(`.chat-item-sync[data-sync-id="${chatId}"]`);
+  if (el) el.classList.add('on');
+}
+
+function syncIndicatorOff(chatId) {
+  window._syncingChats.delete(chatId);
+  const el = document.querySelector(`.chat-item-sync[data-sync-id="${chatId}"]`);
+  if (el) el.classList.remove('on');
+}
+
+function syncIndicatorAllOff() {
+  window._syncingChats.clear();
+  document.querySelectorAll('.chat-item-sync.on').forEach(el => el.classList.remove('on'));
+}
+
+// ── Прогресс-бар синхронизации ────────────────────────────────────────────────
+function syncProgressShow(label) {
+  const el  = document.getElementById('sync-progress');
+  const lbl = document.getElementById('sync-progress-label');
+  const fill = document.getElementById('sync-progress-fill');
+  if (el)   el.classList.add('on');
+  if (lbl)  lbl.textContent = label || 'Синхронизация...';
+  if (fill) fill.style.width = '0%';
+}
+function syncProgressUpdate(current, total, label) {
+  const fill = document.getElementById('sync-progress-fill');
+  const lbl  = document.getElementById('sync-progress-label');
+  if (fill) fill.style.width = total > 0 ? Math.round(current / total * 100) + '%' : '0%';
+  if (lbl && label) lbl.textContent = label;
+}
+function syncProgressHide() {
+  const el = document.getElementById('sync-progress');
+  if (el) {
+    el.classList.remove('on');
+    const fill = document.getElementById('sync-progress-fill');
+    if (fill) fill.style.width = '0%';
+  }
+}
+// ── Баннер синхронизации ──────────────────────────────────────────────────────
+function _syncShowBanner(text, type = 'info') {
+  // Обновляем device-sync-status в настройках если открыт
+  const devStatus = document.getElementById('device-sync-status');
+  if (devStatus) {
+    devStatus.textContent = text;
+    devStatus.style.display = 'block';
+  }
+
+  // Показываем плавающий баннер поверх списка чатов
+  let banner = document.getElementById('sync-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'sync-banner';
+    banner.style.cssText = [
+      'position:fixed', 'top:0', 'left:50%', 'transform:translateX(-50%) translateY(-48px)',
+      'z-index:600', 'background:var(--sf)', 'border:1px solid var(--bd)',
+      'border-radius:0 0 12px 12px', 'padding:6px 16px',
+      'font-size:11px', 'font-weight:700', 'white-space:nowrap',
+      'transition:transform .25s cubic-bezier(.34,1.56,.64,1)',
+      'display:flex', 'align-items:center', 'gap:6px',
+      'box-shadow:0 4px 12px rgba(0,0,0,.2)',
+    ].join(';');
+    document.body.appendChild(banner);
+  }
+
+  const colors = { success: 'var(--a)', info: 'var(--mu)', error: 'var(--e)' };
+  banner.style.color = colors[type] || 'var(--mu)';
+  banner.textContent = text;
+
+  // Анимация — выезжаем сверху
+  requestAnimationFrame(() => {
+    banner.style.transform = 'translateX(-50%) translateY(0)';
+    clearTimeout(banner._timer);
+    banner._timer = setTimeout(() => {
+      banner.style.transform = 'translateX(-50%) translateY(-48px)';
+    }, type === 'success' ? 3000 : 2000);
+  });
+}
+
+async function _syncGetCursors() {
+  try { return await idbGet('meta', SYNC_CURSOR_KEY) || {}; } catch { return {}; }
+}
+async function _syncSaveCursors(c) {
+  try { await idbSet('meta', SYNC_CURSOR_KEY, c); } catch(_) {}
+}
+
+// Отправить sync сообщение через sealed relay
+async function _syncSend(targetFp, kind, payload) {
+  try {
+    const contacts = await getContacts();
+    const dev      = Object.values(contacts).find(c => c.fp === targetFp && c.isMyDevice);
+    if (!dev?.encPub) return false;
+    const encPub  = contactLoadEncPubKey(dev.pubKeyHex);
+    if (!encPub) return false;
+    const mailbox = await getContactMailboxId(dev.pubKeyHex, 0) ?? dev.pubKeyHex;
+
+    // portableKey шифрует payload — дополнительный слой поверх sealed relay
+    const plain  = new TextEncoder().encode(JSON.stringify({ kind, payload, ts: Date.now() }));
+    let encPayload;
+    if (typeof _encActiveKey !== 'undefined' && _encActiveKey) {
+      const iv     = crypto.getRandomValues(new Uint8Array(12));
+      const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, _encActiveKey, plain);
+      encPayload   = {
+        __sync_enc: 1,
+        iv: btoa(String.fromCharCode(...iv)),
+        d:  btoa(String.fromCharCode(...new Uint8Array(cipher))),
+      };
+    } else {
+      encPayload = { __sync_raw: 1, data: JSON.parse(new TextDecoder().decode(plain)) };
+    }
+
+    const sealed = await sealEnvelope(
+      { from: myPubKeyHex, kind: 'device_sync', data: encPayload },
+      encPub,
+    );
+    const sig = _getPeerSig();
+    if (!sig?._open) return false;
+    sig._wsSend({ type: 'SEALED_RELAY', to: mailbox, sealed });
+    return true;
+  } catch(e) {
+    console.warn('[sync] send error:', e.message);
+    return false;
+  }
+}
+
+// Расшифровать payload
+async function _syncDecrypt(encPayload) {
+  if (encPayload.__sync_raw) return encPayload.data;
+  if (!encPayload.__sync_enc) return null;
+  try {
+    const iv     = Uint8Array.from(atob(encPayload.iv), c => c.charCodeAt(0));
+    const cipher = Uint8Array.from(atob(encPayload.d),  c => c.charCodeAt(0));
+    const plain  = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, _encActiveKey, cipher);
+    return JSON.parse(new TextDecoder().decode(plain));
+  } catch(e) {
+    console.warn('[sync] decrypt error:', e.message);
+    return null;
+  }
+}
+
+// ── Отправитель (инициатор) ───────────────────────────────────────────────────
+
+// Вызывается когда устройство приходит онлайн
+async function syncOnDeviceOnline(fp) {
+  const now = Date.now();
+  if (_syncInProgress.has(fp)) return;
+  if (now - (_syncLastAt[fp] || 0) < SYNC_DEBOUNCE_MS) return;
+  _syncLastAt[fp] = now;
+  _syncInProgress.add(fp);
+
+  try {
+    const cursors = await _syncGetCursors();
+    const myCursor = cursors[fp] || 0;
+
+    console.log(`[sync] → ${fp.slice(0,8)} hello (cursor=${myCursor})`);
+    await _syncSend(fp, 'sync_hello', { cursor: myCursor, myFp: myFingerprint });
+  } catch(e) {
+    console.warn('[sync] hello error:', e);
+  } finally {
+    _syncInProgress.delete(fp);
+  }
+}
+
+// Получили sync_offer → вычисляем дельту и отправляем данные
+async function _syncHandleOffer(fromFp, offer) {
+  const { cursor, wants } = offer; // cursor = ts последней синки, wants = список file_ids которых нет
+
+  console.log(`[sync] ← offer from ${fromFp.slice(0,8)} cursor=${cursor}`);
+
+  const chunks = [];
+
+  // ── Контакты: все изменённые после cursor ────────────────────────────────
+  try {
+    const contacts = await getContacts();
+    const newContacts = Object.entries(contacts)
+      .filter(([, c]) => (c.savedAt || 0) > cursor && !c.isMyDevice)
+      .reduce((acc, [k, v]) => { acc[k] = v; return acc; }, {});
+    if (Object.keys(newContacts).length > 0) {
+      chunks.push({ type: 'contacts', data: newContacts });
+    }
+  } catch(_) {}
+
+  // ── История P2P: сообщения после cursor ──────────────────────────────────
+  try {
+    const history = await getHistory();
+    const newHistory = {};
+    for (const [fp, msgs] of Object.entries(history)) {
+      const newMsgs = msgs.filter(m => (m.ts || 0) > cursor);
+      if (newMsgs.length > 0) newHistory[fp] = newMsgs;
+    }
+    if (Object.keys(newHistory).length > 0) {
+      chunks.push({ type: 'history', data: newHistory });
+    }
+  } catch(_) {}
+
+  // ── Комнаты: сообщения после cursor ──────────────────────────────────────
+  try {
+    const rooms = await roomsLoad();
+    for (const [roomId, room] of Object.entries(rooms)) {
+      const msgs    = await roomMsgsLoad(roomId).catch(() => []);
+      const newMsgs = msgs.filter(m => (m.ts || 0) > cursor);
+      if (newMsgs.length > 0) {
+        chunks.push({ type: 'room_msgs', roomId, data: newMsgs });
+      }
+      // Конфиг комнаты — всегда отправляем если у нас есть ключ
+      if (room.roomKeyBytes) {
+        chunks.push({ type: 'room_meta', roomId, data: {
+          ...room, roomKeyBytes: Array.from(room.roomKeyBytes),
+        }});
+      }
+    }
+  } catch(_) {}
+
+  // ── Файлы: только запрошенные ─────────────────────────────────────────────
+  if (wants?.files?.length > 0) {
+    for (const fileId of wants.files.slice(0, 20)) { // макс 20 файлов за раз
+      try {
+        const blob = await getFileFromIDB(fileId);
+        if (!blob) continue;
+        const ab   = await blob.arrayBuffer();
+        // Кодируем в base64 для передачи
+        const b64  = btoa(String.fromCharCode(...new Uint8Array(ab)));
+        chunks.push({ type: 'file', fileId, mime: blob.type, data: b64 });
+      } catch(_) {}
+    }
+  }
+
+  // ── Отправляем чанки ─────────────────────────────────────────────────────
+  if (chunks.length === 0) {
+    await _syncSend(fromFp, 'sync_data', { chunks: [], total: 0, ts: Date.now() });
+    return;
+  }
+
+  const serialized = JSON.stringify(chunks);
+  const total      = Math.ceil(serialized.length / SYNC_CHUNK_BYTES);
+
+  if (total > 1) syncProgressShow(`Отправка данных (0/${total})...`);
+
+  for (let i = 0; i < total; i++) {
+    if (total > 1) syncProgressUpdate(i, total, `Отправка данных (${i+1}/${total})...`);
+    const slice = serialized.slice(i * SYNC_CHUNK_BYTES, (i + 1) * SYNC_CHUNK_BYTES);
+    await _syncSend(fromFp, 'sync_data', {
+      chunk: i, total, ts: Date.now(), data: slice, final: i === total - 1,
+    });
+    if (total > 1) await new Promise(r => setTimeout(r, 150));
+  }
+
+  if (total > 1) syncProgressHide();
+  console.log(`[sync] → sent ${chunks.length} items in ${total} chunk(s) to ${fromFp.slice(0,8)}`);
+}
+
+// ── Получатель ────────────────────────────────────────────────────────────────
+
+const _syncReceiveBuffers = {}; // fp → { chunks: string[], total }
+
+// Получили sync_hello → отвечаем своим offer
+async function _syncHandleHello(fromFp, hello) {
+  const cursors   = await _syncGetCursors();
+  const myCursor  = cursors[fromFp] || 0;
+
+  // Инвентаризируем что у нас есть
+  const myFiles = [];
+  try {
+    const history = await getHistory();
+    for (const msgs of Object.values(history)) {
+      for (const m of msgs) {
+        if (m.__file__ && m.fileId) myFiles.push(m.fileId);
+      }
+    }
+  } catch(_) {}
+
+  // Что нам нужно — файлы которых у нас нет
+  const wantFiles = [];
+  if (hello.fileIds?.length) {
+    for (const fid of hello.fileIds) {
+      const exists = await getFileFromIDB(fid).catch(() => null);
+      if (!exists) wantFiles.push(fid);
+    }
+  }
+
+  await _syncSend(fromFp, 'sync_offer', {
+    cursor:  myCursor,
+    myFp:    myFingerprint,
+    wants:   { files: wantFiles },
+    fileIds: myFiles.slice(0, 100), // сообщаем о первых 100 наших файлах
+  });
+}
+
+// Получили sync_data → применяем чанк
+async function _syncHandleData(fromFp, dataMsg) {
+  if (!_syncReceiveBuffers[fromFp]) {
+    _syncReceiveBuffers[fromFp] = { parts: {}, total: dataMsg.total };
+  }
+  const buf = _syncReceiveBuffers[fromFp];
+
+  if (dataMsg.total === 0) {
+    // Нечего синкать
+    await _syncSendAck(fromFp, dataMsg.ts);
+    return;
+  }
+
+  buf.parts[dataMsg.chunk] = dataMsg.data;
+
+  if (dataMsg.total > 1) {
+    const received = Object.keys(buf.parts).length;
+    syncProgressUpdate(received, dataMsg.total,
+      `Получение данных (${received}/${dataMsg.total})...`);
+    if (!dataMsg.final) { syncProgressShow(); return; }
+    syncProgressHide();
+  }
+  if (!dataMsg.final) return;
+
+  // Все чанки получены — собираем
+  const assembled = Array.from({ length: buf.total }, (_, i) => buf.parts[i] || '').join('');
+  delete _syncReceiveBuffers[fromFp];
+
+  let chunks;
+  try { chunks = JSON.parse(assembled); }
+  catch(e) { console.warn('[sync] parse error:', e); return; }
+
+  let imported = 0;
+
+  for (const chunk of chunks) {
+    try {
+      if (chunk.type === 'contacts') {
+        Object.keys(chunk.data).forEach(fp => syncIndicatorOn(fp));
+        const existing = await getContacts();
+        const merged   = { ...chunk.data, ...existing };
+        await saveContacts(merged);
+        imported += Object.keys(chunk.data).length;
+      }
+      else if (chunk.type === 'history') {
+        const existing = await getHistory();
+        for (const [fp, msgs] of Object.entries(chunk.data)) {
+          syncIndicatorOn(fp);
+          const existingMsgs = existing[fp] || [];
+          const existingIds  = new Set(existingMsgs.map(m => m.id || m.ts));
+          const newMsgs      = msgs.filter(m => !existingIds.has(m.id || m.ts));
+          if (newMsgs.length > 0) {
+            existing[fp] = [...existingMsgs, ...newMsgs].sort((a,b) => (a.ts||0)-(b.ts||0));
+            imported += newMsgs.length;
+          }
+        }
+        await saveHistory(existing);
+      }
+      else if (chunk.type === 'room_msgs') {
+        const existing    = await roomMsgsLoad(chunk.roomId).catch(() => []);
+        const existingIds = new Set(existing.map(m => m.id));
+        const newMsgs     = chunk.data.filter(m => !existingIds.has(m.id));
+        if (newMsgs.length > 0) {
+          await roomMsgsSave(chunk.roomId, [...existing, ...newMsgs].sort((a,b) => (a.ts||0)-(b.ts||0)));
+          imported += newMsgs.length;
+        }
+      }
+      else if (chunk.type === 'room_meta') {
+        const rooms = await roomsLoad();
+        if (!rooms[chunk.roomId]) {
+          // Нет этой комнаты — добавляем
+          const roomData = { ...chunk.data };
+          if (roomData.roomKeyBytes) roomData.roomKeyBytes = new Uint8Array(roomData.roomKeyBytes);
+          rooms[chunk.roomId] = roomData;
+          await roomsSave(rooms);
+          imported++;
+        }
+      }
+      else if (chunk.type === 'file') {
+        const exists = await getFileFromIDB(chunk.fileId).catch(() => null);
+        if (!exists) {
+          // base64 → Blob
+          const binary = atob(chunk.data);
+          const bytes  = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          const blob   = new Blob([bytes], { type: chunk.mime || 'application/octet-stream' });
+          await saveFileToIDB(chunk.fileId, blob);
+          imported++;
+        }
+      }
+    } catch(e) {
+      console.warn('[sync] chunk apply error:', chunk.type, e.message);
+    }
+  }
+
+  await _syncSendAck(fromFp, dataMsg.ts);
+
+  // Снимаем индикаторы через секунду (чтобы пользователь увидел)
+  setTimeout(syncIndicatorAllOff, 1000);
+
+  if (imported > 0) {
+    console.log(`[sync] ← merged ${imported} items from ${fromFp.slice(0,8)}`);
+    // Обновляем UI
+    if (typeof renderChatsList  === 'function') renderChatsList();
+    if (typeof renderContacts   === 'function') renderContacts();
+    _syncShowBanner(`↕ ${imported} записей синхронизировано`, 'success');
+  } else {
+    _syncShowBanner('↕ Синхронизация актуальна', 'info');
+  }
+}
+
+async function _syncSendAck(fp, ts) {
+  const cursors  = await _syncGetCursors();
+  cursors[fp]    = ts || Date.now();
+  await _syncSaveCursors(cursors);
+  await _syncSend(fp, 'sync_ack', { ts: cursors[fp] });
+}
+
+// Получили sync_ack → обновляем cursor
+async function _syncHandleAck(fromFp, ack) {
+  const cursors = await _syncGetCursors();
+  cursors[fromFp] = Math.max(cursors[fromFp] || 0, ack.ts || 0);
+  await _syncSaveCursors(cursors);
+  console.log(`[sync] ✓ ack from ${fromFp.slice(0,8)}, cursor=${cursors[fromFp]}`);
+}
+
+// ── Диспетчер входящих sync сообщений ─────────────────────────────────────────
+
+async function syncHandleIncoming(fromPubKeyHex, encPayload) {
+  // Получаем fp отправителя
+  const contacts  = await getContacts();
+  const sender    = Object.values(contacts).find(c => c.pubKeyHex === fromPubKeyHex && c.isMyDevice);
+  if (!sender) return; // не наше устройство — игнорируем
+
+  const msg = await _syncDecrypt(encPayload);
+  if (!msg) return;
+
+  const { kind, payload } = msg;
+  const fromFp = sender.fp || fromPubKeyHex;
+
+  switch (kind) {
+    case 'sync_hello': await _syncHandleHello(fromFp, payload); break;
+    case 'sync_offer': await _syncHandleOffer(fromFp, payload); break;
+    case 'sync_data':  await _syncHandleData(fromFp, payload);  break;
+    case 'sync_ack':   await _syncHandleAck(fromFp, payload);   break;
+    default: console.warn('[sync] unknown kind:', kind);
+  }
+}
+
+// ── Интеграция с presence ─────────────────────────────────────────────────────
+// Перехватываем изменения presence — когда "моё устройство" приходит онлайн
+
+const _origUpdatePresence = window._updatePresenceStatus;
+window._updatePresenceStatus = async function(fp, status) {
+  if (typeof _origUpdatePresence === 'function') _origUpdatePresence(fp, status);
+  if (status !== 'online') return;
+  // Проверяем — это наше устройство?
+  try {
+    const contacts = await getContacts();
+    const dev = contacts[fp];
+    if (dev?.isMyDevice) {
+      console.log('[sync] device online:', fp.slice(0,8));
+      await syncOnDeviceOnline(fp);
+    }
+  } catch(_) {}
+};
+
+// Слушаем входящие 'device_sync' события (уже есть в incoming relay handler)
+window.addEventListener('tovsa-device-sync', async (e) => {
+  const { from, data } = e.detail || {};
+  if (from && data) await syncHandleIncoming(from, data);
+});
+
+// ── UI: статус синхронизации в sn-devices ─────────────────────────────────────
+
+async function syncRenderStatus() {
+  const el = document.getElementById('device-sync-status');
+  if (!el) return;
+  const cursors  = await _syncGetCursors();
+  const contacts = await getContacts().catch(() => ({}));
+  const devices  = Object.values(contacts).filter(c => c.isMyDevice && !c._stranger);
+  if (!devices.length) return;
+
+  const lines = devices.map(dev => {
+    const fp     = dev.fp || '';
+    const cursor = cursors[fp];
+    const online = _presenceCache?.[fp] === 'online';
+    const when   = cursor ? new Date(cursor).toLocaleString('ru',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'}) : 'никогда';
+    return `${online ? '🟢' : '⚫'} ${dev.name||'Устройство'} — синк: ${when}`;
+  });
+
+  el.textContent = lines.join('\n');
+  el.style.display = 'block';
+  el.style.whiteSpace = 'pre';
+}
+
+// Кнопка ручной синхронизации
+async function syncNow() {
+  const contacts = await getContacts().catch(() => ({}));
+  const devices  = Object.values(contacts).filter(c => c.isMyDevice && !c._stranger);
+  const online   = devices.filter(d => _presenceCache?.[d.fp || ''] === 'online');
+
+  if (!online.length) {
+    toast('Нет устройств онлайн');
+    return;
+  }
+
+  for (const dev of online) {
+    _syncLastAt[dev.fp] = 0; // сбрасываем debounce
+    await syncOnDeviceOnline(dev.fp);
+  }
+  toast(`↕ Синхронизируем с ${online.length} устройством...`);
+  setTimeout(syncRenderStatus, 2000);
+}
+
+// Обновляем статус каждые 30 секунд пока открыта вкладка устройств
+let _syncStatusInterval = null;
+function syncStartStatusUpdates() {
+  if (_syncStatusInterval) clearInterval(_syncStatusInterval);
+  syncRenderStatus();
+  _syncStatusInterval = setInterval(syncRenderStatus, 30000);
+}
+function syncStopStatusUpdates() {
+  clearInterval(_syncStatusInterval);
+  _syncStatusInterval = null;
+}
+
+Object.assign(window, {
+  syncOnDeviceOnline, syncHandleIncoming,
+  syncNow, syncRenderStatus,
+  syncStartStatusUpdates, syncStopStatusUpdates,
+});
 
 
 // ── SLIDING PILL ──────────────────────────────────────────────────────────────

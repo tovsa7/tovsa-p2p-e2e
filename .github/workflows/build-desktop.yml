@@ -87,29 +87,44 @@ jobs:
           HASH=$(git rev-parse --short HEAD)
           DATE=$(date +%Y%m%d)
           echo "VERSION=${DATE}-${HASH}" >> $GITHUB_OUTPUT
-          # Semver для Tauri
-          HASH_DEC=$(node -e "console.log(parseInt('$(git rev-parse --short HEAD)', 16) % 99999)")
-          echo "SEMVER=0.$(date +%Y%m%d).${HASH_DEC}" >> $GITHUB_OUTPUT
+          # node доступен на всех платформах — используем его для semver
+          node -e "
+            const d = new Date();
+            const semver = '1.' + (d.getMonth()+1) + '.' + d.getDate();
+            const fs = require('fs');
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'SEMVER=' + semver + '\n');
+            console.log('SEMVER=' + semver);
+          "
 
       - name: Inject pubkey and version into tauri.conf.json
         shell: bash
+        env:
+          SEMVER: ${{ steps.version.outputs.SEMVER }}
+          PUBKEY: ${{ secrets.TAURI_SIGNING_PUBLIC_KEY }}
         run: |
-          PUBKEY="${{ secrets.TAURI_SIGNING_PUBLIC_KEY }}"
-          SEMVER="${{ steps.version.outputs.SEMVER }}"
+          echo "Patching version: $SEMVER"
           node -e "
-            const fs = require('fs');
+            const fs   = require('fs');
+            const semver = process.env.SEMVER;
+            const pubkey = process.env.PUBKEY;
+
+            // tauri.conf.json
             const c = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json','utf8'));
-            c.version = '${SEMVER}';
-            if (c.plugins?.updater && '${PUBKEY}') {
-              c.plugins.updater.pubkey = '${PUBKEY}';
-            }
-            // Если ключей нет — убираем updater чтобы не блокировать сборку
-            if (!('${PUBKEY}') && c.plugins?.updater) {
+            c.version = semver;
+            if (pubkey && c.plugins?.updater) {
+              c.plugins.updater.pubkey = pubkey;
+            } else if (!pubkey && c.plugins?.updater) {
               delete c.plugins.updater;
             }
             fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(c, null, 2));
+            console.log('tauri.conf.json version =', semver);
+
+            // Cargo.toml
+            let t = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
+            t = t.replace(/^version = "[^"]+"/m, 'version = "' + semver + '"');
+            fs.writeFileSync('src-tauri/Cargo.toml', t);
+            console.log('Cargo.toml version =', semver);
           "
-          sed -i.bak "s/^version = .*/version = \"${SEMVER}\"/" src-tauri/Cargo.toml
 
       - name: Install Linux dependencies
         if: matrix.platform == 'linux'
@@ -196,9 +211,14 @@ jobs:
         id: version
         run: |
           HASH=$(git rev-parse --short HEAD)
-          echo "VERSION=$(date +%Y%m%d)-${HASH}" >> $GITHUB_OUTPUT
-          HASH_DEC=$(node -e "console.log(parseInt('${HASH}', 16) % 99999)")
-          echo "SEMVER=0.$(date +%Y%m%d).${HASH_DEC}" >> $GITHUB_OUTPUT
+          DATE=$(date +%Y%m%d)
+          echo "VERSION=${DATE}-${HASH}" >> $GITHUB_OUTPUT
+          node -e "
+            const d = new Date();
+            const semver = '1.' + (d.getMonth()+1) + '.' + d.getDate();
+            require('fs').appendFileSync(process.env.GITHUB_OUTPUT, 'SEMVER=' + semver + '\n');
+            console.log('SEMVER=' + semver);
+          "
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4

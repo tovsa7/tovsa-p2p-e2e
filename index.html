@@ -31,6 +31,7 @@
   form-action 'self';
 ">
 <link rel="preconnect" href="https://tovsa-signaling.onrender.com">
+<link rel="preconnect" href="https://tovsa-signaling.tovsa7.workers.dev">
 <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
 <title>Tovsa</title>
 <link rel="manifest" href="./manifest.json">
@@ -911,7 +912,376 @@ textarea::placeholder{color:var(--mu)}
 .mp-btn:disabled:hover{color:var(--tx)}
 .mp-seek{flex:1;accent-color:var(--a);cursor:pointer;height:3px}
 .mp-time{font-size:10px;color:var(--mu);flex-shrink:0;min-width:32px;text-align:right}
+
+/* ── Room (E2E группы) ────────────────────────────────────────────────────── */
+.room-list{flex:1;overflow-y:auto}
+.room-item{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .12s;-webkit-tap-highlight-color:transparent}
+.room-item:hover{background:var(--sf)}
+.room-item-icon{width:38px;height:38px;border-radius:50%;background:var(--ad);border:1px solid rgba(0,255,157,.2);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.room-item-info{flex:1;min-width:0}
+.room-item-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
+.room-item-badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;background:var(--e);color:#fff;font-size:9px;font-weight:700;border-radius:8px}
+.room-item-sub{font-size:10px;color:var(--mu);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.room-item-role{font-size:9px;padding:2px 6px;border-radius:6px;background:var(--ad);color:var(--a);letter-spacing:.5px;flex-shrink:0}
+.room-lock{font-size:10px;color:var(--a);opacity:.7}
+/* chat */
+.room-chat-hdr{padding:10px 14px;border-bottom:1px solid var(--bd);background:var(--sf);flex-shrink:0;display:flex;align-items:center;gap:10px}
+.room-chat-back{background:none;border:none;color:var(--a);font-family:inherit;font-size:14px;cursor:pointer;padding:6px 10px;border-radius:6px;flex-shrink:0;transition:background .15s}
+.room-chat-back:hover{background:var(--ad)}
+.room-chat-name{font-size:13px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.room-members-row{padding:6px 18px;background:var(--sf);border-bottom:1px solid var(--bd);font-size:10px;color:var(--mu);display:flex;align-items:center;gap:8px;flex-shrink:0;cursor:pointer}
+.room-members-row:hover{color:var(--tx)}
+.room-sync-hint{font-size:10px;color:var(--a);padding:6px 18px;background:var(--ad);border-bottom:1px solid rgba(0,255,157,.15);text-align:center;cursor:pointer;transition:opacity .2s;flex-shrink:0}
+.room-sync-hint:hover{opacity:.7}
+/* members panel */
+.room-members-panel{display:none;flex-direction:column;border-bottom:1px solid var(--bd);max-height:180px;overflow-y:auto;flex-shrink:0}
+.room-members-panel.open{display:flex}
+.room-member-row{display:flex;align-items:center;gap:10px;padding:8px 18px;border-bottom:1px solid var(--bd);font-size:11px}
+.room-member-row:last-child{border-bottom:none}
+.room-member-dot{width:7px;height:7px;border-radius:50%;background:var(--mu);flex-shrink:0;transition:background .3s}
+.room-member-dot.online{background:var(--a);box-shadow:0 0 5px var(--a)}
+.room-member-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.room-member-role{font-size:9px;color:var(--mu);background:var(--bg);padding:2px 5px;border-radius:4px;border:1px solid var(--bd)}
+.room-member-kick{background:none;border:none;color:var(--mu);cursor:pointer;font-size:14px;padding:2px 6px;transition:color .15s;flex-shrink:0}
+.room-member-kick:hover{color:var(--e)}
+/* msg bubble (encrypted) */
+.room-msg.in .msg-e2e-tag,.room-msg.out .msg-e2e-tag{font-size:8px;color:var(--a);opacity:.5;letter-spacing:.5px}
+
+/* ── Channel ──────────────────────────────────────────────────────────────── */
+.ch-list{flex:1;overflow-y:auto}
+.ch-item{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .12s;-webkit-tap-highlight-color:transparent}
+.ch-item:hover{background:var(--sf)}
+.ch-item-icon{width:38px;height:38px;border-radius:10px;background:var(--sf);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.ch-item-info{flex:1;min-width:0}
+.ch-item-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ch-item-sub{font-size:10px;color:var(--mu);margin-top:2px}
+.ch-item-role{font-size:9px;padding:2px 6px;border-radius:6px;background:var(--sf);border:1px solid var(--bd);color:var(--mu);letter-spacing:.5px;flex-shrink:0}
+.ch-post{padding:14px 18px;border-bottom:1px solid var(--bd);display:flex;flex-direction:column;gap:6px}
+.ch-post-meta{font-size:10px;color:var(--mu);display:flex;align-items:center;gap:6px}
+.ch-post-text{font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.ch-post-actions{display:flex;gap:8px;margin-top:2px}
+.ch-post-btn{background:none;border:1px solid var(--bd);border-radius:6px;padding:4px 10px;font-family:inherit;font-size:10px;color:var(--mu);cursor:pointer;transition:border-color .15s,color .15s}
+.ch-post-btn:hover{border-color:var(--a);color:var(--a)}
+.ch-comment-form{padding:12px 18px;border-top:1px solid var(--bd);background:var(--sf);display:none;flex-direction:column;gap:8px;flex-shrink:0}
+.ch-comment-form.open{display:flex}
+
+/* ── Devices ──────────────────────────────────────────────────────────────── */
+.dev-item{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--bd)}
+.dev-item-icon{width:36px;height:36px;border-radius:8px;background:var(--ad);border:1px solid rgba(0,255,157,.2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.dev-item-info{flex:1;min-width:0}
+.dev-item-name{font-size:12px;font-weight:700}
+.dev-item-sub{font-size:10px;color:var(--mu);margin-top:2px}
+.dev-item-status{font-size:9px;padding:2px 6px;border-radius:6px;letter-spacing:.5px;flex-shrink:0}
+.dev-item-status.online{background:var(--ad);color:var(--a)}
+.dev-item-status.offline{background:var(--bg);color:var(--mu);border:1px solid var(--bd)}
+.dev-remove{background:none;border:none;color:var(--mu);cursor:pointer;font-size:16px;padding:4px 8px;transition:color .15s;flex-shrink:0}
+.dev-remove:hover{color:var(--e)}
+
 </style>
+
+<script>
+// ── Sealed Relay Crypto (v1.0) ──────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// Tovsa Sealed Relay — криптографический модуль v1.0
+// Совместим с: браузер (SubtleCrypto), Deno, Cloudflare Workers
+//
+// СХЕМА:
+//   Сервер видит:   { to: mailboxId, sealed: { epk, ct } }
+//   Сервер НЕ знает: кто отправитель, тип сообщения, содержимое
+//
+//   epk  ← X25519 эфемерный pubkey отправителя (32 bytes, base64url)
+//   ss   ← X25519-DH(epk.private, recipient.encPub)
+//   key  ← HKDF-SHA256(ikm=ss, salt=epk, info="tovsa-sealed-v1", len=32)
+//   ct   ← AES-256-GCM(key, iv=random(12), plaintext=JSON({from,kind,data,ts}))
+//   wire ← { epk: b64u(epk), ct: b64u(iv || ciphertext+tag) }
+//
+// ИДЕНТИЧНОСТЬ КЛИЕНТА (расширение существующей):
+//   authKey: Ed25519  — для аутентификации на сервере (без изменений)
+//   encKey:  X25519   — для расшифровки sealed relay (НОВЫЙ)
+//
+//   encKey.public распространяется через инвайт/профиль.
+//   encKey хранится в localStorage рядом с authKey.
+//
+// ANTI-REPLAY:
+//   ts в plaintext проверяется получателем: |now - ts| ≤ 300 сек.
+//   Сервер не участвует в анти-replay — нет стейта.
+//
+// СОВМЕСТИМОСТЬ:
+//   X25519 поддерживается в Chrome 113+, Firefox 130+, Safari 17.4+
+//   (все актуальные браузеры на 2026)
+// ══════════════════════════════════════════════════════════════════════════════
+
+'use strict';
+
+const SEALED_PROTO_INFO = 'tovsa-sealed-v1';
+const SEALED_TS_WINDOW  = 300; // секунд, ±5 минут
+
+// ── Генерация ключа шифрования ────────────────────────────────────────────────
+// Вызывать один раз при первом запуске, результат хранить в localStorage.
+//
+// Возвращает:
+//   { publicKeyB64u: string, privateJwk: object }
+//
+// publicKeyB64u — распространять контактам (через инвайт, QR и т.д.)
+// privateJwk    — хранить локально, никуда не отправлять
+
+async function sealedGenEncKey() {
+  const kp = await crypto.subtle.generateKey(
+    { name: 'X25519' },
+    true,           // extractable — нужно для хранения
+    ['deriveBits']
+  );
+
+  const pubRaw     = new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey));
+  const privateJwk = await crypto.subtle.exportKey('jwk', kp.privateKey);
+
+  return {
+    publicKeyB64u: _b64uEncode(pubRaw),
+    privateJwk,
+  };
+}
+
+// ── Seal (отправитель) ────────────────────────────────────────────────────────
+// Шифрует payload для получателя. Сервер не узнает `from`, `kind`, `data`.
+//
+// Аргументы:
+//   payload: { from: string, kind: string, data: unknown }
+//     from — постоянный pubkey отправителя (hex или b64u)
+//           получатель использует его для верификации личности
+//     kind — тип сообщения ("offer", "answer", "ice", "leave", ...)
+//     data — содержимое (SDP, ICE candidate и т.д.)
+//
+//   recipientEncPubB64u: string
+//     X25519 pubkey получателя (base64url, 32 bytes)
+//     берётся из инвайта или профиля контакта
+//
+// Возвращает: { epk: string, ct: string } — отправить как sealed в SEALED_RELAY
+
+async function sealEnvelope(payload, recipientEncPubB64u) {
+  const { from, kind, data } = payload;
+
+  // 1. Эфемерный X25519 keypair (новый на каждый вызов — unlinkability)
+  const ephKP = await crypto.subtle.generateKey(
+    { name: 'X25519' }, true, ['deriveBits']
+  );
+  const ephPubBytes = new Uint8Array(
+    await crypto.subtle.exportKey('raw', ephKP.publicKey)
+  );
+
+  // 2. Import pubkey получателя
+  const recipientPubBytes = _b64uDecode(recipientEncPubB64u);
+  const recipientPub = await crypto.subtle.importKey(
+    'raw', recipientPubBytes,
+    { name: 'X25519' },
+    false, []
+  );
+
+  // 3. ECDH → shared secret (32 bytes)
+  const sharedBits = new Uint8Array(
+    await crypto.subtle.deriveBits(
+      { name: 'X25519', public: recipientPub },
+      ephKP.privateKey,
+      256
+    )
+  );
+
+  // 4. HKDF → AES-256 ключ
+  //    salt = epk (привязывает ключ к эфемерному keypair — разные epk → разные ключи)
+  //    info = протокольный лейбл (domain separation)
+  const aesKeyBytes = await _hkdf(sharedBits, ephPubBytes, SEALED_PROTO_INFO, 32);
+
+  // 5. Сериализуем plaintext
+  const plaintext = JSON.stringify({
+    from,
+    kind,
+    data,
+    ts: Math.floor(Date.now() / 1000),
+  });
+
+  // 6. AES-256-GCM шифрование
+  const iv  = crypto.getRandomValues(new Uint8Array(12));
+  const key = await crypto.subtle.importKey('raw', aesKeyBytes, 'AES-GCM', false, ['encrypt']);
+  const ct  = new Uint8Array(
+    await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      new TextEncoder().encode(plaintext)
+    )
+  );
+
+  // 7. Собираем envelope
+  //    ct = iv(12) || ciphertext+tag(n+16)
+  return {
+    epk: _b64uEncode(ephPubBytes),       // ~43 chars
+    ct:  _b64uEncode(_concat(iv, ct)),   // ~((12+n+16)*4/3) chars
+  };
+}
+
+// ── Unseal (получатель) ───────────────────────────────────────────────────────
+// Расшифровывает входящий sealed envelope.
+//
+// Аргументы:
+//   envelope:    { epk: string, ct: string }  — из SEALED_RELAY сообщения
+//   myPrivJwk:   object                       — из localStorage (сгенерирован sealedGenEncKey)
+//
+// Возвращает: { from, kind, data, ts }
+// Бросает Error если расшифровка не удалась или ts вне окна
+
+async function unsealEnvelope(envelope, myPrivJwk) {
+  const { epk, ct: ctB64u } = envelope;
+
+  if (!epk || !ctB64u) throw new Error('неполный envelope');
+
+  // 1. Import наш приватный ключ
+  const myPriv = await crypto.subtle.importKey(
+    'jwk', myPrivJwk,
+    { name: 'X25519' },
+    false, ['deriveBits']
+  );
+
+  // 2. Import эфемерный pubkey отправителя
+  const ephPubBytes = _b64uDecode(epk);
+  if (ephPubBytes.length !== 32) throw new Error('неверная длина epk');
+
+  const ephPub = await crypto.subtle.importKey(
+    'raw', ephPubBytes,
+    { name: 'X25519' },
+    false, []
+  );
+
+  // 3. ECDH → shared secret
+  const sharedBits = new Uint8Array(
+    await crypto.subtle.deriveBits(
+      { name: 'X25519', public: ephPub },
+      myPriv,
+      256
+    )
+  );
+
+  // 4. HKDF → AES-256 ключ (те же параметры что при seal)
+  const aesKeyBytes = await _hkdf(sharedBits, ephPubBytes, SEALED_PROTO_INFO, 32);
+
+  // 5. Разбираем ct
+  const ctBytes = _b64uDecode(ctB64u);
+  if (ctBytes.length < 13) throw new Error('ct слишком короткий');
+  const iv = ctBytes.slice(0, 12);
+  const ct = ctBytes.slice(12);
+
+  // 6. AES-256-GCM расшифровка
+  const key = await crypto.subtle.importKey('raw', aesKeyBytes, 'AES-GCM', false, ['decrypt']);
+  let decBytes;
+  try {
+    decBytes = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+  } catch {
+    throw new Error('расшифровка не удалась — неверный ключ или повреждённый envelope');
+  }
+
+  // 7. Парсим и валидируем plaintext
+  let plain;
+  try {
+    plain = JSON.parse(new TextDecoder().decode(decBytes));
+  } catch {
+    throw new Error('невалидный JSON в plaintext');
+  }
+
+  const { from, kind, data, ts } = plain;
+
+  if (typeof from !== 'string' || typeof kind !== 'string') {
+    throw new Error('невалидная структура plaintext');
+  }
+
+  // Anti-replay по timestamp
+  const now = Math.floor(Date.now() / 1000);
+  if (Math.abs(now - ts) > SEALED_TS_WINDOW) {
+    throw new Error(`envelope устарел или из будущего (ts=${ts}, now=${now})`);
+  }
+
+  return { from, kind, data, ts };
+}
+
+// ── Утилиты хранения ──────────────────────────────────────────────────────────
+// Хелперы для сохранения/загрузки encKey рядом с существующим authKey.
+// Используют тот же localStorage, что и текущий код Tovsa.
+
+const ENC_KEY_LS = 'tvEncKey'; // localStorage ключ
+
+function sealedSaveEncKey(encKey) {
+  localStorage.setItem(ENC_KEY_LS, JSON.stringify(encKey));
+}
+
+function sealedLoadEncKey() {
+  try {
+    const raw = localStorage.getItem(ENC_KEY_LS);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+// Получить или создать encKey (удобная обёртка)
+async function sealedGetOrCreateEncKey() {
+  let encKey = sealedLoadEncKey();
+  if (!encKey) {
+    encKey = await sealedGenEncKey();
+    sealedSaveEncKey(encKey);
+  }
+  return encKey;
+}
+
+// ── Внутренние хелперы ────────────────────────────────────────────────────────
+
+async function _hkdf(ikm, salt, infoStr, len) {
+  const ikmKey = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']);
+  const bits   = await crypto.subtle.deriveBits(
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: salt instanceof Uint8Array ? salt : new TextEncoder().encode(salt),
+      info: new TextEncoder().encode(infoStr),
+    },
+    ikmKey,
+    len * 8
+  );
+  return new Uint8Array(bits);
+}
+
+function _concat(...arrays) {
+  const total = arrays.reduce((n, a) => n + a.length, 0);
+  const out   = new Uint8Array(total);
+  let off = 0;
+  for (const a of arrays) { out.set(a, off); off += a.length; }
+  return out;
+}
+
+function _b64uEncode(buf) {
+  let s = '';
+  for (const b of buf) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function _b64uDecode(s) {
+  return Uint8Array.from(
+    atob(s.replace(/-/g, '+').replace(/_/g, '/')),
+    c => c.charCodeAt(0)
+  );
+}
+
+// ── Экспорт ───────────────────────────────────────────────────────────────────
+// Браузер: функции доступны глобально через window
+// Deno/CF Workers: используйте export
+
+if (typeof globalThis !== 'undefined') {
+  Object.assign(globalThis, {
+    sealedGenEncKey,
+    sealedGetOrCreateEncKey,
+    sealedSaveEncKey,
+    sealedLoadEncKey,
+    sealEnvelope,
+    unsealEnvelope,
+  });
+}
+
+// export { sealedGenEncKey, sealedGetOrCreateEncKey, sealEnvelope, unsealEnvelope };
+
+</script>
 </head>
 <body>
 
@@ -1100,6 +1470,14 @@ textarea::placeholder{color:var(--mu)}
       <div class="sn-row-body">
         <div class="sn-row-title">Оформление</div>
         <div class="sn-row-desc" id="sn-appearance-desc">Matrix · Обычный</div>
+      </div>
+      <div class="sn-row-arrow">›</div>
+    </div>
+    <div class="sn-row" onclick="snOpen('sn-devices')">
+      <div class="sn-row-icon">📲</div>
+      <div class="sn-row-body">
+        <div class="sn-row-title">Мои устройства</div>
+        <div class="sn-row-desc" id="sn-devices-desc">Синхронизация между устройствами</div>
       </div>
       <div class="sn-row-arrow">›</div>
     </div>
@@ -1553,6 +1931,49 @@ textarea::placeholder{color:var(--mu)}
   </div>
 
   <!-- ══ ПОД-ЭКРАН: Консоль ══ -->
+
+  <!-- ── Мои устройства ───────────────────────────────────────────────────── -->
+  <div class="sn-page" id="sn-devices">
+    <div class="sn-section">
+      <button class="action-btn" onclick="snBack()" style="align-self:flex-start">← назад</button>
+      <div class="sn-label">Мои устройства</div>
+      <div style="font-size:10px;color:var(--mu);line-height:1.6">
+        Добавьте второе устройство — оно получит синхронизированные чаты, группы и каналы.<br>
+        Каждое устройство имеет свой ключ и хранится в адресной книге как доверенный контакт.
+      </div>
+    </div>
+    <!-- Добавить устройство -->
+    <div class="sn-section">
+      <div class="sn-label">Добавить устройство</div>
+      <button class="btn" onclick="deviceAddShowQR()" style="width:100%">📲 QR-код / ссылка</button>
+      <div id="device-qr-wrap" style="display:none;flex-direction:column;gap:10px;align-items:center">
+        <div style="font-size:10px;color:var(--mu);text-align:center">Откройте Tovsa на втором устройстве и отсканируйте код</div>
+        <canvas id="device-qr-canvas" width="220" height="220" style="border-radius:12px;width:180px;height:180px"></canvas>
+        <div style="display:flex;gap:8px;width:100%">
+          <button class="btn" style="flex:1;font-size:11px" onclick="deviceShareLink()">↑ поделиться</button>
+          <button class="action-btn" onclick="$('device-qr-wrap').style.display='none'">Закрыть</button>
+        </div>
+        <div style="font-size:9px;color:var(--mu);text-align:center;line-height:1.5">
+          Ссылка действительна один раз. Второе устройство сразу начнёт запрашивать историю.
+        </div>
+      </div>
+    </div>
+    <!-- Список устройств -->
+    <div class="sn-section" id="sn-devices-list-wrap">
+      <div class="sn-label">Подключённые устройства</div>
+      <div id="sn-devices-list">
+        <div style="font-size:11px;color:var(--mu);padding:8px 0">Нет подключённых устройств</div>
+      </div>
+    </div>
+    <!-- Синхронизация -->
+    <div class="sn-section">
+      <div class="sn-label">Синхронизация</div>
+      <button class="action-btn" onclick="deviceSyncAll()" style="width:100%;justify-content:center">
+        ↺ Синхронизировать всё сейчас
+      </button>
+      <div id="device-sync-status" style="font-size:10px;color:var(--mu);text-align:center;display:none"></div>
+    </div>
+  </div>
   <div class="sn-page" id="sn-debug">
     <div class="sh-back" onclick="snBack()">← назад</div>
     <div class="sn-section">
@@ -1828,6 +2249,17 @@ textarea::placeholder{color:var(--mu)}
         <span class="pa-icon">🔍</span>Проверить ключ и fingerprint
       </button>
       <div class="prof-verify-result" id="info-verify-result"></div>
+    </div>
+
+    <!-- Комнаты и каналы -->
+    <div class="prof-section" id="idr-rooms-section" style="display:none">
+      <div class="prof-section-title">Группы и каналы</div>
+      <button class="prof-action" onclick="idrInviteToRoom()">
+        <span class="pa-icon">🔒</span>Пригласить в зашифрованную группу
+      </button>
+      <button class="prof-action" id="idr-subscribe-btn" onclick="idrSubscribeToChannel()" style="display:none">
+        <span class="pa-icon">📢</span>Подписаться на канал контакта
+      </button>
     </div>
 
     <!-- Настройки -->
@@ -2115,6 +2547,12 @@ textarea::placeholder{color:var(--mu)}
   <button class="tab" id="tab-grp" onclick="showTabGrp()">
     <span>Группы</span><span class="tab-badge" id="tab-grp-badge"></span>
   </button>
+  <button class="tab" id="tab-rooms" onclick="showTab('srooms');roomsRenderList();_clearBadge('tab-rooms-badge')">
+    <span>🔒 E2E</span><span class="tab-badge" id="tab-rooms-badge"></span>
+  </button>
+  <button class="tab" id="tab-channels" onclick="showTab('schannels');channelsRenderList();_clearBadge('tab-channels-badge')">
+    <span>📢</span><span class="tab-badge" id="tab-channels-badge"></span>
+  </button>
   <button class="tab" id="tab-net" onclick="showTab('sn')">
     <span>Настройки</span>
   </button>
@@ -2169,6 +2607,106 @@ textarea::placeholder{color:var(--mu)}
       onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();grpSendChatMsg()}"
       oninput="autoGrowMi(this)" disabled style="flex:1;border-radius:16px;padding:10px 16px;height:calc(1.4em + 20px);font-size:13px"></textarea>
     <button class="btn" id="grp-chat-send" onclick="grpSendChatMsg()" disabled style="border-radius:20px;padding:10px 20px;flex-shrink:0;align-self:flex-end">→</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- ROOMS — E2E зашифрованные группы (новый протокол)                      -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<div class="scr" id="srooms">
+  <!-- Создать комнату -->
+  <div class="grp-section">
+    <div class="grp-section-label">Новая зашифрованная группа</div>
+    <div style="display:flex;gap:8px">
+      <input id="room-new-name" class="grp-name-input" style="flex:1" placeholder="Название группы..." maxlength="40"
+        onkeydown="if(event.key==='Enter')roomCreateUI()">
+      <button class="btn" onclick="roomCreateUI()" style="padding:10px 16px;flex-shrink:0">+</button>
+    </div>
+    <div style="font-size:10px;color:var(--mu);line-height:1.6">
+      🔒 Сквозное шифрование. Сервер не видит ни состав, ни сообщения.
+    </div>
+  </div>
+  <!-- Список комнат -->
+  <div class="room-list" id="room-list">
+    <div class="grp-empty">Нет групп<br><span style="opacity:.6">Создайте первую зашифрованную группу</span></div>
+  </div>
+</div>
+
+<!-- ROOM CHAT ──────────────────────────────────────────────────────────── -->
+<div class="scr" id="sroom-chat">
+  <div class="room-chat-hdr">
+    <button class="room-chat-back" onclick="showTab('srooms');roomsRenderList()">←</button>
+    <div class="room-chat-name" id="room-chat-title">Группа</div>
+    <div style="display:flex;gap:6px;flex-shrink:0">
+      <button onclick="roomInviteUI()" title="Пригласить" style="background:none;border:1px solid var(--bd);border-radius:6px;padding:5px 8px;color:var(--mu);cursor:pointer;font-size:12px;transition:all .15s" onmouseover="this.style.borderColor='var(--a)';this.style.color='var(--a)'" onmouseout="this.style.borderColor='var(--bd)';this.style.color='var(--mu)'">+ пригласить</button>
+      <button onclick="roomRequestHistoryUI()" title="Запросить историю" style="background:none;border:1px solid var(--bd);border-radius:6px;padding:5px 8px;color:var(--mu);cursor:pointer;font-size:12px;transition:all .15s" onmouseover="this.style.borderColor='var(--a)';this.style.color='var(--a)'" onmouseout="this.style.borderColor='var(--bd)';this.style.color='var(--mu)'">↓ история</button>
+    </div>
+  </div>
+  <!-- Участники (сворачиваемая панель) -->
+  <div class="room-members-row" id="room-members-row" onclick="roomToggleMembers()">
+    <span>👥</span>
+    <span id="room-members-count" style="color:var(--a);font-weight:700"></span>
+    <span id="room-members-arr" style="font-size:10px;margin-left:auto">▼</span>
+  </div>
+  <div class="room-members-panel" id="room-members-panel"></div>
+  <!-- Подсказка синхронизации -->
+  <div class="room-sync-hint" id="room-sync-hint" style="display:none" onclick="roomRequestHistoryUI()">
+    ↓ Нажмите чтобы синхронизировать историю с онлайн-участниками
+  </div>
+  <!-- Сообщения -->
+  <div class="msgs" id="room-msgs" style="flex:1;scroll-behavior:smooth"></div>
+  <!-- Ввод -->
+  <div class="iarea">
+    <textarea id="room-chat-input" placeholder="сообщение группе..."
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();roomSendMessageUI()}"
+      oninput="autoGrowMi(this)" style="flex:1;border-radius:16px;padding:10px 16px;height:calc(1.4em + 20px);font-size:13px"></textarea>
+    <button class="btn" onclick="roomSendMessageUI()" style="border-radius:20px;padding:10px 20px;flex-shrink:0;align-self:flex-end">→</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- CHANNELS — публичные/закрытые каналы                                   -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<div class="scr" id="schannels">
+  <!-- Создать канал (только если хотим быть admin) -->
+  <div class="grp-section">
+    <div class="grp-section-label">Каналы</div>
+    <button class="btn" onclick="channelCreateUI()" style="width:100%">+ Создать канал</button>
+    <div style="font-size:10px;color:var(--mu);line-height:1.6">
+      📢 Вы пишете — подписчики читают. Подписчики могут оставлять комментарии.
+    </div>
+  </div>
+  <!-- Список каналов -->
+  <div class="ch-list" id="ch-list">
+    <div class="grp-empty">Нет каналов<br><span style="opacity:.6">Создайте канал или подпишитесь через контакты</span></div>
+  </div>
+</div>
+
+<!-- CHANNEL VIEW ────────────────────────────────────────────────────────── -->
+<div class="scr" id="sch-view">
+  <div class="room-chat-hdr">
+    <button class="room-chat-back" onclick="showTab('schannels');channelsRenderList()">←</button>
+    <div class="room-chat-name" id="ch-view-title">Канал</div>
+    <div id="ch-view-actions" style="display:flex;gap:6px;flex-shrink:0"></div>
+  </div>
+  <!-- Посты -->
+  <div class="ch-list" id="ch-posts" style="flex:1"></div>
+  <!-- Форма комментария -->
+  <div class="ch-comment-form" id="ch-comment-form">
+    <div style="font-size:10px;color:var(--mu)">Комментарий к посту:</div>
+    <textarea id="ch-comment-input" placeholder="ваш комментарий..."
+      style="height:60px;font-size:12px" oninput="autoGrowMi(this)"></textarea>
+    <div style="display:flex;gap:8px">
+      <button class="btn" style="flex:1" onclick="channelSubmitComment()">Отправить</button>
+      <button class="action-btn" onclick="channelCloseComment()">Отмена</button>
+    </div>
+  </div>
+  <!-- Ввод поста (только для admin) -->
+  <div class="iarea" id="ch-post-iarea" style="display:none">
+    <textarea id="ch-post-input" placeholder="новый пост..."
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();channelPublishPostUI()}"
+      oninput="autoGrowMi(this)" style="flex:1;border-radius:16px;padding:10px 16px;height:calc(1.4em + 20px);font-size:13px"></textarea>
+    <button class="btn" onclick="channelPublishPostUI()" style="border-radius:20px;padding:10px 20px;flex-shrink:0;align-self:flex-end">→</button>
   </div>
 </div>
 
@@ -2769,9 +3307,714 @@ async function initIdentity(){
       };
       _tryNtfy(20); // ждём до 4 секунд
     }
+    // ── Инициализация X25519 ключа шифрования (Sealed Relay + Sealed Push) ──
+    await initEncKey();
+    console.log('[sealed] encKey ready, pub:', _myEncKey?.publicKeyB64u?.slice(0,12)+'...');
+    // Подписываемся на sealed push (v2) — не раскрывает fingerprint серверу.
+    if (typeof sealedPushSubscribe === 'function' && PUSH_SERVER && !PUSH_SERVER.includes('ВАШ')) {
+      sealedPushSubscribe(PUSH_SERVER).catch(() => {});
+    }
+    // Gossip при старте: загружаем манифест домашнего сервера → наполняем кеш соседей.
+    // Это позволяет клиенту знать альтернативные серверы для fallback.
+    try {
+      const _homeBase = 'https://' + currentSrv().host;
+      _fetchFedManifest(_homeBase).catch(() => {});
+    } catch(_) {}
   }catch(e){
     console.warn('Identity init failed:',e);
   }
+}
+
+// ── Room Crypto ──────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// Tovsa Room Crypto v1.0
+// Криптографические примитивы для групп (rooms) и каналов (channels).
+// Совместим с браузером (SubtleCrypto), Deno, Cloudflare Workers.
+//
+// АРХИТЕКТУРА ГРУПП:
+//   roomKey    — AES-256-GCM, 32 байта. Генерируется создателем. Только у участников.
+//   roomId     — SHA256(roomKey).slice(0,24) hex. Публичный идентификатор комнаты.
+//   adminKey   — Ed25519 ключ создателя. Подписывает roomConfig.
+//   roomConfig — { roomId, name, adminPubKeyHex, historyPolicy, version, adminSig }
+//   roster     — список участников, хранится только у участников
+//
+// АРХИТЕКТУРА КАНАЛОВ:
+//   channelKey — AES-256-GCM, 32 байта. Передаётся подписчику при подписке.
+//   channelId  — SHA256(adminPubKeyHex).slice(0,24) hex. Постоянный ID канала.
+//   Ротация channelKey — только при бане.
+//
+// RELAY KINDS (новые):
+//   "room_msg"    — зашифрованное сообщение комнаты
+//   "room_invite" — приглашение в комнату (зашифровано для invitee)
+//   "room_config" — обновлённый конфиг комнаты (подписан admin)
+//   "room_rekey"  — новый roomKey после исключения участника
+//   "history_req" — запрос истории у онлайн-участника
+//   "history_resp"— ответ с историей
+//   "ch_sub"      — подписка на канал
+//   "ch_sub_ack"  — подтверждение подписки (channelKey внутри)
+//   "ch_msg"      — пост канала
+//   "ch_comment"  — комментарий к посту
+// ══════════════════════════════════════════════════════════════════════════════
+
+'use strict';
+
+const ROOM_PROTO_INFO    = 'tovsa-room-v1';
+const CHANNEL_PROTO_INFO = 'tovsa-channel-v1';
+const ROOM_TS_WINDOW     = 300; // ±5 минут anti-replay для room сообщений
+
+// ── Генерация ключей комнаты ──────────────────────────────────────────────────
+
+// Генерировать новый roomKey (32 random bytes)
+async function roomGenerateKey() {
+  return crypto.getRandomValues(new Uint8Array(32));
+}
+
+// Вычислить roomId из roomKey: hex(SHA256(roomKey)).slice(0,24)
+async function roomDeriveId(roomKeyBytes) {
+  const hash = await crypto.subtle.digest('SHA-256', roomKeyBytes);
+  return _bytesToHex(new Uint8Array(hash)).slice(0, 24);
+}
+
+// Вычислить channelId из pubKeyHex администратора
+async function channelDeriveId(adminPubKeyHex) {
+  const bytes = _hexToBytes(adminPubKeyHex);
+  const hash  = await crypto.subtle.digest('SHA-256', bytes);
+  return _bytesToHex(new Uint8Array(hash)).slice(0, 24);
+}
+
+// ── roomConfig ─────────────────────────────────────────────────────────────────
+// Подписанная конфигурация комнаты.
+// Участники верифицируют подпись перед применением политики.
+
+// Создать и подписать roomConfig
+async function roomCreateConfig({
+  roomId,
+  name,
+  adminPubKeyHex,
+  historyPolicy,   // "admin_only" | "any_member"
+  version = 1,
+  adminPrivKey,    // CryptoKey Ed25519
+}) {
+  const config = {
+    roomId,
+    name:           name.slice(0, 64),
+    adminPubKeyHex,
+    historyPolicy,
+    version,
+    createdAt:      Math.floor(Date.now() / 1000),
+  };
+  const canonical = _canonicalJson(config);
+  const sigBuf    = await crypto.subtle.sign('Ed25519', adminPrivKey,
+    new TextEncoder().encode(canonical));
+  return {
+    ...config,
+    adminSig: _b64uEncode(new Uint8Array(sigBuf)),
+  };
+}
+
+// Верифицировать roomConfig
+async function roomVerifyConfig(config) {
+  if (!config?.roomId || !config?.adminPubKeyHex || !config?.adminSig) return false;
+  try {
+    const { adminSig, ...rest } = config;
+    const canonical  = _canonicalJson(rest);
+    const pubKeyBytes = _hexToBytes(config.adminPubKeyHex);
+    const pubKey      = await crypto.subtle.importKey(
+      'raw', pubKeyBytes, { name: 'Ed25519' }, false, ['verify']);
+    return await crypto.subtle.verify(
+      'Ed25519', pubKey,
+      _b64uDecode(adminSig),
+      new TextEncoder().encode(canonical),
+    );
+  } catch { return false; }
+}
+
+// ── Шифрование сообщений комнаты ──────────────────────────────────────────────
+
+// Зашифровать сообщение комнаты
+// plaintext: { id, roomId, from, text, ts, sig }
+async function roomEncryptMessage(roomKeyBytes, plaintext) {
+  const json = JSON.stringify(plaintext);
+  const key  = await crypto.subtle.importKey('raw', roomKeyBytes, 'AES-GCM', false, ['encrypt']);
+  const iv   = crypto.getRandomValues(new Uint8Array(12));
+  const ct   = new Uint8Array(await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    new TextEncoder().encode(json),
+  ));
+  // Формат: iv(12) || ciphertext+tag
+  return _b64uEncode(_concatBytes(iv, ct));
+}
+
+// Расшифровать сообщение комнаты
+async function roomDecryptMessage(roomKeyBytes, blob) {
+  const data = _b64uDecode(blob);
+  if (data.length < 13) throw new Error('blob слишком короткий');
+  const iv = data.slice(0, 12);
+  const ct = data.slice(12);
+  const key = await crypto.subtle.importKey('raw', roomKeyBytes, 'AES-GCM', false, ['decrypt']);
+  let decBytes;
+  try {
+    decBytes = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+  } catch {
+    throw new Error('расшифровка не удалась — неверный ключ или повреждённые данные');
+  }
+  return JSON.parse(new TextDecoder().decode(decBytes));
+}
+
+// Подписать room сообщение отправителем
+async function roomSignMessage(privKey, { id, roomId, from, text, ts }) {
+  const payload  = _canonicalJson({ id, roomId, from, text, ts });
+  const sigBuf   = await crypto.subtle.sign('Ed25519', privKey, new TextEncoder().encode(payload));
+  return _b64uEncode(new Uint8Array(sigBuf));
+}
+
+// Верифицировать подпись room сообщения
+async function roomVerifyMessage(pubKeyHex, { id, roomId, from, text, ts, sig }) {
+  try {
+    const payload    = _canonicalJson({ id, roomId, from, text, ts });
+    const pubKeyBytes = _hexToBytes(pubKeyHex);
+    const pubKey      = await crypto.subtle.importKey(
+      'raw', pubKeyBytes, { name: 'Ed25519' }, false, ['verify']);
+    return await crypto.subtle.verify(
+      'Ed25519', pubKey, _b64uDecode(sig), new TextEncoder().encode(payload));
+  } catch { return false; }
+}
+
+// ── Инвайт в комнату ──────────────────────────────────────────────────────────
+// Зашифровано для invitee через его encPub (X25519).
+// Сервер видит только: sealed relay к mailboxId invitee.
+
+// Создать invite blob
+async function roomCreateInvite({ roomKeyBytes, config, roster }, inviteeEncPubB64u) {
+  const payload = JSON.stringify({
+    roomKey: _b64uEncode(roomKeyBytes),
+    config,
+    roster,
+    invitedAt: Math.floor(Date.now() / 1000),
+  });
+  // Шифруем через X25519 + AES-GCM (та же схема что sealed relay)
+  return await _sealForRecipient(payload, inviteeEncPubB64u);
+}
+
+// Расшифровать invite blob
+async function roomDecryptInvite(sealedBlob, myEncPrivJwk) {
+  const plain = await _unsealFromSender(sealedBlob, myEncPrivJwk);
+  const data  = JSON.parse(plain);
+  return {
+    roomKeyBytes: _b64uDecode(data.roomKey),
+    config:       data.config,
+    roster:       data.roster,
+    invitedAt:    data.invitedAt,
+  };
+}
+
+// ── Rekey после исключения участника ─────────────────────────────────────────
+// Создать пакет с новым roomKey для каждого оставшегося участника
+
+async function roomCreateRekeyPacket({ newRoomKeyBytes, config }, memberEncPubB64u) {
+  const payload = JSON.stringify({
+    newRoomKey: _b64uEncode(newRoomKeyBytes),
+    config,
+    rekeyAt:    Math.floor(Date.now() / 1000),
+  });
+  return await _sealForRecipient(payload, memberEncPubB64u);
+}
+
+async function roomDecryptRekeyPacket(sealedBlob, myEncPrivJwk) {
+  const plain = await _unsealFromSender(sealedBlob, myEncPrivJwk);
+  const data  = JSON.parse(plain);
+  return {
+    newRoomKeyBytes: _b64uDecode(data.newRoomKey),
+    config:          data.config,
+    rekeyAt:         data.rekeyAt,
+  };
+}
+
+// ── История ───────────────────────────────────────────────────────────────────
+// Запрос и ответ передаются как payload внутри room_msg с особым type.
+// Шифруются roomKey — только участники могут прочитать.
+
+function roomCreateHistoryReq({ roomId, since = 0, limit = 100 }) {
+  return {
+    type:   'history_req',
+    roomId,
+    since,
+    limit:  Math.min(limit, 500),
+    reqId:  _randomHex(16),
+    ts:     Math.floor(Date.now() / 1000),
+  };
+}
+
+function roomCreateHistoryResp({ reqId, roomId, messages }) {
+  return {
+    type:     'history_resp',
+    reqId,
+    roomId,
+    messages, // массив зашифрованных blob'ов
+    ts:       Math.floor(Date.now() / 1000),
+  };
+}
+
+// ── Каналы ─────────────────────────────────────────────────────────────────────
+
+// Создать subscribe запрос
+async function channelCreateSubscribeReq({
+  subscriberPubKeyHex,
+  encPub,
+  pushToken,
+  commentMailboxId,
+  channelId,
+}) {
+  return {
+    type:              'ch_sub',
+    channelId,
+    subscriberPubKeyHex,
+    encPub,
+    pushToken,         // для push-уведомлений о новых постах
+    commentMailboxId,  // куда слать комментарии
+    ts:                Math.floor(Date.now() / 1000),
+  };
+}
+
+// Создать подтверждение подписки (channelKey внутри, зашифровано для подписчика)
+async function channelCreateSubscribeAck({ channelKeyBytes, channelId }, subscriberEncPubB64u) {
+  const payload = JSON.stringify({
+    type:       'ch_sub_ack',
+    channelId,
+    channelKey: _b64uEncode(channelKeyBytes),
+    ts:         Math.floor(Date.now() / 1000),
+  });
+  return await _sealForRecipient(payload, subscriberEncPubB64u);
+}
+
+async function channelDecryptSubscribeAck(sealedBlob, myEncPrivJwk) {
+  const plain = await _unsealFromSender(sealedBlob, myEncPrivJwk);
+  const data  = JSON.parse(plain);
+  return {
+    channelId:       data.channelId,
+    channelKeyBytes: _b64uDecode(data.channelKey),
+    ts:              data.ts,
+  };
+}
+
+// Зашифровать пост канала (аналогично room message)
+async function channelEncryptPost(channelKeyBytes, post) {
+  return roomEncryptMessage(channelKeyBytes, post);
+}
+
+async function channelDecryptPost(channelKeyBytes, blob) {
+  return roomDecryptMessage(channelKeyBytes, blob);
+}
+
+// ── Storage helpers (LocalStorage/IDB) ────────────────────────────────────────
+// Сериализация/десериализация для хранения в localStorage/IDB.
+
+function roomSerialize(room) {
+  return {
+    roomId:       room.roomId,
+    roomKey:      _b64uEncode(room.roomKeyBytes),
+    config:       room.config,
+    roster:       room.roster,
+    myRole:       room.myRole,
+    createdAt:    room.createdAt,
+    lastSeenSeq:  room.lastSeenSeq ?? 0,
+  };
+}
+
+function roomDeserialize(data) {
+  return {
+    roomId:       data.roomId,
+    roomKeyBytes: _b64uDecode(data.roomKey),
+    config:       data.config,
+    roster:       data.roster,
+    myRole:       data.myRole,
+    createdAt:    data.createdAt,
+    lastSeenSeq:  data.lastSeenSeq ?? 0,
+  };
+}
+
+// ── Внутренние хелперы ────────────────────────────────────────────────────────
+
+// X25519 + HKDF + AES-GCM шифрование для получателя (та же схема что sealed relay)
+async function _sealForRecipient(plaintext, recipientEncPubB64u) {
+  const ephKP       = await crypto.subtle.generateKey({ name: 'X25519' }, true, ['deriveBits']);
+  const ephPubBytes = new Uint8Array(await crypto.subtle.exportKey('raw', ephKP.publicKey));
+  const recipPub    = await crypto.subtle.importKey(
+    'raw', _b64uDecode(recipientEncPubB64u), { name: 'X25519' }, false, []);
+  const shared      = new Uint8Array(await crypto.subtle.deriveBits(
+    { name: 'X25519', public: recipPub }, ephKP.privateKey, 256));
+  const aesKey      = await _hkdf(shared, ephPubBytes, ROOM_PROTO_INFO, 32);
+  const iv          = crypto.getRandomValues(new Uint8Array(12));
+  const key         = await crypto.subtle.importKey('raw', aesKey, 'AES-GCM', false, ['encrypt']);
+  const ct          = new Uint8Array(await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv }, key, new TextEncoder().encode(plaintext)));
+  return { epk: _b64uEncode(ephPubBytes), ct: _b64uEncode(_concatBytes(iv, ct)) };
+}
+
+// Расшифровка (тот же формат)
+async function _unsealFromSender(sealedBlob, myEncPrivJwk) {
+  const myPriv      = await crypto.subtle.importKey(
+    'jwk', myEncPrivJwk, { name: 'X25519' }, false, ['deriveBits']);
+  const ephPubBytes = _b64uDecode(sealedBlob.epk);
+  const ephPub      = await crypto.subtle.importKey(
+    'raw', ephPubBytes, { name: 'X25519' }, false, []);
+  const shared      = new Uint8Array(await crypto.subtle.deriveBits(
+    { name: 'X25519', public: ephPub }, myPriv, 256));
+  const aesKey      = await _hkdf(shared, ephPubBytes, ROOM_PROTO_INFO, 32);
+  const ctBytes     = _b64uDecode(sealedBlob.ct);
+  const iv          = ctBytes.slice(0, 12);
+  const ct          = ctBytes.slice(12);
+  const key         = await crypto.subtle.importKey('raw', aesKey, 'AES-GCM', false, ['decrypt']);
+  const dec         = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+  return new TextDecoder().decode(dec);
+}
+
+async function _hkdf(ikm, salt, infoStr, len) {
+  const ikmKey = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']);
+  const bits   = await crypto.subtle.deriveBits({
+    name: 'HKDF', hash: 'SHA-256',
+    salt: salt instanceof Uint8Array ? salt : new TextEncoder().encode(salt),
+    info: new TextEncoder().encode(infoStr),
+  }, ikmKey, len * 8);
+  return new Uint8Array(bits);
+}
+
+function _concatBytes(...arrays) {
+  const total = arrays.reduce((n, a) => n + a.length, 0);
+  const out   = new Uint8Array(total);
+  let off = 0;
+  for (const a of arrays) { out.set(a, off); off += a.length; }
+  return out;
+}
+
+function _b64uEncode(buf) {
+  let s = '';
+  for (const b of buf) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function _b64uDecode(s) {
+  return Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+}
+
+function _bytesToHex(buf) {
+  return Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function _hexToBytes(s) {
+  const out = new Uint8Array(s.length / 2);
+  for (let i = 0; i < s.length; i += 2) out[i >> 1] = parseInt(s.slice(i, i + 2), 16);
+  return out;
+}
+
+function _randomHex(len) {
+  return _bytesToHex(crypto.getRandomValues(new Uint8Array(len)));
+}
+
+// Канонический JSON: ключи отсортированы, без пробелов (детерминированный для подписи)
+function _canonicalJson(obj) {
+  return JSON.stringify(obj, Object.keys(obj).sort());
+}
+
+// ── Экспорт ───────────────────────────────────────────────────────────────────
+if (typeof globalThis !== 'undefined') {
+  Object.assign(globalThis, {
+    // Room keys
+    roomGenerateKey,
+    roomDeriveId,
+    channelDeriveId,
+    // Config
+    roomCreateConfig,
+    roomVerifyConfig,
+    // Messages
+    roomEncryptMessage,
+    roomDecryptMessage,
+    roomSignMessage,
+    roomVerifyMessage,
+    // Invite
+    roomCreateInvite,
+    roomDecryptInvite,
+    // Rekey
+    roomCreateRekeyPacket,
+    roomDecryptRekeyPacket,
+    // History
+    roomCreateHistoryReq,
+    roomCreateHistoryResp,
+    // Channels
+    channelEncryptPost,
+    channelDecryptPost,
+    channelCreateSubscribeReq,
+    channelCreateSubscribeAck,
+    channelDecryptSubscribeAck,
+    // Storage
+    roomSerialize,
+    roomDeserialize,
+  });
+}
+
+
+// ── Sealed Relay: хелперы encPubKey контактов ─────────────────────────────────
+// encPubKey (X25519) контакта хранится отдельно от его Ed25519 pubkey.
+// Загружается из инвайта при первом обмене, используется при каждом relay.
+
+function contactSaveEncPubKey(contactId, encPubKeyB64u) {
+  try { localStorage.setItem('tvEncPub_' + contactId, encPubKeyB64u); } catch(_) {}
+}
+function contactLoadEncPubKey(contactId) {
+  try { return localStorage.getItem('tvEncPub_' + contactId) || null; } catch(_) { return null; }
+}
+
+// ── Sealed Push Token ────────────────────────────────────────────────────────
+// pushToken = HKDF(encPrivKey, info="tovsa-push-v1:" + weekNum) — 24 hex.
+// Меняется еженедельно. Регистрируем текущий + следующий (плавная ротация).
+// Контакт получает наш pushToken из инвайта и использует для wakeup.
+// Сервер видит только токен — не может связать с fingerprint/pubKey.
+
+const PUSH_TOKEN_WEEK_MS = 7 * 24 * 3600 * 1000;
+
+// Вычислить наш push-токен на заданной неделе
+async function derivePushToken(weekOffset = 0) {
+  if (!_myEncKey) return null;
+  try {
+    const weekNum = Math.floor(Date.now() / PUSH_TOKEN_WEEK_MS) + weekOffset;
+    const privKey  = await crypto.subtle.importKey(
+      'jwk', _myEncKey.privateJwk, { name: 'X25519' }, false, ['deriveBits']
+    );
+    // Self-ECDH невозможен — используем HKDF напрямую от приватного ключа
+    // Экспортируем JWK чтобы получить raw bytes приватного скаляра
+    const privJwk  = _myEncKey.privateJwk;
+    const privBytes = _b64uDecode(privJwk.d);
+    const ikmKey   = await crypto.subtle.importKey('raw', privBytes, 'HKDF', false, ['deriveBits']);
+    const bits     = await crypto.subtle.deriveBits({
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: new Uint8Array(32),
+      info: new TextEncoder().encode('tovsa-push-v1:' + weekNum),
+    }, ikmKey, 96); // 12 bytes = 24 hex
+    return Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2,'0')).join('');
+  } catch(e) {
+    console.warn('[push2] derivePushToken error:', e);
+    return null;
+  }
+}
+
+// Загрузить pushToken контакта (сохранён при принятии инвайта)
+function contactLoadPushToken(contactPubHex) {
+  try { return localStorage.getItem('tvPushTok_' + contactPubHex) || null; } catch(_) { return null; }
+}
+
+function contactSavePushToken(contactPubHex, pushToken) {
+  try { localStorage.setItem('tvPushTok_' + contactPubHex, pushToken); } catch(_) {}
+}
+
+// Подписаться на sealed push (v2) — текущая + следующая неделя
+async function sealedPushSubscribe(pushServer) {
+  if (!pushServer || pushServer.includes('ВАШ')) return false;
+  if (!_myEncKey) return false;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const { publicKey } = await fetch(pushServer + '/push/vapid').then(r => r.json());
+    if (!publicKey) throw new Error('нет VAPID ключа');
+
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: _b64ToUint8(publicKey),
+      });
+    }
+
+    const subJson   = sub.toJSON();
+    const tokens    = await Promise.all([derivePushToken(0), derivePushToken(1)]);
+    const validToks = tokens.filter(Boolean);
+    if (!validToks.length) return false;
+
+    // Регистрируем оба токена (текущий + следующий) — параллельно
+    await Promise.all(validToks.map(pushToken =>
+      fetch(pushServer + '/push/subscribe2', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pushToken, subscription: subJson }),
+      }).then(r => { if (!r.ok) throw new Error('subscribe2 ' + r.status); })
+    ));
+
+    // Сохраняем текущий токен в localStorage для включения в инвайты
+    if (validToks[0]) localStorage.setItem('_myPushToken', validToks[0]);
+    console.log('[push2] подписка successful, token=', validToks[0]?.slice(0,8)+'...');
+    return true;
+  } catch(e) {
+    console.warn('[push2] sealedPushSubscribe error:', e);
+    return false;
+  }
+}
+
+// ── Encrypted Presence Beacon ────────────────────────────────────────────────
+// Вместо PRESENCE-запроса к серверу (который раскрывает список контактов):
+//   - При подключении рассылаем sealed beacon каждому контакту с encPubKey
+//   - Beacon зашифрован → сервер видит только ephemeral mailboxId, не from/kind
+//   - Получатель расшифровывает → знает что мы онлайн
+//   - Fallback: контакты без encPubKey по-прежнему проверяются через PRESENCE
+
+const BEACON_KIND         = 'beacon';
+const BEACON_INTERVAL_MS  = 25_000;  // раз в 25с — чуть чаще чем ping сервера
+const BEACON_ONLINE_TTL   = 70_000;  // считаем онлайн 70с после последнего beacon
+
+let _beaconLastSentAt     = 0;
+let _beaconTimer          = null;
+
+// Пометить контакт онлайн по его postоянному pubKeyHex
+// Вызывается из _handleRelay при получении beacon
+async function _beaconMarkOnline(fromPubKeyHex) {
+  if (!fromPubKeyHex) return;
+  try {
+    // Конвертируем pubKeyHex → fingerprint для _presenceCache
+    const fp = await _pubHexToFp(fromPubKeyHex);
+    if (!fp) return;
+    // Используем существующую систему кеша
+    _applyPresenceResult(fp, 'online');
+    console.debug('[beacon] онлайн от', fromPubKeyHex.slice(0,8)+'...');
+  } catch(e) {
+    console.warn('[beacon] markOnline error:', e);
+  }
+}
+
+// Отправить sealed beacon всем контактам с известным encPubKey
+// Это заменяет PRESENCE-запрос к серверу для таких контактов
+async function _sendPresenceBeacons(sigInstance) {
+  if (_presenceGlobalHidden) return; // режим невидимки — не рассылаем
+  if (!_myEncKey || !myPubKeyHex) return;
+  if (!sigInstance?._open) return;
+
+  try {
+    const contacts = await getContacts();
+    const now      = Date.now();
+    let   sent     = 0;
+
+    for (const fp of Object.keys(contacts)) {
+      const c = contacts[fp];
+      if (c._stranger || !c.pubKeyHex) continue;
+      if (c.hidePresence) continue; // скрыты от этого контакта
+
+      const encPub = contactLoadEncPubKey(c.pubKeyHex);
+      if (!encPub) continue; // нет encPubKey — fallback на старый PRESENCE
+
+      try {
+        // Вычисляем ephemeral mailbox ID контакта
+        const mailboxId = await getContactMailboxId(c.pubKeyHex, 0);
+        if (!mailboxId) continue;
+
+        // Шифруем beacon
+        const sealed = await sealEnvelope(
+          { from: myPubKeyHex, kind: BEACON_KIND, data: { ts: Math.floor(now / 1000) } },
+          encPub
+        );
+
+        sigInstance._wsSend({ type: 'SEALED_RELAY', to: mailboxId, sealed });
+        sent++;
+      } catch(e) {
+        console.debug('[beacon] send error for', fp.slice(0,8), e?.message);
+      }
+
+      // Throttle: пауза 50мс между отправками чтобы не перегружать WS
+      if (sent % 5 === 0) await new Promise(r => setTimeout(r, 50));
+    }
+
+    if (sent > 0) {
+      _beaconLastSentAt = now;
+      console.debug('[beacon] отправлено', sent, 'beacons');
+    }
+  } catch(e) {
+    console.warn('[beacon] _sendPresenceBeacons error:', e);
+  }
+}
+
+// Запустить таймер периодической рассылки beacons
+function _startBeaconTimer(sigInstance) {
+  _stopBeaconTimer();
+  _beaconTimer = setInterval(() => {
+    if (document.hidden) return; // не рассылаем если вкладка фоновая
+    _sendPresenceBeacons(sigInstance).catch(() => {});
+  }, BEACON_INTERVAL_MS);
+}
+
+function _stopBeaconTimer() {
+  if (_beaconTimer) { clearInterval(_beaconTimer); _beaconTimer = null; }
+}
+
+// ── Ephemeral Mailbox IDs ─────────────────────────────────────────────────────
+// Каждая пара контактов имеет общий X25519 shared secret.
+// Из него оба независимо вычисляют текущий ephemeral mailbox ID владельца.
+// Формат: "tvpm-<24hex>" — сервер видит случайные ID, меняющиеся каждую неделю.
+// Неделя = floor(unixMs / 604_800_000). Overlap: регистрируем текущую + следующую.
+
+const MBOX_PREFIX   = 'tvpm-';
+const MBOX_WEEK_MS  = 7 * 24 * 3600 * 1000;
+
+// Derive X25519 shared secret between us and a contact.
+// Symmetric: ECDH(myPriv, theirPub) = ECDH(theirPriv, myPub)
+async function deriveContactSecret(myPrivJwk, theirEncPubB64u) {
+  const myPriv   = await crypto.subtle.importKey('jwk', myPrivJwk, { name: 'X25519' }, false, ['deriveBits']);
+  const theirPub = await crypto.subtle.importKey('raw', _b64uDecode(theirEncPubB64u), { name: 'X25519' }, false, []);
+  const bits     = await crypto.subtle.deriveBits({ name: 'X25519', public: theirPub }, myPriv, 256);
+  return new Uint8Array(bits);
+}
+
+// Compute mailbox ID for `ownerPubHex` in the pair, for a given week offset.
+// ownerPubHex differentiates "Alice's mailbox" from "Bob's mailbox" in the same pair.
+// Both peers compute the same value independently.
+async function computeMailboxId(sharedSecret, ownerPubHex, weekOffset = 0) {
+  const weekNum = Math.floor(Date.now() / MBOX_WEEK_MS) + weekOffset;
+  const ikmKey  = await crypto.subtle.importKey('raw', sharedSecret, 'HKDF', false, ['deriveBits']);
+  const bits    = await crypto.subtle.deriveBits({
+    name: 'HKDF',
+    hash: 'SHA-256',
+    salt: new Uint8Array(32),
+    info: new TextEncoder().encode('tovsa-mbox-v1:' + ownerPubHex + ':' + weekNum),
+  }, ikmKey, 96); // 12 bytes = 24 hex chars
+  const hex = Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2,'0')).join('');
+  return MBOX_PREFIX + hex;
+}
+
+// Compute our own mailbox ID as seen by a specific contact.
+// Contact sends sealed relay to this ID; server resolves it to our permanent peerId.
+async function getMyMailboxId(theirEncPubB64u, weekOffset = 0) {
+  if (!_myEncKey || !myPubKeyHex) return null;
+  try {
+    const secret = await deriveContactSecret(_myEncKey.privateJwk, theirEncPubB64u);
+    return await computeMailboxId(secret, myPubKeyHex, weekOffset);
+  } catch(_) { return null; }
+}
+
+// Compute contact's current mailbox ID — what we use as `to` when sending.
+async function getContactMailboxId(theirPubHex, weekOffset = 0) {
+  const theirEncPub = contactLoadEncPubKey(theirPubHex);
+  if (!theirEncPub || !_myEncKey) return null;
+  try {
+    const secret = await deriveContactSecret(_myEncKey.privateJwk, theirEncPub);
+    return await computeMailboxId(secret, theirPubHex, weekOffset);
+  } catch(_) { return null; }
+}
+
+// Collect all aliases we need to register: for each contact with encPub,
+// compute our mailbox ID for current week + next week (overlap for smooth rotation).
+async function collectMyAliases() {
+  if (!_myEncKey || !myPubKeyHex) return [];
+  const aliases = [];
+  // Читаем все encPub из localStorage
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || !key.startsWith('tvEncPub_')) continue;
+    const theirEncPub = localStorage.getItem(key);
+    if (!theirEncPub) continue;
+    try {
+      const m0 = await getMyMailboxId(theirEncPub, 0);
+      const m1 = await getMyMailboxId(theirEncPub, 1);
+      if (m0) aliases.push(m0);
+      if (m1) aliases.push(m1);
+    } catch(_) {}
+  }
+  return aliases;
 }
 
 // ── Backup / Restore ──
@@ -3371,7 +4614,9 @@ function showTab(tab){
   const tabIdMap = {
     connect:'tab-connect', sk:'tab-contacts', sh:'tab-contacts',
     sfav:'tab-contacts', sc:'tab-contacts', sn:'tab-net',
-    sgrp:'tab-grp', sgrpc:'tab-grp'
+    sgrp:'tab-grp', sgrpc:'tab-grp',
+    srooms:'tab-rooms', 'sroom-chat':'tab-rooms',
+    schannels:'tab-channels', 'sch-view':'tab-channels'
   };
   const targetTabId = tabIdMap[tab] || 'tab-connect';
   movePill(targetTabId);
@@ -4516,7 +5761,8 @@ async function sha256hex(bytes, sliceBytes = null) {
 // ── Серверы ───────────────────────────────────────────────────────────────────
 // Объявлены здесь — до первого использования в currentSrv() и _startIncomingListener()
 const SIGNALING_SERVERS = [
-  { host: 'tovsa-signaling.onrender.com', port: 443, path: '/', secure: true, name: 'Основной (Render)', slow: false },
+  // v2.1: поле path удалено — buildWsUrl всегда добавляет /signal напрямую
+  { host: 'tovsa-signaling.onrender.com', port: 443, secure: true, name: 'Основной (Render)', slow: false },
 ];
 const SRV_IDX_KEY = 'pj_server_idx';
 // Всегда сбрасываем на 0 — единственный сервер.
@@ -4726,6 +5972,13 @@ class TovSaSignaling {
     await pc.setLocalDescription(offer);
     // Trickle ICE: offer шлём немедленно, кандидаты придут через onicecandidate
     this._sendRelay(remotePeerId, 'offer', pc.localDescription);
+    // Сохраняем offer для клиентского retry при delivered=false
+    if (!this._pendingOffers) this._pendingOffers = new Map();
+    this._pendingOffers.set(remotePeerId, {
+      offer:         pc.localDescription,
+      iceCandidates: [],
+      ts:            Date.now(),
+    });
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this._pending.delete(remotePeerId); this._cleanupPc(remotePeerId);
@@ -4810,10 +6063,18 @@ class TovSaSignaling {
       case 'CHALLENGE': await this._respondChallenge(msg.nonce); break;
       case 'OPEN': this._open = true; this._reconnectIdx = 0; this._serverProtoVersion = msg.v ?? 1; this._onOpen(); break;
       case 'ERR': {
-        const FATAL = new Set([4000, 4001, 4002, 4003, 4004, 4005, 4029]);
+        const FATAL = new Set([4000, 4001, 4002, 4003, 4004, 4005]);
+        // 4029 (RateLimit) намеренно убран из FATAL:
+        // сервер не закрывает соединение — только просит притормозить.
+        // Разрушать пир при rate limit было бы неверно.
         if (FATAL.has(msg.code)) this._destroyed = true;
         const err = new Error(`[${msg.code}] ${msg.msg}`);
         if (msg.retryAfter) err.retryAfter = msg.retryAfter;
+        // Rate limit: включаем паузу на retryAfter мс — не спамим дальше
+        if (msg.code === 4029 && msg.retryAfter) {
+          this._rateLimitedUntil = Date.now() + msg.retryAfter;
+          _dbgPush('warn', ['[sig] rate limit — пауза', msg.retryAfter, 'мс']);
+        }
         this._onError(err);
         break;
       }
@@ -4821,6 +6082,49 @@ class TovSaSignaling {
       case 'PONG': break;
       case 'PRESENCE-RESULT':
         window.dispatchEvent(new CustomEvent('tovsa-presence-result', { detail: msg }));
+        break;
+      case 'SEALED_RELAY': {
+        // Расшифровываем envelope — from, kind, data серверу не были известны
+        if (!_myEncKey || typeof unsealEnvelope !== 'function') break;
+        let plain;
+        try {
+          plain = await unsealEnvelope(msg.sealed, _myEncKey.privateJwk);
+        } catch(e) {
+          _dbgPush('warn', ['[sealed] unsealEnvelope failed:', e?.message]);
+          break;
+        }
+        const { from, kind, data } = plain;
+        // Room/channel виды — передаём в roomHandleIncoming, не в WebRTC handler
+        const ROOM_KINDS = new Set([
+          'room_msg','room_invite','room_config','room_rekey',
+          'history_req','history_resp',
+          'ch_sub','ch_sub_ack','ch_msg','ch_comment',
+        ]);
+        if (ROOM_KINDS.has(kind)) {
+          if (typeof roomHandleIncoming === 'function') {
+            roomHandleIncoming(from, kind, data).catch(e =>
+              console.warn('[rooms] handler error:', e?.message));
+          }
+          break;
+        }
+        // answer на наш offer — диспатчим presence-детектор (аналогично plain RELAY)
+        if (kind === 'answer' && this._pending.has(from)) {
+          window.dispatchEvent(new CustomEvent('tovsa-relay-ack', { detail: {
+            to: from, kind: 'offer', delivered: true, viaAnswer: true
+          }}));
+        }
+        await this._handleRelay(from, kind, data);
+        break;
+      }
+      case 'ALIAS-ACK':
+        // Сервер подтвердил регистрацию aliases — тихо логируем
+        console.debug('[alias] ACK count:', msg.count);
+        break;
+      case 'SEALED-ACK':
+        // Аналог RELAY-ACK для sealed relay — без to/kind (не раскрываем корреляцию)
+        window.dispatchEvent(new CustomEvent('tovsa-relay-ack', { detail: {
+          to: null, kind: null, delivered: msg.delivered, sealed: true
+        }}));
         break;
       case 'RELAY':
         // Если пришёл answer на наш offer — диспатчим событие для presence-детектора
@@ -4845,6 +6149,15 @@ class TovSaSignaling {
           // delivered=false: offer ушёл через BroadcastChannel — может быть доставлен другим инстансом.
           //   НЕ реджектим pending — ждём либо answer (RELAY), либо таймаут.
           //   Таймаут сокращён с 30с до 8с в CALL_TIMEOUT_MS через pending.timer.
+          if (!msg.delivered) {
+            // Клиентский retry: сохранённый offer будет переотправлен когда контакт появится онлайн.
+            // Сервер больше не обязан буферизовать — логика живёт здесь.
+            const po = this._pendingOffers?.get(msg.to);
+            if (po && (Date.now() - po.ts) < 5 * 60_000) {
+              _dbgPush('log', ['[sig] offer не доставлен — ставим в retry для', msg.to.slice(0,14)]);
+              _scheduleOfferRetry(msg.to, po, this);
+            }
+          }
         }
         break;
     }
@@ -4869,7 +6182,12 @@ class TovSaSignaling {
     pc.onconnectionstatechange   = () => { if (pc.connectionState === 'failed') this._cleanupPc(remotePeerId); };
     // Trickle ICE: кандидаты шлём по мере появления, не ждём complete
     pc.onicecandidate = (e) => {
-      if (e.candidate) this._sendRelay(remotePeerId, 'ice', e.candidate.toJSON());
+      if (e.candidate) {
+        this._sendRelay(remotePeerId, 'ice', e.candidate.toJSON());
+        // Сохраняем для retry — на случай если offer не дошёл
+        const po = this._pendingOffers?.get(remotePeerId);
+        if (po) po.iceCandidates.push(e.candidate.toJSON());
+      }
     };
     return { pc, conn };
   }
@@ -4891,13 +6209,25 @@ class TovSaSignaling {
     this._pcs.delete(remotePeerId);
     const pending = this._pending.get(remotePeerId);
     if (pending) { clearTimeout(pending.timer); pending.reject(new Error(`Connection to ${remotePeerId} closed`)); this._pending.delete(remotePeerId); }
+    // Отменяем клиентский retry если соединение явно закрыто
+    _cancelOfferRetry(remotePeerId);
+    this._pendingOffers?.delete(remotePeerId);
   }
   async _handleRelay(from, kind, data) {
     switch (kind) {
       case 'offer':  await this._handleOffer(from, data);  break;
       case 'answer': await this._handleAnswer(from, data); break;
-      case 'ice':    await this._handleIce(from, data);    break; // зарезервировано для trickle ICE
+      case 'ice':    await this._handleIce(from, data);    break;
       case 'leave':  this._cleanupPc(from);                break;
+      case 'beacon':
+        // Зашифрованный presence beacon — отправитель сообщает что он онлайн.
+        // from = postоянный pubKeyHex отправителя (расшифрован из sealed envelope).
+        // Сервер не знал ни from, ни что это beacon.
+        // Конвертируем pubKeyHex → fp для _applyPresenceResult.
+        if (from && typeof _beaconMarkOnline === 'function') {
+          _beaconMarkOnline(from);
+        }
+        break;
     }
   }
   async _handleOffer(from, sdp) {
@@ -4943,7 +6273,34 @@ class TovSaSignaling {
     }
     try { await state.pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch(_) {}
   }
-  _sendRelay(to, kind, data) { this._wsSend({ type: 'RELAY', to, kind, data }); }
+  _sendRelay(to, kind, data) {
+    // Не отправляем во время паузы rate limit — кроме системных сообщений (PONG, leave)
+    if (this._rateLimitedUntil && Date.now() < this._rateLimitedUntil
+        && kind !== 'leave') {
+      _dbgPush('warn', ['[sig] _sendRelay заблокирован rate limit, kind:', kind]);
+      return;
+    }
+    // Sealed relay: если у контакта есть encPubKey — шифруем конверт.
+    // from + kind + data скрываются от сервера (зашифрованы внутри sealed).
+    // `to` заменяется ephemeral mailbox ID — сервер не может связать его с постоянным ID.
+    // Двойной fallback: sealed → plain RELAY (обратная совместимость).
+    const recipientEncPub = contactLoadEncPubKey(to);
+    if (recipientEncPub && typeof sealEnvelope === 'function' && _myEncKey && myPubKeyHex) {
+      // Параллельно: шифруем payload и вычисляем ephemeral mailbox ID получателя
+      Promise.all([
+        sealEnvelope({ from: myPubKeyHex, kind, data }, recipientEncPub),
+        getContactMailboxId(to, 0),
+      ]).then(([sealed, mailboxId]) => {
+        // mailboxId может быть null если encPub есть но HKDF не удался — используем to
+        this._wsSend({ type: 'SEALED_RELAY', to: mailboxId ?? to, sealed });
+      }).catch(err => {
+        _dbgPush('warn', ['[sealed] seal/mailbox error, fallback plain:', err?.message]);
+        this._wsSend({ type: 'RELAY', to, kind, data });
+      });
+      return;
+    }
+    this._wsSend({ type: 'RELAY', to, kind, data });
+  }
   _wsSend(msg) { if (this._ws?.readyState === WebSocket.OPEN) { try { this._ws.send(JSON.stringify(msg)); } catch(_) {} } }
 }
 TovSaSignaling.PROTO_VERSION = 4; // должна совпадать с PROTO_VERSION на сервере
@@ -5037,8 +6394,42 @@ class FakePeer {
       pubKey:     opts.pubKey,
       salt:       opts.salt,
       iceServers: opts.iceServers ?? [],
-      onOpen:  () => this._emit('open'),
-      onClose: () => { if (!this._destroyed) this._emit('disconnected'); },
+      onOpen:  () => {
+        this._emit('open');
+        // Регистрируем ephemeral mailbox aliases после успешного подключения.
+        collectMyAliases().then(aliases => {
+          if (aliases.length === 0) return;
+          this._sig?._wsSend({ type: 'REGISTER_ALIAS', aliases });
+          console.log('[alias] зарегистрировано', aliases.length, 'mailbox aliases');
+        }).catch(e => console.warn('[alias] register failed:', e));
+
+        // _sigRef объявляем первым — используется во всех блоках ниже
+        const _sigRef = this._sig;
+
+        // Регистрируем sealed push route — сервер запомнит pushToken + aliases для wakeup.
+        // При буферизации SEALED_RELAY сервер вызовет /push/notify2 без targetFp.
+        (async () => {
+          try {
+            const pushToken = localStorage.getItem('_myPushToken');
+            const pushUrl   = (typeof PUSH_SERVER === 'string' && !PUSH_SERVER.includes('ВАШ'))
+              ? PUSH_SERVER : null;
+            if (pushToken && pushUrl && _sigRef?._open) {
+              const aliases = typeof collectMyAliases === 'function'
+                ? await collectMyAliases() : [];
+              _sigRef._wsSend({ type: 'REGISTER_PUSH', pushToken, pushUrl, aliases });
+              console.log('[push2] REGISTER_PUSH sent, token=', pushToken.slice(0,8)+'...', 'aliases:', aliases.length);
+            }
+          } catch(e) { console.debug('[push2] REGISTER_PUSH failed:', e); }
+        })();
+
+        // Рассылаем sealed beacon контактам — сообщаем что мы онлайн.
+        _sendPresenceBeacons(_sigRef).catch(() => {});
+        _startBeaconTimer(_sigRef);
+      },
+      onClose: () => {
+        _stopBeaconTimer();
+        if (!this._destroyed) this._emit('disconnected');
+      },
       onError: (err) => {
         const msg = err.message || '';
         let type = 'network';
@@ -5047,7 +6438,7 @@ class FakePeer {
         else if (msg.includes('4005')) type = 'hello-timeout';
         else if (msg.includes('4000')) type = 'invalid-id';
         else if (msg.includes('4002')) type = 'server-error';
-        else if (msg.includes('4029')) type = 'unavailable-id'; // rate-limit ≈ занято
+        else if (msg.includes('4029')) type = 'rate-limit'; // пауза, не ошибка соединения
         this._emit('error', Object.assign(new Error(msg), { type }));
       },
       onPeer: (innerConn) => {
@@ -5164,14 +6555,29 @@ function createAuthPeer(peerId, _cfg) {
 const _presenceWsCallbacks = new Map(); // reqId → { resolve, timer }
 
 // PRESENCE-RESULT от TovSaSignaling приходит через CustomEvent
+// v2.1: сервер может прислать два ответа на один reqId:
+//   1. { partial: true,  online: [...локальные...] }  — быстрый локальный ответ
+//   2. { partial: false, online: [...локальные + федеративные...] } — финальный
+// При partial:true обновляем online-список но НЕ удаляем callback — ждём финальный.
+// При partial:false (или отсутствии поля — старый сервер) — завершаем как раньше.
 window.addEventListener('tovsa-presence-result', e => {
   const msg = e.detail;
   if (!msg || typeof msg.reqId !== 'string') return;
   const cb = _presenceWsCallbacks.get(msg.reqId);
   if (!cb) return;
+  const online = Array.isArray(msg.online) ? msg.online : [];
+  if (msg.partial === true) {
+    // Промежуточный ответ: обновляем буфер но не резолвим Promise
+    cb.partialOnline = online;
+    return;
+  }
+  // Финальный ответ (partial:false или поле отсутствует — старый сервер)
   clearTimeout(cb.timer);
   _presenceWsCallbacks.delete(msg.reqId);
-  cb.resolve(Array.isArray(msg.online) ? msg.online : []);
+  // Merge: объединяем с partial-буфером если финальный список пустой (защита от регресса)
+  const merged = online.length > 0 ? online
+    : (cb.partialOnline || []);
+  cb.resolve(merged);
 });
 
 /**
@@ -5241,11 +6647,22 @@ async function _federatedPresenceQuery(wsUrl, pids, timeoutMs = 6000) {
         // Сразу шлём PRESENCE и закрываем после ответа
         const reqId = 'fed-' + Math.random().toString(36).slice(2, 10);
         ws.send(JSON.stringify({ type: 'PRESENCE', reqId, ids: pids }));
+        let partialOnline = null;
         ws.onmessage = (e2) => {
           let r;
           try{ r = JSON.parse(e2.data); }catch(_){ return; }
           if(r.type === 'PRESENCE-RESULT' && r.reqId === reqId){
-            finish(new Set(Array.isArray(r.online) ? r.online : []));
+            // v2.1: partial:true — промежуточный, ждём финальный
+            // partial:false или поле отсутствует — финальный
+            if(r.partial === true){
+              partialOnline = new Set(Array.isArray(r.online) ? r.online : []);
+              return;
+            }
+            const online = Array.isArray(r.online) ? r.online : [];
+            // Merge с partial-буфером если финальный пустой
+            const result = online.length > 0 ? online
+              : (partialOnline ? [...partialOnline] : []);
+            finish(new Set(result));
           }
         };
         return;
@@ -5257,7 +6674,145 @@ async function _federatedPresenceQuery(wsUrl, pids, timeoutMs = 6000) {
   });
 }
 
-// ── Валидация федеративных URL ────────────────────────────────────────────────
+// ── Фетч манифеста федеративного сервера ─────────────────────────────────────
+// При добавлении контакта с чужого сервера запрашиваем его манифест,
+// чтобы получить актуальные capabilities, peers_max, min_proto/max_proto.
+// Кешируем в памяти на 5 минут — не нагружаем соседний сервер лишними запросами.
+//
+// Примечание для реконструкции:
+//   Данные из инвайта (signalingUrl, pushUrl) могут устареть если сервер
+//   переехал. Манифест всегда актуален — берём URL из него.
+const _fedManifestCache = new Map(); // baseUrl → { manifest, fetchedAt }
+const _FED_MANIFEST_TTL = 5 * 60_000;
+
+// ── Gossip: кеш известных серверов федерации ─────────────────────────────────
+// Персистентный (localStorage) — при недоступности домашнего сервера
+// клиент может попробовать подключиться к любому известному серверу.
+//
+// Структура: { [baseUrl]: { signaling, push, fetchedAt, peers, peers_max } }
+
+const _KNOWN_SERVERS_LS    = 'tovsa_known_servers';
+const _GOSSIP_MAX_SERVERS  = 30;  // максимум серверов в кеше
+const _GOSSIP_SERVER_TTL   = 7 * 24 * 3600 * 1000; // 7 дней — удаляем устаревшие
+
+// Загружаем из localStorage
+function _loadKnownServers() {
+  try {
+    const raw = localStorage.getItem(_KNOWN_SERVERS_LS);
+    return raw ? JSON.parse(raw) : {};
+  } catch(_) { return {}; }
+}
+
+function _saveKnownServers(servers) {
+  try { localStorage.setItem(_KNOWN_SERVERS_LS, JSON.stringify(servers)); } catch(_) {}
+}
+
+// Добавить или обновить сервер в кеше
+function _registerKnownServer(baseUrl, manifest) {
+  if (!baseUrl || !manifest) return;
+  const servers = _loadKnownServers();
+  const now     = Date.now();
+
+  // Не добавляем серверы с невалидными URL
+  if (!baseUrl.startsWith('https://')) return;
+
+  servers[baseUrl] = {
+    signaling:  manifest.signaling  || null,
+    push:       manifest.push       || null,
+    peers:      manifest.peers      ?? null,
+    peers_max:  manifest.peers_max  ?? null,
+    fetchedAt:  now,
+  };
+
+  // Удаляем устаревшие записи
+  const alive = Object.entries(servers)
+    .filter(([, v]) => now - v.fetchedAt < _GOSSIP_SERVER_TTL)
+    .sort(([, a], [, b]) => b.fetchedAt - a.fetchedAt)
+    .slice(0, _GOSSIP_MAX_SERVERS);
+
+  _saveKnownServers(Object.fromEntries(alive));
+}
+
+// Gossip: при загрузке манифеста сохраняем сервер + обходим его federation_peers
+async function _gossipFromManifest(baseUrl, manifest) {
+  if (!manifest) return;
+  _registerKnownServer(baseUrl, manifest);
+
+  const peers = manifest.federation_peers ?? [];
+  for (const peerUrl of peers) {
+    if (!peerUrl || typeof peerUrl !== 'string') continue;
+    if (!peerUrl.startsWith('https://')) continue;
+
+    const servers = _loadKnownServers();
+    const cached  = servers[peerUrl];
+    // Не перезагружаем свежие записи
+    if (cached && Date.now() - cached.fetchedAt < _FED_MANIFEST_TTL) continue;
+
+    // Загружаем манифест соседа в фоне (fire-and-forget)
+    _fetchFedManifest(peerUrl).then(m => {
+      if (m) _registerKnownServer(peerUrl, m);
+    }).catch(() => {});
+  }
+}
+
+// Получить список известных серверов для fallback подключения
+// Возвращает массив { baseUrl, signaling, push } отсортированный по свежести
+function _getKnownServersList() {
+  const servers = _loadKnownServers();
+  const now     = Date.now();
+  return Object.entries(servers)
+    .filter(([, v]) => now - v.fetchedAt < _GOSSIP_SERVER_TTL)
+    .sort(([, a], [, b]) => b.fetchedAt - a.fetchedAt)
+    .map(([url, v]) => ({ baseUrl: url, ...v }));
+}
+
+async function _fetchFedManifest(baseUrl) {
+  if (!baseUrl) return null;
+  const cached = _fedManifestCache.get(baseUrl);
+  if (cached && Date.now() - cached.fetchedAt < _FED_MANIFEST_TTL) return cached.manifest;
+  try {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(baseUrl + '/.well-known/tovsa', {
+      signal: controller.signal,
+      headers: { 'Accept': 'application/json' },
+    });
+    clearTimeout(t);
+    if (!res.ok) return null;
+    const m = await res.json();
+    if (typeof m.v !== 'number' || !m.federation) return null;
+    _fedManifestCache.set(baseUrl, { manifest: m, fetchedAt: Date.now() });
+    // Gossip: сохраняем сервер и обходим его federation_peers в фоне
+    _gossipFromManifest(baseUrl, m).catch(() => {});
+    return m;
+  } catch(_) { return null; }
+}
+
+// Обогащает объект контакта данными из манифеста соседнего сервера.
+// Возвращает { signalingUrl, pushUrl } — актуальные значения (или исходные если манифест недоступен).
+async function _enrichContactFromManifest(signalingUrl, pushUrl) {
+  // Вычисляем базовый URL сервера из signalingUrl (wss://host/signal → https://host)
+  let baseUrl = null;
+  if (_isValidSigUrl(signalingUrl)) {
+    try { baseUrl = 'https://' + new URL(signalingUrl).hostname; } catch(_) {}
+  }
+  if (!baseUrl) return { signalingUrl, pushUrl };
+
+  const m = await _fetchFedManifest(baseUrl);
+  if (!m) return { signalingUrl, pushUrl };
+
+  // Берём актуальные URL из манифеста если они валидны
+  const freshSig  = _isValidSigUrl(m.signaling)  ? m.signaling  : signalingUrl;
+  const freshPush = _isValidPushUrl(m.push)       ? m.push       : pushUrl;
+
+  // Логируем capabilities для отладки
+  if (m.capabilities) {
+    console.info('[federation] манифест', baseUrl, '→ capabilities:', m.capabilities,
+      '| peers:', m.peers + '/' + m.peers_max, '| proto:', m.min_proto + '-' + m.max_proto);
+  }
+
+  return { signalingUrl: freshSig, pushUrl: freshPush };
+}
 // Защита от поддельных инвайтов с произвольными URL.
 // signalingUrl должен быть wss:// и оканчиваться на /signal.
 // pushUrl должен быть https://.
@@ -7133,7 +8688,8 @@ setTimeout(()=>{ initLeaderElection(); _updateLeaderBtn(); }, 0);
   const proto = srv.secure ? 'https' : 'http';
   const isDefaultPort = (srv.secure && srv.port === 443) || (!srv.secure && srv.port === 80);
   const port = isDefaultPort ? '' : ':' + srv.port;
-  const url = proto + '://' + srv.host + port + '/';
+  // /health — явный healthcheck эндпоинт, быстрее чем /, пробуждает Render без лишней работы
+  const url = proto + '://' + srv.host + port + '/health';
   fetch(url, { method: 'GET', mode: 'cors', cache: 'no-store' })
     .then(() => _dbgPush('info', ['[warmup] signaling сервер проснулся']))
     .catch(() => {}); // тихо игнорируем — WS сам разберётся при реконнекте
@@ -10123,7 +11679,10 @@ function openInfoDrawer(){
   const name = document.getElementById('prof-name')?.textContent || '';
   const idrName = document.getElementById('idr-name');
   if(idrName) idrName.textContent = name;
-  // Статистика (уже в prof-msgs/prof-size в openProfileModal, тянем оттуда)
+  // FP-подсказка для устройства
+  const fpHint = document.getElementById('idr-fp-hint');
+  if(fpHint) fpHint.textContent = _infoFp.slice(0,16)+'...';
+  // Статистика
   const pm = document.getElementById('profile-modal');
   const msgs = pm?.dataset.msgs || '0';
   const size = pm?.dataset.size || '0 Б';
@@ -10131,6 +11690,21 @@ function openInfoDrawer(){
   const idrSize = document.getElementById('idr-size');
   if(idrMsgs) idrMsgs.textContent = msgs;
   if(idrSize) idrSize.textContent = size;
+  // Секция комнат и каналов — показываем если есть encPub
+  const section = document.getElementById('idr-rooms-section');
+  if(section){
+    getContacts().then(contacts => {
+      const c = contacts[_infoFp] || {};
+      const hasEncPub = !!(c.pubKeyHex && contactLoadEncPubKey(c.pubKeyHex));
+      section.style.display = hasEncPub ? '' : 'none';
+      // Показываем кнопку подписки если у контакта есть channelId
+      const subBtn = document.getElementById('idr-subscribe-btn');
+      if(subBtn) {
+        const hasChannel = !!(c.pubKeyHex && c.channelId);
+        subBtn.style.display = hasChannel ? '' : 'none';
+      }
+    }).catch(()=>{});
+  }
   document.getElementById('info-drawer-modal').classList.add('on');
 }
 function startEditIdrName(){
@@ -10378,6 +11952,101 @@ function fallbackCopy(text, onSuccess){
 // ── Reply ──
 let _replyText=null;
 let _offlineQueue = []; // очередь сообщений при потере соединения
+
+// ── Клиентский retry офферов ──────────────────────────────────────────────────
+// При RELAY-ACK { delivered: false, kind: 'offer' } сервер сообщает что получатель
+// офлайн. Вместо того чтобы просто сбросить попытку, мы:
+//   1. Отправляем push-wakeup контакту (если есть push-подписка)
+//   2. Подписываемся на presence-result — когда контакт появится онлайн
+//   3. Переотправляем сохранённый offer + накопленные ICE кандидаты
+//
+// Сервер больше не обязан буферизовать offer — вся логика живёт здесь.
+// TTL retry = 5 минут (совпадает с BUFFER_TTL_MS на сервере).
+//
+// _pendingRetries: pid → { timer, handler } — активные ожидания
+const _pendingRetries = new Map();
+
+function _scheduleOfferRetry(pid, pendingOffer, sig) {
+  // Не дублируем если уже ждём для этого pid
+  if (_pendingRetries.has(pid)) return;
+
+  _dbgPush('log', ['[retry] старт ожидания для', pid.slice(0,14),
+    '| ICE:', pendingOffer.iceCandidates.length, 'кандидатов']);
+
+  // 1. Push-wakeup — будим контакт если возможно
+  //    fp нам неизвестен напрямую из pid, ищем в contacts по совпадению pid
+  getContacts().then(contacts => {
+    const fp = Object.keys(contacts).find(f =>
+      contacts[f].pubKeyHex &&
+      contacts[f].pubKeyHex.length > 0 &&
+      _pidCache.has('pid:' + contacts[f].pubKeyHex) &&
+      _pidCache.get('pid:' + contacts[f].pubKeyHex) === pid
+    );
+    if (fp && typeof window._pushNotifyPeer === 'function') {
+      const myName = document.getElementById('my-name-input')?.value?.trim() || 'Tovsa';
+      window._pushNotifyPeer(fp, '📡 ' + myName, 'Хочет соединиться — зайдите в приложение',
+        contacts[fp]?.pubKeyHex);
+      _dbgPush('log', ['[retry] push-wakeup отправлен для fp', fp.slice(0,12)]);
+    }
+  }).catch(() => {});
+
+  // 2. Слушаем presence-result: когда pid появится онлайн — переотправляем
+  function onPresenceResult(e) {
+    const online = e.detail?.online;
+    if (!Array.isArray(online) || !online.includes(pid)) return;
+
+    // Проверяем что offer ещё актуален (не старше 5 мин)
+    if (Date.now() - pendingOffer.ts > 5 * 60_000) {
+      _dbgPush('log', ['[retry] offer устарел, отменяем retry для', pid.slice(0,14)]);
+      cleanup();
+      return;
+    }
+
+    _dbgPush('log', ['[retry] контакт онлайн — переотправляем offer для', pid.slice(0,14),
+      '| ICE:', pendingOffer.iceCandidates.length]);
+
+    cleanup(); // снимаем до отправки — чтобы не попасть в петлю при новом ACK
+
+    if (!sig || sig._destroyed || !sig._open) {
+      _dbgPush('warn', ['[retry] sig недоступен — retry отменён']);
+      return;
+    }
+
+    // Переотправляем offer
+    sig._sendRelay(pid, 'offer', pendingOffer.offer);
+    // Переотправляем все накопленные ICE кандидаты
+    for (const c of pendingOffer.iceCandidates) {
+      sig._sendRelay(pid, 'ice', c);
+    }
+    // Удаляем из pendingOffers — цикл завершён
+    sig._pendingOffers?.delete(pid);
+  }
+
+  // 3. TTL: через 5 минут отменяем если контакт так и не появился
+  const timer = setTimeout(() => {
+    _dbgPush('log', ['[retry] TTL истёк для', pid.slice(0,14)]);
+    cleanup();
+    sig._pendingOffers?.delete(pid);
+  }, 5 * 60_000);
+
+  function cleanup() {
+    clearTimeout(timer);
+    window.removeEventListener('tovsa-presence-result', onPresenceResult);
+    _pendingRetries.delete(pid);
+  }
+
+  window.addEventListener('tovsa-presence-result', onPresenceResult);
+  _pendingRetries.set(pid, { timer, cleanup });
+}
+
+// Отменить retry вручную (например при явном закрытии попытки соединения)
+function _cancelOfferRetry(pid) {
+  const entry = _pendingRetries.get(pid);
+  if (entry) {
+    _dbgPush('log', ['[retry] отмена retry для', pid.slice(0,14)]);
+    entry.cleanup();
+  }
+}
 
 // ── P2P авто-реконнект ────────────────────────────────────────────────────────
 let _p2pReconnectTimer    = null;  // таймер следующей попытки
@@ -12401,6 +14070,957 @@ function updateSigState(){
 }
 
 
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Tovsa Room Manager v1.0
+// Управление группами: создание, инвайты, сообщения, история, rekey.
+// ══════════════════════════════════════════════════════════════════════════════
+
+const ROOMS_IDB_KEY     = 'rooms_v1';       // IDB ключ для хранения комнат
+const ROOM_MSGS_IDB_PFX = 'room_msgs_';     // prefix: room_msgs_<roomId>
+const ROOM_MSG_LIMIT    = 500;              // макс сообщений в памяти на комнату
+
+// ── Хранение комнат ───────────────────────────────────────────────────────────
+
+async function roomsLoad() {
+  try {
+    const raw = await idbGet('meta', ROOMS_IDB_KEY);
+    if (!raw) return {};
+    return Object.fromEntries(
+      Object.entries(raw).map(([id, data]) => [id, roomDeserialize(data)])
+    );
+  } catch(_) { return {}; }
+}
+
+async function roomsSave(rooms) {
+  try {
+    const serialized = Object.fromEntries(
+      Object.entries(rooms).map(([id, room]) => [id, roomSerialize(room)])
+    );
+    await idbSet('meta', ROOMS_IDB_KEY, serialized);
+  } catch(e) { console.warn('[rooms] save error:', e); }
+}
+
+async function roomMsgsLoad(roomId) {
+  try {
+    return await idbGet('meta', ROOM_MSGS_IDB_PFX + roomId) || [];
+  } catch(_) { return []; }
+}
+
+async function roomMsgsSave(roomId, msgs) {
+  try {
+    const trimmed = msgs.slice(-ROOM_MSG_LIMIT);
+    await idbSet('meta', ROOM_MSGS_IDB_PFX + roomId, trimmed);
+  } catch(e) { console.warn('[rooms] msgs save error:', e); }
+}
+
+// ── Создание комнаты ──────────────────────────────────────────────────────────
+
+async function roomCreate({ name, historyPolicy = 'any_member' }) {
+  if (!myPrivKey || !myPubKeyHex || !_myEncKey) throw new Error('ключ не готов');
+
+  const roomKeyBytes = await roomGenerateKey();
+  const roomId       = await roomDeriveId(roomKeyBytes);
+
+  const config = await roomCreateConfig({
+    roomId,
+    name,
+    adminPubKeyHex: myPubKeyHex,
+    historyPolicy,
+    version: 1,
+    adminPrivKey: myPrivKey,
+  });
+
+  const myName = localStorage.getItem('_myName') || 'Tovsa User';
+  const room = {
+    roomId,
+    roomKeyBytes,
+    config,
+    roster: [{
+      pubKeyHex: myPubKeyHex,
+      encPub:    _myEncKey.publicKeyB64u,
+      name:      myName,
+      role:      'admin',
+      joinedAt:  Math.floor(Date.now() / 1000),
+    }],
+    myRole:   'admin',
+    createdAt: Date.now(),
+    lastSeenSeq: 0,
+  };
+
+  const rooms = await roomsLoad();
+  rooms[roomId] = room;
+  await roomsSave(rooms);
+
+  console.log('[rooms] создана комната', roomId.slice(0,8)+'...');
+  return room;
+}
+
+// ── Инвайт участника ──────────────────────────────────────────────────────────
+
+async function roomInviteMember(roomId, { pubKeyHex, encPub, name }) {
+  const rooms = await roomsLoad();
+  const room  = rooms[roomId];
+  if (!room) throw new Error('комната не найдена');
+  if (room.myRole !== 'admin') throw new Error('только администратор может приглашать');
+
+  // Проверяем что не дублируем
+  if (room.roster.some(r => r.pubKeyHex === pubKeyHex)) {
+    throw new Error('участник уже в комнате');
+  }
+
+  // Добавляем в roster
+  const newMember = {
+    pubKeyHex,
+    encPub,
+    name: name || pubKeyHex.slice(0, 8) + '...',
+    role: 'member',
+    joinedAt: Math.floor(Date.now() / 1000),
+  };
+  room.roster.push(newMember);
+
+  // Обновляем config (version++)
+  room.config = await roomCreateConfig({
+    ...room.config,
+    version:     room.config.version + 1,
+    adminPrivKey: myPrivKey,
+  });
+
+  await roomsSave(rooms);
+
+  // Создаём и отправляем invite через sealed relay
+  const inviteBlob = await roomCreateInvite(
+    { roomKeyBytes: room.roomKeyBytes, config: room.config, roster: room.roster },
+    encPub,
+  );
+
+  // mailboxId для invitee
+  const mailboxId = await getContactMailboxId(pubKeyHex, 0) ?? pubKeyHex;
+
+  // Шифруем и шлём как sealed relay
+  const sealed = await sealEnvelope(
+    { from: myPubKeyHex, kind: 'room_invite', data: inviteBlob },
+    encPub,
+  );
+  const sig = _getPeerSig();
+  if (sig?._open) {
+    sig._wsSend({ type: 'SEALED_RELAY', to: mailboxId, sealed });
+    console.log('[rooms] инвайт отправлен для', pubKeyHex.slice(0,8)+'...');
+  }
+
+  return room;
+}
+
+// Найти активный signaling инстанс
+function _getPeerSig() {
+  try {
+    return window._peer?._sig || window._peer?._peers?.[0]?._sig || null;
+  } catch(_) { return null; }
+}
+
+// ── Отправка сообщения ────────────────────────────────────────────────────────
+
+async function roomSendMessage(roomId, text) {
+  const rooms = await roomsLoad();
+  const room  = rooms[roomId];
+  if (!room) throw new Error('комната не найдена');
+
+  const id  = _randomHex ? _randomHex(16) : crypto.randomUUID().replace(/-/g,'');
+  const ts  = Math.floor(Date.now() / 1000);
+  const sig = await roomSignMessage(myPrivKey, { id, roomId, from: myPubKeyHex, text, ts });
+
+  const plainMsg = { id, roomId, from: myPubKeyHex, text, ts, sig };
+  const blob     = await roomEncryptMessage(room.roomKeyBytes, plainMsg);
+
+  // fan-out: рассылаем каждому участнику
+  const wsRef = _getPeerSig();
+  if (!wsRef?._open) throw new Error('нет соединения');
+
+  let sent = 0;
+  for (const member of room.roster) {
+    if (member.pubKeyHex === myPubKeyHex) continue; // себе не шлём
+    if (!member.encPub) continue;
+
+    const mailboxId = await getContactMailboxId(member.pubKeyHex, 0) ?? member.pubKeyHex;
+    const sealed    = await sealEnvelope(
+      { from: myPubKeyHex, kind: 'room_msg', data: { roomId, blob } },
+      member.encPub,
+    );
+    wsRef._wsSend({ type: 'SEALED_RELAY', to: mailboxId, sealed });
+    sent++;
+  }
+
+  // Сохраняем своё сообщение локально
+  const msgs = await roomMsgsLoad(roomId);
+  msgs.push({ ...plainMsg, _own: true });
+  await roomMsgsSave(roomId, msgs);
+
+  console.log('[rooms] сообщение отправлено', sent, 'участникам');
+  return plainMsg;
+}
+
+// ── Получение сообщения ───────────────────────────────────────────────────────
+
+async function roomHandleIncoming(from, kind, data) {
+  switch (kind) {
+
+    case 'room_invite': {
+      if (!_myEncKey) return;
+      let invite;
+      try {
+        invite = await roomDecryptInvite(data, _myEncKey.privateJwk);
+      } catch(e) {
+        console.warn('[rooms] не удалось расшифровать инвайт:', e?.message);
+        return;
+      }
+      // Верифицируем config
+      const configOk = await roomVerifyConfig(invite.config);
+      if (!configOk) {
+        console.warn('[rooms] инвайт отклонён: неверная подпись config');
+        return;
+      }
+      // Сохраняем комнату
+      const rooms = await roomsLoad();
+      if (rooms[invite.config.roomId]) {
+        console.log('[rooms] инвайт для уже известной комнаты — обновляем config');
+      }
+      rooms[invite.config.roomId] = {
+        roomId:       invite.config.roomId,
+        roomKeyBytes: invite.roomKeyBytes,
+        config:       invite.config,
+        roster:       invite.roster,
+        myRole:       'member',
+        createdAt:    Date.now(),
+        lastSeenSeq:  0,
+      };
+      await roomsSave(rooms);
+      window.dispatchEvent(new CustomEvent('tovsa-room-invite', { detail: invite }));
+      break;
+    }
+
+    case 'room_msg': {
+      const { roomId, blob } = data || {};
+      if (!roomId || !blob) return;
+
+      const rooms = await roomsLoad();
+      const room  = rooms[roomId];
+      if (!room) return; // неизвестная комната — игнорируем
+
+      let msg;
+      try {
+        msg = await roomDecryptMessage(room.roomKeyBytes, blob);
+      } catch(e) {
+        console.warn('[rooms] не удалось расшифровать сообщение:', e?.message);
+        return;
+      }
+
+      // Anti-replay: проверяем timestamp
+      const now = Math.floor(Date.now() / 1000);
+      if (Math.abs(now - msg.ts) > ROOM_TS_WINDOW) return;
+
+      // Верифицируем подпись отправителя
+      const member  = room.roster.find(r => r.pubKeyHex === msg.from);
+      if (!member) return; // не участник — игнорируем
+
+      const sigOk = await roomVerifyMessage(msg.from, msg);
+      if (!sigOk) {
+        console.warn('[rooms] сообщение отклонено: неверная подпись');
+        return;
+      }
+
+      // Сохраняем
+      const msgs = await roomMsgsLoad(roomId);
+      // Дедупликация по id
+      if (!msgs.some(m => m.id === msg.id)) {
+        msgs.push(msg);
+        await roomMsgsSave(roomId, msgs);
+      }
+
+      window.dispatchEvent(new CustomEvent('tovsa-room-msg', { detail: { roomId, msg } }));
+      break;
+    }
+
+    case 'room_config': {
+      // Обновление конфига от admin
+      const config = data;
+      if (!config?.roomId) return;
+      const configOk = await roomVerifyConfig(config);
+      if (!configOk) return;
+
+      const rooms = await roomsLoad();
+      const room  = rooms[config.roomId];
+      if (!room) return;
+      if (config.version <= room.config.version) return; // старый конфиг
+
+      room.config = config;
+      await roomsSave(rooms);
+      window.dispatchEvent(new CustomEvent('tovsa-room-config', { detail: config }));
+      break;
+    }
+
+    case 'room_rekey': {
+      if (!_myEncKey) return;
+      let rekey;
+      try {
+        rekey = await roomDecryptRekeyPacket(data, _myEncKey.privateJwk);
+      } catch(e) {
+        console.warn('[rooms] rekey расшифровка ошибка:', e?.message);
+        return;
+      }
+      const configOk = await roomVerifyConfig(rekey.config);
+      if (!configOk) return;
+
+      const rooms = await roomsLoad();
+      const room  = rooms[rekey.config.roomId];
+      if (!room) return;
+
+      room.roomKeyBytes = rekey.newRoomKeyBytes;
+      room.config       = rekey.config;
+      await roomsSave(rooms);
+      window.dispatchEvent(new CustomEvent('tovsa-room-rekey', { detail: rekey }));
+      break;
+    }
+
+    case 'history_req': {
+      const { roomId, since, limit, reqId } = data || {};
+      if (!roomId || !reqId) return;
+
+      const rooms = await roomsLoad();
+      const room  = rooms[roomId];
+      if (!room) return;
+
+      // Проверяем политику
+      const policy = room.config?.historyPolicy || 'any_member';
+      if (policy === 'admin_only' && room.myRole !== 'admin') return;
+
+      // Загружаем и фильтруем сообщения
+      const msgs = await roomMsgsLoad(roomId);
+      const filtered = msgs
+        .filter(m => !since || m.ts > since)
+        .slice(-Math.min(limit || 100, 500));
+
+      // Шифруем каждое сообщение заново (уже хранятся расшифрованными)
+      const blobs = await Promise.all(
+        filtered.map(m => roomEncryptMessage(room.roomKeyBytes, m))
+      );
+
+      // Отвечаем
+      const resp = roomCreateHistoryResp({ reqId, roomId, messages: blobs });
+      const requesterMember = room.roster.find(r => r.pubKeyHex === from);
+      if (!requesterMember?.encPub) return;
+
+      const mailboxId = await getContactMailboxId(from, 0) ?? from;
+      const sealed = await sealEnvelope(
+        { from: myPubKeyHex, kind: 'history_resp', data: resp },
+        requesterMember.encPub,
+      );
+      const wsRef = _getPeerSig();
+      if (wsRef?._open) wsRef._wsSend({ type: 'SEALED_RELAY', to: mailboxId, sealed });
+      break;
+    }
+
+    case 'history_resp': {
+      const { reqId, roomId, messages } = data || {};
+      if (!roomId || !messages?.length) return;
+
+      const rooms = await roomsLoad();
+      const room  = rooms[roomId];
+      if (!room) return;
+
+      const decoded = [];
+      for (const blob of messages) {
+        try {
+          const msg = await roomDecryptMessage(room.roomKeyBytes, blob);
+          decoded.push(msg);
+        } catch(_) {} // пропускаем повреждённые
+      }
+
+      // Мёржим с локальными сообщениями
+      const existing = await roomMsgsLoad(roomId);
+      const existIds = new Set(existing.map(m => m.id));
+      const newMsgs  = decoded.filter(m => !existIds.has(m.id));
+      if (newMsgs.length) {
+        const merged = [...existing, ...newMsgs].sort((a, b) => a.ts - b.ts);
+        await roomMsgsSave(roomId, merged);
+        window.dispatchEvent(new CustomEvent('tovsa-history-resp', {
+          detail: { roomId, reqId, count: newMsgs.length }
+        }));
+      }
+      break;
+    }
+  }
+}
+
+// ── Исключение участника ──────────────────────────────────────────────────────
+
+async function roomKickMember(roomId, pubKeyHex) {
+  const rooms = await roomsLoad();
+  const room  = rooms[roomId];
+  if (!room) throw new Error('комната не найдена');
+  if (room.myRole !== 'admin') throw new Error('только администратор может исключать');
+
+  const memberIdx = room.roster.findIndex(r => r.pubKeyHex === pubKeyHex);
+  if (memberIdx < 0) throw new Error('участник не найден');
+
+  // Удаляем из roster
+  room.roster.splice(memberIdx, 1);
+
+  // Генерируем новый roomKey (forward secrecy)
+  const newRoomKeyBytes = await roomGenerateKey();
+  const newRoomId       = await roomDeriveId(newRoomKeyBytes);
+
+  // Обновляем config
+  room.config = await roomCreateConfig({
+    ...room.config,
+    roomId:      room.roomId, // roomId не меняется
+    version:     room.config.version + 1,
+    adminPrivKey: myPrivKey,
+  });
+
+  room.roomKeyBytes = newRoomKeyBytes;
+  await roomsSave(rooms);
+
+  // Рассылаем новый ключ оставшимся участникам
+  const wsRef = _getPeerSig();
+  for (const member of room.roster) {
+    if (member.pubKeyHex === myPubKeyHex) continue;
+    if (!member.encPub) continue;
+
+    const rekeyBlob = await roomCreateRekeyPacket(
+      { newRoomKeyBytes, config: room.config },
+      member.encPub,
+    );
+    const mailboxId = await getContactMailboxId(member.pubKeyHex, 0) ?? member.pubKeyHex;
+    const sealed = await sealEnvelope(
+      { from: myPubKeyHex, kind: 'room_rekey', data: rekeyBlob },
+      member.encPub,
+    );
+    if (wsRef?._open) wsRef._wsSend({ type: 'SEALED_RELAY', to: mailboxId, sealed });
+  }
+
+  console.log('[rooms] участник исключён, новый ключ разослан');
+  return room;
+}
+
+// ── Запрос истории ────────────────────────────────────────────────────────────
+
+async function roomRequestHistory(roomId, { since = 0, targetPubKeyHex } = {}) {
+  const rooms = await roomsLoad();
+  const room  = rooms[roomId];
+  if (!room) throw new Error('комната не найдена');
+
+  // Если целевой участник не указан — берём любого онлайн-участника
+  let target;
+  if (targetPubKeyHex) {
+    target = room.roster.find(r => r.pubKeyHex === targetPubKeyHex);
+  } else {
+    // Ищем онлайн-участника через _presenceCache
+    for (const member of room.roster) {
+      if (member.pubKeyHex === myPubKeyHex) continue;
+      const fp = await _pubHexToFp(member.pubKeyHex).catch(() => null);
+      if (fp && _presenceCache[fp] === 'online') {
+        target = member;
+        break;
+      }
+    }
+  }
+
+  if (!target?.encPub) throw new Error('нет доступных онлайн-участников для запроса истории');
+
+  const req     = roomCreateHistoryReq({ roomId, since });
+  const mailboxId = await getContactMailboxId(target.pubKeyHex, 0) ?? target.pubKeyHex;
+  const sealed  = await sealEnvelope(
+    { from: myPubKeyHex, kind: 'history_req', data: req },
+    target.encPub,
+  );
+
+  const wsRef = _getPeerSig();
+  if (!wsRef?._open) throw new Error('нет соединения');
+  wsRef._wsSend({ type: 'SEALED_RELAY', to: mailboxId, sealed });
+
+  console.log('[rooms] запрос истории отправлен для', roomId.slice(0,8)+'...');
+  return req.reqId;
+}
+
+// Экспортируем в window для доступа из UI
+Object.assign(window, {
+  roomCreate,
+  roomInviteMember,
+  roomSendMessage,
+  roomKickMember,
+  roomRequestHistory,
+  roomsLoad,
+  roomMsgsLoad,
+  roomHandleIncoming,
+});
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Tovsa Channel Manager v1.0
+// Управление каналами: создание, подписка, посты, комментарии, бан.
+//
+// Роли:
+//   admin      — создаёт канал, пишет посты, управляет подписчиками
+//   subscriber — читает посты, может оставлять комментарии
+//
+// Приватность:
+//   Сервер видит: sealed relay к mailboxId канала (подписка)
+//                 sealed relay к N mailboxId подписчиков (пост)
+//   Сервер не знает: кто подписчики, содержимое постов
+//   Admin знает: pubKeyHex и encPub каждого подписчика (намеренно)
+// ══════════════════════════════════════════════════════════════════════════════
+
+const CHANNELS_IDB_KEY     = 'channels_v1';
+const CHANNEL_MSGS_IDB_PFX = 'ch_msgs_';
+const CHANNEL_MSG_LIMIT    = 1000; // больше чем в группах — каналы публичнее
+
+// ── Хранение каналов ──────────────────────────────────────────────────────────
+
+async function channelsLoad() {
+  try {
+    const raw = await idbGet('meta', CHANNELS_IDB_KEY);
+    if (!raw) return {};
+    // Десериализуем channelKeyBytes из base64url
+    return Object.fromEntries(
+      Object.entries(raw).map(([id, ch]) => [id, {
+        ...ch,
+        channelKeyBytes: ch.channelKey ? _b64uDecode(ch.channelKey) : null,
+      }])
+    );
+  } catch(_) { return {}; }
+}
+
+async function channelsSave(channels) {
+  try {
+    const serialized = Object.fromEntries(
+      Object.entries(channels).map(([id, ch]) => [id, {
+        ...ch,
+        channelKey:     ch.channelKeyBytes ? _b64uEncode(ch.channelKeyBytes) : null,
+        channelKeyBytes: undefined, // не сериализуем CryptoKey
+      }])
+    );
+    await idbSet('meta', CHANNELS_IDB_KEY, serialized);
+  } catch(e) { console.warn('[channels] save error:', e); }
+}
+
+async function channelMsgsLoad(channelId) {
+  try {
+    return await idbGet('meta', CHANNEL_MSGS_IDB_PFX + channelId) || [];
+  } catch(_) { return []; }
+}
+
+async function channelMsgsSave(channelId, msgs) {
+  try {
+    await idbSet('meta', CHANNEL_MSGS_IDB_PFX + channelId, msgs.slice(-CHANNEL_MSG_LIMIT));
+  } catch(e) { console.warn('[channels] msgs save error:', e); }
+}
+
+// ── Создание канала (admin) ───────────────────────────────────────────────────
+
+async function channelCreate({ name, description = '' }) {
+  if (!myPrivKey || !myPubKeyHex || !_myEncKey) throw new Error('ключ не готов');
+
+  const channelKeyBytes = await roomGenerateKey(); // AES-256-GCM, та же функция
+  const channelId       = await channelDeriveId(myPubKeyHex);
+
+  // mailboxId канала — ephemeral, меняется еженедельно как обычный контакт
+  // Подписчики шлют subscribe-запросы на наш текущий mailboxId
+  const channel = {
+    channelId,
+    channelKeyBytes,
+    adminPubKeyHex:   myPubKeyHex,
+    adminEncPub:      _myEncKey.publicKeyB64u,
+    name:             name.slice(0, 64),
+    description:      description.slice(0, 256),
+    myRole:           'admin',
+    subscribers:      [], // [{ pubKeyHex, encPub, pushToken, commentMailboxId, bannedAt? }]
+    createdAt:        Date.now(),
+    postCount:        0,
+  };
+
+  const channels = await channelsLoad();
+  channels[channelId] = channel;
+  await channelsSave(channels);
+
+  console.log('[channels] создан канал', channelId.slice(0,8)+'...');
+  return channel;
+}
+
+// ── Подписка на канал (subscriber) ───────────────────────────────────────────
+
+async function channelSubscribe(channelId, { adminPubKeyHex, adminEncPub, adminMailboxId }) {
+  if (!myPubKeyHex || !_myEncKey) throw new Error('ключ не готов');
+
+  // commentMailboxId — куда слать комментарии (наш текущий mailboxId для admin)
+  const commentMailboxId = await getMyMailboxId(adminEncPub, 0);
+  if (!commentMailboxId) throw new Error('не удалось вычислить commentMailboxId');
+
+  const pushToken = localStorage.getItem('_myPushToken') || null;
+
+  const subReq = await channelCreateSubscribeReq({
+    subscriberPubKeyHex: myPubKeyHex,
+    encPub:              _myEncKey.publicKeyB64u,
+    pushToken,
+    commentMailboxId,
+    channelId,
+  });
+
+  // Шифруем запрос через sealed relay к admin
+  const wsRef  = _getPeerSig();
+  if (!wsRef?._open) throw new Error('нет соединения');
+
+  const sealed = await sealEnvelope(
+    { from: myPubKeyHex, kind: 'ch_sub', data: subReq },
+    adminEncPub,
+  );
+  wsRef._wsSend({ type: 'SEALED_RELAY', to: adminMailboxId, sealed });
+
+  // Сохраняем pending подписку — подтверждение придёт через ch_sub_ack
+  const channels = await channelsLoad();
+  channels[channelId] = {
+    channelId,
+    channelKeyBytes:  null, // придёт в ch_sub_ack
+    adminPubKeyHex,
+    adminEncPub,
+    name:             '', // обновится при получении первого поста
+    myRole:           'pending',
+    createdAt:        Date.now(),
+    postCount:        0,
+  };
+  await channelsSave(channels);
+
+  console.log('[channels] запрос подписки отправлен на', channelId.slice(0,8)+'...');
+}
+
+// ── Принять/отклонить подписку (admin) ───────────────────────────────────────
+
+async function channelAcceptSubscriber(channelId, subscriberInfo) {
+  const channels = await channelsLoad();
+  const channel  = channels[channelId];
+  if (!channel) throw new Error('канал не найден');
+  if (channel.myRole !== 'admin') throw new Error('только admin');
+
+  const { pubKeyHex, encPub, pushToken, commentMailboxId } = subscriberInfo;
+
+  // Проверяем нет ли уже такого подписчика
+  if (channel.subscribers.some(s => s.pubKeyHex === pubKeyHex && !s.bannedAt)) {
+    console.log('[channels] подписчик уже есть');
+    return;
+  }
+
+  // Добавляем
+  channel.subscribers.push({ pubKeyHex, encPub, pushToken, commentMailboxId, joinedAt: Date.now() });
+  await channelsSave(channels);
+
+  // Отправляем ack с channelKey
+  const ackBlob = await channelCreateSubscribeAck(
+    { channelKeyBytes: channel.channelKeyBytes, channelId },
+    encPub,
+  );
+  const wsRef = _getPeerSig();
+  if (!wsRef?._open) return;
+
+  const mailboxId = await getContactMailboxId(pubKeyHex, 0) ?? pubKeyHex;
+  const sealed    = await sealEnvelope(
+    { from: myPubKeyHex, kind: 'ch_sub_ack', data: ackBlob },
+    encPub,
+  );
+  wsRef._wsSend({ type: 'SEALED_RELAY', to: mailboxId, sealed });
+
+  console.log('[channels] подписчик принят', pubKeyHex.slice(0,8)+'...');
+  window.dispatchEvent(new CustomEvent('tovsa-channel-subscriber', {
+    detail: { channelId, subscriber: { pubKeyHex, encPub } }
+  }));
+}
+
+// ── Публикация поста (admin) ──────────────────────────────────────────────────
+
+async function channelPublishPost(channelId, { text, mediaBlob = null }) {
+  const channels = await channelsLoad();
+  const channel  = channels[channelId];
+  if (!channel) throw new Error('канал не найден');
+  if (channel.myRole !== 'admin') throw new Error('только admin может публиковать');
+
+  const id  = _randomHex(16);
+  const ts  = Math.floor(Date.now() / 1000);
+  const sig = await roomSignMessage(myPrivKey, {
+    id, roomId: channelId, from: myPubKeyHex, text, ts
+  });
+
+  const post = { id, channelId, from: myPubKeyHex, text, ts, sig, mediaBlob };
+
+  // Шифруем пост channelKey
+  const blob = await channelEncryptPost(channel.channelKeyBytes, post);
+
+  // Fan-out ко всем активным подписчикам
+  const wsRef   = _getPeerSig();
+  const active  = channel.subscribers.filter(s => !s.bannedAt && s.encPub);
+  let sent = 0;
+
+  for (const sub of active) {
+    const mailboxId = await getContactMailboxId(sub.pubKeyHex, 0) ?? sub.pubKeyHex;
+    const sealed    = await sealEnvelope(
+      { from: myPubKeyHex, kind: 'ch_msg', data: { channelId, blob } },
+      sub.encPub,
+    );
+    if (wsRef?._open) wsRef._wsSend({ type: 'SEALED_RELAY', to: mailboxId, sealed });
+
+    // Push wakeup если есть pushToken
+    if (sub.pushToken) {
+      const pushUrl = channel.pushUrl || PUSH_SERVER;
+      if (pushUrl && !pushUrl.includes('ВАШ')) {
+        fetch(pushUrl + '/push/notify2', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pushToken: sub.pushToken }),
+        }).catch(() => {});
+      }
+    }
+    sent++;
+  }
+
+  // Сохраняем пост локально
+  const msgs = await channelMsgsLoad(channelId);
+  msgs.push({ ...post, _own: true });
+  await channelMsgsSave(channelId, msgs);
+
+  channel.postCount = (channel.postCount || 0) + 1;
+  await channelsSave(channels);
+
+  console.log('[channels] пост опубликован для', sent, 'подписчиков');
+  return post;
+}
+
+// ── Бан подписчика + ротация ключа (admin) ────────────────────────────────────
+
+async function channelBanSubscriber(channelId, pubKeyHex) {
+  const channels = await channelsLoad();
+  const channel  = channels[channelId];
+  if (!channel) throw new Error('канал не найден');
+  if (channel.myRole !== 'admin') throw new Error('только admin');
+
+  const subIdx = channel.subscribers.findIndex(s => s.pubKeyHex === pubKeyHex);
+  if (subIdx < 0) throw new Error('подписчик не найден');
+
+  // Помечаем забаненным (не удаляем — нужен для истории)
+  channel.subscribers[subIdx].bannedAt = Date.now();
+
+  // Генерируем новый channelKey — забаненный не сможет читать будущие посты
+  const newChannelKeyBytes = await roomGenerateKey();
+  channel.channelKeyBytes  = newChannelKeyBytes;
+
+  await channelsSave(channels);
+
+  // Рассылаем новый ключ активным подписчикам
+  const wsRef  = _getPeerSig();
+  const active = channel.subscribers.filter(s => !s.bannedAt && s.encPub);
+
+  for (const sub of active) {
+    const ackBlob = await channelCreateSubscribeAck(
+      { channelKeyBytes: newChannelKeyBytes, channelId },
+      sub.encPub,
+    );
+    const mailboxId = await getContactMailboxId(sub.pubKeyHex, 0) ?? sub.pubKeyHex;
+    const sealed    = await sealEnvelope(
+      { from: myPubKeyHex, kind: 'ch_sub_ack', data: ackBlob },
+      sub.encPub,
+    );
+    if (wsRef?._open) wsRef._wsSend({ type: 'SEALED_RELAY', to: mailboxId, sealed });
+  }
+
+  console.log('[channels] подписчик забанен, ключ обновлён');
+}
+
+// ── Комментарий (subscriber → admin) ─────────────────────────────────────────
+
+async function channelSendComment(channelId, { text, replyToId = null }) {
+  const channels = await channelsLoad();
+  const channel  = channels[channelId];
+  if (!channel) throw new Error('канал не найден');
+  if (!channel.channelKeyBytes) throw new Error('нет ключа канала — подписка не подтверждена');
+
+  const id  = _randomHex(16);
+  const ts  = Math.floor(Date.now() / 1000);
+  const sig = await roomSignMessage(myPrivKey, {
+    id, roomId: channelId, from: myPubKeyHex, text, ts
+  });
+
+  const comment = { id, channelId, from: myPubKeyHex, text, ts, sig, replyToId };
+
+  // Шифруем channelKey (admin тоже знает его — он его создал)
+  const blob    = await channelEncryptPost(channel.channelKeyBytes, comment);
+  const wsRef   = _getPeerSig();
+
+  // commentMailboxId — куда слать (сохранили при подписке)
+  // Используем mailboxId admin'а
+  if (!channel.adminEncPub) throw new Error('нет encPub администратора');
+  const adminMailboxId = await getContactMailboxId(channel.adminPubKeyHex, 0)
+    ?? channel.adminPubKeyHex;
+
+  const sealed = await sealEnvelope(
+    { from: myPubKeyHex, kind: 'ch_comment', data: { channelId, blob } },
+    channel.adminEncPub,
+  );
+  if (!wsRef?._open) throw new Error('нет соединения');
+  wsRef._wsSend({ type: 'SEALED_RELAY', to: adminMailboxId, sealed });
+
+  console.log('[channels] комментарий отправлен');
+  return comment;
+}
+
+// ── Обработчик входящих channel-сообщений ────────────────────────────────────
+
+async function channelHandleIncoming(from, kind, data) {
+  switch (kind) {
+
+    case 'ch_sub': {
+      // Запрос подписки от нового подписчика
+      const { channelId, subscriberPubKeyHex, encPub,
+              pushToken, commentMailboxId } = data || {};
+      if (!channelId || !subscriberPubKeyHex || !encPub) return;
+
+      const channels = await channelsLoad();
+      const channel  = channels[channelId];
+      if (!channel || channel.myRole !== 'admin') return;
+
+      // Верифицируем что from совпадает с subscriberPubKeyHex
+      if (from !== subscriberPubKeyHex) return;
+
+      // Диспатчим событие — UI может показать запрос
+      // или принять автоматически (зависит от настроек канала)
+      window.dispatchEvent(new CustomEvent('tovsa-channel-sub-req', {
+        detail: { channelId, pubKeyHex: subscriberPubKeyHex, encPub, pushToken, commentMailboxId }
+      }));
+
+      // Если канал открытый — принимаем автоматически
+      if (channel.openSubscription) {
+        await channelAcceptSubscriber(channelId,
+          { pubKeyHex: subscriberPubKeyHex, encPub, pushToken, commentMailboxId });
+      }
+      break;
+    }
+
+    case 'ch_sub_ack': {
+      // Подтверждение подписки с channelKey
+      if (!_myEncKey) return;
+      let ack;
+      try {
+        ack = await channelDecryptSubscribeAck(data, _myEncKey.privateJwk);
+      } catch(e) {
+        console.warn('[channels] ch_sub_ack расшифровка ошибка:', e?.message);
+        return;
+      }
+
+      const channels = await channelsLoad();
+      const channel  = channels[ack.channelId];
+      if (!channel) return;
+
+      channel.channelKeyBytes = ack.channelKeyBytes;
+      channel.myRole          = 'subscriber';
+      await channelsSave(channels);
+
+      window.dispatchEvent(new CustomEvent('tovsa-channel-subscribed', {
+        detail: { channelId: ack.channelId }
+      }));
+      console.log('[channels] подписка подтверждена для', ack.channelId.slice(0,8)+'...');
+      break;
+    }
+
+    case 'ch_msg': {
+      // Новый пост канала
+      const { channelId, blob } = data || {};
+      if (!channelId || !blob) return;
+
+      const channels = await channelsLoad();
+      const channel  = channels[channelId];
+      if (!channel?.channelKeyBytes) return;
+
+      let post;
+      try {
+        post = await channelDecryptPost(channel.channelKeyBytes, blob);
+      } catch(e) {
+        console.warn('[channels] ch_msg расшифровка ошибка:', e?.message);
+        return;
+      }
+
+      // Верифицируем подпись admin'а
+      if (post.from !== channel.adminPubKeyHex) return; // не от admin — игнорируем
+      const sigOk = await roomVerifyMessage(post.from, { ...post, roomId: channelId });
+      if (!sigOk) return;
+
+      const msgs = await channelMsgsLoad(channelId);
+      if (!msgs.some(m => m.id === post.id)) {
+        msgs.push(post);
+        await channelMsgsSave(channelId, msgs);
+      }
+
+      window.dispatchEvent(new CustomEvent('tovsa-channel-msg', { detail: { channelId, post } }));
+      break;
+    }
+
+    case 'ch_comment': {
+      // Комментарий к посту (приходит admin'у)
+      const { channelId, blob } = data || {};
+      if (!channelId || !blob) return;
+
+      const channels = await channelsLoad();
+      const channel  = channels[channelId];
+      if (!channel || channel.myRole !== 'admin') return;
+      if (!channel.channelKeyBytes) return;
+
+      let comment;
+      try {
+        comment = await channelDecryptPost(channel.channelKeyBytes, blob);
+      } catch(e) {
+        console.warn('[channels] ch_comment расшифровка ошибка:', e?.message);
+        return;
+      }
+
+      // Верифицируем подпись
+      const sub = channel.subscribers.find(s => s.pubKeyHex === comment.from);
+      if (!sub || sub.bannedAt) return; // не подписчик или забанен
+
+      const sigOk = await roomVerifyMessage(comment.from, { ...comment, roomId: channelId });
+      if (!sigOk) return;
+
+      window.dispatchEvent(new CustomEvent('tovsa-channel-comment', {
+        detail: { channelId, comment }
+      }));
+      break;
+    }
+  }
+}
+
+// Регистрируем channel kinds в Room Manager
+const _origRoomHandleIncoming = typeof roomHandleIncoming === 'function'
+  ? roomHandleIncoming : null;
+
+async function _handleAllIncoming(from, kind, data) {
+  const CHANNEL_KINDS = new Set(['ch_sub','ch_sub_ack','ch_msg','ch_comment']);
+  if (CHANNEL_KINDS.has(kind)) {
+    return channelHandleIncoming(from, kind, data);
+  }
+  if (_origRoomHandleIncoming) {
+    return _origRoomHandleIncoming(from, kind, data);
+  }
+}
+
+// Переопределяем roomHandleIncoming чтобы обрабатывал и channel kinds
+window.roomHandleIncoming = _handleAllIncoming;
+
+// Экспортируем API каналов
+Object.assign(window, {
+  channelCreate,
+  channelSubscribe,
+  channelAcceptSubscriber,
+  channelPublishPost,
+  channelBanSubscriber,
+  channelSendComment,
+  channelsLoad,
+  channelMsgsLoad,
+  channelHandleIncoming,
+});
+
 // ── Master peer (маяк = проверка доступности + presence beacon) ──
 // Один долгоживущий пир на всё время работы приложения.
 // Создаётся при старте, при ошибке — только ручной перезапуск через кнопку ↺
@@ -13480,15 +16100,30 @@ async function _presenceHeartbeatTick(force=false){
     const fpsWithPid = fps.filter(fp => fpToPid[fp]);
     if(!fpsWithPid.length) return;
 
-    // Пропускаем контактов у которых статус свежее PRESENCE_TTL —
-    // их статус актуален и перепроверять нет смысла.
-    // Исключение: статус 'checking' (предыдущий тик завис) — проверяем всегда.
+    // Пропускаем контактов у которых статус свежее PRESENCE_TTL.
+    // Дополнительно: контакты с encPubKey получают beacons —
+    // PRESENCE-запрос для них избыточен и раскрывает список контактов серверу.
     const now = Date.now();
-    const stale = fpsWithPid.filter(fp =>
-      _presenceCache[fp] === 'checking' ||
-      !_presenceCacheTime[fp] ||
-      now - _presenceCacheTime[fp] >= PRESENCE_TTL
-    );
+    const stale = fpsWithPid.filter(fp => {
+      // Есть encPubKey → статус поддерживается через sealed beacon, не PRESENCE
+      const pubHex = contacts[fp]?.pubKeyHex;
+      if (pubHex && contactLoadEncPubKey(pubHex)) {
+        // Ставим offline только если beacon не приходил давно (BEACON_ONLINE_TTL)
+        if (
+          _presenceCache[fp] === 'online' &&
+          _presenceCacheTime[fp] &&
+          now - _presenceCacheTime[fp] > (typeof BEACON_ONLINE_TTL !== 'undefined' ? BEACON_ONLINE_TTL : 70_000)
+        ) {
+          _applyPresenceResult(fp, 'offline');
+        }
+        return false; // не включаем в PRESENCE-запрос
+      }
+      return (
+        _presenceCache[fp] === 'checking' ||
+        !_presenceCacheTime[fp] ||
+        now - _presenceCacheTime[fp] >= PRESENCE_TTL
+      );
+    });
     // Если все свежие — тихо выходим, не мигаем UI
     if(!stale.length) return;
 
@@ -16444,7 +19079,29 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
 
   // ── Cloudflare Workers Push ────────────────────────────────────────────────
   // Замените на URL вашего воркера после деплоя на Cloudflare
-  const PUSH_SERVER = 'https://tovsa-signaling.tovsa7.workers.dev';
+  let PUSH_SERVER = 'https://tovsa-signaling.tovsa7.workers.dev';
+
+  // v2.1: при старте фетчим манифест своего signaling-сервера.
+  // Это нужно чтобы подхватить актуальный pushUrl если воркер переехал,
+  // а также прогреть кеш манифеста для _enrichContactFromManifest.
+  // Делаем асинхронно — не блокируем запуск.
+  (async function _warmupHomeManifest() {
+    try {
+      const srv = SIGNALING_SERVERS[0];
+      if (!srv) return;
+      const baseUrl = (srv.secure ? 'https' : 'http') + '://' + srv.host +
+        ((srv.secure && srv.port === 443) || (!srv.secure && srv.port === 80) ? '' : ':' + srv.port);
+      const m = await _fetchFedManifest(baseUrl);
+      if (!m) return;
+      // Обновляем PUSH_SERVER если манифест содержит актуальный push URL
+      if (m.push && _isValidPushUrl(m.push) && m.push !== PUSH_SERVER) {
+        console.info('[manifest] PUSH_SERVER обновлён:', m.push);
+        PUSH_SERVER = m.push;
+      }
+      _dbgPush('info', ['[manifest] домашний сервер: caps=' + (m.capabilities||[]).join(',') +
+        ' peers=' + m.peers + '/' + m.peers_max + ' proto=' + m.min_proto + '-' + m.max_proto]);
+    } catch(_) {}
+  })();
 
   function _b64ToUint8(b64) {
     const p = '='.repeat((4 - b64.length % 4) % 4);
@@ -16483,17 +19140,33 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
 
       const reg = await navigator.serviceWorker.ready;
 
-      // Если уже подписаны — просто обновляем fp в localStorage, не шлём новый запрос
-      const existing = await reg.pushManager.getSubscription();
-      if (existing) {
-        const fp = await _pubHexToFp(myHex);
-        localStorage.setItem('_pushFp', fp);
-        console.log('[push] уже подписаны, fp=', fp.slice(0,8)+'...');
-        return true;
-      }
-
+      // Получаем актуальный VAPID ключ с сервера
       const { publicKey } = await fetch(PUSH_SERVER + '/push/vapid').then(r => r.json());
       if (!publicKey) throw new Error('нет VAPID ключа');
+
+      const existing = await reg.pushManager.getSubscription();
+      if (existing) {
+        // Проверяем что VAPID ключ не изменился.
+        // Если ключ сменился — старая подписка недействительна: отписываемся и подписываемся заново.
+        // applicationServerKey в подписке хранится как ArrayBuffer — сравниваем через base64.
+        const existingKey = existing.options?.applicationServerKey;
+        const existingKeyB64 = existingKey
+          ? btoa(String.fromCharCode(...new Uint8Array(existingKey)))
+              .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')
+          : null;
+        // Нормализуем серверный ключ для сравнения (убираем padding)
+        const serverKeyNorm = publicKey.replace(/=+$/, '');
+        if (existingKeyB64 && existingKeyB64 === serverKeyNorm) {
+          // Ключ не изменился — подписка валидна
+          const fp = await _pubHexToFp(myHex);
+          localStorage.setItem('_pushFp', fp);
+          console.log('[push] уже подписаны, fp=', fp.slice(0,8)+'...');
+          return true;
+        }
+        // Ключ изменился — отписываемся от старой подписки перед новой
+        console.warn('[push] VAPID ключ изменился — переподписываемся');
+        await existing.unsubscribe();
+      }
 
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
@@ -16532,65 +19205,86 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
   }
 
   // Отправить push собеседнику через Cloudflare Worker
+  // Приоритет: sealed push v2 (notify2, pushToken) → legacy (notify, targetFp)
   window._pushNotifyPeer = async function(targetFp, senderName, text, knownPubKeyHex) {
     if (!targetFp || !PUSH_SERVER || PUSH_SERVER.includes('ВАШ')) return;
     try {
-      let pubKeyHex = knownPubKeyHex;
-      if (!pubKeyHex) {
-        const contacts = await getContacts();
-        pubKeyHex = contacts[targetFp]?.pubKeyHex;
-      }
+      const contacts = await getContacts();
+      let pubKeyHex = knownPubKeyHex || contacts[targetFp]?.pubKeyHex;
       if (!pubKeyHex) {
         try { pubKeyHex = JSON.parse(localStorage.getItem('_ntfyPubCache')||'{}')[targetFp]; } catch(_) {}
       }
       if (!pubKeyHex && targetFp === currentPeerFp) pubKeyHex = currentPeerPubKeyHex;
+
+      // ── Sealed push v2 — не раскрывает fp отправителя, не раскрывает fp получателя
+      if (pubKeyHex && typeof contactLoadPushToken === 'function') {
+        const pushToken = contactLoadPushToken(pubKeyHex);
+        if (pushToken) {
+          const _rawPushUrl = contacts[targetFp]?.pushUrl;
+          const _contactPushUrl = _isValidPushUrl(_rawPushUrl) ? _rawPushUrl : PUSH_SERVER;
+          const res = await fetch(_contactPushUrl + '/push/notify2', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pushToken }),
+          });
+          console.log('[push2] notify2 status=', res.status);
+          if (res.ok || res.status === 429) return; // успех или rate limit — не fallback
+          // 404 = токен истёк → fallback на legacy
+        }
+      }
+
+      // ── Legacy fallback — targetFp + подпись (старый протокол)
       if (!pubKeyHex) { console.warn('[push] нет pubKeyHex для', targetFp); return; }
-
       const fp = await _pubHexToFp(pubKeyHex);
-
-      // Получаем push pub key получателя для шифрования
-      let pushPubHex = null;
-      try { pushPubHex = JSON.parse(localStorage.getItem('_pushPubCache')||'{}')[targetFp]; } catch(_) {}
-
       const authFields = await _signNotify(fp);
-      if (!authFields) { console.warn('[push] ключ не готов, пропускаем notify'); return; }
-      // Воркер v2 не принимает senderName/text — только targetFp + подпись.
-      // Реальное содержимое собеседник получит через WebRTC после пробуждения.
-      const body = JSON.stringify({ targetFp: fp, ...authFields });
-
-      const _rawPushUrl = (await getContacts())[targetFp]?.pushUrl;
+      if (!authFields) { console.warn('[push] ключ не готов'); return; }
+      const _rawPushUrl = contacts[targetFp]?.pushUrl;
       const _contactPushUrl = _isValidPushUrl(_rawPushUrl) ? _rawPushUrl : PUSH_SERVER;
       const res = await fetch(_contactPushUrl + '/push/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body
+        body: JSON.stringify({ targetFp: fp, ...authFields }),
       });
-      console.log('[push] notify status=', res.status);
+      console.log('[push] legacy notify status=', res.status);
     } catch(e) { console.warn('[push] notify error:', e); }
   };
 
-  // Отправить push нескольким (для групп) — каждому индивидуально зашифровано
+  // Отправить push нескольким (для групп) — каждому индивидуально
+  // Приоритет: sealed push v2 → legacy fallback
   window._pushNotifyMany = async function(targetFps, senderName, text) {
     if (!targetFps?.length || !PUSH_SERVER || PUSH_SERVER.includes('ВАШ')) return;
     try {
       const contacts = await getContacts();
-      // Отправляем каждому индивидуально
       await Promise.allSettled(targetFps.map(async fp => {
         const pubKeyHex = contacts[fp]?.pubKeyHex;
         if (!pubKeyHex) return;
+
+        // Sealed push v2
+        if (typeof contactLoadPushToken === 'function') {
+          const pushToken = contactLoadPushToken(pubKeyHex);
+          if (pushToken) {
+            const _rawPushUrl = contacts[fp]?.pushUrl;
+            const _pushUrl = _isValidPushUrl(_rawPushUrl) ? _rawPushUrl : PUSH_SERVER;
+            const res = await fetch(_pushUrl + '/push/notify2', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ pushToken }),
+            });
+            if (res.ok || res.status === 429) return;
+          }
+        }
+
+        // Legacy fallback
         const serverFp = await _pubHexToFp(pubKeyHex);
         const authFields = await _signNotify(serverFp);
         if (!authFields) return;
-        // Воркер v2: только targetFp, без контента
-        const body = JSON.stringify({ targetFp: serverFp, ...authFields });
-
         await fetch(PUSH_SERVER + '/push/notify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body
+          body: JSON.stringify({ targetFp: serverFp, ...authFields }),
         });
       }));
-      console.log('[push] notify-many sent to', targetFps.length);
+      console.log('[push2] notify-many sent to', targetFps.length);
     } catch(e) { console.warn('[push] notify-many error:', e); }
   };
 
@@ -16731,12 +19425,19 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
 
     // Шифруем данные владельца — сервер никогда не увидит plaintext
     const mySrv = currentSrv();
+    // encPub: X25519 pubkey для Sealed Relay — получатель инвайта сохранит его
+    // и будет шифровать relay-сообщения так, что сервер не узнает отправителя.
+    const myEncPub   = _myEncKey?.publicKeyB64u || null;
+    // pushToken: контакт будет использовать его для sealed wakeup (без targetFp)
+    const myPushTok  = localStorage.getItem('_myPushToken') || null;
     const blob = _invB64u(await _invAesEncrypt(encKey, JSON.stringify({
       ownerPubHex:  myHex,
       ownerName:    myName,
       ownerFp:      myFp,
       signalingUrl: `wss://${mySrv.host}${mySrv.port !== 443 ? ':' + mySrv.port : ''}/signal`,
       pushUrl:      PUSH_SERVER,
+      encPub:       myEncPub,
+      pushToken:    myPushTok,
       v:            2,
     })));
 
@@ -16826,6 +19527,37 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
     });
     if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || 'use failed'); }
 
+    // Сохраняем encPub и pushToken владельца инвайта
+    if (info.ownerPubHex) {
+      if (info.encPub && typeof contactSaveEncPubKey === 'function') {
+        contactSaveEncPubKey(info.ownerPubHex, info.encPub);
+        console.log('[sealed] encPub сохранён для контакта', info.ownerPubHex.slice(0,8)+'...');
+        // Потенциальный channelId контакта (вычисляется из его pubKey)
+        if(typeof _maybeSaveContactChannelId === 'function'){
+          _maybeSaveContactChannelId(info.ownerPubHex).catch(()=>{});
+        }
+      }
+      // pushToken: будем использовать для sealed wakeup вместо targetFp
+      if (info.pushToken && typeof contactSavePushToken === 'function') {
+        contactSavePushToken(info.ownerPubHex, info.pushToken);
+        console.log('[push2] pushToken сохранён для контакта', info.ownerPubHex.slice(0,8)+'...');
+      }
+    }
+    if (info.encPub && info.ownerPubHex && typeof contactSaveEncPubKey === 'function') {
+      // Обновляем aliases на сервере — новый контакт добавляет новый mailbox ID
+      if (typeof collectMyAliases === 'function') {
+        collectMyAliases().then(aliases => {
+          // Находим активные сигналинг-инстансы через глобальный _peer
+          const sig = window._peer?._peers?.find?.(p => p._sig?._open)?.  _sig
+                   ?? window._peer?._sig;
+          if (sig?._open) {
+            sig._wsSend({ type: 'REGISTER_ALIAS', aliases });
+            console.log('[alias] обновлено после нового контакта:', aliases.length);
+          }
+        }).catch(() => {});
+      }
+    }
+
     return {
       ok:           true,
       ownerPubHex:  info.ownerPubHex,
@@ -16833,6 +19565,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
       ownerFp:      info.ownerFp,
       signalingUrl: info.signalingUrl || null,
       pushUrl:      info.pushUrl      || null,
+      encPub:       info.encPub       || null,
     };
   };
 
@@ -17038,27 +19771,44 @@ document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
       if (result.ownerPubHex) {
         const contacts = await getContacts();
         const fp = await _pubHexToFp(result.ownerPubHex);
+
+        // v2.1: обогащаем URL из манифеста соседнего сервера
+        // Делаем фоново — не блокируем добавление контакта
+        const enriched = await _enrichContactFromManifest(
+          result.signalingUrl || null,
+          result.pushUrl      || null,
+        );
+
         if (!contacts[fp]) {
           // Новый контакт — создаём
           contacts[fp] = _sanitizeContactUrls({
             name:         result.ownerName || 'Tovsa User',
             pubKeyHex:    result.ownerPubHex,
             addedAt:      Date.now(),
-            signalingUrl: result.signalingUrl || null,
-            pushUrl:      result.pushUrl      || null,
+            signalingUrl: enriched.signalingUrl || null,
+            pushUrl:      enriched.pushUrl      || null,
           });
           await saveContacts(contacts);
           toast(`${esc(result.ownerName || 'Пользователь')} добавлен ✓`);
         } else {
           // Контакт уже есть — обновляем только федеративные URL если они изменились
           let changed = false;
-          const newSig  = _isValidSigUrl(result.signalingUrl)  ? result.signalingUrl  : null;
-          const newPush = _isValidPushUrl(result.pushUrl) ? result.pushUrl : null;
-          if(newSig  && newSig  !== contacts[fp].signalingUrl){ contacts[fp].signalingUrl = newSig;  changed = true; }
+          const newSig  = _isValidSigUrl(enriched.signalingUrl)  ? enriched.signalingUrl  : null;
+          const newPush = _isValidPushUrl(enriched.pushUrl) ? enriched.pushUrl : null;
+          const sigChanged = newSig && newSig !== contacts[fp].signalingUrl;
+          if(sigChanged){                                       contacts[fp].signalingUrl = newSig;  changed = true; }
           if(newPush && newPush !== contacts[fp].pushUrl){      contacts[fp].pushUrl      = newPush; changed = true; }
           if(changed){
             await saveContacts(contacts);
-            // Пересинхронизируем маяки — контакт мог переехать на другой сервер
+            if(sigChanged){
+              // Контакт переехал на другой сервер — уничтожаем старый парный маяк.
+              // _syncPairBeaconsInner пропускает fp если _pairBeacons.has(fp) === true,
+              // поэтому нужно явно удалить старый маяк перед _refreshPairBeacons().
+              const oldBeacon = _pairBeacons.get(fp);
+              if(oldBeacon){ safePeerDestroy(oldBeacon); }
+              _pairBeacons.delete(fp);
+            }
+            // Пересинхронизируем маяки — создаст новый маяк на новом сервере
             _refreshPairBeacons();
             toast(`${esc(result.ownerName || 'Пользователь')} — сервер обновлён ✓`);
           } else {
@@ -17655,6 +20405,801 @@ function _attachSwipeReply(el, text, sender, ts, fp){
 </script>
 
 <script>
+
+// ── Info drawer: комнаты и каналы ─────────────────────────────────────────────
+
+async function idrInviteToRoom(){
+  if(!_infoFp){ return; }
+  const contacts = await getContacts();
+  const c = contacts[_infoFp];
+  if(!c?.pubKeyHex){ toast('Нет данных контакта'); return; }
+  const encPub = contactLoadEncPubKey(c.pubKeyHex);
+  if(!encPub){ toast('Контакт не поддерживает зашифрованные группы'); return; }
+
+  // Выбираем комнату из существующих
+  const rooms   = await roomsLoad();
+  const myRooms = Object.values(rooms).filter(r => r.myRole === 'admin');
+
+  if(!myRooms.length){
+    // Предлагаем создать новую
+    if(!confirm('У вас нет групп где вы администратор. Создать новую?')) return;
+    closeInfoDrawer();
+    showTab('srooms');
+    return;
+  }
+
+  // Если одна комната — сразу приглашаем, если несколько — спрашиваем
+  let targetRoom;
+  if(myRooms.length === 1){
+    targetRoom = myRooms[0];
+  } else {
+    const names = myRooms.map((r,i) => `${i+1}. ${r.config?.name||'Группа'} (${r.roster?.length||1} уч.)`).join('\n');
+    const choice = prompt('Выберите группу (номер):\n' + names);
+    const idx = parseInt(choice) - 1;
+    if(isNaN(idx) || idx < 0 || idx >= myRooms.length) return;
+    targetRoom = myRooms[idx];
+  }
+
+  try {
+    await roomInviteMember(targetRoom.roomId, {
+      pubKeyHex: c.pubKeyHex,
+      encPub,
+      name: c.name || _infoFp.slice(0,8)+'...',
+    });
+    toast('✓ Приглашение в группу «' + (targetRoom.config?.name||'Группа') + '» отправлено');
+    closeInfoDrawer();
+  } catch(e){
+    toast('Ошибка: ' + e.message);
+  }
+}
+
+async function idrSubscribeToChannel(){
+  if(!_infoFp) return;
+  const contacts = await getContacts();
+  const c = contacts[_infoFp];
+  if(!c?.pubKeyHex || !c?.channelId){ toast('У контакта нет канала'); return; }
+  const encPub = contactLoadEncPubKey(c.pubKeyHex);
+  if(!encPub){ toast('Контакт не поддерживает зашифрованные каналы'); return; }
+
+  // Вычисляем mailboxId admin'а (для отправки subscribe запроса)
+  const adminMailboxId = await getContactMailboxId(c.pubKeyHex, 0) ?? c.pubKeyHex;
+
+  try {
+    await channelSubscribe(c.channelId, {
+      adminPubKeyHex:  c.pubKeyHex,
+      adminEncPub:     encPub,
+      adminMailboxId,
+    });
+    toast('📢 Запрос подписки отправлен. Ожидайте подтверждения.');
+    closeInfoDrawer();
+    showTab('schannels');
+    channelsRenderList();
+  } catch(e){
+    toast('Ошибка: ' + e.message);
+  }
+}
+
+// ── Встраиваем channelId в данные контакта при принятии инвайта ───────────────
+// Если контакт является admin канала — сохраняем channelId
+// чтобы показывать кнопку "Подписаться"
+async function _maybeSaveContactChannelId(pubKeyHex){
+  try {
+    const channelId = await channelDeriveId(pubKeyHex);
+    const fp = await _pubHexToFp(pubKeyHex).catch(()=>null);
+    if(!fp) return;
+    const contacts = await getContacts();
+    if(contacts[fp] && contacts[fp].pubKeyHex === pubKeyHex){
+      // Сохраняем потенциальный channelId — проверим при подписке
+      contacts[fp].channelId = channelId;
+      await saveContacts(contacts);
+    }
+  } catch(_){}
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// UI: Rooms, Channels, Devices
+// ══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// Tovsa UI: Rooms, Channels, Devices
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Текущее состояние ─────────────────────────────────────────────────────────
+let _activeRoomId    = null;
+let _activeChannelId = null;
+let _chCommentPostId = null; // пост к которому пишем комментарий
+
+// ── Вспомогательные функции ───────────────────────────────────────────────────
+
+function _esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function _fmtTs(ts) {
+  const d = new Date(ts * 1000);
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  const time = d.toLocaleTimeString('ru', { hour:'2-digit', minute:'2-digit' });
+  return isToday ? time : d.toLocaleDateString('ru', { day:'numeric', month:'short' }) + ' ' + time;
+}
+
+function _shortPub(hex) {
+  return hex ? hex.slice(0,8)+'...' : '???';
+}
+
+// ── ROOMS: список ─────────────────────────────────────────────────────────────
+
+async function roomsRenderList() {
+  const list = document.getElementById('room-list');
+  if (!list) return;
+
+  const rooms = await roomsLoad().catch(() => ({}));
+  const entries = Object.values(rooms);
+
+  if (!entries.length) {
+    list.innerHTML = '<div class="grp-empty">Нет групп<br><span style="opacity:.6">Создайте первую зашифрованную группу</span></div>';
+    return;
+  }
+
+  list.innerHTML = entries.map(room => {
+    const msgs = []; // загрузим синхронно если нужно
+    const isAdmin = room.myRole === 'admin';
+    return `<div class="room-item" onclick="roomOpenChat('${room.roomId}')">
+      <div class="room-item-icon">🔒</div>
+      <div class="room-item-info">
+        <div class="room-item-name">
+          ${_esc(room.config?.name || 'Группа')}
+          <span class="room-lock">e2e</span>
+          ${isAdmin ? '<span class="room-item-role">admin</span>' : ''}
+        </div>
+        <div class="room-item-sub">${room.roster?.length || 1} участн. · ${room.roomId.slice(0,8)}...</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function roomCreateUI() {
+  const inp = document.getElementById('room-new-name');
+  const name = (inp?.value || '').trim() || 'Группа ' + new Date().toLocaleDateString('ru');
+  if (inp) inp.value = '';
+
+  if (!myPubKeyHex || !_myEncKey) { toast('Ключ не готов — подождите'); return; }
+
+  try {
+    const room = await roomCreate({ name, historyPolicy: 'any_member' });
+    toast('✓ Группа создана');
+    await roomsRenderList();
+    roomOpenChat(room.roomId);
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+  }
+}
+
+// ── ROOMS: чат ────────────────────────────────────────────────────────────────
+
+async function roomOpenChat(roomId) {
+  _activeRoomId = roomId;
+  showTab('sroom-chat');
+
+  const rooms = await roomsLoad().catch(() => ({}));
+  const room  = rooms[roomId];
+  if (!room) return;
+
+  // Заголовок
+  const title = document.getElementById('room-chat-title');
+  if (title) title.textContent = room.config?.name || 'Группа';
+
+  // Участники
+  roomRenderMembers(room);
+
+  // Сообщения
+  await roomRenderMessages(roomId, room);
+
+  // Подсказка синхронизации для новых участников
+  const hint = document.getElementById('room-sync-hint');
+  if (hint) {
+    const msgs = await roomMsgsLoad(roomId).catch(() => []);
+    hint.style.display = msgs.length === 0 ? 'block' : 'none';
+  }
+}
+
+function roomRenderMembers(room) {
+  const countEl = document.getElementById('room-members-count');
+  if (countEl) countEl.textContent = (room.roster?.length || 0) + ' уч.';
+
+  const panel = document.getElementById('room-members-panel');
+  if (!panel) return;
+
+  const isAdmin = room.myRole === 'admin';
+  panel.innerHTML = (room.roster || []).map(m => {
+    const isMe = m.pubKeyHex === myPubKeyHex;
+    const fp   = ''; // presence check через _presenceCache
+    const onlineCls = ''; // упрощённо — можно добавить async check
+    return `<div class="room-member-row">
+      <div class="room-member-dot ${onlineCls}"></div>
+      <div class="room-member-name">${_esc(m.name || _shortPub(m.pubKeyHex))}${isMe ? ' <span style="color:var(--a);font-size:9px">(я)</span>' : ''}</div>
+      <div class="room-member-role">${m.role || 'member'}</div>
+      ${isAdmin && !isMe
+        ? `<button class="room-member-kick" onclick="roomKickUI('${room.roomId}','${m.pubKeyHex}')" title="Исключить">✕</button>`
+        : '<div style="width:28px"></div>'}
+    </div>`;
+  }).join('');
+}
+
+async function roomRenderMessages(roomId, room) {
+  const msgs = await roomMsgsLoad(roomId).catch(() => []);
+  const el   = document.getElementById('room-msgs');
+  if (!el) return;
+
+  if (!msgs.length) {
+    el.innerHTML = '<div style="padding:40px 24px;text-align:center;font-size:11px;color:var(--mu)">Нет сообщений<br><span style="opacity:.6">Начните беседу или запросите историю ↓</span></div>';
+    return;
+  }
+
+  el.innerHTML = msgs.map(msg => {
+    const isMe = msg.from === myPubKeyHex;
+    const sender = room.roster?.find(r => r.pubKeyHex === msg.from);
+    const name   = sender?.name || _shortPub(msg.from);
+    return `<div class="msg ${isMe ? 'out' : 'in'}" style="max-width:82%">
+      ${!isMe ? `<div style="font-size:9px;color:var(--a);margin-bottom:3px;letter-spacing:.5px">${_esc(name)}</div>` : ''}
+      <div style="white-space:pre-wrap;word-break:break-word">${_esc(msg.text)}</div>
+      <div class="mmeta">${_fmtTs(msg.ts)} <span class="msg-e2e-tag">🔒</span></div>
+    </div>`;
+  }).join('');
+
+  el.scrollTop = el.scrollHeight;
+}
+
+function roomToggleMembers() {
+  const panel = document.getElementById('room-members-panel');
+  const arr   = document.getElementById('room-members-arr');
+  if (!panel) return;
+  const open = panel.classList.toggle('open');
+  if (arr) arr.textContent = open ? '▲' : '▼';
+}
+
+async function roomSendMessageUI() {
+  if (!_activeRoomId) return;
+  const inp  = document.getElementById('room-chat-input');
+  const text = (inp?.value || '').trim();
+  if (!text) return;
+
+  try {
+    await roomSendMessage(_activeRoomId, text);
+    if (inp) { inp.value = ''; inp.style.height = ''; }
+    // Перерисовываем
+    const rooms = await roomsLoad();
+    await roomRenderMessages(_activeRoomId, rooms[_activeRoomId]);
+  } catch(e) {
+    toast('Ошибка отправки: ' + e.message);
+  }
+}
+
+async function roomKickUI(roomId, pubKeyHex) {
+  if (!confirm('Исключить участника из группы? Ключ группы будет заменён.')) return;
+  try {
+    await roomKickMember(roomId, pubKeyHex);
+    toast('✓ Участник исключён, ключ обновлён');
+    const rooms = await roomsLoad();
+    roomRenderMembers(rooms[roomId]);
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+  }
+}
+
+async function roomInviteUI() {
+  if (!_activeRoomId) return;
+  const rooms = await roomsLoad();
+  const room  = rooms[_activeRoomId];
+  if (!room) return;
+  if (room.myRole !== 'admin') { toast('Только администратор может приглашать'); return; }
+
+  // Открываем стандартный диалог добавления контакта
+  // Пользователь вставляет ссылку/код контакта которого хочет позвать
+  const code = prompt('Вставьте ссылку или код контакта которого хотите пригласить:');
+  if (!code?.trim()) return;
+
+  try {
+    // Парсим инвайт-данные контакта
+    const info = await window._getInviteInfo(code.trim()).catch(() => null);
+    if (!info?.ownerPubHex || !info?.encPub) {
+      toast('Не удалось получить данные контакта');
+      return;
+    }
+    const name = info.ownerName || _shortPub(info.ownerPubHex);
+    await roomInviteMember(_activeRoomId, {
+      pubKeyHex: info.ownerPubHex,
+      encPub:    info.encPub,
+      name,
+    });
+    toast('✓ Приглашение отправлено для ' + name);
+    const fresh = await roomsLoad();
+    roomRenderMembers(fresh[_activeRoomId]);
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+  }
+}
+
+async function roomRequestHistoryUI() {
+  if (!_activeRoomId) return;
+  try {
+    await roomRequestHistory(_activeRoomId);
+    toast('↓ Запрос истории отправлен...');
+  } catch(e) {
+    toast(e.message);
+  }
+}
+
+// Слушаем события от Room Manager
+window.addEventListener('tovsa-room-invite', async e => {
+  const { config } = e.detail;
+  toast('📨 Приглашение в группу «' + (config?.name || 'Группа') + '»');
+  await roomsRenderList();
+  // Обновляем бейдж
+  const badge = document.getElementById('tab-rooms-badge');
+  if (badge) { badge.textContent = '!'; badge.style.display = 'flex'; }
+});
+
+window.addEventListener('tovsa-room-msg', async e => {
+  const { roomId } = e.detail;
+  if (roomId === _activeRoomId) {
+    const rooms = await roomsLoad();
+    await roomRenderMessages(roomId, rooms[roomId]);
+  }
+  // Бейдж если не открыт
+  if (roomId !== _activeRoomId) {
+    const badge = document.getElementById('tab-rooms-badge');
+    if (badge) {
+      const n = parseInt(badge.textContent || '0') + 1;
+      badge.textContent = n > 9 ? '9+' : String(n);
+      badge.style.display = 'flex';
+    }
+  }
+});
+
+window.addEventListener('tovsa-history-resp', async e => {
+  const { roomId, count } = e.detail;
+  toast(`↓ Получено ${count} сообщений`);
+  if (roomId === _activeRoomId) {
+    const rooms = await roomsLoad();
+    await roomRenderMessages(roomId, rooms[roomId]);
+    const hint = document.getElementById('room-sync-hint');
+    if (hint) hint.style.display = 'none';
+  }
+});
+
+// ── CHANNELS: список ──────────────────────────────────────────────────────────
+
+async function channelsRenderList() {
+  const list = document.getElementById('ch-list');
+  if (!list) return;
+
+  const channels = await channelsLoad().catch(() => ({}));
+  const entries  = Object.values(channels);
+
+  if (!entries.length) {
+    list.innerHTML = '<div class="grp-empty">Нет каналов<br><span style="opacity:.6">Создайте канал или подпишитесь через контакты</span></div>';
+    return;
+  }
+
+  list.innerHTML = entries.map(ch => {
+    const isAdmin = ch.myRole === 'admin';
+    const isPending = ch.myRole === 'pending';
+    const roleLabel = isAdmin ? 'admin' : isPending ? 'ожидание...' : 'подписчик';
+    return `<div class="ch-item" onclick="channelOpenView('${ch.channelId}')">
+      <div class="ch-item-icon">${isAdmin ? '📢' : '📖'}</div>
+      <div class="ch-item-info">
+        <div class="ch-item-name">${_esc(ch.name || 'Канал')}</div>
+        <div class="ch-item-sub">${ch.postCount || 0} постов · ${ch.channelId.slice(0,8)}...</div>
+      </div>
+      <div class="ch-item-role">${roleLabel}</div>
+    </div>`;
+  }).join('');
+}
+
+async function channelCreateUI() {
+  const name = prompt('Название канала:');
+  if (!name?.trim()) return;
+  const desc = prompt('Описание (необязательно):') || '';
+
+  try {
+    const ch = await channelCreate({ name: name.trim(), description: desc });
+    toast('✓ Канал создан');
+    await channelsRenderList();
+    channelOpenView(ch.channelId);
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+  }
+}
+
+// ── CHANNELS: просмотр ────────────────────────────────────────────────────────
+
+async function channelOpenView(channelId) {
+  _activeChannelId = channelId;
+  showTab('sch-view');
+
+  const channels = await channelsLoad().catch(() => ({}));
+  const ch = channels[channelId];
+  if (!ch) return;
+
+  const title = document.getElementById('ch-view-title');
+  if (title) title.textContent = ch.name || 'Канал';
+
+  // Кнопки действий
+  const actions = document.getElementById('ch-view-actions');
+  if (actions) {
+    if (ch.myRole === 'admin') {
+      actions.innerHTML = `<button onclick="channelManageSubscribersUI('${channelId}')"
+        style="background:none;border:1px solid var(--bd);border-radius:6px;padding:5px 8px;color:var(--mu);cursor:pointer;font-size:11px">👥 ${ch.subscribers?.filter(s=>!s.bannedAt).length||0}</button>`;
+    } else {
+      actions.innerHTML = `<div style="font-size:10px;color:var(--mu);padding:4px 8px">${ch.myRole === 'pending' ? '⏳ ожидание' : '✓ подписчик'}</div>`;
+    }
+  }
+
+  // Ввод поста (только admin)
+  const postArea = document.getElementById('ch-post-iarea');
+  if (postArea) postArea.style.display = ch.myRole === 'admin' ? 'flex' : 'none';
+
+  // Посты
+  await channelRenderPosts(channelId, ch);
+}
+
+async function channelRenderPosts(channelId, ch) {
+  const el = document.getElementById('ch-posts');
+  if (!el) return;
+
+  const msgs = await channelMsgsLoad(channelId).catch(() => []);
+  if (!msgs.length) {
+    el.innerHTML = `<div style="padding:40px 24px;text-align:center;font-size:11px;color:var(--mu)">
+      ${ch.myRole === 'admin' ? 'Нет постов. Напишите первый!' : 'Нет постов пока.'}
+    </div>`;
+    return;
+  }
+
+  // Сортируем по времени (новые внизу)
+  const sorted = [...msgs].sort((a,b) => a.ts - b.ts);
+  const canComment = ch.myRole === 'subscriber' && ch.channelKeyBytes;
+
+  el.innerHTML = sorted.map(post => `
+    <div class="ch-post">
+      <div class="ch-post-meta">
+        <span>${_fmtTs(post.ts)}</span>
+        <span style="color:var(--a);font-size:9px">🔒 e2e</span>
+      </div>
+      <div class="ch-post-text">${_esc(post.text)}</div>
+      ${canComment ? `<div class="ch-post-actions">
+        <button class="ch-post-btn" onclick="channelOpenComment('${post.id}')">💬 комментарий</button>
+      </div>` : ''}
+    </div>
+  `).join('');
+
+  el.scrollTop = el.scrollHeight;
+}
+
+async function channelPublishPostUI() {
+  if (!_activeChannelId) return;
+  const inp  = document.getElementById('ch-post-input');
+  const text = (inp?.value || '').trim();
+  if (!text) return;
+
+  try {
+    await channelPublishPost(_activeChannelId, { text });
+    if (inp) { inp.value = ''; inp.style.height = ''; }
+    const channels = await channelsLoad();
+    await channelRenderPosts(_activeChannelId, channels[_activeChannelId]);
+    toast('✓ Пост опубликован');
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+  }
+}
+
+function channelOpenComment(postId) {
+  _chCommentPostId = postId;
+  const form = document.getElementById('ch-comment-form');
+  if (form) { form.classList.add('open'); document.getElementById('ch-comment-input')?.focus(); }
+}
+
+function channelCloseComment() {
+  _chCommentPostId = null;
+  const form = document.getElementById('ch-comment-form');
+  if (form) { form.classList.remove('open'); }
+  const inp = document.getElementById('ch-comment-input');
+  if (inp) inp.value = '';
+}
+
+async function channelSubmitComment() {
+  if (!_activeChannelId || !_chCommentPostId) return;
+  const inp  = document.getElementById('ch-comment-input');
+  const text = (inp?.value || '').trim();
+  if (!text) return;
+
+  try {
+    await channelSendComment(_activeChannelId, { text, replyToId: _chCommentPostId });
+    channelCloseComment();
+    toast('✓ Комментарий отправлен администратору');
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+  }
+}
+
+async function channelManageSubscribersUI(channelId) {
+  const channels = await channelsLoad();
+  const ch = channels[channelId];
+  if (!ch) return;
+
+  const active = (ch.subscribers || []).filter(s => !s.bannedAt);
+  if (!active.length) { toast('Нет подписчиков'); return; }
+
+  const info = active.map(s => `• ${s.pubKeyHex.slice(0,12)}...`).join('\n');
+  const ans  = prompt(`Подписчики (${active.length}):\n${info}\n\nВведите начало pubKeyHex для бана или оставьте пустым:`);
+  if (!ans?.trim()) return;
+
+  const target = active.find(s => s.pubKeyHex.startsWith(ans.trim()));
+  if (!target) { toast('Не найден'); return; }
+
+  if (!confirm('Забанить ' + target.pubKeyHex.slice(0,12) + '...?\nКлюч канала будет заменён.')) return;
+  try {
+    await channelBanSubscriber(channelId, target.pubKeyHex);
+    toast('✓ Забанен, ключ обновлён');
+    channelOpenView(channelId);
+  } catch(e) { toast('Ошибка: ' + e.message); }
+}
+
+// Слушаем события каналов
+window.addEventListener('tovsa-channel-subscribed', async e => {
+  toast('✓ Подписка подтверждена!');
+  await channelsRenderList();
+  channelOpenView(e.detail.channelId);
+});
+
+window.addEventListener('tovsa-channel-msg', async e => {
+  const { channelId } = e.detail;
+  if (channelId === _activeChannelId) {
+    const channels = await channelsLoad();
+    await channelRenderPosts(channelId, channels[channelId]);
+  }
+  const badge = document.getElementById('tab-channels-badge');
+  if (badge && channelId !== _activeChannelId) {
+    const n = parseInt(badge.textContent || '0') + 1;
+    badge.textContent = n > 9 ? '9+' : String(n);
+    badge.style.display = 'flex';
+  }
+});
+
+window.addEventListener('tovsa-channel-sub-req', async e => {
+  const { channelId, pubKeyHex, encPub, pushToken, commentMailboxId } = e.detail;
+  // Уведомляем admin'а — запрос подписки
+  toast('📩 Запрос подписки на канал');
+  // Если канал открытый — принято автоматически (уже в channelHandleIncoming)
+  // Иначе — показываем уведомление
+  const channels = await channelsLoad();
+  const ch = channels[channelId];
+  if (ch && !ch.openSubscription) {
+    if (confirm('Принять подписчика ' + pubKeyHex.slice(0,12) + '...?')) {
+      await channelAcceptSubscriber(channelId, { pubKeyHex, encPub, pushToken, commentMailboxId });
+      toast('✓ Подписчик принят');
+      channelOpenView(channelId);
+    }
+  }
+});
+
+// ── DEVICES: мои устройства ───────────────────────────────────────────────────
+
+const DEVICES_IDB_KEY = 'my_devices_v1';
+
+async function devicesLoad() {
+  try { return await idbGet('meta', DEVICES_IDB_KEY) || []; }
+  catch(_) { return []; }
+}
+
+async function devicesSave(devices) {
+  try { await idbSet('meta', DEVICES_IDB_KEY, devices); }
+  catch(e) { console.warn('[devices] save:', e); }
+}
+
+async function deviceAddShowQR() {
+  const wrap = document.getElementById('device-qr-wrap');
+  if (!wrap) return;
+
+  // Создаём инвайт с меткой "моё устройство"
+  if (typeof window._createInvite !== 'function') {
+    toast('Инвайт-модуль не загружен'); return;
+  }
+
+  try {
+    const { token } = await window._createInvite({ maxUses: 1, expiresIn: 60 * 60 * 24 });
+    const link = `${location.origin}${location.pathname}?invite=${token}&devicelink=1`;
+
+    // QR через qrcode.js (уже есть в проекте)
+    const canvas = document.getElementById('device-qr-canvas');
+    if (canvas && typeof QRCode !== 'undefined') {
+      QRCode.toCanvas(canvas, link, { width: 220, color: { dark: '#00ff9d', light: '#0a0a0f' } });
+    }
+
+    wrap.style.display = 'flex';
+    wrap._inviteLink = link;
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+  }
+}
+
+function deviceShareLink() {
+  const wrap = document.getElementById('device-qr-wrap');
+  const link = wrap?._inviteLink;
+  if (!link) return;
+
+  if (navigator.share) {
+    navigator.share({ title: 'Tovsa — добавить устройство', url: link });
+  } else {
+    navigator.clipboard?.writeText(link).then(() => toast('✓ Ссылка скопирована'));
+  }
+}
+
+async function devicesRenderList() {
+  const list = document.getElementById('sn-devices-list');
+  if (!list) return;
+
+  const contacts   = await getContacts().catch(() => ({}));
+  const myDevices  = Object.values(contacts).filter(c => c.isMyDevice && !c._stranger);
+
+  const desc = document.getElementById('sn-devices-desc');
+  if (desc) desc.textContent = myDevices.length
+    ? `${myDevices.length} устройств подключено`
+    : 'Синхронизация между устройствами';
+
+  if (!myDevices.length) {
+    list.innerHTML = '<div style="font-size:11px;color:var(--mu);padding:8px 0">Нет подключённых устройств</div>';
+    return;
+  }
+
+  list.innerHTML = myDevices.map(dev => {
+    const fp = dev.fp || '';
+    const isOnline = _presenceCache[fp] === 'online';
+    return `<div class="dev-item">
+      <div class="dev-item-icon">${dev.emoji || '📱'}</div>
+      <div class="dev-item-info">
+        <div class="dev-item-name">${_esc(dev.name || dev.label || 'Устройство')}</div>
+        <div class="dev-item-sub">${fp.slice(0,12)}...</div>
+      </div>
+      <div class="dev-item-status ${isOnline ? 'online' : 'offline'}">${isOnline ? 'онлайн' : 'офлайн'}</div>
+      <button class="dev-remove" onclick="deviceRemove('${fp}')" title="Отключить">✕</button>
+    </div>`;
+  }).join('');
+}
+
+async function deviceRemove(fp) {
+  if (!confirm('Отключить это устройство? Оно потеряет синхронизацию.')) return;
+  const contacts = await getContacts();
+  if (contacts[fp]) {
+    delete contacts[fp];
+    await saveContacts(contacts);
+    await devicesRenderList();
+    toast('✓ Устройство отключено');
+  }
+}
+
+async function deviceSyncAll() {
+  const status = document.getElementById('device-sync-status');
+  if (status) { status.textContent = 'Синхронизируем...'; status.style.display = 'block'; }
+
+  const contacts = await getContacts().catch(() => ({}));
+  const myDevices = Object.values(contacts).filter(c => c.isMyDevice && !c._stranger);
+
+  if (!myDevices.length) {
+    if (status) status.textContent = 'Нет подключённых устройств';
+    return;
+  }
+
+  // Запрашиваем историю чатов у онлайн-устройств
+  let synced = 0;
+  for (const dev of myDevices) {
+    const fp = dev.fp || '';
+    if (_presenceCache[fp] !== 'online') continue;
+
+    // Запрашиваем историю каждой комнаты
+    const rooms = await roomsLoad().catch(() => ({}));
+    for (const roomId of Object.keys(rooms)) {
+      try {
+        await roomRequestHistory(roomId, { targetPubKeyHex: dev.pubKeyHex });
+        synced++;
+      } catch(_) {}
+    }
+  }
+
+  if (status) {
+    status.textContent = synced > 0
+      ? `✓ Запрошено ${synced} синхронизаций`
+      : 'Устройства офлайн — попробуйте позже';
+  }
+}
+
+// При открытии раздела устройств — обновляем список
+const _origSnOpen = typeof snOpen === 'function' ? snOpen : null;
+function snOpen(pageId) {
+  if (_origSnOpen) _origSnOpen(pageId);
+  if (pageId === 'sn-devices') {
+    devicesRenderList();
+  }
+}
+
+// Обрабатываем входящий инвайт с пометкой devicelink=1
+(function checkDeviceInvite() {
+  try {
+    const params = new URLSearchParams(location.search);
+    if (params.get('devicelink') === '1' && params.get('invite')) {
+      // Это инвайт от нашего же устройства — обрабатываем с меткой
+      // Показываем форму принятия с подсказкой
+      setTimeout(() => {
+        const code = params.get('invite');
+        if (typeof window._requestViaInvite === 'function') {
+          window._requestViaInvite(code).then(info => {
+            if (!info?.ownerPubHex) return;
+            // Помечаем контакт как "моё устройство"
+            getContacts().then(contacts => {
+              const fp = info.ownerFp || '';
+              if (contacts[fp]) {
+                contacts[fp].isMyDevice = true;
+                contacts[fp].label = 'Моё устройство';
+                return saveContacts(contacts);
+              }
+            });
+            toast('📲 Устройство добавлено! Запрашиваем историю...');
+            // Запрашиваем историю всех комнат
+            roomsLoad().then(rooms => {
+              for (const roomId of Object.keys(rooms)) {
+                roomRequestHistory(roomId, { targetPubKeyHex: info.ownerPubHex }).catch(()=>{});
+              }
+            });
+          }).catch(e => console.warn('[devices] invite error:', e));
+        }
+      }, 2000); // ждём инициализацию
+    }
+  } catch(_) {}
+})();
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function _clearBadge(id){
+  const el = document.getElementById(id);
+  if(el){ el.textContent = ''; el.style.display = 'none'; }
+}
+
+// Инициализация при старте: рендерим списки когда всё готово
+document.addEventListener('DOMContentLoaded', () => {
+  // Отложенная инициализация — ждём готовности identity и IDB
+  const tryInit = (attempts = 0) => {
+    if(typeof roomsLoad === 'function' && typeof idbGet === 'function'){
+      roomsRenderList().catch(()=>{});
+      channelsRenderList().catch(()=>{});
+      devicesRenderList().catch(()=>{});
+    } else if(attempts < 20){
+      setTimeout(() => tryInit(attempts + 1), 300);
+    }
+  };
+  setTimeout(() => tryInit(), 1000);
+});
+
+// Слушаем rekey чтобы обновить UI
+window.addEventListener('tovsa-room-rekey', async e => {
+  if(e.detail?.config?.roomId === _activeRoomId){
+    toast('🔒 Ключ группы обновлён');
+    const rooms = await roomsLoad();
+    roomRenderMembers(rooms[_activeRoomId]);
+  }
+  await roomsRenderList();
+});
+
+// Экспортируем функции UI
+Object.assign(window, {
+  roomsRenderList,  roomCreateUI,  roomOpenChat,
+  roomSendMessageUI, roomKickUI,   roomInviteUI,
+  roomRequestHistoryUI, roomToggleMembers,
+  channelsRenderList, channelCreateUI, channelOpenView,
+  channelPublishPostUI, channelOpenComment, channelCloseComment,
+  channelSubmitComment, channelManageSubscribersUI,
+  deviceAddShowQR, deviceShareLink, devicesRenderList,
+  deviceRemove,    deviceSyncAll,
+});
+
+
 // ── SLIDING PILL ──────────────────────────────────────────────────────────────
 function movePill(activeTabId){
   const pill = document.getElementById('tab-pill');

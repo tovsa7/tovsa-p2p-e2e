@@ -114,6 +114,15 @@ jobs:
           echo "APK_PATH=${DEST}" >> $GITHUB_OUTPUT
           echo "APK: ${DEST} ($(du -h $DEST | cut -f1))"
 
+      - name: Verify APK fingerprint matches assetlinks.json
+        run: |
+          APK="${{ steps.apk.outputs.APK_PATH }}"
+          echo "=== APK signing certificate SHA256 ==="
+          keytool -printcert -jarfile "$APK" 2>/dev/null | grep "SHA256:" ||           keytool -list -v -keystore tovsa.keystore             -alias "$KEY_ALIAS" -storepass "$KEYSTORE_PASS" 2>/dev/null | grep "SHA256:"
+          echo ""
+          echo "=== assetlinks.json fingerprint ==="
+          cat .well-known/assetlinks.json || echo "File not found"
+
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:

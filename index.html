@@ -15,7 +15,7 @@
 -->
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
-  script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
+  script-src 'self' 'sha256-tCqFMMtS38pkF33pVOm5OdVgIera5STwaMTovajC4kk=' 'sha256-EMxJuSXK0d6nATkDJPGnfIsDgmaFKj+cbuSFoda60jA=' 'sha256-RxPU3hngLk9YM/ew8FPnPix8dJWKCU+L98me+mtvLIE=' 'sha256-IELGa+lYoyshTP0q1BGQvV4vg1tXoPG+jUBUlucfjso=' https://cdnjs.cloudflare.com;
   style-src  'self' 'unsafe-inline' https://fonts.googleapis.com;
   font-src   'self' https://fonts.gstatic.com;
   img-src    'self' data: blob:;
@@ -1396,6 +1396,8 @@ if (typeof globalThis !== 'undefined') {
 // export { sealedGenEncKey, sealedGetOrCreateEncKey, sealEnvelope, unsealEnvelope };
 
 </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js" defer></script>
 </head>
 <body>
 
@@ -3155,6 +3157,11 @@ let pc,dc,role;
 
 // ── HTML escaping utility (prevents XSS via peer-supplied strings) ──
 function esc(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+// Санитизация имён при получении от собеседника — удаляем HTML теги
+function _sanitizeName(s) {
+  if (!s) return '';
+  return String(s).replace(/<[^>]*>/g,'').replace(/&[^;]+;/g,'').slice(0,64).trim();
+}
 
 // ── FIX #8: безопасный base64 — не использует spread (...array) чтобы не переполнять стек ──
 // btoa(String.fromCharCode(...largeArray)) вызывает Maximum call stack exceeded при >~65К байт
@@ -5387,7 +5394,7 @@ function renderBrOptions(){
     row.innerHTML = `
       ${demo}
       <div class="sn-row-body">
-        <div class="sn-row-title">${opt.name}</div>
+        <div class="sn-row-title">${_esc(opt.name)}</div>
         <div class="sn-row-desc">${opt.desc}</div>
       </div>
       <div style="font-size:16px;color:var(--a);opacity:${isActive?'1':'0'};transition:opacity .15s">✓</div>`;
@@ -5426,7 +5433,7 @@ function renderFsOptions(){
     const isActive = opt.id === _activeFsId;
     row.innerHTML = `
       <div class="sn-row-body">
-        <div class="sn-row-title">${opt.name}</div>
+        <div class="sn-row-title">${_esc(opt.name)}</div>
         <div class="sn-row-desc">${opt.desc} · ${opt.px}px</div>
       </div>
       <div style="font-size:16px;color:var(--a);opacity:${isActive?'1':'0'};transition:opacity .15s">✓</div>`;
@@ -17482,28 +17489,14 @@ async function _renderQR(text, name){
     ctx.shadowBlur = 0;
   };
 
-  if(typeof QRCode !== 'undefined'){
+  // QRCode и jsQR загружаются статически через <script> в <head>
+  if (typeof QRCode !== 'undefined') {
     draw();
   } else {
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
-    // Загружаем jsQR для сканирования
-    if (typeof jsQR === 'undefined') {
-      const jsqr = document.createElement('script');
-      jsqr.src = 'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js';
-      document.head.appendChild(jsqr);
-    }
-    s.onload  = draw;
-    s.onerror = () => {
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#0a0a0f';
-      ctx.fillRect(0, 0, 256, 256);
-      ctx.fillStyle = '#00ff9d';
-      ctx.font = '11px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('QR недоступен офлайн', 128, 128);
-    };
-    document.head.appendChild(s);
+    // Скрипты ещё не загрузились (defer) — ждём
+    window.addEventListener('load', () => {
+      if (typeof QRCode !== 'undefined') draw();
+    }, { once: true });
   }
 }
 
@@ -20868,7 +20861,7 @@ function _buildChatItemHTML(item) {
     </div>
     <div class="chat-item-info">
       <div class="chat-item-name">
-        ${item.name}${myDeviceBadge}${botBadge}
+        ${_esc(item.name)}${myDeviceBadge}${botBadge}
       </div>
       <div class="chat-item-last">${item.lastText ? (item.lastText.length > 40 ? item.lastText.slice(0,40)+'…' : item.lastText) : '<span style="opacity:.4">нет сообщений</span>'}</div>
     </div>
@@ -23060,7 +23053,7 @@ async function syncRenderStatus() {
     const cursor = cursors[fp];
     const online = _presenceCache?.[fp] === 'online';
     const when   = cursor ? new Date(cursor).toLocaleString('ru',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'}) : 'никогда';
-    return `${online ? '🟢' : '⚫'} ${dev.name||'Устройство'} — синк: ${when}`;
+    return `${online ? '🟢' : '⚫'} ${_esc(dev.name||'Устройство')} — синк: ${when}`;
   });
 
   el.textContent = lines.join('\n');

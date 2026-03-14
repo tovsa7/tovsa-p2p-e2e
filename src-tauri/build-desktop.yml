@@ -114,7 +114,14 @@ jobs:
             }
             fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(c, null, 2));
           "
-          sed -i.bak "s/^version = .*/version = \"${SEMVER}\"/" src-tauri/Cargo.toml
+          # Патчим Cargo.toml через node (sed не работает на Windows runner)
+          node -e "
+            const fs = require('fs');
+            let t = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
+            t = t.replace(/^version = \".*\"/m, 'version = \"' + process.env.SEMVER + '\"');
+            fs.writeFileSync('src-tauri/Cargo.toml', t);
+            console.log('Cargo.toml version patched to', process.env.SEMVER);
+          "
 
       - name: Install Linux dependencies
         if: matrix.platform == 'linux'

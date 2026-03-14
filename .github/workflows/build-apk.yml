@@ -169,40 +169,24 @@ jobs:
           printf '{"jdkPath":"%s","androidSdkPath":"%s"}' "$JAVA_HOME" "$ANDROID_SDK_ROOT"             > ~/.bubblewrap/config.json
           echo "bubblewrap config: $(cat ~/.bubblewrap/config.json)"
 
-      # ── Отладка: что видит bubblewrap ────────────────────────────────────────
-      - name: Debug environment
-        run: |
-          echo "=== ANDROID_HOME ==="
-          echo "$ANDROID_HOME"
-          echo "=== ANDROID_SDK_ROOT ==="
-          echo "$ANDROID_SDK_ROOT"
-          echo "=== bubblewrap config ==="
-          cat ~/.bubblewrap/config.json || echo "NO CONFIG FILE"
-          echo "=== SDK contents ==="
-          ls "$ANDROID_HOME" 2>/dev/null || echo "ANDROID_HOME empty/missing"
-          echo "=== build-tools ==="
-          ls "$ANDROID_HOME/build-tools" 2>/dev/null || echo "no build-tools"
-          echo "=== platforms ==="
-          ls "$ANDROID_HOME/platforms" 2>/dev/null || echo "no platforms"
-          echo "=== cmdline-tools ==="
-          find "$ANDROID_HOME" -name sdkmanager 2>/dev/null | head -5
-
-      # ── Сборка APK ────────────────────────────────────────────────────────────
+      # ── Init + Build APK ─────────────────────────────────────────────────────
       - name: Build APK
         run: |
-          mkdir -p twa-build
-          cd twa-build
-          # --yes отвечает "да" на все вопросы bubblewrap
-          echo "y" | bubblewrap build \
-            --manifest    ../twa-manifest.json \
-            --skipPwaValidation \
-            --yes
+          mkdir -p twa-build && cd twa-build
+
+          # Инициализируем TWA проект
+          bubblewrap init             --manifest ../twa-manifest.json             --skipPwaValidation
+
+          # Собираем APK
+          bubblewrap build             --skipPwaValidation
         env:
-          BUBBLEWRAP_KEYSTORE_PATH:     ../tovsa.keystore
+          BUBBLEWRAP_KEYSTORE_PATH:     ${{ github.workspace }}/tovsa.keystore
           BUBBLEWRAP_KEY_ALIAS:         ${{ env.KEY_ALIAS }}
           BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ env.KEYSTORE_PASS }}
           BUBBLEWRAP_KEY_PASSWORD:      ${{ env.KEY_PASS }}
-          JAVA_TOOL_OPTIONS: "-Dfile.encoding=UTF-8"
+          JAVA_TOOL_OPTIONS:            "-Dfile.encoding=UTF-8"
+          ANDROID_HOME:                 /usr/local/lib/android/sdk
+          ANDROID_SDK_ROOT:             /usr/local/lib/android/sdk
 
       - name: Find and rename APK
         id: apk

@@ -75,11 +75,19 @@ jobs:
           git push || true
 
       - name: Verify keystore
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Verifying keystore..."
           keytool -list -v             -keystore tovsa.keystore             -alias "$KEY_ALIAS"             -storepass "$KEYSTORE_PASS" 2>&1 | grep -E "Alias|Valid|SHA256|Entry type" || true
           # Конвертируем в JKS если нужно
-          keytool -importkeystore             -srckeystore  tovsa.keystore             -destkeystore tovsa-jks.keystore             -srcstoretype  PKCS12             -deststoretype JKS             -srcstorepass  "$KEYSTORE_PASS"             -deststorepass "$KEYSTORE_PASS"             -srcalias  "$KEY_ALIAS"             -destalias "$KEY_ALIAS"             -srckeypass  "$KEY_PASS"             -destkeypass "$KEY_PASS"             -noprompt 2>/dev/null && mv tovsa-jks.keystore tovsa.keystore && echo "Converted to JKS" || echo "Already JKS or conversion failed, using as-is"
+          if keytool -importkeystore             -srckeystore tovsa.keystore -destkeystore tovsa-jks.keystore             -srcstoretype PKCS12 -deststoretype JKS             -srcstorepass "$KEYSTORE_PASS" -deststorepass "$KEYSTORE_PASS"             -srcalias "$KEY_ALIAS" -destalias "$KEY_ALIAS"             -srckeypass "$KEY_PASS" -destkeypass "$KEY_PASS"             -noprompt 2>/dev/null; then
+            mv tovsa-jks.keystore tovsa.keystore
+            echo "Converted to JKS, updating Secret..."
+            gh secret set KEYSTORE_BASE64 --body "$(base64 -w 0 tovsa.keystore)"               || echo "Secret update skipped"
+          else
+            echo "Already JKS or same format"
+          fi
 
       - name: Build APK
         run: |

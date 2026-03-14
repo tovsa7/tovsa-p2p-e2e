@@ -123,7 +123,7 @@ jobs:
             "navigationColorDark":   "#0a0a0f",
             "backgroundColor":       "#111118",
             "enableNotifications":   true,
-            "startUrl":              "/${REPO_NAME}/",
+            "startUrl":              "${PAGES_URL}/",
             "iconUrl":               "${PAGES_URL}/icon-512.png",
             "maskableIconUrl":       "${PAGES_URL}/icon-512-maskable.png",
             "monochromeIconUrl":     "${PAGES_URL}/icon-512.png",

@@ -65,9 +65,9 @@ android {
     signingConfigs {
         release {
             storeFile file('${WS}/tovsa.keystore')
-            storePassword '${KEYSTORE_PASS}'
-            keyAlias '${KEY_ALIAS}'
-            keyPassword '${KEY_PASS}'
+            storePassword 'tovsa-store-pass'
+            keyAlias 'tovsa'
+            keyPassword 'tovsa-key-pass'
         }
     }
     buildTypes {

@@ -19,6 +19,9 @@ mkdir -p twa-project && cd twa-project
 # settings.gradle
 printf 'rootProject.name = "tovsa"\ninclude ":app"\n' > settings.gradle
 
+# gradle.properties
+printf 'android.useAndroidX=true\nandroid.enableJetifier=true\norg.gradle.jvmargs=-Xmx2g\n' > gradle.properties
+
 # build.gradle (project)
 cat > build.gradle << 'EOF'
 buildscript {

@@ -101,85 +101,42 @@ jobs:
           git diff --staged --quiet || git commit -m "chore: update assetlinks.json [skip ci]"
           git push || true
 
-      # ── twa-manifest.json ─────────────────────────────────────────────────────
-      - name: Create twa-manifest.json
+      # ── Init + Build APK ─────────────────────────────────────────────────────
+      # bubblewrap init читает PWA manifest.json по URL,
+      # затем патчим сгенерированный twa-manifest.json и собираем
+      - name: Build APK
         run: |
           OWNER="${{ github.repository_owner }}"
           REPO_NAME="${{ github.event.repository.name }}"
           PAGES_URL="https://${OWNER}.github.io/${REPO_NAME}"
           VERSION="${{ steps.version.outputs.VERSION }}"
           VERSION_CODE="${{ steps.version.outputs.VERSION_CODE }}"
+          WS="${{ github.workspace }}"
 
-          cat > twa-manifest.json << TEOF
-          {
-            "packageId":             "com.tovsa.app",
-            "host":                  "${OWNER}.github.io",
-            "name":                  "Tovsa",
-            "launcherName":          "Tovsa",
-            "display":               "standalone",
-            "orientation":           "portrait",
-            "themeColor":            "#0a0a0f",
-            "navigationColor":       "#0a0a0f",
-            "navigationColorDark":   "#0a0a0f",
-            "backgroundColor":       "#111118",
-            "enableNotifications":   true,
-            "startUrl":              "${PAGES_URL}/",
-            "iconUrl":               "${PAGES_URL}/icon-512.png",
-            "maskableIconUrl":       "${PAGES_URL}/icon-512-maskable.png",
-            "monochromeIconUrl":     "${PAGES_URL}/icon-512.png",
-            "appVersion":            "${VERSION}",
-            "appVersionCode":        ${VERSION_CODE},
-            "signingKey": {
-              "path":  "../tovsa.keystore",
-              "alias": "tovsa"
-            },
-            "additionalTrustedOrigins": [],
-            "features": {
-              "locationDelegation": { "enabled": false },
-              "playBilling":        { "enabled": false }
-            },
-            "alphaDependencies":        { "enabled": false },
-            "enableSiteSettingsShortcut": false,
-            "isChromeOSOnly":           false,
-            "isMetaQuest":              false,
-            "fullScopeUrl":             "${PAGES_URL}/",
-            "minSdkVersion":            21,
-            "shortcuts": []
-          }
-          TEOF
-
-      # ── Android SDK + bubblewrap config ─────────────────────────────────────
-      - name: Setup Android SDK & bubblewrap config
-        run: |
-          # Находим реальный путь к sdkmanager в Actions runner
-          SDKMANAGER=$(find $ANDROID_HOME -name sdkmanager -type f 2>/dev/null | head -1)
-          echo "sdkmanager: $SDKMANAGER"
-          echo "ANDROID_HOME: $ANDROID_HOME"
-
-          # Принимаем лицензии и устанавливаем нужные компоненты
-          yes | "$SDKMANAGER" \
-            "build-tools;34.0.0" \
-            "platforms;android-34" \
-            2>/dev/null || true
-
-          # Правильный путь для bubblewrap — SDK root без trailing slash
-          ANDROID_SDK_ROOT=$(echo $ANDROID_HOME | sed 's|/$||')
-
-          mkdir -p ~/.bubblewrap
-          printf '{"jdkPath":"%s","androidSdkPath":"%s"}' "$JAVA_HOME" "$ANDROID_SDK_ROOT"             > ~/.bubblewrap/config.json
-          echo "bubblewrap config: $(cat ~/.bubblewrap/config.json)"
-
-      # ── Init + Build APK ─────────────────────────────────────────────────────
-      - name: Build APK
-        run: |
           mkdir -p twa-build && cd twa-build
 
-          # Инициализируем TWA проект
-          bubblewrap init             --manifest ../twa-manifest.json             --skipPwaValidation
+          # bubblewrap init — принимает URL PWA manifest.json
+          bubblewrap init \
+            --manifest "${PAGES_URL}/manifest.json" \
+            --skipPwaValidation
 
-          # Собираем APK
-          bubblewrap build             --skipPwaValidation
+          # Патчим сгенерированный twa-manifest.json
+          node -e "
+            const fs = require('fs');
+            const m = JSON.parse(fs.readFileSync('twa-manifest.json','utf8'));
+            m.signingKey = { path: process.env.WS + '/tovsa.keystore', alias: 'tovsa' };
+            m.appVersion = process.env.VERSION;
+            m.appVersionCode = parseInt(process.env.VERSION_CODE);
+            m.packageId = 'com.tovsa.app';
+            fs.writeFileSync('twa-manifest.json', JSON.stringify(m, null, 2));
+            console.log('Patched:', m.packageId, m.appVersion);
+          "
+
+          bubblewrap build --skipPwaValidation
         env:
+          WS:                           ${{ github.workspace }}
+          VERSION:                      ${{ steps.version.outputs.VERSION }}
+          VERSION_CODE:                 ${{ steps.version.outputs.VERSION_CODE }}
           BUBBLEWRAP_KEYSTORE_PATH:     ${{ github.workspace }}/tovsa.keystore
           BUBBLEWRAP_KEY_ALIAS:         ${{ env.KEY_ALIAS }}
           BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ env.KEYSTORE_PASS }}

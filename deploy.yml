@@ -49,8 +49,6 @@ jobs:
           # Обновляем версию в index.html
           sed -i "s/>1\.2\.0</>$VERSION</" index.html
 
-          # Пересчитываем CSP sha256 хеши после изменения файла
-          python3 update-csp-hashes.py
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

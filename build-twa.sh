@@ -103,15 +103,25 @@ cat > app/src/main/AndroidManifest.xml << EOF
             <meta-data android:name="android.support.customtabs.trusted.DEFAULT_URL"
                 android:value="${PAGES_URL}/" />
             <meta-data android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR"
-                android:value="#0a0a0f" />
+                android:resource="@color/colorPrimary" />
             <meta-data android:name="android.support.customtabs.trusted.NAVIGATION_BAR_COLOR"
-                android:value="#0a0a0f" />
+                android:resource="@color/colorPrimary" />
         </activity>
     </application>
 </manifest>
 EOF
 
 # Drawable splash
+
+# colors.xml — цвета как ресурсы (нельзя использовать hex напрямую в meta-data)
+cat > app/src/main/res/values/colors.xml << 'COLEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#0a0a0f</color>
+    <color name="colorBackground">#111118</color>
+</resources>
+COLEOF
+
 mkdir -p app/src/main/res/drawable
 cat > app/src/main/res/drawable/splash.xml << 'SPLASHEOF'
 <?xml version="1.0" encoding="utf-8"?>

@@ -115,14 +115,13 @@ jobs:
 
           mkdir -p twa-build && cd twa-build
 
-          # bubblewrap init — отвечаем на все вопросы:
-          # n = не устанавливать JDK
-          # $JAVA_HOME = путь к существующему JDK
-          # n = не устанавливать Android SDK
-          # $ANDROID_HOME = путь к существующему SDK
-          printf 'n\n%s\nn\n%s\n' "$JAVA_HOME" "$ANDROID_HOME" | bubblewrap init \
-            --manifest "${PAGES_URL}/manifest.json" \
-            --skipPwaValidation
+          # Записываем bubblewrap config с реальными путями ДО init
+          mkdir -p ~/.bubblewrap
+          printf '{"jdkPath":"%s","androidSdkPath":"%s"}'             "$JAVA_HOME" "$ANDROID_HOME" > ~/.bubblewrap/config.json
+          echo "config: $(cat ~/.bubblewrap/config.json)"
+
+          # bubblewrap init с --jdk и --androidSdk флагами обходит интерактив
+          bubblewrap init             --manifest "${PAGES_URL}/manifest.json"             --skipPwaValidation             --jdk "$JAVA_HOME"             --androidSdk "$ANDROID_HOME"
 
           # Патчим сгенерированный twa-manifest.json
           node -e "

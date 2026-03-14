@@ -50,6 +50,7 @@ jobs:
               -storepass "$KEYSTORE_PASS" \
               -keypass   "$KEY_PASS" \
               -dname "CN=Tovsa,O=Tovsa,C=RU" \
+              -storetype JKS \
               -noprompt
             echo "======== СОХРАНИТЕ КАК СЕКРЕТ KEYSTORE_BASE64 ========"
             base64 -w 0 tovsa.keystore
@@ -72,6 +73,13 @@ jobs:
           git add .well-known/assetlinks.json
           git diff --staged --quiet || git commit -m "chore: update assetlinks.json [skip ci]"
           git push || true
+
+      - name: Verify keystore
+        run: |
+          echo "Verifying keystore..."
+          keytool -list -v             -keystore tovsa.keystore             -alias "$KEY_ALIAS"             -storepass "$KEYSTORE_PASS" 2>&1 | grep -E "Alias|Valid|SHA256|Entry type" || true
+          # Конвертируем в JKS если нужно
+          keytool -importkeystore             -srckeystore  tovsa.keystore             -destkeystore tovsa-jks.keystore             -srcstoretype  PKCS12             -deststoretype JKS             -srcstorepass  "$KEYSTORE_PASS"             -deststorepass "$KEYSTORE_PASS"             -srcalias  "$KEY_ALIAS"             -destalias "$KEY_ALIAS"             -srckeypass  "$KEY_PASS"             -destkeypass "$KEY_PASS"             -noprompt 2>/dev/null && mv tovsa-jks.keystore tovsa.keystore && echo "Converted to JKS" || echo "Already JKS or conversion failed, using as-is"
 
       - name: Build APK
         run: |

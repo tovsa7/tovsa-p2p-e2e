@@ -115,24 +115,50 @@ jobs:
 
           mkdir -p twa-build && cd twa-build
 
-          # Записываем bubblewrap config с реальными путями ДО init
+          # Пишем bubblewrap config
           mkdir -p ~/.bubblewrap
           printf '{"jdkPath":"%s","androidSdkPath":"%s"}'             "$JAVA_HOME" "$ANDROID_HOME" > ~/.bubblewrap/config.json
-          echo "config: $(cat ~/.bubblewrap/config.json)"
 
-          # bubblewrap init с --jdk и --androidSdk флагами обходит интерактив
-          bubblewrap init             --manifest "${PAGES_URL}/manifest.json"             --skipPwaValidation             --jdk "$JAVA_HOME"             --androidSdk "$ANDROID_HOME"
-
-          # Патчим сгенерированный twa-manifest.json
+          # Создаём twa-manifest.json напрямую — обходим интерактивный init
           node -e "
             const fs = require('fs');
-            const m = JSON.parse(fs.readFileSync('twa-manifest.json','utf8'));
-            m.signingKey = { path: process.env.WS + '/tovsa.keystore', alias: 'tovsa' };
-            m.appVersion = process.env.VERSION;
-            m.appVersionCode = parseInt(process.env.VERSION_CODE);
-            m.packageId = 'com.tovsa.app';
+            const m = {
+              packageId: 'com.tovsa.app',
+              host: 'tovsa7.github.io',
+              name: 'Tovsa',
+              launcherName: 'Tovsa',
+              display: 'standalone',
+              orientation: 'portrait',
+              themeColor: '#0a0a0f',
+              navigationColor: '#0a0a0f',
+              navigationColorDark: '#0a0a0f',
+              navigationDividerColor: '#0a0a0f',
+              navigationDividerColorDark: '#0a0a0f',
+              backgroundColor: '#111118',
+              enableNotifications: true,
+              startUrl: '/' + process.env.REPO_NAME + '/',
+              iconUrl: process.env.PAGES_URL + '/icon-512.png',
+              maskableIconUrl: process.env.PAGES_URL + '/icon-512-maskable.png',
+              monochromeIconUrl: process.env.PAGES_URL + '/icon-512.png',
+              appVersion: process.env.VERSION,
+              appVersionCode: parseInt(process.env.VERSION_CODE),
+              signingKey: { path: process.env.WS + '/tovsa.keystore', alias: 'tovsa' },
+              additionalTrustedOrigins: [],
+              retainedBundles: [],
+              features: {
+                locationDelegation: { enabled: false },
+                playBilling: { enabled: false }
+              },
+              alphaDependencies: { enabled: false },
+              enableSiteSettingsShortcut: false,
+              isChromeOSOnly: false,
+              isMetaQuest: false,
+              fullScopeUrl: process.env.PAGES_URL + '/',
+              minSdkVersion: 21,
+              shortcuts: []
+            };
             fs.writeFileSync('twa-manifest.json', JSON.stringify(m, null, 2));
-            console.log('Patched:', m.packageId, m.appVersion);
+            console.log('twa-manifest.json created for', m.packageId, m.appVersion);
           "
 
           bubblewrap build --skipPwaValidation
@@ -140,6 +166,8 @@ jobs:
           WS:                           ${{ github.workspace }}
           VERSION:                      ${{ steps.version.outputs.VERSION }}
           VERSION_CODE:                 ${{ steps.version.outputs.VERSION_CODE }}
+          REPO_NAME:                    ${{ github.event.repository.name }}
+          PAGES_URL:                    https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
           BUBBLEWRAP_KEYSTORE_PATH:     ${{ github.workspace }}/tovsa.keystore
           BUBBLEWRAP_KEY_ALIAS:         ${{ env.KEY_ALIAS }}
           BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ env.KEYSTORE_PASS }}

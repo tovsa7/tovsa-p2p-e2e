@@ -166,17 +166,8 @@ jobs:
           ANDROID_SDK_ROOT=$(echo $ANDROID_HOME | sed 's|/$||')
 
           mkdir -p ~/.bubblewrap
-          # Пишем конфиг через python3 — без проблем с отступами heredoc
-          python3 -c "
-import json, os
-cfg = {
-    'jdkPath': os.environ['JAVA_HOME'],
-    'androidSdkPath': os.environ['ANDROID_HOME'].rstrip('/')
-}
-with open(os.path.expanduser('~/.bubblewrap/config.json'), 'w') as f:
-    json.dump(cfg, f, indent=2)
-print('config.json:', json.dumps(cfg))
-"
+          printf '{"jdkPath":"%s","androidSdkPath":"%s"}' "$JAVA_HOME" "$ANDROID_SDK_ROOT"             > ~/.bubblewrap/config.json
+          echo "bubblewrap config: $(cat ~/.bubblewrap/config.json)"
 
       # ── Сборка APK ────────────────────────────────────────────────────────────
       - name: Build APK

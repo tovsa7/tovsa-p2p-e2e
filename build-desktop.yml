@@ -97,8 +97,7 @@ jobs:
           PUBKEY: ${{ secrets.TAURI_SIGNING_PUBLIC_KEY }}
         run: |
           echo "Patching version: $SEMVER"
-          node patch-version.js
-
+          python3 patch-version.py
 
       - name: Install Linux dependencies
         if: matrix.platform == 'linux'

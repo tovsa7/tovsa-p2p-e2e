@@ -87,14 +87,8 @@ jobs:
           HASH=$(git rev-parse --short HEAD)
           DATE=$(date +%Y%m%d)
           echo "VERSION=${DATE}-${HASH}" >> $GITHUB_OUTPUT
-          # node доступен на всех платформах — используем его для semver
-          node -e "
-            const d = new Date();
-            const semver = '1.' + (d.getMonth()+1) + '.' + d.getDate();
-            const fs = require('fs');
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'SEMVER=' + semver + '\n');
-            console.log('SEMVER=' + semver);
-          "
+          # Semver: 1.MONTH.DAY — всегда <= 255
+          node get-semver.js >> $GITHUB_OUTPUT
 
       - name: Inject pubkey and version into tauri.conf.json
         shell: bash
@@ -103,28 +97,7 @@ jobs:
           PUBKEY: ${{ secrets.TAURI_SIGNING_PUBLIC_KEY }}
         run: |
           echo "Patching version: $SEMVER"
-          node -e "
-            const fs   = require('fs');
-            const semver = process.env.SEMVER;
-            const pubkey = process.env.PUBKEY;
-
-            // tauri.conf.json
-            const c = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json','utf8'));
-            c.version = semver;
-            if (pubkey && c.plugins?.updater) {
-              c.plugins.updater.pubkey = pubkey;
-            } else if (!pubkey && c.plugins?.updater) {
-              delete c.plugins.updater;
-            }
-            fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(c, null, 2));
-            console.log('tauri.conf.json version =', semver);
-
-            // Cargo.toml
-            let t = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
-            t = t.replace(/^version = "[^"]+"/m, 'version = "' + semver + '"');
-            fs.writeFileSync('src-tauri/Cargo.toml', t);
-            console.log('Cargo.toml version =', semver);
-          "
+          python3 patch-version.py
 
       - name: Install Linux dependencies
         if: matrix.platform == 'linux'
@@ -213,12 +186,7 @@ jobs:
           HASH=$(git rev-parse --short HEAD)
           DATE=$(date +%Y%m%d)
           echo "VERSION=${DATE}-${HASH}" >> $GITHUB_OUTPUT
-          node -e "
-            const d = new Date();
-            const semver = '1.' + (d.getMonth()+1) + '.' + d.getDate();
-            require('fs').appendFileSync(process.env.GITHUB_OUTPUT, 'SEMVER=' + semver + '\n');
-            console.log('SEMVER=' + semver);
-          "
+          node get-semver.js >> $GITHUB_OUTPUT
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -243,20 +211,7 @@ jobs:
           MAC_SIG=$(cat artifacts/desktop-macos/*.dmg.sig   2>/dev/null || echo "")
           LIN_SIG=$(cat artifacts/desktop-linux/*.AppImage.sig 2>/dev/null || echo "")
 
-          node -e "
-            const u = {
-              version: '${VERSION}',
-              notes:   'Tovsa ${TAG}',
-              pub_date: '${DATE}',
-              platforms: {
-                'windows-x86_64': { url: '${WIN_URL}', signature: '${WIN_SIG}' },
-                'darwin-x86_64':  { url: '${MAC_URL}', signature: '${MAC_SIG}' },
-                'darwin-aarch64': { url: '${MAC_URL}', signature: '${MAC_SIG}' },
-                'linux-x86_64':   { url: '${LIN_URL}', signature: '${LIN_SIG}' },
-              }
-            };
-            process.stdout.write(JSON.stringify(u, null, 2));
-          " > update.json
+          VERSION="${{ steps.version.outputs.SEMVER }}"           TAG="${{ steps.version.outputs.VERSION }}"           BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"           WIN_URL="$WIN_URL" WIN_SIG="$WIN_SIG"           MAC_URL="$MAC_URL" MAC_SIG="$MAC_SIG"           LIN_URL="$LIN_URL" LIN_SIG="$LIN_SIG"           node gen-update-json.js > update.json
 
           echo "update.json:"
           cat update.json

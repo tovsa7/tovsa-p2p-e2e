@@ -1,0 +1,217 @@
+name: Build TWA APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install bubblewrap
+        run: npm install -g @bubblewrap/cli
+
+      - name: Get version
+        id: version
+        run: |
+          HASH=$(git rev-parse --short HEAD)
+          DATE=$(date +%Y%m%d)
+          echo "VERSION=${DATE}-${HASH}" >> $GITHUB_OUTPUT
+          # versionCode — число для Android (увеличивается каждый билд)
+          echo "VERSION_CODE=$(date +%s | tail -c 6)" >> $GITHUB_OUTPUT
+
+      # ── Keystore: генерируем один раз, кешируем в Secrets ─────────────────────
+      - name: Setup keystore
+        id: keystore
+        run: |
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            # Уже есть в Secrets — используем
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > tovsa.keystore
+            echo "KEYSTORE_EXISTS=true" >> $GITHUB_OUTPUT
+            echo "Используем существующий keystore"
+          else
+            # Генерируем новый
+            keytool -genkeypair \
+              -v \
+              -keystore tovsa.keystore \
+              -alias tovsa \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass tovsa-store-pass \
+              -keypass   tovsa-key-pass \
+              -dname "CN=Tovsa, OU=Tovsa, O=Tovsa, L=Unknown, ST=Unknown, C=RU"
+            echo "KEYSTORE_EXISTS=false" >> $GITHUB_OUTPUT
+            echo "Сгенерирован новый keystore"
+
+            # Выводим base64 для сохранения в Secrets
+            echo "========================================"
+            echo "ВАЖНО: Сохраните это значение как GitHub Secret KEYSTORE_BASE64"
+            echo "Репозиторий → Settings → Secrets → Actions → New secret"
+            echo "========================================"
+            base64 -w 0 tovsa.keystore
+            echo ""
+            echo "========================================"
+          fi
+
+          # SHA-256 fingerprint для assetlinks.json
+          FINGERPRINT=$(keytool -list -v \
+            -keystore tovsa.keystore \
+            -alias tovsa \
+            -storepass tovsa-store-pass \
+            2>/dev/null | grep "SHA256:" | head -1 | sed 's/.*SHA256: //' | tr -d ' ')
+          echo "SHA256_FINGERPRINT=${FINGERPRINT}" >> $GITHUB_OUTPUT
+          echo "Fingerprint: ${FINGERPRINT}"
+
+      # ── assetlinks.json — доверие между APK и доменом ─────────────────────────
+      - name: Generate assetlinks.json
+        run: |
+          REPO="${{ github.repository }}"
+          OWNER="${{ github.repository_owner }}"
+          REPO_NAME="${REPO#*/}"
+          # GitHub Pages URL
+          PAGES_URL="https://${OWNER}.github.io/${REPO_NAME}"
+          PACKAGE="com.tovsa.app"
+
+          mkdir -p .well-known
+          cat > .well-known/assetlinks.json << AEOF
+          [{
+            "relation": ["delegate_permission/common.handle_all_urls"],
+            "target": {
+              "namespace": "android_app",
+              "package_name": "${PACKAGE}",
+              "sha256_cert_fingerprints": ["${{ steps.keystore.outputs.SHA256_FINGERPRINT }}"]
+            }
+          }]
+          AEOF
+          echo "assetlinks.json создан для ${PAGES_URL}"
+          cat .well-known/assetlinks.json
+
+      # ── Коммитим assetlinks.json чтобы он попал на Pages ─────────────────────
+      - name: Commit assetlinks.json
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .well-known/assetlinks.json
+          git diff --staged --quiet || git commit -m "chore: update assetlinks.json [skip ci]"
+          git push || true
+
+      # ── Конфигурация bubblewrap ───────────────────────────────────────────────
+      - name: Create twa-manifest.json
+        run: |
+          REPO="${{ github.repository }}"
+          OWNER="${{ github.repository_owner }}"
+          REPO_NAME="${REPO#*/}"
+          PAGES_URL="https://${OWNER}.github.io/${REPO_NAME}"
+
+          cat > twa-manifest.json << TEOF
+          {
+            "packageId": "com.tovsa.app",
+            "host": "${OWNER}.github.io",
+            "name": "Tovsa",
+            "launcherName": "Tovsa",
+            "display": "standalone",
+            "orientation": "portrait",
+            "themeColor": "#0a0a0f",
+            "navigationColor": "#0a0a0f",
+            "navigationColorDark": "#0a0a0f",
+            "navigationDividerColor": "#0a0a0f",
+            "navigationDividerColorDark": "#0a0a0f",
+            "backgroundColor": "#111118",
+            "enableNotifications": true,
+            "startUrl": "/${REPO_NAME}/",
+            "iconUrl": "${PAGES_URL}/icon-512.png",
+            "maskableIconUrl": "${PAGES_URL}/icon-512-maskable.png",
+            "monochromeIconUrl": "${PAGES_URL}/icon-512.png",
+            "appVersion": "${{ steps.version.outputs.VERSION }}",
+            "appVersionCode": ${{ steps.version.outputs.VERSION_CODE }},
+            "signingKey": {
+              "path": "../tovsa.keystore",
+              "alias": "tovsa"
+            },
+            "additionalTrustedOrigins": [],
+            "retainedBundles": [],
+            "features": {
+              "locationDelegation": { "enabled": false },
+              "playBilling":        { "enabled": false }
+            },
+            "alphaDependencies": { "enabled": false },
+            "enableSiteSettingsShortcut": false,
+            "isChromeOSOnly": false,
+            "isMetaQuest": false,
+            "fullScopeUrl": "${PAGES_URL}/",
+            "minSdkVersion": 21,
+            "shortcuts": [
+              {
+                "name": "Чаты",
+                "short_name": "Чаты",
+                "url": "/${REPO_NAME}/?tab=contacts",
+                "icons": [{ "src": "${PAGES_URL}/icon-96.png", "sizes": "96x96" }]
+              }
+            ]
+          }
+          TEOF
+          echo "twa-manifest.json создан"
+
+      - name: Build APK with bubblewrap
+        run: |
+          mkdir -p twa-build
+          cd twa-build
+          bubblewrap build \
+            --manifest ../twa-manifest.json \
+            --skipPwaValidation
+        env:
+          BUBBLEWRAP_KEYSTORE_PATH:     ../tovsa.keystore
+          BUBBLEWRAP_KEY_ALIAS:         tovsa
+          BUBBLEWRAP_KEYSTORE_PASSWORD: tovsa-store-pass
+          BUBBLEWRAP_KEY_PASSWORD:      tovsa-key-pass
+
+      - name: Rename APK
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          find twa-build -name "*.apk" | head -1 | xargs -I{} cp {} "tovsa-${VERSION}.apk"
+          echo "APK: tovsa-${VERSION}.apk ($(du -h tovsa-${VERSION}.apk | cut -f1))"
+
+      - name: Upload APK to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name:     "Tovsa ${{ steps.version.outputs.VERSION }}"
+          body:     |
+            ## Установка
+
+            ### Android APK
+            1. Скачайте `tovsa-*.apk`
+            2. Разрешите установку из неизвестных источников
+            3. Установите
+
+            ### PWA (все платформы)
+            Откройте https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }} → «Установить»
+
+            ---
+            Commit: `${{ github.sha }}`
+            ${{ github.event.head_commit.message }}
+          files: |
+            tovsa-${{ steps.version.outputs.VERSION }}.apk
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

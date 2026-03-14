@@ -1,1 +1,82 @@
+name: Deploy to GitHub Pages
 
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:   # ручной запуск из UI
+
+permissions:
+  contents: write      # для создания release
+  pages:    write
+  id-token: write
+
+concurrency:
+  group:    pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url:  ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Inject git hash into SW version
+        run: |
+          HASH=$(git rev-parse --short HEAD)
+          DATE=$(date +%Y%m%d)
+          VERSION="${DATE}-${HASH}"
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+          # Заменяем версию кеша в sw.js
+          sed -i "s/const C *= *'tovsa-v[^']*'/const C = 'tovsa-${VERSION}'/" sw.js
+
+          # Обновляем версию в manifest.json
+          # (добавляем поле version если его нет, или обновляем)
+          python3 -c "
+          import json
+          with open('manifest.json') as f: m = json.load(f)
+          m['version'] = '${VERSION}'
+          with open('manifest.json','w') as f: json.dump(m, f, ensure_ascii=False, indent=2)
+          "
+
+          echo "Deployed version: ${VERSION}"
+
+          # Обновляем версию в index.html
+          sed -i "s/>1\.2\.0</>$VERSION</" index.html
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy to Pages
+        id:   deploy
+        uses: actions/deploy-pages@v4
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION }}
+          name:     "Tovsa ${{ env.VERSION }}"
+          body:     |
+            Автоматический релиз из ветки `main`.
+
+            **Установка (PWA):**
+            Откройте [${{ steps.deploy.outputs.page_url }}](${{ steps.deploy.outputs.page_url }}) в браузере → «Установить приложение»
+
+            **Изменения:** ${{ github.event.head_commit.message }}
+          files: |
+            index.html
+            sw.js
+            manifest.json
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

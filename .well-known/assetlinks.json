@@ -1,8 +1,1 @@
-[{
-  "relation": ["delegate_permission/common.handle_all_urls"],
-  "target": {
-    "namespace": "android_app",
-    "package_name": "com.tovsa.app",
-    "sha256_cert_fingerprints": ["80:D4:CB:6E:B5:94:59:A3:81:D0:78:AE:92:C8:8C:FD:98:64:B6:F5:BC:09:E9:5C:DB:94:90:12:0C:41:67:A7"]
-  }
-}]
+[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"com.tovsa.app","sha256_cert_fingerprints":["80:D4:CB:6E:B5:94:59:A3:81:D0:78:AE:92:C8:8C:FD:98:64:B6:F5:BC:09:E9:5C:DB:94:90:12:0C:41:67:A7"]}}]

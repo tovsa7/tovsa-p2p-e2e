@@ -8952,8 +8952,16 @@ async function vrSendFile(file){
 // ════════════════════════════════════════════════════════════════════════════
 
 // Инициализируем шифрование IDB до любых операций с базой
-encInitSessionKey().then(() => encMigrateExisting()).catch(console.warn);
-initIdentity();
+// encInitSessionKey должна завершиться ДО initIdentity
+// иначе idbGet не сможет расшифровать ключи (race condition)
+encInitSessionKey()
+  .then(() => initIdentity())
+  .then(() => encMigrateExisting())
+  .catch(e => {
+    console.warn('[init] error:', e);
+    // Fallback — пробуем initIdentity без шифрования
+    if (!myFingerprint) initIdentity().catch(console.warn);
+  });
 initMyContactCard();
 
 // ══════════════════════════════════════════════════════════════════════════════

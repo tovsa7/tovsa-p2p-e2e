@@ -78,8 +78,8 @@ android {
     }
 }
 dependencies {
-    implementation 'androidx.browser:browser:1.7.0'
-    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.browser:browser:1.8.0'
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
 }
 EOF
 
@@ -99,9 +99,27 @@ cat > app/src/main/AndroidManifest.xml << EOF
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- TWA: URL и цвета без браузерного UI -->
+            <meta-data android:name="android.support.customtabs.trusted.DEFAULT_URL"
+                android:value="${PAGES_URL}/" />
+            <meta-data android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR"
+                android:value="#0a0a0f" />
+            <meta-data android:name="android.support.customtabs.trusted.NAVIGATION_BAR_COLOR"
+                android:value="#0a0a0f" />
         </activity>
     </application>
 </manifest>
+EOF
+
+# Drawable splash
+mkdir -p app/src/main/res/drawable
+cat > app/src/main/res/drawable/splash.xml << 'SPLASHEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="#111118"/>
+</shape>
+SPLASHEOF
+
 EOF
 
 # LaunchActivity.java
@@ -109,16 +127,12 @@ cat > app/src/main/java/${PKG_PATH}/LaunchActivity.java << EOF
 package ${PKG};
 import android.net.Uri;
 import android.os.Bundle;
-import androidx.browser.customtabs.CustomTabsIntent;
-import androidx.appcompat.app.AppCompatActivity;
-public class LaunchActivity extends AppCompatActivity {
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        new CustomTabsIntent.Builder().build()
-            .launchUrl(this, Uri.parse("${PAGES_URL}/"));
-        finish();
-    }
+import com.google.androidbrowserhelper.trusted.TwaLauncher;
+import com.google.androidbrowserhelper.trusted.LauncherActivity;
+
+// LauncherActivity из androidbrowserhelper — настоящий TWA без браузерного UI
+public class LaunchActivity extends LauncherActivity {
+    // LauncherActivity читает параметры из AndroidManifest meta-data
 }
 EOF
 

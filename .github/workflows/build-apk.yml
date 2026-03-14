@@ -115,8 +115,10 @@ jobs:
 
           mkdir -p twa-build && cd twa-build
 
-          # bubblewrap init — принимает URL PWA manifest.json
-          bubblewrap init \
+          # bubblewrap init — отвечаем на все вопросы автоматически:
+          # n = не устанавливать JDK (используем свой)
+          # n = не устанавливать Android SDK (используем свой)
+          printf 'n\nn\n' | bubblewrap init \
             --manifest "${PAGES_URL}/manifest.json" \
             --skipPwaValidation
 

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Tovsa",
+  "version": "0.1.0",
+  "identifier": "com.tovsa.app",
+  "build": {
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title":       "Tovsa",
+        "url":         "https://tovsa7.github.io/tovsa-p2p-e2e/",
+        "width":       420,
+        "height":      820,
+        "resizable":   true,
+        "fullscreen":  false,
+        "center":      true,
+        "decorations": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active":    true,
+    "targets":   "all",
+    "icon": [
+      "icons/icon.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "category": "Communication",
+    "shortDescription": "P2P мессенджер с E2E шифрованием"
+  },
+  "plugins": {
+    "updater": {
+      "pubkey":    "__TAURI_PUBLIC_KEY__",
+      "endpoints": [
+        "https://tovsa7.github.io/tovsa-p2p-e2e/update.json"
+      ],
+      "dialog":    true
+    }
+  }
+}

@@ -120,7 +120,6 @@ cat > app/src/main/res/drawable/splash.xml << 'SPLASHEOF'
 </shape>
 SPLASHEOF
 
-EOF
 
 # LaunchActivity.java
 cat > app/src/main/java/${PKG_PATH}/LaunchActivity.java << EOF

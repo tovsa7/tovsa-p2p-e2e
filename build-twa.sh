@@ -91,7 +91,7 @@ cat > app/src/main/AndroidManifest.xml << EOF
     <application
         android:label="Tovsa"
         android:icon="@mipmap/ic_launcher"
-        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+        android:theme="@android:style/Theme.NoTitleBar">
         <activity
             android:name=".LaunchActivity"
             android:exported="true">
@@ -133,14 +133,6 @@ import com.google.androidbrowserhelper.trusted.LauncherActivity;
 public class LaunchActivity extends LauncherActivity {
     // LauncherActivity читает параметры из AndroidManifest meta-data
 }
-EOF
-
-# styles.xml
-cat > app/src/main/res/values/styles.xml << 'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <style name="Theme.AppCompat.Light.NoActionBar"/>
-</resources>
 EOF
 
 # Иконка

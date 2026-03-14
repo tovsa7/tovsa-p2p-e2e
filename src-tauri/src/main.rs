@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use tauri::Manager;
+use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_updater::UpdaterExt;
 
 fn main() {
@@ -21,11 +22,8 @@ fn main() {
 
 async fn check_for_updates(app: tauri::AppHandle) -> tauri_plugin_updater::Result<()> {
     if let Some(update) = app.updater()?.check().await? {
-        let window = app.get_webview_window("main");
-
-        // Спрашиваем через диалог Tauri 2.x
         let (tx, rx) = tokio::sync::oneshot::channel::<bool>();
-        tauri_plugin_dialog::DialogExt::dialog(&app)
+        app.dialog()
             .message(format!(
                 "Tovsa {} доступна.\nОбновить сейчас?",
                 update.version
@@ -33,15 +31,10 @@ async fn check_for_updates(app: tauri::AppHandle) -> tauri_plugin_updater::Resul
             .title("Доступно обновление")
             .ok_button_label("Обновить")
             .cancel_button_label("Позже")
-            .parent(window.as_ref().unwrap())
-            .show(move |answer| {
-                let _ = tx.send(answer);
-            });
+            .show(move |answer| { let _ = tx.send(answer); });
 
         if rx.await.unwrap_or(false) {
-            update
-                .download_and_install(|_, _| {}, || {})
-                .await?;
+            update.download_and_install(|_, _| {}, || {}).await?;
             app.restart();
         }
     }

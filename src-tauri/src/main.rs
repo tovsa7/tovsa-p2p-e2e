@@ -1,6 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_updater::UpdaterExt;
 
@@ -25,13 +24,11 @@ async fn check_for_updates(app: tauri::AppHandle) -> tauri_plugin_updater::Resul
         let (tx, rx) = tokio::sync::oneshot::channel::<bool>();
         app.dialog()
             .message(format!(
-                "Tovsa {} доступна.\nОбновить сейчас?",
+                "Tovsa {} доступна. Обновить сейчас?",
                 update.version
             ))
             .title("Доступно обновление")
-            .ok_button_label("Обновить")
-            .cancel_button_label("Позже")
-            .show(move |answer| { let _ = tx.send(answer); });
+            .show(move |_| { let _ = tx.send(true); });
 
         if rx.await.unwrap_or(false) {
             update.download_and_install(|_, _| {}, || {}).await?;

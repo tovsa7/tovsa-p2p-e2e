@@ -148,26 +148,32 @@ jobs:
           }
           TEOF
 
-      # ── Инициализируем bubblewrap без интерактива ─────────────────────────────
-      - name: Init bubblewrap config
+      # ── Android SDK + bubblewrap config ─────────────────────────────────────
+      - name: Setup Android SDK & bubblewrap config
         run: |
+          # Находим реальный путь к sdkmanager в Actions runner
+          SDKMANAGER=$(find $ANDROID_HOME -name sdkmanager -type f 2>/dev/null | head -1)
+          echo "sdkmanager: $SDKMANAGER"
+          echo "ANDROID_HOME: $ANDROID_HOME"
+
+          # Принимаем лицензии и устанавливаем нужные компоненты
+          yes | "$SDKMANAGER" \
+            "build-tools;34.0.0" \
+            "platforms;android-34" \
+            2>/dev/null || true
+
+          # Правильный путь для bubblewrap — SDK root без trailing slash
+          ANDROID_SDK_ROOT=$(echo $ANDROID_HOME | sed 's|/$||')
+
           mkdir -p ~/.bubblewrap
           cat > ~/.bubblewrap/config.json << BEOF
           {
             "jdkPath": "$JAVA_HOME",
-            "androidSdkPath": "$ANDROID_HOME"
+            "androidSdkPath": "$ANDROID_SDK_ROOT"
           }
           BEOF
-
-      # ── Устанавливаем Android SDK компоненты ──────────────────────────────────
-      - name: Setup Android SDK
-        run: |
-          # Принимаем лицензии без интерактива
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
-            "build-tools;34.0.0" \
-            "platforms;android-34" \
-            "platform-tools" \
-            2>/dev/null || true
+          echo "bubblewrap config:"
+          cat ~/.bubblewrap/config.json
 
       # ── Сборка APK ────────────────────────────────────────────────────────────
       - name: Build APK

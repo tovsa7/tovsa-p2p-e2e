@@ -19755,8 +19755,30 @@ async function buildChatList() {
 
   // Сортировка по времени последнего сообщения
   items.sort((a, b) => b.lastTs - a.lastTs);
-  _allChatItems = items;
-  return items;
+
+  // Избранное — всегда первым (специальный тип, не фильтруется папками кроме "all" и "personal")
+  const favMsgs = await (async () => {
+    try {
+      const h = await getHistory();
+      const msgs = h['__fav__'] || [];
+      return msgs;
+    } catch(_) { return []; }
+  })();
+  const favLast = favMsgs.at(-1);
+  const favItem = {
+    id:       '__fav__',
+    type:     'fav',
+    name:     'Избранное',
+    avatar:   null,
+    initials: '★',
+    lastText: favLast ? (favLast.__file__ ? '[файл]' : favLast.text || '') : 'заметки для себя',
+    lastTs:   favLast?.ts || 0,
+    unread:   0,
+    archived: false,
+    _pinned:  true,
+  };
+  _allChatItems = [favItem, ...items];
+  return _allChatItems;
 }
 
 // ── Фильтрация ────────────────────────────────────────────────────────────────
@@ -19765,12 +19787,16 @@ function filterByFolder(items, folderId, customFolders) {
   const sys = SYSTEM_FOLDERS.find(f => f.id === folderId);
   if (sys) {
     if (sys.archive) return items.filter(i => i.archived);
-    return items.filter(i => !i.archived && sys.types.includes(i.type));
+    // Избранное — показываем в "Все" и "Личные"
+    return items.filter(i => {
+      if (i.type === 'fav') return sys.id === 'all' || sys.id === 'personal';
+      return !i.archived && sys.types.includes(i.type);
+    });
   }
   // Кастомная папка
   const custom = customFolders.find(f => f.id === folderId);
   if (!custom) return items;
-  return items.filter(i => !i.archived && custom.items?.includes(i.id));
+  return items.filter(i => !i.archived && (i.type === 'fav' || custom.items?.includes(i.id)));
 }
 
 function filterBySearch(items, query) {
@@ -19822,6 +19848,21 @@ function _fmtChatTime(ts) {
 }
 
 function _buildChatItemHTML(item) {
+  // Избранное — специальный стиль
+  if (item.type === 'fav') {
+    return `<div class="chat-item" onclick="showFav()" style="background:var(--sf)">
+      <div class="chat-item-avatar" style="background:var(--ad);border:1px solid rgba(0,255,157,.2)">
+        <span style="font-size:20px">★</span>
+      </div>
+      <div class="chat-item-info">
+        <div class="chat-item-name" style="color:var(--a)">Избранное</div>
+        <div class="chat-item-last">${item.lastText || 'заметки для себя'}</div>
+      </div>
+      <div class="chat-item-meta">
+        <div class="chat-item-time">${item.lastTs ? _fmtChatTime(item.lastTs) : ''}</div>
+      </div>
+    </div>`;
+  }
   const typeEmoji = item.type === 'room' ? '🔒' : item.type === 'channel' ? '📢' : null;
   const avatarBg  = item.type === 'room' ? 'room' : item.type === 'channel' ? 'channel' : '';
   const avatarContent = item.avatar
@@ -19916,7 +19957,9 @@ function chatsFilterSearch(query) {
 
 function openChatItem(id, type) {
   closeFabMenu();
-  if (type === 'contact') {
+  if (type === 'fav') {
+    showFav();
+  } else if (type === 'contact') {
     openHistory(id);
   } else if (type === 'room') {
     roomOpenChat(id);

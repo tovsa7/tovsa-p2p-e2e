@@ -837,70 +837,6 @@ textarea::placeholder{color:var(--mu)}
 /* mini player */
 #miniplayer{background:var(--sf);border-bottom:1px solid var(--bd);padding:8px 14px;display:flex;flex-direction:column;gap:5px;flex-shrink:0}
 /* ── Groups ──────────────────────────────────────────────────────────────── */
-.grp-header{padding:14px 18px;border-bottom:1px solid var(--bd);background:var(--sf);flex-shrink:0;display:flex;align-items:center;gap:10px}
-.grp-title{font-size:13px;font-weight:700;letter-spacing:2px;flex:1;color:var(--a)}
-.grp-section{padding:16px 18px;border-bottom:1px solid var(--bd);display:flex;flex-direction:column;gap:10px;flex-shrink:0}
-.grp-section-label{font-size:10px;color:var(--mu);letter-spacing:2px;text-transform:uppercase;margin-bottom:2px}
-.grp-input-row{display:flex;gap:8px}
-.grp-text-input{flex:1;background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;color:var(--tx);font-family:inherit;font-size:15px;font-weight:700;letter-spacing:4px;text-transform:uppercase;outline:none;transition:border-color .2s;min-width:0}
-.grp-text-input:focus{border-color:var(--a)}
-.grp-text-input::placeholder{text-transform:none;letter-spacing:0;color:var(--mu);font-size:11px;font-weight:400}
-.grp-name-input{background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;color:var(--tx);font-family:inherit;font-size:13px;outline:none;transition:border-color .2s;width:100%}
-.grp-name-input:focus{border-color:var(--a)}
-.grp-name-input::placeholder{color:var(--mu)}
-.grp-list{flex:1;overflow-y:auto}
-.grp-empty{padding:40px 24px;text-align:center;font-size:11px;color:var(--mu);line-height:2.2}
-.grp-item{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .12s;-webkit-tap-highlight-color:transparent}
-.grp-item:hover{background:var(--sf)}
-.grp-item-dot{width:9px;height:9px;border-radius:50%;background:var(--mu);flex-shrink:0;transition:background .3s,box-shadow .3s}
-.grp-item-dot.on{background:var(--a);box-shadow:0 0 6px var(--a)}
-.grp-item-info{flex:1;min-width:0}
-.grp-item-name{font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.grp-item-badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;background:var(--e);color:#fff;font-size:9px;font-weight:700;border-radius:8px;letter-spacing:0;flex-shrink:0}
-.grp-item-sub{font-size:10px;color:var(--mu);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.grp-item-code{color:var(--a);font-weight:700}
-.grp-item-leave{background:transparent;border:none;color:var(--mu);font-size:18px;cursor:pointer;padding:4px 8px;line-height:1;flex-shrink:0;-webkit-tap-highlight-color:transparent;transition:color .15s}
-.grp-item-leave:hover{color:var(--e)}
-/* group chat */
-.grp-chat-hdr{padding:10px 14px;border-bottom:1px solid var(--bd);background:var(--sf);flex-shrink:0;display:flex;align-items:center;gap:10px}
-.grp-chat-back{background:none;border:none;color:var(--a);font-family:inherit;font-size:14px;cursor:pointer;padding:6px 10px;border-radius:6px;flex-shrink:0;transition:background .15s}
-.grp-chat-back:hover{background:var(--ad)}
-.grp-chat-title-wrap{flex:1;min-width:0}
-.grp-chat-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.grp-chat-status{font-size:10px;color:var(--mu);margin-top:1px}
-.grp-connect-btn{background:var(--ad);border:1px solid rgba(0,255,157,.2);border-radius:6px;padding:6px 14px;font-family:inherit;font-size:11px;font-weight:700;color:var(--a);cursor:pointer;flex-shrink:0;transition:background .15s,opacity .15s;letter-spacing:.5px;min-width:80px;text-align:center}
-.grp-connect-btn:hover:not(:disabled){background:var(--am)}
-.grp-connect-btn.leave{background:rgba(224,108,117,.08);border-color:rgba(224,108,117,.3);color:var(--e)}
-.grp-connect-btn.leave:hover{background:rgba(224,108,117,.15)}
-.grp-connect-btn.connecting{background:rgba(0,255,157,.05);border-color:rgba(0,255,157,.3);color:var(--a);cursor:default;animation:grp-pulse 1.2s ease-in-out infinite}
-.grp-connect-btn:disabled{opacity:.38;cursor:not-allowed}
-.grp-connect-btn:disabled:hover{background:var(--ad)}
-@keyframes grp-pulse{0%,100%{opacity:.5}50%{opacity:1}}
-/* status line — цветовые состояния */
-.grp-chat-status.s-ok{color:var(--a)}
-.grp-chat-status.s-warn{color:var(--w)}
-.grp-chat-status.s-connecting{color:var(--w);animation:grp-pulse 1.2s ease-in-out infinite}
-/* tooltip под кнопкой когда не готово */
-.grp-connect-hint{font-size:9px;color:var(--w);letter-spacing:.3px;text-align:right;margin-top:2px;min-height:12px;flex-shrink:0}
-.grp-members-toggle{display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;font-size:10px;color:var(--mu);letter-spacing:1px;text-transform:uppercase;user-select:none;background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0}
-.grp-members-toggle:hover{background:#16161f}
-.grp-members-toggle .grp-mem-arr{font-size:10px;color:var(--mu);transition:transform .2s;margin-left:auto}
-.grp-members-panel{border-bottom:1px solid var(--bd);background:var(--bg);flex-shrink:0;overflow:hidden;transition:max-height .25s ease;max-height:0}
-.grp-members-panel.open{max-height:200px;overflow-y:auto}
-.grp-member{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid rgba(30,30,46,.6)}
-.grp-member:last-child{border-bottom:none}
-.grp-member-dot{width:7px;height:7px;border-radius:50%;background:var(--mu);flex-shrink:0;transition:background .3s,box-shadow .3s}
-.grp-member.online .grp-member-dot{background:var(--a);box-shadow:0 0 5px var(--a)}
-.grp-member-dot.connected{background:var(--a);box-shadow:0 0 6px var(--a)}
-.grp-member-dot.online{background:#4caf50;box-shadow:0 0 5px #4caf5099}
-.grp-member-dot.away{background:#f5a623;box-shadow:0 0 5px #f5a62399}
-.grp-member-dot.checking{background:var(--w);animation:blink 1s infinite}
-.grp-member-info{flex:1;min-width:0}
-.grp-member-name{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.grp-member-sub{font-size:10px;color:var(--mu);margin-top:1px}
-.grp-ping-btn{background:transparent;border:1px solid var(--bd);border-radius:6px;padding:4px 8px;font-size:13px;cursor:pointer;flex-shrink:0;transition:border-color .15s;-webkit-tap-highlight-color:transparent}
-.grp-ping-btn:hover{border-color:var(--a)}
-.grp-key-badge{display:inline-flex;align-items:center;gap:4px;font-size:9px;padding:3px 8px;border-radius:10px;background:var(--ad);border:1px solid rgba(0,255,157,.15);color:var(--a);letter-spacing:.5px;flex-shrink:0}
 #sgrp{flex-direction:column}
 #sgrpc{flex-direction:column;position:relative}
 .mp-source{font-size:9px;color:var(--a);letter-spacing:1px;text-transform:uppercase;opacity:.7}
@@ -976,6 +912,100 @@ textarea::placeholder{color:var(--mu)}
 .dev-item-status.offline{background:var(--bg);color:var(--mu);border:1px solid var(--bd)}
 .dev-remove{background:none;border:none;color:var(--mu);cursor:pointer;font-size:16px;padding:4px 8px;transition:color .15s;flex-shrink:0}
 .dev-remove:hover{color:var(--e)}
+
+/* ── Shared layout helpers (used by rooms + channels screens) ─────────────── */
+.grp-section{padding:16px 18px;border-bottom:1px solid var(--bd);display:flex;flex-direction:column;gap:10px;flex-shrink:0}
+.grp-section-label{font-size:10px;color:var(--mu);letter-spacing:2px;text-transform:uppercase;margin-bottom:2px}
+.grp-name-input{background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;color:var(--tx);font-family:inherit;font-size:13px;outline:none;transition:border-color .2s;width:100%;box-sizing:border-box}
+.grp-name-input:focus{border-color:var(--a)}
+.grp-name-input::placeholder{color:var(--mu)}
+.grp-empty{padding:40px 24px;text-align:center;font-size:11px;color:var(--mu);line-height:2.2}
+
+/* ── Unified Chats Screen ─────────────────────────────────────────────────── */
+#schats{display:none;flex-direction:column;flex:1;min-height:0;background:var(--bg)}
+#schats.on{display:flex}
+
+/* Folders pill row */
+.folders-bar{display:flex;align-items:center;gap:6px;padding:8px 14px;overflow-x:auto;flex-shrink:0;border-bottom:1px solid var(--bd);scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.folders-bar::-webkit-scrollbar{display:none}
+.folder-pill{flex-shrink:0;padding:5px 12px;border-radius:20px;border:1px solid var(--bd);background:var(--bg);color:var(--mu);font-size:11px;font-family:inherit;cursor:pointer;transition:all .15s;white-space:nowrap;-webkit-tap-highlight-color:transparent}
+.folder-pill:hover{border-color:var(--a);color:var(--a)}
+.folder-pill.act{background:var(--a);border-color:var(--a);color:#0a0a0f;font-weight:700}
+.folder-pill-add{flex-shrink:0;padding:5px 10px;border-radius:20px;border:1px dashed var(--bd);background:none;color:var(--mu);font-size:13px;cursor:pointer;transition:all .15s}
+.folder-pill-add:hover{border-color:var(--a);color:var(--a)}
+
+/* Search */
+.chats-search-wrap{padding:8px 14px;flex-shrink:0;border-bottom:1px solid var(--bd)}
+.chats-search{width:100%;background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:8px 12px;color:var(--tx);font-family:inherit;font-size:13px;outline:none;transition:border-color .2s;box-sizing:border-box}
+.chats-search:focus{border-color:var(--a)}
+.chats-search::placeholder{color:var(--mu)}
+
+/* Chat list */
+.chats-list{flex:1;overflow-y:auto}
+.chat-item{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .12s;-webkit-tap-highlight-color:transparent;position:relative}
+.chat-item:hover{background:var(--sf)}
+.chat-item-avatar{width:44px;height:44px;border-radius:50%;background:var(--bd);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;position:relative;overflow:hidden}
+.chat-item-avatar.room{border-radius:12px;background:var(--ad);border:1px solid rgba(0,255,157,.2)}
+.chat-item-avatar.channel{border-radius:10px;background:var(--sf);border:1px solid var(--bd)}
+.chat-item-avatar img{width:100%;height:100%;object-fit:cover}
+.chat-type-badge{position:absolute;bottom:-2px;right:-2px;width:16px;height:16px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:9px;border:1.5px solid var(--bg)}
+.chat-item-info{flex:1;min-width:0}
+.chat-item-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:5px}
+.chat-item-last{font-size:11px;color:var(--mu);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-item-meta{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.chat-item-time{font-size:10px;color:var(--mu)}
+.chat-item-unread{min-width:18px;height:18px;border-radius:9px;background:var(--a);color:#0a0a0f;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px}
+.chat-item-unread.muted{background:var(--bd);color:var(--mu)}
+.chats-empty{padding:60px 24px;text-align:center;font-size:11px;color:var(--mu);line-height:2.2}
+
+/* FAB — new chat button */
+.chats-fab{position:absolute;bottom:calc(var(--tabbar-h, 56px) + 16px);right:18px;width:52px;height:52px;border-radius:50%;background:var(--a);color:#0a0a0f;font-size:24px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,255,157,.3);transition:transform .15s,box-shadow .15s;z-index:50;-webkit-tap-highlight-color:transparent}
+.chats-fab:hover{transform:scale(1.07);box-shadow:0 6px 20px rgba(0,255,157,.4)}
+.chats-fab:active{transform:scale(.95)}
+
+/* FAB menu */
+.fab-menu{position:absolute;bottom:calc(var(--tabbar-h, 56px) + 80px);right:18px;display:flex;flex-direction:column;gap:8px;z-index:51;pointer-events:none;opacity:0;transform:translateY(10px);transition:opacity .15s,transform .15s}
+.fab-menu.open{pointer-events:auto;opacity:1;transform:translateY(0)}
+.fab-menu-item{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--sf);border:1px solid var(--bd);border-radius:12px;cursor:pointer;white-space:nowrap;font-size:13px;color:var(--tx);transition:border-color .15s;box-shadow:0 2px 8px rgba(0,0,0,.2);-webkit-tap-highlight-color:transparent;justify-content:flex-end}
+.fab-menu-item:hover{border-color:var(--a)}
+.fab-menu-icon{width:32px;height:32px;border-radius:50%;background:var(--ad);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+
+/* Folder manager modal */
+.folder-modal-bg{display:none;position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);align-items:flex-end;justify-content:center}
+.folder-modal-bg.on{display:flex}
+.folder-modal{background:var(--sf);border-radius:22px 22px 0 0;border-top:1px solid var(--bd);width:100%;max-width:600px;max-height:80dvh;overflow-y:auto;display:flex;flex-direction:column;animation:slideUp .2s ease;padding-bottom:env(safe-area-inset-bottom)}
+.folder-modal-hdr{padding:16px 18px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px;flex-shrink:0}
+/* ── Folder modal v2 ──────────────────────────────────────────────────────── */
+.frow{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--bd);user-select:none;transition:background .1s;touch-action:none}
+.frow.dragging{opacity:.4;background:var(--sf)}
+.frow.drag-over{border-top:2px solid var(--a)}
+.frow-drag{color:var(--mu);font-size:18px;cursor:grab;padding:0 4px;flex-shrink:0;line-height:1;touch-action:none}
+.frow-drag:active{cursor:grabbing}
+.frow-icon{font-size:18px;flex-shrink:0;width:24px;text-align:center}
+.frow-name{flex:1;font-size:13px;font-weight:700;outline:none;background:none;border:none;color:var(--tx);font-family:inherit;padding:2px 4px;border-radius:4px;min-width:0}
+.frow-name:focus{background:var(--bg)}
+.frow-badge{font-size:9px;color:var(--mu);background:var(--bg);border:1px solid var(--bd);padding:1px 6px;border-radius:4px;flex-shrink:0}
+.frow-toggle{position:relative;width:36px;height:20px;flex-shrink:0}
+.frow-toggle input{opacity:0;width:0;height:0;position:absolute}
+.frow-toggle-track{position:absolute;inset:0;border-radius:10px;background:var(--bd);transition:background .2s;cursor:pointer}
+.frow-toggle input:checked ~ .frow-toggle-track{background:var(--a)}
+.frow-toggle-thumb{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s;pointer-events:none}
+.frow-toggle input:checked ~ .frow-toggle-track .frow-toggle-thumb{transform:translateX(16px)}
+.frow-del{background:none;border:none;color:var(--mu);cursor:pointer;font-size:16px;padding:2px 6px;transition:color .15s;flex-shrink:0;line-height:1}
+.frow-del:hover{color:var(--e)}
+/* Chat picker в модале папок */
+.chat-picker-list{display:flex;flex-direction:column;max-height:240px;overflow-y:auto;border-top:1px solid var(--bd)}
+.chat-picker-item{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .1s}
+.chat-picker-item:hover{background:var(--sf)}
+.chat-picker-item input[type=checkbox]{width:16px;height:16px;accent-color:var(--a);cursor:pointer;flex-shrink:0}
+.chat-picker-name{flex:1;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-picker-type{font-size:9px;color:var(--mu);padding:1px 5px;border-radius:4px;background:var(--bg);border:1px solid var(--bd);flex-shrink:0}
+.folder-section-title{font-size:9px;color:var(--mu);letter-spacing:2px;text-transform:uppercase;padding:10px 16px 4px;flex-shrink:0}
+
+.folder-modal-title{font-size:13px;font-weight:700;flex:1;letter-spacing:1px}
+
+/* Archive badge on chat item */
+.chat-archived-badge{font-size:9px;color:var(--mu);background:var(--bg);border:1px solid var(--bd);padding:1px 5px;border-radius:4px;flex-shrink:0}
 
 </style>
 
@@ -2055,7 +2085,7 @@ if (typeof globalThis !== 'undefined') {
 
 <!-- История (внутри вкладки Контакты) -->
 <div class="scr" id="sh">
-  <div class="sh-back" onclick="showTab('sk')">← назад к контактам</div>
+  <div class="sh-back" onclick="showTab('schats')">← назад</div>
   <div class="sh-hdr">
     <div id="sh-avatar" onclick="if(_historyFp)openProfileModal(_historyFp)" style="width:34px;height:34px;border-radius:50%;background:var(--bd);display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;flex-shrink:0;overflow:hidden;transition:opacity .15s" title="Профиль">👤</div>
     <div style="flex:1;min-width:0">
@@ -2110,7 +2140,7 @@ if (typeof globalThis !== 'undefined') {
 
 <!-- Избранное -->
 <div class="scr" id="sfav">
-  <div class="sh-back" onclick="showTab('sk')">← назад к контактам</div>
+  <div class="sh-back" onclick="showTab('schats')">← назад</div>
   <div class="sh-hdr">
     <div style="flex:1;min-width:0">
       <div class="sh-name">Избранное</div>
@@ -2506,110 +2536,6 @@ if (typeof globalThis !== 'undefined') {
   <div class="vr-swipe-hint up"   id="vr-hint-up">🔒 зафиксировать</div>
 </div>
 
-<!-- VR Preview Modal — показывается после записи, до отправки -->
-<div id="vr-preview-modal">
-  <!-- Кружок: video preview -->
-  <div id="vr-preview-circle" style="display:none">
-    <video id="vr-preview-circle-video" playsinline loop></video>
-    <!-- scrubber под кружком -->
-    <div style="width:260px;display:flex;align-items:center;gap:8px;margin-top:6px">
-      <span id="vr-preview-circle-time" style="font-size:11px;color:var(--mu);min-width:32px">0:00</span>
-      <input type="range" id="vr-preview-circle-scrub" min="0" max="100" value="0" step="0.1"
-        style="flex:1;height:3px;accent-color:var(--a);cursor:pointer">
-    </div>
-  </div>
-  <!-- Голосовое: плеер + waveform -->
-  <div id="vr-preview-voice" style="display:none">
-    <div style="display:flex;align-items:center;gap:10px;width:100%">
-      <button id="vr-preview-play-btn" onclick="vrPreviewPlayToggle()"
-        style="width:42px;height:42px;border-radius:50%;background:var(--a);border:none;color:#000;font-size:16px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding-left:2px">▶</button>
-      <div class="vr-preview-wave" id="vr-preview-wave" style="flex:1;cursor:pointer"></div>
-      <span id="vr-preview-dur" style="font-size:11px;color:var(--mu);min-width:32px;text-align:right">0:00</span>
-    </div>
-  </div>
-  <!-- Кнопки -->
-  <div class="vr-preview-btns">
-    <button class="vr-preview-btn redo" onclick="vrPreviewRedo()">🔄</button>
-    <button class="vr-preview-btn send" onclick="vrPreviewSend()">✈️ Отправить</button>
-    <button class="vr-preview-btn redo" onclick="vrPreviewFav()">⭐</button>
-  </div>
-</div>
-
-<!-- Таб-бар -->
-<div class="tabbar" id="tabbar">
-  <div id="tab-pill"></div>
-  <button class="tab act" id="tab-connect" onclick="showTab('connect')">
-    <span>Подключение</span>
-  </button>
-  <button class="tab" id="tab-contacts" onclick="showContactsTab()">
-    <span>Контакты</span><span class="tab-badge" id="tab-unread-badge"></span>
-  </button>
-  <button class="tab" id="tab-grp" onclick="showTabGrp()">
-    <span>Группы</span><span class="tab-badge" id="tab-grp-badge"></span>
-  </button>
-  <button class="tab" id="tab-rooms" onclick="showTab('srooms');roomsRenderList();_clearBadge('tab-rooms-badge')">
-    <span>🔒 E2E</span><span class="tab-badge" id="tab-rooms-badge"></span>
-  </button>
-  <button class="tab" id="tab-channels" onclick="showTab('schannels');channelsRenderList();_clearBadge('tab-channels-badge')">
-    <span>📢</span><span class="tab-badge" id="tab-channels-badge"></span>
-  </button>
-  <button class="tab" id="tab-net" onclick="showTab('sn')">
-    <span>Настройки</span>
-  </button>
-</div>
-
-<!-- Groups list screen -->
-<div class="scr" id="sgrp">
-  <div class="grp-section">
-    <div class="grp-section-label">Создать группу</div>
-    <input id="grp-new-name" class="grp-name-input" placeholder="Название группы (необязательно)..." maxlength="40"
-      onkeydown="if(event.key==='Enter')grpCreate()">
-    <button class="btn" onclick="grpCreate()">+ Создать новую группу</button>
-  </div>
-  <div class="grp-section">
-    <div class="grp-section-label">Войти по коду</div>
-    <div class="grp-input-row">
-      <input id="grp-join-code" class="grp-text-input" placeholder="код..." maxlength="5"
-        oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')"
-        onkeydown="if(event.key==='Enter')grpJoinByCode()">
-      <button class="btn" onclick="grpJoinByCode()">→ Войти</button>
-    </div>
-    <div style="font-size:10px;color:var(--mu);line-height:1.6">Введите 3–5 значный код — вы войдёте в существующую группу. Поделитесь кодом с теми, кого хотите пригласить.</div>
-  </div>
-  <div class="grp-list" id="grp-list">
-    <div class="grp-empty">Нет групп<br><span style="opacity:.6">Создайте новую или введите код группы</span></div>
-  </div>
-</div>
-
-<!-- Group chat screen -->
-<div class="scr" id="sgrpc">
-  <div class="grp-chat-hdr">
-    <button class="grp-chat-back" onclick="showTab('sgrp');grpRenderGroupList()">←</button>
-    <div class="grp-chat-title-wrap">
-      <div class="grp-chat-name" id="grp-chat-title"></div>
-      <div class="grp-chat-status" id="grp-chat-status">○ не подключено</div>
-    </div>
-    <div class="grp-key-badge" id="grp-key-badge" style="display:none">🔒 e2e</div>
-    <div style="display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0;gap:2px">
-      <button class="grp-connect-btn" id="grp-connect-btn" onclick="grpToggleConnect()">→ Войти</button>
-      <div class="grp-connect-hint" id="grp-connect-hint"></div>
-    </div>
-  </div>
-  <div class="grp-members-toggle" id="grp-members-toggle" onclick="grpToggleMembers()">
-    <span>👥 Участники</span>
-    <span id="grp-members-count" style="color:var(--a);font-weight:700;margin-left:4px"></span>
-    <span class="grp-mem-arr" id="grp-mem-arr">▼</span>
-  </div>
-  <div class="grp-members-panel" id="grp-members"></div>
-  <div class="msgs" id="grp-msgs" style="flex:1;scroll-behavior:smooth"></div>
-  <div class="iarea">
-    <textarea id="grp-chat-input" placeholder="сообщение в группу..."
-      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();grpSendChatMsg()}"
-      oninput="autoGrowMi(this)" disabled style="flex:1;border-radius:16px;padding:10px 16px;height:calc(1.4em + 20px);font-size:13px"></textarea>
-    <button class="btn" id="grp-chat-send" onclick="grpSendChatMsg()" disabled style="border-radius:20px;padding:10px 20px;flex-shrink:0;align-self:flex-end">→</button>
-  </div>
-</div>
-
 <!-- ════════════════════════════════════════════════════════════════════════ -->
 <!-- ROOMS — E2E зашифрованные группы (новый протокол)                      -->
 <!-- ════════════════════════════════════════════════════════════════════════ -->
@@ -2635,7 +2561,7 @@ if (typeof globalThis !== 'undefined') {
 <!-- ROOM CHAT ──────────────────────────────────────────────────────────── -->
 <div class="scr" id="sroom-chat">
   <div class="room-chat-hdr">
-    <button class="room-chat-back" onclick="showTab('srooms');roomsRenderList()">←</button>
+    <button class="room-chat-back" onclick="if(_activeRoomId)roomStopPolling(_activeRoomId);_activeRoomId=null;showTab('srooms');roomsRenderList()">←</button>
     <div class="room-chat-name" id="room-chat-title">Группа</div>
     <div style="display:flex;gap:6px;flex-shrink:0">
       <button onclick="roomInviteUI()" title="Пригласить" style="background:none;border:1px solid var(--bd);border-radius:6px;padding:5px 8px;color:var(--mu);cursor:pointer;font-size:12px;transition:all .15s" onmouseover="this.style.borderColor='var(--a)';this.style.color='var(--a)'" onmouseout="this.style.borderColor='var(--bd)';this.style.color='var(--mu)'">+ пригласить</button>
@@ -2709,6 +2635,102 @@ if (typeof globalThis !== 'undefined') {
     <button class="btn" onclick="channelPublishPostUI()" style="border-radius:20px;padding:10px 20px;flex-shrink:0;align-self:flex-end">→</button>
   </div>
 </div>
+
+<!-- VR Preview Modal — показывается после записи, до отправки -->
+<div id="vr-preview-modal">
+  <!-- Кружок: video preview -->
+  <div id="vr-preview-circle" style="display:none">
+    <video id="vr-preview-circle-video" playsinline loop></video>
+    <!-- scrubber под кружком -->
+    <div style="width:260px;display:flex;align-items:center;gap:8px;margin-top:6px">
+      <span id="vr-preview-circle-time" style="font-size:11px;color:var(--mu);min-width:32px">0:00</span>
+      <input type="range" id="vr-preview-circle-scrub" min="0" max="100" value="0" step="0.1"
+        style="flex:1;height:3px;accent-color:var(--a);cursor:pointer">
+    </div>
+  </div>
+  <!-- Голосовое: плеер + waveform -->
+  <div id="vr-preview-voice" style="display:none">
+    <div style="display:flex;align-items:center;gap:10px;width:100%">
+      <button id="vr-preview-play-btn" onclick="vrPreviewPlayToggle()"
+        style="width:42px;height:42px;border-radius:50%;background:var(--a);border:none;color:#000;font-size:16px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding-left:2px">▶</button>
+      <div class="vr-preview-wave" id="vr-preview-wave" style="flex:1;cursor:pointer"></div>
+      <span id="vr-preview-dur" style="font-size:11px;color:var(--mu);min-width:32px;text-align:right">0:00</span>
+    </div>
+  </div>
+  <!-- Кнопки -->
+  <div class="vr-preview-btns">
+    <button class="vr-preview-btn redo" onclick="vrPreviewRedo()">🔄</button>
+    <button class="vr-preview-btn send" onclick="vrPreviewSend()">✈️ Отправить</button>
+    <button class="vr-preview-btn redo" onclick="vrPreviewFav()">⭐</button>
+  </div>
+</div>
+
+<!-- Таб-бар -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- CHATS — unified chat list with folders                                    -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div id="schats">
+  <!-- Folders bar -->
+  <div class="folders-bar" id="folders-bar">
+    <!-- заполняется через renderFolderPills() -->
+  </div>
+  <!-- Search -->
+  <div class="chats-search-wrap">
+    <input class="chats-search" id="chats-search" placeholder="Поиск..."
+      oninput="chatsFilterSearch(this.value)">
+  </div>
+  <!-- Unified list -->
+  <div class="chats-list" id="chats-list"></div>
+  <!-- FAB -->
+  <div class="fab-menu" id="fab-menu">
+    <div class="fab-menu-item" onclick="fabNewContact()">
+      Найти контакт <div class="fab-menu-icon">👤</div>
+    </div>
+    <div class="fab-menu-item" onclick="fabNewRoom()">
+      Создать группу <div class="fab-menu-icon">🔒</div>
+    </div>
+    <div class="fab-menu-item" onclick="fabNewChannel()">
+      Создать канал <div class="fab-menu-icon">📢</div>
+    </div>
+  </div>
+  <button class="chats-fab" id="chats-fab" onclick="toggleFabMenu()">＋</button>
+</div>
+
+<!-- Folder manager modal -->
+<div class="folder-modal-bg" id="folder-modal-bg" onclick="if(event.target===this)closeFolderModal()">
+  <div class="folder-modal">
+    <div class="folder-modal-hdr">
+      <div class="folder-modal-title">ПАПКИ</div>
+      <button onclick="closeFolderModal()" style="background:none;border:none;color:var(--mu);font-size:18px;cursor:pointer;line-height:1;padding:0 4px">✕</button>
+    </div>
+    <div id="folder-modal-body" style="padding:8px 0;flex:1"></div>
+    <div style="padding:12px 18px;border-top:1px solid var(--bd);flex-shrink:0;display:flex;gap:8px">
+      <button class="btn" style="flex:1" onclick="folderCreateNew()">+ Создать папку</button>
+      <button class="action-btn" onclick="closeFolderModal()">Готово</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="tabbar" id="tabbar">
+  <div id="tab-pill"></div>
+  <button class="tab act" id="tab-connect" onclick="showTab('connect')">
+    <span>Связь</span>
+  </button>
+  <button class="tab" id="tab-chats" onclick="showTab('schats')">
+    <span>Чаты</span><span class="tab-badge" id="tab-chats-badge"></span>
+  </button>
+  <button class="tab" id="tab-net" onclick="showTab('sn')">
+    <span>Настройки</span>
+  </button>
+</div>
+
+<!-- Groups list screen -->
+
+
+
+
+
 
 <!-- ── Входящий медиа-звонок ──────────────────────────────────────────────── -->
 <!-- ── Подтверждение исходящего звонка ───────────────────────────────────── -->
@@ -3287,7 +3309,6 @@ async function initIdentity(){
     myPubKeyHex  = Array.from(myPubKeyRaw).map(b=>b.toString(16).padStart(2,'0')).join('');
     _pidCache.clear(); // myPubKeyHex изменился — производные PID-ы устарели
     // Обновляем кнопку группы — теперь идентификация готова
-    if(_grpActive) _grpUpdateStatus(_grpActive);
     // Инициализируем UI невидимки
     _updateGlobalHiddenUI();
     // Сохраняем hex публичного ключа для ntfy (читается из IIFE после загрузки)
@@ -4614,9 +4635,10 @@ function showTab(tab){
   const tabIdMap = {
     connect:'tab-connect', sk:'tab-contacts', sh:'tab-contacts',
     sfav:'tab-contacts', sc:'tab-contacts', sn:'tab-net',
-    sgrp:'tab-grp', sgrpc:'tab-grp',
-    srooms:'tab-rooms', 'sroom-chat':'tab-rooms',
-    schannels:'tab-channels', 'sch-view':'tab-channels'
+    schats:'tab-chats',
+    sk:'tab-chats', sh:'tab-chats', sfav:'tab-chats', sc:'tab-chats',
+    srooms:'tab-chats', 'sroom-chat':'tab-chats',
+    schannels:'tab-chats', 'sch-view':'tab-chats'
   };
   const targetTabId = tabIdMap[tab] || 'tab-connect';
   movePill(targetTabId);
@@ -4626,19 +4648,22 @@ function showTab(tab){
   }
 
   const isContactsArea = tab==='sk'||tab==='sh'||tab==='sfav'||tab==='sc';
+  const isChatsArea    = tab==='schats'||isContactsArea||tab==='srooms'||tab==='sroom-chat'||tab==='schannels'||tab==='sch-view';
   const isNetArea = tab==='sn';
   if (isNetArea && typeof _refreshInviteList === 'function') _refreshInviteList();
-  const isGrpArea = tab==='sgrp'||tab==='sgrpc';
-  const isConnect = !isContactsArea && !isNetArea && !isGrpArea;
+  const isRoomsArea    = tab==='srooms'||tab==='sroom-chat';
+  const isChannelsArea = tab==='schannels'||tab==='sch-view';
+  const isConnect = !isChatsArea && !isNetArea;
 
-  hide('sr');hide('ss');hide('sc');hide('sk');hide('sh');hide('sn');hide('sfav');hide('sgrp');hide('sgrpc');
+  hide('sr');hide('ss');hide('sc');hide('sk');hide('sh');hide('sn');hide('sfav');hide('schats');hide('srooms');hide('sroom-chat');hide('schannels');hide('sch-view');
 
   $('tagline').style.display='block';
   $('tabbar').classList.remove('hidden');
   $('tab-connect').classList.toggle('act', isConnect);
-  $('tab-contacts').classList.toggle('act', isContactsArea);
   $('tab-net').classList.toggle('act', isNetArea);
-  $('tab-grp').classList.toggle('act', isGrpArea);
+
+  const tabChats = document.getElementById('tab-chats');
+  if(tabChats) tabChats.classList.toggle('act', isChatsArea);
 
   if(tab==='connect'){
     activeTab='connect';
@@ -4690,14 +4715,30 @@ function showTab(tab){
     initStorageLimitUI();
     // Не трогаем signaling при открытии вкладки
 
-  } else if(tab==='sgrp'){
-    activeTab='grp';
-    show('sgrp');
-    grpRenderGroupList();
 
-  } else if(tab==='sgrpc'){
-    activeTab='grp';
-    show('sgrpc');
+
+  } else if(tab==='schats'){
+    activeTab='chats';
+    show('schats');
+    renderChatsList();
+
+  } else if(tab==='srooms'){
+    activeTab='rooms';
+    show('srooms');
+    roomsRenderList();
+
+  } else if(tab==='sroom-chat'){
+    activeTab='rooms';
+    show('sroom-chat');
+
+  } else if(tab==='schannels'){
+    activeTab='channels';
+    show('schannels');
+    channelsRenderList();
+
+  } else if(tab==='sch-view'){
+    activeTab='channels';
+    show('sch-view');
   }
 }
 
@@ -4707,9 +4748,10 @@ function snOpen(pageId){
   const page = $(pageId);
   if(page) page.classList.add('on');
   // Trigger lazy renders
-  if(pageId==='sn-privacy'){ renderPresenceContactList(); _updateGlobalHiddenUI(); }
-  if(pageId==='sn-data'){ updateStorageBar(); initStorageLimitUI(); }
+  if(pageId==='sn-privacy')  { renderPresenceContactList(); _updateGlobalHiddenUI(); }
+  if(pageId==='sn-data')     { updateStorageBar(); initStorageLimitUI(); }
   if(pageId==='sn-appearance'){ renderThemeGrid(); renderPatOptions(); renderBrOptions(); renderFsOptions(); }
+  if(pageId==='sn-devices')  { if(typeof devicesRenderList==='function') devicesRenderList(); }
 }
 function snBack(){
   document.querySelectorAll('#sn .sn-page').forEach(p=>p.classList.remove('on'));
@@ -4930,14 +4972,10 @@ _updateAppearanceDesc();
 
 // Contacts tab button: restore last sub-screen
 function showContactsTab(){
-  if(activeTab==='contacts'){
-    // Already on contacts — go to list
-    showTab('sk');
-  } else {
-    // Restore last sub-screen
-    showTab(contactsSubScreen||'sk');
-  }
+  setActiveFolder('personal');
+  showTab('schats');
 }
+
 
 async function openHistory(fp){
   if($('sc').dataset.active==='1' && currentPeerFp===fp){ showTab('sc'); return; }
@@ -5773,8 +5811,7 @@ let _serverIndex = 0;
 let myPresenceId = '';
 
 // sessionSalt — случайный 16-байтный hex, генерируется при каждой загрузке страницы.
-// Используется для создания эфемерных grpv2_ peer ID: разные ID при каждой сессии
-// → access logs не коррелируются между сессиями по peer ID групп.
+// SESSION_SALT — эфемерный суффикс для peer ID, разные ID при каждой сессии.
 const SESSION_SALT = Array.from(crypto.getRandomValues(new Uint8Array(16)))
   .map(b => b.toString(16).padStart(2, '0')).join('');
 
@@ -5872,7 +5909,6 @@ let _grpMyPeer  = {};    // code → Peer (основной signaling-пир)
 /** @type {Record<string, Map<string, any>>} */
 let _grpConns   = {};    // code → Map<peerId, DataConnection>
 let _grpSeen    = {};    // code → Set<msgId>
-let _grpActive  = null;  // code текущего открытого группового чата
 let _grpUnread  = {};    // code → number
 let _grpMemOpen = false;
 let _grpRvPeer  = {};    // code → Peer (рандеву-пир)
@@ -6533,8 +6569,7 @@ function createAuthPeer(peerId, _cfg) {
   const srv = currentSrv();
   const wsUrl = buildWsUrl(srv);
 
-  // grpv2_CODE_{24hex} — требует sessionSalt для верификации эфемерного суффикса
-  let salt;
+    let salt;
   if (peerId.startsWith('grpv2_')) {
     const lastU = peerId.lastIndexOf('_');
     const suffix = peerId.slice(lastU + 1);
@@ -14066,7 +14101,6 @@ function updateSigState(){
   }
   _updateLeaderBtn();
   // Обновляем кнопку входа в группу при изменении готовности
-  if(_grpActive) _grpUpdateStatus(_grpActive);
 }
 
 
@@ -14143,9 +14177,11 @@ async function roomCreate({ name, historyPolicy = 'any_member' }) {
       role:      'admin',
       joinedAt:  Math.floor(Date.now() / 1000),
     }],
-    myRole:   'admin',
-    createdAt: Date.now(),
+    myRole:      'admin',
+    createdAt:   Date.now(),
     lastSeenSeq: 0,
+    pushUrl:     (typeof PUSH_SERVER === 'string' && !PUSH_SERVER.includes('ВАШ'))
+                   ? PUSH_SERVER : null,
   };
 
   const rooms = await roomsLoad();
@@ -14190,7 +14226,12 @@ async function roomInviteMember(roomId, { pubKeyHex, encPub, name }) {
 
   // Создаём и отправляем invite через sealed relay
   const inviteBlob = await roomCreateInvite(
-    { roomKeyBytes: room.roomKeyBytes, config: room.config, roster: room.roster },
+    {
+      roomKeyBytes: room.roomKeyBytes,
+      config:       room.config,
+      roster:       room.roster,
+      pushUrl:      room.pushUrl || PUSH_SERVER || null,
+    },
     encPub,
   );
 
@@ -14220,43 +14261,141 @@ function _getPeerSig() {
 
 // ── Отправка сообщения ────────────────────────────────────────────────────────
 
+// Вычислить roomMailboxId для pub/sub хранилища
+// Меняется еженедельно — сервер не может связать с конкретной комнатой
+async function roomGetMailboxId(roomKeyBytes, weekOffset = 0) {
+  const weekNum = Math.floor(Date.now() / (7 * 24 * 3600 * 1000)) + weekOffset;
+  const ikmKey  = await crypto.subtle.importKey('raw', roomKeyBytes, 'HKDF', false, ['deriveBits']);
+  const bits    = await crypto.subtle.deriveBits({
+    name: 'HKDF', hash: 'SHA-256',
+    salt: new Uint8Array(32),
+    info: new TextEncoder().encode('room-mbox-v1:' + weekNum),
+  }, ikmKey, 96);
+  return Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
 async function roomSendMessage(roomId, text) {
   const rooms = await roomsLoad();
   const room  = rooms[roomId];
   if (!room) throw new Error('комната не найдена');
 
-  const id  = _randomHex ? _randomHex(16) : crypto.randomUUID().replace(/-/g,'');
+  const id  = _randomHex(16);
   const ts  = Math.floor(Date.now() / 1000);
   const sig = await roomSignMessage(myPrivKey, { id, roomId, from: myPubKeyHex, text, ts });
-
   const plainMsg = { id, roomId, from: myPubKeyHex, text, ts, sig };
   const blob     = await roomEncryptMessage(room.roomKeyBytes, plainMsg);
 
-  // fan-out: рассылаем каждому участнику
-  const wsRef = _getPeerSig();
-  if (!wsRef?._open) throw new Error('нет соединения');
-
-  let sent = 0;
-  for (const member of room.roster) {
-    if (member.pubKeyHex === myPubKeyHex) continue; // себе не шлём
-    if (!member.encPub) continue;
-
-    const mailboxId = await getContactMailboxId(member.pubKeyHex, 0) ?? member.pubKeyHex;
-    const sealed    = await sealEnvelope(
-      { from: myPubKeyHex, kind: 'room_msg', data: { roomId, blob } },
-      member.encPub,
-    );
-    wsRef._wsSend({ type: 'SEALED_RELAY', to: mailboxId, sealed });
-    sent++;
+  // ── Pub/Sub путь (масштабируемый) ─────────────────────────────────────────
+  // Один blob на сообщение. Сервер не знает отправителя и получателей.
+  const pushUrl = room.pushUrl || PUSH_SERVER;
+  if (pushUrl && !pushUrl.includes('ВАШ')) {
+    const mailboxId = await roomGetMailboxId(room.roomKeyBytes, 0);
+    try {
+      const res = await fetch(pushUrl + '/room/publish', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mailboxId, blob }),
+      });
+      if (res.ok) {
+        const { seq } = await res.json();
+        // Будим участников через push/notify2 (они заберут по polling)
+        for (const member of (room.roster || [])) {
+          if (member.pubKeyHex === myPubKeyHex || !member.pushToken) continue;
+          fetch(pushUrl + '/push/notify2', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pushToken: member.pushToken }),
+          }).catch(() => {});
+        }
+        const msgs = await roomMsgsLoad(roomId);
+        msgs.push({ ...plainMsg, _own: true, _seq: seq });
+        await roomMsgsSave(roomId, msgs);
+        console.log('[rooms] pub/sub seq=' + seq);
+        return plainMsg;
+      }
+    } catch(e) { console.warn('[rooms] publish error, fallback:', e?.message); }
   }
 
-  // Сохраняем своё сообщение локально
+  // ── Fallback: sealed relay fan-out (малые группы / нет push-сервера) ──────
+  const wsRef = _getPeerSig();
+  let sent = 0;
+  for (const member of (room.roster || [])) {
+    if (member.pubKeyHex === myPubKeyHex || !member.encPub) continue;
+    const mailboxId = await getContactMailboxId(member.pubKeyHex, 0) ?? member.pubKeyHex;
+    const sealed    = await sealEnvelope(
+      { from: myPubKeyHex, kind: 'room_msg', data: { roomId, blob } }, member.encPub);
+    if (wsRef?._open) wsRef._wsSend({ type: 'SEALED_RELAY', to: mailboxId, sealed });
+    sent++;
+  }
   const msgs = await roomMsgsLoad(roomId);
   msgs.push({ ...plainMsg, _own: true });
   await roomMsgsSave(roomId, msgs);
-
-  console.log('[rooms] сообщение отправлено', sent, 'участникам');
+  console.log('[rooms] relay fallback →', sent);
   return plainMsg;
+}
+
+// ── Fetch новых сообщений из pub/sub хранилища ────────────────────────────────
+async function roomFetchMessages(roomId) {
+  const rooms = await roomsLoad();
+  const room  = rooms[roomId];
+  if (!room) return [];
+  const pushUrl = room.pushUrl || PUSH_SERVER;
+  if (!pushUrl || pushUrl.includes('ВАШ')) return [];
+
+  const mailboxId  = await roomGetMailboxId(room.roomKeyBytes, 0);
+  const lastSeqKey = 'room_last_seq_' + roomId;
+  const since      = parseInt(localStorage.getItem(lastSeqKey) || '0');
+
+  try {
+    const res = await fetch(`${pushUrl}/room/fetch?id=${mailboxId}&since=${since}`);
+    if (!res.ok) return [];
+    const { messages, next } = await res.json();
+    if (!messages?.length) return [];
+
+    const decoded = [];
+    for (const { seq, blob } of messages) {
+      try {
+        const msg = await roomDecryptMessage(room.roomKeyBytes, blob);
+        const now = Math.floor(Date.now() / 1000);
+        if (Math.abs(now - msg.ts) > 7 * 24 * 3600) continue;
+        const member = (room.roster || []).find(r => r.pubKeyHex === msg.from);
+        if (!member) continue;
+        const sigOk = await roomVerifyMessage(msg.from, msg);
+        if (!sigOk) continue;
+        decoded.push({ ...msg, _seq: seq });
+      } catch(_) {}
+    }
+
+    if (decoded.length) {
+      const existing = await roomMsgsLoad(roomId);
+      const existIds = new Set(existing.map(m => m.id));
+      const fresh    = decoded.filter(m => !existIds.has(m.id) && m.from !== myPubKeyHex);
+      if (fresh.length) {
+        const merged = [...existing, ...fresh].sort((a, b) => a.ts - b.ts);
+        await roomMsgsSave(roomId, merged);
+        for (const msg of fresh) {
+          window.dispatchEvent(new CustomEvent('tovsa-room-msg', { detail: { roomId, msg } }));
+        }
+      }
+    }
+    if (next > since) localStorage.setItem(lastSeqKey, String(next));
+    return decoded;
+  } catch(e) { console.warn('[rooms] fetch error:', e?.message); return []; }
+}
+
+// ── Polling ───────────────────────────────────────────────────────────────────
+const _roomPollingTimers = new Map();
+
+function roomStartPolling(roomId, intervalMs = 15_000) {
+  if (_roomPollingTimers.has(roomId)) return;
+  const id = setInterval(async () => {
+    if (document.hidden) return;
+    await roomFetchMessages(roomId).catch(() => {});
+  }, intervalMs);
+  _roomPollingTimers.set(roomId, id);
+}
+
+function roomStopPolling(roomId) {
+  const id = _roomPollingTimers.get(roomId);
+  if (id) { clearInterval(id); _roomPollingTimers.delete(roomId); }
 }
 
 // ── Получение сообщения ───────────────────────────────────────────────────────
@@ -14292,6 +14431,7 @@ async function roomHandleIncoming(from, kind, data) {
         myRole:       'member',
         createdAt:    Date.now(),
         lastSeenSeq:  0,
+        pushUrl:      invite.pushUrl || PUSH_SERVER || null,
       };
       await roomsSave(rooms);
       window.dispatchEvent(new CustomEvent('tovsa-room-invite', { detail: invite }));
@@ -14549,6 +14689,10 @@ Object.assign(window, {
   roomSendMessage,
   roomKickMember,
   roomRequestHistory,
+  roomFetchMessages,
+  roomStartPolling,
+  roomStopPolling,
+  roomGetMailboxId,
   roomsLoad,
   roomMsgsLoad,
   roomHandleIncoming,
@@ -17162,14 +17306,14 @@ function _updateUnreadBadges(){
     }
   }
 
-  // Бейдж на табе Контакты — только когда чат не открыт
-  const tabBadge = $('tab-unread-badge');
+  // Бейдж на табе Чаты
+  const tabBadge = $('tab-chats-badge');
   if(tabBadge){
     if(_unreadCount > 0 && !inChat){
       tabBadge.textContent = _unreadCount > 99 ? '99+' : _unreadCount;
       tabBadge.style.display = 'flex';
     } else {
-      tabBadge.style.display = 'none';
+      // Не скрываем — renderChatsList сам управляет бейджем
     }
   }
 }
@@ -17273,1726 +17417,6 @@ document.addEventListener('visibilitychange', ()=>{
 //     grpv2_{CODE}_{myPresenceId.slice(0,12)}
 //   Этот ID уникален для пользователя и не пересекается с другими.
 //
-//   Обнаружение соседей:
-//     1) localStorage хранит список известных peer-ID участников группы
-//     2) При входе пробуем подключиться ко всем известным
-//     3) Рандеву-слот grpv2_{CODE}_rv — первый вошедший его занимает,
-//        новые участники без saved-peers подключаются к нему для знакомства
-//
-//   Топология: полносвязная (каждый ↔ каждый), не более 5 участников.
-//   Сообщения: прямая рассылка всем соединённым + seen-set для дедупликации.
-//   Ключи E2E: AES-256-GCM, версионируются при уходе участника.
-//
-// ══════════════════════════════════════════════════════════════════════════════
-const GRP_NS      = 'grpv2';
-const GRP_MAX     = 5;
-const GRP_STORE   = 'grp_groups_v3';
-const GRP_RV_TTL  = 30000; // как долго ждём рандеву
-
-// ── Состояние ─────────────────────────────────────────────────────────────────
-// _grp* переменные — объявлены выше (до initIdentity)
-let _grpConnecting = {}; // code → bool  (идёт ли прямо сейчас процесс входа)
-
-// ── Presence участников группы ────────────────────────────────────────────────
-// _grpPresence[code][pid] = 'online' | 'offline' | 'checking'
-// Обновляется независимо от DataChannel-соединений.
-// Позволяет видеть онлайн-статус даже без установленного соединения.
-let _grpPresence    = {};  // code → Map<pid, status>
-let _grpPresenceHb  = {};  // code → intervalId
-let _grpLastCheckTime = {};  // code → timestamp последней проверки
-const GRP_PRESENCE_INTERVAL = 30000; // интервал проверки (мс)
-
-// ── Логирование → встроенная консоль настроек ─────────────────────────────────
-function _grpLog(msg, level='info'){
-  const lvl = level==='warn'?'warn':level==='error'?'error':'info';
-  console[lvl]('[grp] ' + msg);
-}
-
-// ── Хранилище ─────────────────────────────────────────────────────────────────
-// FIX #4: группы хранятся в IndexedDB вместо localStorage (было ~5МБ лимит + sync блокировка)
-// FIX #5: seenIds персистируются — предотвращает replay-атаки после перезагрузки страницы
-
-const GRP_IDB_KEY = 'grp_data_v4';      // новый ключ в IDB store 'meta'
-const GRP_SEEN_IDB_KEY = 'grp_seen_v1'; // seen IDs per code
-
-async function _grpLoadAsync(){
-  // Сначала пробуем IDB
-  try{
-    const saved = await idbGet('meta', GRP_IDB_KEY);
-    if(saved) { _grpAll = saved; }
-    else {
-      // Миграция из localStorage
-      const ls = localStorage.getItem(GRP_STORE);
-      if(ls) {
-        try{ _grpAll = JSON.parse(ls); }catch(_){ _grpAll={}; }
-        // Сохраняем в IDB и удаляем из localStorage
-        await idbSet('meta', GRP_IDB_KEY, _grpAll);
-        localStorage.removeItem(GRP_STORE);
-        console.info('[grp] мигрировали данные групп в IDB');
-      } else {
-        _grpAll = {};
-      }
-    }
-    // Загружаем seen IDs
-    const seenData = await idbGet('meta', GRP_SEEN_IDB_KEY);
-    if(seenData){
-      for(const [code, ids] of Object.entries(seenData)){
-        _grpSeen[code] = new Set(ids);
-      }
-    }
-  } catch(e){
-    console.warn('[grp] ошибка загрузки из IDB, fallback на localStorage:', e);
-    try{ _grpAll = JSON.parse(localStorage.getItem(GRP_STORE)||'{}'); }
-    catch(_){ _grpAll={}; }
-  }
-  if(_pjOk) for(const code of Object.keys(_grpAll)) _grpStartPresence(code);
-}
-
-// Синхронная заглушка для обратной совместимости (вызывается из _grpSeen.add и т.п.)
-function _grpLoad(){
-  try{ _grpAll = JSON.parse(localStorage.getItem(GRP_STORE)||'{}'); }
-  catch(_){ _grpAll={}; }
-  // async загрузка из IDB запускается отдельно в DOMContentLoaded
-  if(_pjOk) for(const code of Object.keys(_grpAll)) _grpStartPresence(code);
-}
-
-// _grpSeenSaveTimer: батчим запись seen IDs чтобы не писать в IDB на каждое сообщение
-let _grpSeenSaveTimer = null;
-function _grpSeenScheduleSave(){
-  if(_grpSeenSaveTimer) return;
-  _grpSeenSaveTimer = setTimeout(async ()=>{
-    _grpSeenSaveTimer = null;
-    try{
-      const snapshot = {};
-      for(const [code, set] of Object.entries(_grpSeen)){
-        // Храним только последние 500 ID на группу
-        const arr = [...set];
-        snapshot[code] = arr.slice(-500);
-      }
-      await idbSet('meta', GRP_SEEN_IDB_KEY, snapshot);
-    }catch(e){ console.warn('[grp] ошибка сохранения seen IDs:', e); }
-  }, 2000);
-}
-
-function _grpSave(){
-  const copy = {};
-  for(const [c,g] of Object.entries(_grpAll)){
-    copy[c] = {...g, history:(g.history||[]).slice(-300)};
-  }
-  // Пишем в IDB (async, не блокируем)
-  idbSet('meta', GRP_IDB_KEY, copy).catch(e=>{
-    // IDB недоступна (например, файл открыт через content:// в Telegram).
-    // Сохраняем в localStorage включая seed — потеря seed критична для работы группы,
-    // а доступность localStorage ограничена тем же origin, что и IDB.
-    console.warn('[grp] IDB недоступна, fallback на localStorage:', e);
-    try{ localStorage.setItem(GRP_STORE, JSON.stringify(copy)); }catch(_){}
-  });
-}
-_grpLoad();
-// Запускаем async загрузку из IDB после инициализации БД
-document.addEventListener('DOMContentLoaded', ()=>{ _grpLoadAsync(); });
-
-// ── Криптография ──────────────────────────────────────────────────────────────
-// FIX #1 (КРИТИЧЕСКИЙ): ключ группы выводится из СЕКРЕТНОГО seed, а не только из публичного кода.
-// seed — 32 случайных байта, генерируются создателем группы при grpCreate().
-// Новые участники получают seed через зашифрованный hello-пакет от уже подключённого участника.
-// Это означает что знание только кода группы (#ABCD) не позволяет вычислить ключ шифрования.
-// Backward compat: если seed ещё неизвестен (старый клиент) — работает как раньше (только code+ver).
-async function _grpGetKey(code, ver){
-  const g = _grpAll[code];
-  const seed = g?.seed || '';  // hex-строка 64 символа или пусто (legacy)
-  const ck=`${code}:${ver}:${seed.slice(0,8)}`;
-  if(_grpKeyCache[ck]) return _grpKeyCache[ck];
-  // Материал ключа: seed + code + version (seed делает это непредсказуемым)
-  const raw = new TextEncoder().encode(`grp:${seed}:${code}:v${ver}`);
-  const base = await crypto.subtle.importKey('raw',raw,'PBKDF2',false,['deriveKey']);
-  // Salt: SHA-256(seed+code) — уникален для каждой группы с seed
-  const saltInput = new TextEncoder().encode(seed + code);
-  const salt = (await sha256(saltInput)).slice(0,16);
-  const key  = await crypto.subtle.deriveKey(
-    {name:'PBKDF2',salt,iterations:80000,hash:'SHA-256'},
-    base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']
-  );
-  _grpKeyCache[ck] = key;
-  return key;
-}
-async function _grpEnc(code,ver,plain){
-  const key=await _grpGetKey(code,ver);
-  const iv=crypto.getRandomValues(new Uint8Array(12));
-  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(plain));
-  const out=new Uint8Array(12+ct.byteLength); out.set(iv); out.set(new Uint8Array(ct),12);
-  return safeBase64(out);
-}
-async function _grpDec(code,ver,b64){
-  const key=await _grpGetKey(code,ver);
-  const buf=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
-  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:buf.slice(0,12)},key,buf.slice(12));
-  return new TextDecoder().decode(pt);
-}
-
-// ── Peer ID для группы ────────────────────────────────────────────────────────
-// Кеш sessionId per code — вычисляется один раз, async
-const _grpSessionIdCache = {};
-
-async function _grpMyPid(code){
-  if(!myPresenceId) return null;
-  if(_grpSessionIdCache[code]) return _grpSessionIdCache[code];
-  // SHA-256(pubKey_hex + sessionSalt + code)[0..12] — 24 hex символа
-  const raw = new TextEncoder().encode(myPresenceId + SESSION_SALT + code);
-  const hash = await crypto.subtle.digest('SHA-256', raw);
-  const suffix = Array.from(new Uint8Array(hash).slice(0, 12))
-    .map(b => b.toString(16).padStart(2, '0')).join('');
-  const pid = `${GRP_NS}_${code}_${suffix}`;
-  _grpSessionIdCache[code] = pid;
-  return pid;
-}
-function _grpRvId(code){ return `${GRP_NS}_${code}_rv`; }
-
-// ── Сервер ────────────────────────────────────────────────────────────────────
-function _grpSrv(){
-  const s=currentSrv();
-  return buildPeerConfig(s);
-}
-
-// ── Вход в группу ─────────────────────────────────────────────────────────────
-async function grpJoin(code, myName){
-  if(!_pjOk){ toast('Нет signaling-сервера'); return; }
-  if(!myPresenceId){ toast('Идентификация ещё не готова, подождите...'); return; }
-
-  const g=_grpAll[code]; if(!g){ toast('Группа не найдена'); return; }
-  const myPid=await _grpMyPid(code);
-  if(!myPid){ toast('Нет ID'); return; }
-
-  // Уже подключены?
-  if(_grpMyPeer[code] && !_grpMyPeer[code].destroyed){
-    toast('Уже подключены'); return;
-  }
-
-  // FIX GRP_MAX: проверяем лимит до подключения
-  // Считаем онлайн-участников из кешированного списка (точная проверка — на сервере)
-  const onlineMemberCount = (g.members||[]).filter(m => m.online).length;
-  if(onlineMemberCount >= GRP_MAX){
-    toast(`⛔ Группа заполнена (макс. ${GRP_MAX} участников)`);
-    _grpSysMsg(code, `⛔ Группа заполнена — максимум ${GRP_MAX} участников онлайн`);
-    return;
-  }
-
-  _grpConns[code]  = new Map();
-  _grpSeen[code]   = new Set();
-  g.myPid          = myPid;
-  g.myName         = myName||$('my-name-input')?.value?.trim()||'Аноним';
-  g.keyVer         = g.keyVer||0;
-  // Сбрасываем knownPids при каждом входе: PID из прошлых сессий нерелевантны
-  // (SESSION_SALT меняется → все старые PID недостижимы). Актуальных участников
-  // обнаружим через рандеву. Это устраняет лавину бесполезных outConnect.
-  g.knownPids = [];
-  // Генерируем seed заранее если его нет — иначе первое сообщение будет зашифровано
-  // «пустым» ключом (seed || '') и не расшифруется на другой стороне.
-  // Тайбрейкер при hello-обмене синхронизирует seed между участниками.
-  if(!g.seed){
-    const seedBytes = crypto.getRandomValues(new Uint8Array(32));
-    g.seed = Array.from(seedBytes).map(b=>b.toString(16).padStart(2,'0')).join('');
-    _grpLog(`#${code} → seed сгенерирован при входе`);
-  }
-  // Убираем дубли по fp — оставляем последнюю запись для каждого участника,
-  // а себя убираем полностью (добавимся заново с актуальным pid).
-  if(g.members){
-    const seen = new Map();
-    for(const m of g.members){
-      const key = m.fp || m.pid || Math.random().toString(36);
-      seen.set(key, m);
-    }
-    g.members = [...seen.values()];
-    if(myFingerprint) g.members = g.members.filter(m => m.fp !== myFingerprint);
-  }
-  _grpSave();
-
-  _grpConnecting[code] = true;   // ← начало процесса подключения
-  _grpUpdateStatus(code);        // сразу покажет "⏳ подключение..."
-  _grpLog(`#${code} → вход · myPid=${myPid} · keyVer=${g.keyVer}`);
-
-  // Регистрируем наш peer ID
-  _grpLog(`#${code} → регистрируем peer ID на сервере...`);
-  const regResult = await _grpRegisterPeer(myPid);
-  if(!regResult){
-    _grpLog(`#${code} ✗ не удалось зарегистрировать peer ID`, 'error');
-    connMsg(`⚠ Группа #${code}: не удалось зарегистрировать ID — попробуйте снова`);
-    toast('Не удалось зарегистрировать ID на сервере');
-    _grpConnecting[code] = false;
-    _grpUpdateStatus(code); return;
-  }
-  const peer = regResult.peer;
-  const actualPid = regResult.actualId;
-  // FIX: если ID был занят и добавлен суффикс -t..., обновляем g.myPid
-  // чтобы hello-пакеты, knownPids и подписи использовали реально зарегистрированный ID.
-  // Это устраняет расхождение между conn.peer у собеседника и pid в hello-пакете.
-  if(actualPid !== myPid){
-    _grpLog(`#${code} ⚠ actualPid отличается: ${myPid.slice(-12)} → ${actualPid.slice(-12)}`);
-    g.myPid = actualPid;
-    // Обновляем кеш и knownPids
-    _grpSessionIdCache[code] = actualPid;
-    const idx = (g.knownPids||[]).indexOf(myPid);
-    if(idx !== -1) g.knownPids[idx] = actualPid;
-    _grpSave();
-  }
-  const effectivePid = actualPid;
-  _grpLog(`#${code} ✓ peer ID зарегистрирован · effectivePid=${effectivePid.slice(-12)}`);
-  _grpMyPeer[code]=peer;
-
-  peer.on('connection', conn=>{ _grpHandleIncoming(code,conn); });
-  peer.on('disconnected', ()=>{
-    if(peer.destroyed) return;
-    _grpLog(`#${code} peer disconnected — пробуем reconnect`, 'warn');
-    try{peer.reconnect()}catch(_){}
-  });
-  peer.on('close', ()=>{
-    // Игнорируем закрытие если мы сами инициировали (grpLeave уже вызвал destroy)
-    if(_grpMyPeer[code]!==peer) return;
-    _grpLog(`#${code} peer closed неожиданно`, 'warn');
-    _grpOnSelfLeft(code,false);
-  });
-  peer.on('error', e=>{
-    // peer-unavailable = целевой пир не найден, это НЕ фатальная ошибка для нашего пира
-    // НЕ вызываем никаких действий — PeerJS сам не закрывает пир из-за этого
-    if(e.type==='peer-unavailable'){
-      _grpLog(`#${code} peer-unavailable (не фатально, игнорируем)`);
-      return;
-    }
-    _grpLog(`#${code} peer error: ${e.type}`, 'error');
-  });
-
-  // Попытка подключиться к известным участникам
-  // FIX: используем g.myPid (может быть обновлён выше если actualId != myPid)
-  const effectiveMyPid = g.myPid || myPid;
-  const known = (g.knownPids||[]).filter(pid=>pid!==effectiveMyPid);
-  let connected = 0;
-  if(known.length){
-    _grpLog(`#${code} → подключаемся к ${known.length} известным участникам...`);
-    const results = await Promise.all(known.map(pid=>_grpOutConnect(code,pid)));
-    connected = results.filter(Boolean).length;
-    _grpLog(`#${code} → известные: ${connected}/${known.length} ответили`);
-  }
-
-  // Если нет известных / никто не ответил — пробуем рандеву
-  if(connected===0){
-    _grpLog(`#${code} → нет активных участников — пробуем рандеву...`);
-    const rvOk = await _grpRvHandshake(code, effectiveMyPid);
-    if(rvOk) _grpLog(`#${code} ✓ рандеву прошло, ждём соединений`);
-    else     _grpLog(`#${code} — рандеву: нет ответа (первый в группе)`);
-    // В любом случае занимаем rv-слот для будущих участников
-    _grpTryClaimRv(code);
-  } else {
-    // Мы сами занимаем рандеву-слот чтобы будущие участники нашли нас
-    _grpLog(`#${code} → занимаем рандеву-слот для новых участников`);
-    _grpTryClaimRv(code);
-  }
-
-  // Добавляем себя в knownPids и members
-  if(!g.knownPids.includes(effectiveMyPid)){ g.knownPids.push(effectiveMyPid); }
-  _grpUpsertMember(code, {
-    pid: effectiveMyPid,
-    name: g.myName||$('my-name-input')?.value?.trim()||'Аноним',
-    fp: myFingerprint,
-    online: true,
-    lastSeen: Date.now()
-  });
-  _grpSave();
-
-  // Оповещаем всех об участниках
-  _grpBroadcastHello(code);
-
-  _grpConnecting[code] = false;  // ← подключение завершено
-  _grpUpdateConnBtn(code,'connected');
-  _grpUpdateStatus(code);
-  if(_grpActive===code) grpRenderMembers(code);
-  grpRenderGroupList();
-
-  const total = _grpConns[code].size + 1;
-  _grpLog(`#${code} ✓ в группе · ${total} участн. · keyVer=${g.keyVer}`);
-  _grpSysMsg(code, `✓ В группе · ${total} участн. онлайн`);
-
-  // Через 2 сек обновляем — к тому времени входящие соединения от rv-holder могут уже прийти
-  setTimeout(()=>{
-    if(_grpIsConnected(code)){
-      _grpUpdateStatus(code);
-      if(_grpActive===code) grpRenderMembers(code);
-      grpRenderGroupList();
-    }
-  }, 2000);
-}
-
-// Регистрируем пир с нашим уникальным ID (retry с суффиксом если ID занят нами же)
-// Возвращает {peer, actualId} — actualId может отличаться от peerId если был добавлен суффикс -t...
-async function _grpRegisterPeer(peerId){
-  const cfg=_grpSrv();
-  return new Promise(resolve=>{
-    let p;
-    const tm=setTimeout(()=>{
-      safePeerDestroy(p);
-      _grpLog(`registerPeer timeout: ${peerId}`, 'error');
-      resolve(null);
-    },10000);
-    const tryId=(id,attempt)=>{
-      _grpLog(`registerPeer попытка ${attempt+1}: ${id}`);
-      let settled=false; // ← флаг: после open не обрабатываем ошибки этого пира
-      try{
-        p=createAuthPeer(id,cfg);
-        p.on('open',()=>{
-          if(settled) return;
-          settled=true;
-          clearTimeout(tm);
-          _grpLog(`registerPeer ✓ ${id}`);
-          resolve({peer: p, actualId: id});
-        });
-        p.on('error',e=>{
-          if(settled) return; // пир уже отдан наружу — игнорируем все последующие ошибки
-          if(e.type==='unavailable-id' && attempt<3){
-            settled=true;
-            _grpLog(`registerPeer: ID занят (${id}), суффикс...`, 'warn');
-            connMsg('⚠ Код группы занят — пробуем другой слот...');
-            safePeerDestroy(p);
-            tryId(id+'-t'+Math.random().toString(36).slice(2,5), attempt+1);
-          } else {
-            settled=true;
-            clearTimeout(tm);
-            _grpLog(`registerPeer ✗ ${e.type}`, 'error');
-            safePeerDestroy(p); resolve(null);
-          }
-        });
-      }catch(e){ clearTimeout(tm); _grpLog(`registerPeer исключение: ${e.message}`, 'error'); resolve(null); }
-    };
-    tryId(peerId,0);
-  });
-}
-
-// Подключаемся к конкретному peer ID участника
-function _grpOutConnect(code, pid){
-  const peer=_grpMyPeer[code];
-  if(!peer||peer.destroyed) return Promise.resolve(false);
-  // Не создаём исходящее соединение, если уже есть активное с этим PID
-  if(_grpConns[code]?.has(pid)){
-    _grpLog(`#${code} outConnect к ${pid.slice(-16)} — уже подключены, пропускаем`);
-    return Promise.resolve(true);
-  }
-  return new Promise(resolve=>{
-    _grpLog(`#${code} → outConnect к ${pid.slice(-16)}...`);
-    const tm=setTimeout(()=>{ _grpLog(`#${code} outConnect timeout: ${pid.slice(-16)}`, 'warn'); resolve(false); },2500);
-    try{
-      const conn=peer.connect(pid,{reliable:true,serialization:'json'});
-      let _settled = false;
-      conn.on('open',()=>{
-        if(_settled) return; _settled=true;
-        clearTimeout(tm);
-        _grpLog(`#${code} ✓ соединён с ${pid.slice(-16)}`);
-        _grpSetupConn(code,pid,conn);
-        resolve(true);
-      });
-      conn.on('error',e=>{
-        clearTimeout(tm);
-        _grpLog(`#${code} outConnect ✗ ${pid.slice(-16)}: ${e.type||e}`, 'warn');
-        if(!_settled){
-          // Ошибка ДО open — conn не попал в setupConn, просто резолвим
-          _settled=true; resolve(false);
-        }
-        // Ошибка ПОСЛЕ open — conn уже в setupConn и _onConnGone там справится
-      });
-    }catch(e){ clearTimeout(tm); _grpLog(`#${code} outConnect исключение: ${e.message}`, 'error'); resolve(false); }
-  });
-}
-
-// ── Рандеву ───────────────────────────────────────────────────────────────────
-// Первый участник занимает rv-слот. Новые участники подключаются к нему,
-// представляются своим РЕАЛЬНЫМ main peer ID, получают список всех участников.
-async function _grpTryClaimRv(code){
-  // Проверяем destroyed И open: peer может быть !destroyed но уже disconnected
-  const existing = _grpRvPeer[code];
-  if(existing && !existing.destroyed && existing.open !== false) return;
-  // Мёртвый peer — чистим
-  if(existing){ try{ existing.destroy(); }catch(_){} delete _grpRvPeer[code]; }
-  // Если нет seed — генерируем новый: мы стали rv-holder и будем раздавать его входящим.
-  // Это восстановление после потери seed из IDB (например, файл открыт через content://).
-  const g = _grpAll[code];
-  if(g && !g.seed){
-    const seedBytes = crypto.getRandomValues(new Uint8Array(32));
-    g.seed = Array.from(seedBytes).map(b=>b.toString(16).padStart(2,'0')).join('');
-    for(const k of Object.keys(_grpKeyCache)){ if(k.startsWith(code+':')) delete _grpKeyCache[k]; }
-    _grpLog(`#${code} → rv-holder: сгенерирован новый seed (восстановление после потери)`, 'warn');
-    _grpSave();
-  }
-  const rvId=_grpRvId(code);
-  const cfg=_grpSrv();
-  _grpLog(`#${code} → занимаем рандеву-слот`);
-  const p=createAuthPeer(rvId,cfg);
-  // Таймаут: если за 8с не открылся — ID занят другим, уничтожаем
-  const _rvOpenTm = setTimeout(()=>{
-    if(!p.open && !p.destroyed){
-      _grpLog(`#${code} рандеву-слот: таймаут открытия — ID занят другим участником`, 'warn');
-      safePeerDestroy(p);
-      delete _grpRvPeer[code];
-    }
-  }, 8000);
-  p.on('open',()=>{
-    clearTimeout(_rvOpenTm);
-    _grpLog(`#${code} ✓ рандеву-слот занят`);
-    _grpRvPeer[code]=p;
-    p.on('connection',conn=>{
-      conn.on('open',()=>{
-        const g=_grpAll[code]; if(!g) return;
-        conn.on('data',async d=>{
-          if(!d.__grp_rv_hello__) return;
-          const {realPid, keyVer: joinerKeyVer}=d.__grp_rv_hello__||{};
-          _grpLog(`#${code} рандеву: новый участник ${(realPid||'?').slice(-16)}`);
-          // Синхронизируем keyVer: если joiner пришёл с более высокой версией — принимаем
-          if(typeof joinerKeyVer === 'number' && joinerKeyVer > (g.keyVer||0)){
-            g.keyVer = joinerKeyVer; _grpSave();
-            for(const k of Object.keys(_grpKeyCache)){ if(k.startsWith(code+':')) delete _grpKeyCache[k]; }
-            _grpLog(`#${code} рандеву: rv-holder принял keyVer=${g.keyVer} от нового участника`);
-            if(_grpActive===code) _grpUpdateStatus(code);
-          }
-          // Подписываем intro своим Ed25519 ключом
-          let sig=null, pub=null;
-          try{
-            if(myPrivKey && myPubKeyRaw){
-              const sigData=new TextEncoder().encode(`grp-rv-intro:${code}:${g.myPid||''}:${realPid||''}`);
-              const sigBuf=await crypto.subtle.sign('Ed25519',myPrivKey,sigData);
-              sig=Array.from(new Uint8Array(sigBuf));
-              pub=Array.from(myPubKeyRaw);
-            }
-          }catch(_){}
-          // Шлём только реально подключённых участников (не исторические PIDs)
-          // чтобы новый участник не тратил время на stale соединения
-          const connectedPids = [...(_grpConns[code]?.keys() || [])].filter(p=>p&&!p.includes('-pchk-'));
-          conn.send({__grp_rv_intro__:{
-            realPid: g.myPid,
-            knownPids: connectedPids.filter(p=>p!==realPid),
-            keyVer: g.keyVer||0,
-            members: _grpMemberList(code),
-            seed: g.seed||undefined,  // передаём seed новому участнику через защищённый DTLS-канал
-            sig, pub
-          }});
-          setTimeout(()=>safeConnClose(conn), 3000);
-          if(realPid && _grpMyPeer[code] && !_grpMyPeer[code].destroyed){
-            setTimeout(()=>_grpOutConnect(code, realPid), 300);
-          }
-        });
-      });
-    });
-    // Переоткрываем rv-слот каждые 4 минуты пока мы в группе
-    const _rvRefresh = setInterval(()=>{
-      if(!_grpMyPeer[code] || _grpMyPeer[code].destroyed){
-        clearInterval(_rvRefresh);
-        return;
-      }
-      _grpLog(`#${code} rv-слот: обновление...`);
-      safePeerDestroy(p);
-      delete _grpRvPeer[code];
-      clearInterval(_rvRefresh);
-      // Небольшая задержка перед переоткрытием чтобы освободить ID на сервере
-      setTimeout(()=>{ if(_grpMyPeer[code] && !_grpMyPeer[code].destroyed) _grpTryClaimRv(code); }, 1000);
-    }, 240000); // 4 минуты
-    // Страховочный destroy через 5 минут
-    setTimeout(()=>{ clearInterval(_rvRefresh); safePeerDestroy(p); delete _grpRvPeer[code]; }, 300000);
-  });
-  p.on('error',e=>{
-    // unavailable-id = ID уже занят другим участником — не пытаемся снова
-    _grpLog(`#${code} рандеву-слот: ошибка ${e.type} — ID занят или недоступен`, 'warn');
-    safePeerDestroy(p);
-    delete _grpRvPeer[code];
-  });
-  p.on('disconnected',()=>{
-    // WS закрылся до OPEN (close 1005 = сервер отверг — ID занят).
-    // TovSaSignaling будет пытаться реконнектиться сам, но нам это не нужно:
-    // rv-слот занят другим участником, мы не должны его перехватывать.
-    if(!p.open && !p.destroyed){
-      _grpLog(`#${code} рандеву-слот: отключён до открытия — ID занят, прекращаем попытки`, 'warn');
-      safePeerDestroy(p);
-      delete _grpRvPeer[code];
-    }
-  });
-}
-async function _grpRvHandshake(code, myPid){
-  _grpLog(`#${code} → рандеву: создаём временный пир...`);
-  const cfg=_grpSrv();
-  const tmpId=`${GRP_NS}_${code}_rvt_${Math.random().toString(36).slice(2,10)}`;
-
-  // Шаг 1: получаем intro через tmpPeer
-  const intro = await new Promise(resolve=>{
-    let tmpPeer=null;
-    let done=false;
-    const finish=(v)=>{ if(done)return; done=true; clearTimeout(tm); safePeerDestroy(tmpPeer); resolve(v); };
-    const tm=setTimeout(()=>{ _grpLog(`#${code} рандеву: таймаут 8с`, 'warn'); finish(null); }, 8000);
-    try{
-      tmpPeer=createAuthPeer(tmpId, cfg);
-      tmpPeer.on('open',()=>{
-        _grpLog(`#${code} рандеву: tmpPeer открыт, подключаемся к rv...`);
-        try{
-          const conn=tmpPeer.connect(_grpRvId(code),{reliable:true,serialization:'json'});
-          conn.on('open',()=>{
-            _grpLog(`#${code} рандеву: канал открыт, посылаем hello...`);
-            conn.send({__grp_rv_hello__:{realPid: myPid, keyVer: (_grpAll[code]?.keyVer)||0}});
-            conn.on('data',d=>{ if(d.__grp_rv_intro__){ finish(d.__grp_rv_intro__); } });
-            conn.on('error',()=>finish(null));
-          });
-          conn.on('error',e=>{ _grpLog(`#${code} рандеву conn: ${e.type||e}`, 'warn'); finish(null); });
-        }catch(e){ _grpLog(`#${code} рандеву: ${e.message}`,'error'); finish(null); }
-      });
-      tmpPeer.on('error',e=>{ _grpLog(`#${code} рандеву tmpPeer: ${e.type}`,'warn'); finish(null); });
-    }catch(e){ _grpLog(`#${code} рандеву: ${e.message}`,'error'); finish(null); }
-  });
-
-  if(!intro){
-    _grpLog(`#${code} рандеву: нет ответа`);
-    return false;
-  }
-
-  // ── Верификация подписи rv-holder ──
-  const {knownPids, keyVer, members, sig, pub, realPid:rvRealPid} = intro;
-  let _rvSigVerified = false;
-  if(sig && pub){
-    try{
-      const pubBytes = new Uint8Array(pub);
-      const pubKey = await crypto.subtle.importKey('raw', pubBytes, {name:'Ed25519'}, false, ['verify']);
-      const sigData = new TextEncoder().encode(`grp-rv-intro:${code}:${rvRealPid||''}:${myPid}`);
-      const ok = await crypto.subtle.verify('Ed25519', pubKey, new Uint8Array(sig), sigData);
-      if(!ok){
-        _grpLog(`#${code} рандеву: неверная подпись rv-holder — игнорируем intro`, 'error');
-        return false;
-      }
-      // Дополнительно: если rv-holder есть в contacts — сверяем fp
-      const contacts = await getContacts().catch(()=>({}));
-      const rvFp = bytesToFingerprint(await sha256(pubBytes));
-      if(rvRealPid){
-        const matchingContact = Object.values(contacts).find(c => {
-          const chex = c.pubKeyHex;
-          if(!chex) return false;
-          const cbytes = new Uint8Array(chex.match(/.{2}/g).map(h=>parseInt(h,16)));
-          return Array.from(cbytes).join(',') === Array.from(pubBytes).join(',');
-        });
-        if(!matchingContact){
-          _grpLog(`#${code} рандеву: rv-holder fp=${rvFp} не в контактах — продолжаем (новый участник)`, 'warn');
-        }
-      }
-      _grpLog(`#${code} рандеву: ✓ подпись rv-holder верна · fp=${rvFp.slice(0,8)}...`);
-      _rvSigVerified = true;
-    }catch(e){
-      _grpLog(`#${code} рандеву: ошибка верификации rv-holder — игнорируем`, 'error');
-      return false;
-    }
-  } else {
-    _grpLog(`#${code} рандеву: rv-holder без подписи (старый клиент)`, 'warn');
-  }
-
-  _grpLog(`#${code} рандеву: ✓ intro · известных=${knownPids?.length||0} · keyVer=${keyVer}`);
-  const g=_grpAll[code]; if(!g) return false;
-  if(typeof keyVer==='number') g.keyVer=Math.max(g.keyVer||0,keyVer);
-  // Принимаем seed из rv-intro только если подпись верифицирована —
-  // это гарантирует что seed пришёл от настоящего участника группы.
-  if(_rvSigVerified && intro.seed && /^[0-9a-f]{64}$/.test(intro.seed)){
-    if(!g.seed){
-      g.seed = intro.seed;
-      for(const k of Object.keys(_grpKeyCache)){ if(k.startsWith(code+':')) delete _grpKeyCache[k]; }
-      _grpLog(`#${code} рандеву: ✓ получили seed от rv-holder`);
-      _grpSave();
-      _grpFlushDecRetry(code);
-    } else if(intro.seed !== g.seed){
-      // Оба стали rv-holder с разными seed — детерминированный тайбрейкер
-      if(intro.seed < g.seed){
-        g.seed = intro.seed;
-        for(const k of Object.keys(_grpKeyCache)){ if(k.startsWith(code+':')) delete _grpKeyCache[k]; }
-        _grpLog(`#${code} рандеву: seed-конфликт → принимаем seed rv-holder (меньший)`, 'warn');
-        _grpSave();
-        _grpFlushDecRetry(code);
-      } else {
-        _grpLog(`#${code} рандеву: seed-конфликт → оставляем наш seed (он меньше)`, 'warn');
-      }
-    }
-  } else if(intro.seed && !_rvSigVerified){
-    _grpLog(`#${code} рандеву: ⚠ seed в intro НЕ принят — подпись rv-holder не верифицирована`, 'warn');
-  } else if(!intro.seed && !g.seed){
-    _grpLog(`#${code} рандеву: ⚠ rv-holder не прислал seed, у нас тоже нет — сообщения не расшифруются!`, 'error');
-  }
-  // Ограничиваем knownPids — старые pid (прошлые сессии) нерелевантны,
-  // актуальные участники переподключатся через рандеву.
-  // pchk-пиры — эфемерные presence-check, никогда не добавляем в список.
-  const allPids=[...new Set([...(knownPids||[]),...(g.knownPids||[])].filter(p=>p&&p!==myPid&&!p.includes('-pchk-')))].slice(-20);
-  g.knownPids=allPids; _grpSave();
-  _grpMergeMemberList(code, members||[]);
-
-  if(!allPids.length){
-    _grpLog(`#${code} рандеву: список пустой, ждём входящего соединения от rv-holder...`);
-    return true;
-  }
-
-  // Шаг 2: подключаемся к известным через ГЛАВНЫЙ пир
-  _grpLog(`#${code} рандеву: подключаемся к ${allPids.length} участникам...`);
-  const results = await Promise.all(allPids.map(pid=>_grpOutConnect(code,pid)));
-  const ok = results.some(Boolean);
-  _grpLog(`#${code} рандеву: ${ok?'✓ соединились':'нет ответа от участников'}`);
-  return ok || true;
-}
-// ── Входящие соединения ───────────────────────────────────────────────────────
-function _grpHandleIncoming(code, conn){
-  // Игнорируем tmpPeer-соединения от рандеву-рукопожатия (rvt_)
-  // Они обрабатываются внутри _grpTakeRvSlot и не должны попадать в _grpConns
-  if(conn.peer.includes('_rvt_')){
-    _grpLog(`#${code} ← входящее от rvt-пира ${conn.peer.slice(-16)} — игнорируем`);
-    conn.on('open',()=>{ try{conn.close();}catch(_){} });
-    return;
-  }
-  // Игнорируем эфемерные presence-check пиры (grp-pchk-*)
-  if(conn.peer.includes('-pchk-')){
-    conn.on('open',()=>{ try{conn.close();}catch(_){} });
-    return;
-  }
-  _grpLog(`#${code} ← входящее от ${conn.peer.slice(-16)}`);
-  conn.on('open',()=>{ _grpSetupConn(code, conn.peer, conn); });
-  conn.on('error',()=>{});
-}
-
-function _grpSetupConn(code, pid, conn){
-  const g=_grpAll[code]; if(!g) return;
-  // Закрываем дубль — но СНАЧАЛА записываем новый conn в Map,
-  // чтобы _onConnGone старого не удалил новый из Map.
-  const oldConn = _grpConns[code]?.get(pid);
-  if(oldConn){
-    _grpLog(`#${code} дубль соединения с ${pid.slice(-16)}, заменяем`, 'warn');
-  }
-  if(!_grpConns[code]) _grpConns[code]=new Map();
-  _grpConns[code].set(pid,conn);  // ← новый conn уже в Map ДО закрытия старого
-  if(oldConn){ try{oldConn.close()}catch(_){} }  // ← теперь _onConnGone старого увидит что pid→conn изменился
-  _grpLog(`#${code} ✓ setupConn ${pid.slice(-16)} · активных: ${_grpConns[code].size}`);
-
-  // Добавляем в известные (pchk-пиры не добавляем — они эфемерны)
-  if(!pid.includes('-pchk-') && !(g.knownPids||[]).includes(pid)){
-    g.knownPids=[...(g.knownPids||[]),pid]; _grpSave();
-  }
-
-  // Шлём приветствие (включаем pub для верификации fp, seed для bootstrap ключа нового участника)
-  // knownPids: только реально подключённые (не исторические) — избегаем stale outConnect на принимающей стороне
-  const _helloKnownPids = [...(_grpConns[code]?.keys() || []), g.myPid||'']
-    .filter(p => p && p !== pid && !p.includes('-pchk-'));
-  conn.send({__grp_hello__:{
-    pid: g.myPid, name: g.myName||$('my-name-input')?.value?.trim()||'Аноним',
-    fp: myFingerprint, keyVer: g.keyVer||0,
-    knownPids: _helloKnownPids, members: _grpMemberList(code),
-    pub: myPubKeyRaw ? Array.from(myPubKeyRaw) : null,
-    seed: g.seed || undefined
-  }});
-
-  conn.on('data',d=>{ try{ _grpOnData(code,pid,d); }catch(e){ console.warn('[grp]',e); } });
-  const _onConnGone = (reason)=>{
-    // Guard: срабатываем только если в Map всё ещё стоит именно наш conn
-    if(_grpConns[code]?.get(pid) !== conn) return;
-    _grpLog(`#${code} ← ${reason}: ${pid.slice(-16)}`, 'warn');
-    _grpOnPeerGone(code,pid);
-  };
-  conn.on('close',()=>_onConnGone('закрыт'));
-  // При ошибке DataChannel — проверяем что канал действительно закрыт.
-  // dc.onerror может прийти для живого канала (ICE restart, мелкая ошибка отправки),
-  // реальное закрытие придёт через dc.onclose → conn.on('close').
-  conn.on('error',e=>{
-    if(conn.open) {
-      _grpLog(`#${code} ← ошибка (канал жив, игнорируем): ${pid.slice(-16)} ${e.type||e}`, 'warn');
-      return;
-    }
-    _onConnGone(`error:${e.type||e}`);
-  });
-
-  // Heartbeat двусторонний: шлём hb и отслеживаем входящие.
-  // Если за 9с не пришёл hb от партнёра — считаем соединение мёртвым.
-  let _hbLastRx = Date.now();
-  const HB_SEND = 3000;   // интервал отправки
-  const HB_DEAD = 9000;   // timeout входящего (3 пропущенных hb)
-
-  // Хелпер: проверяем что именно наш conn всё ещё активен в Map (не заменён дублем)
-  const _isMyConn = ()=> _grpConns[code]?.get(pid) === conn;
-  const _stopHb = ()=>{ clearInterval(hbInterval); clearInterval(hbWatchdog); };
-
-  const hbInterval = setInterval(()=>{
-    if(!_isMyConn()){ _stopHb(); return; }
-    try{
-      if(conn.open){ conn.send({__grp_hb__:1}); }
-      else{ _stopHb(); _grpOnPeerGone(code,pid); }
-    }catch(_){ _stopHb(); _grpOnPeerGone(code,pid); }
-  }, HB_SEND);
-
-  // Watchdog: проверяем когда последний раз получили hb от партнёра
-  const hbWatchdog = setInterval(()=>{
-    if(!_isMyConn()){ _stopHb(); return; }
-    if(Date.now() - _hbLastRx > HB_DEAD){
-      _grpLog(`#${code} hb watchdog: нет hb от ${pid.slice(-16)} ${HB_DEAD}мс — disconnect`, 'warn');
-      _stopHb();
-      _grpOnPeerGone(code, pid);
-      try{ conn.close(); }catch(_){}
-    }
-  }, HB_SEND);
-
-  // Обновляем _hbLastRx при получении hb (перехватываем в _grpOnData через флаг на conn)
-  conn._grpHbRx = ()=>{ _hbLastRx = Date.now(); };
-
-  // Чистим интервалы только при реальном закрытии, не на любой error
-  conn.on('close',()=>{ _stopHb(); });
-
-  if(_grpActive===code){ grpRenderMembers(code); _grpUpdateStatus(code); }
-  grpRenderGroupList();
-}
-
-// ── Обработка данных ──────────────────────────────────────────────────────────
-// Обработка hello-пакета от участника группы (обмен состоянием при подключении)
-async function _grpHandleHello(code, fromPid, g, payload){
-  const {pid, name, fp, keyVer, knownPids, members, pub, seed} = payload;
-  // Верифицируем fp: если pub прислан — хэш должен совпадать с fp
-  if(pub && fp){
-    try{
-      const pubBytes = new Uint8Array(pub);
-      const expectedFp = bytesToFingerprint(await sha256(pubBytes));
-      if(expectedFp !== fp){
-        _grpLog(`#${code} hello от ${fromPid.slice(-12)}: fp≠pub — игнорируем`, 'error');
-        return;
-      }
-    }catch(e){
-      _grpLog(`#${code} hello: ошибка верификации fp — игнорируем`, 'error');
-      return;
-    }
-  }
-  // FIX J: принимаем seed только если у нас его ещё нет И отправитель является
-  // доверенным участником (уже есть в knownPids или наших контактах).
-  // Это предотвращает атаку: злоумышленник подключается раньше создателя и присылает
-  // свой поддельный seed, получая возможность расшифровать все сообщения группы.
-  if(seed && !g.seed && /^[0-9a-f]{64}$/.test(seed)){
-    // Проверяем доверие: отправитель должен быть в knownPids (добавлен создателем)
-    // ИЛИ fp отправителя должен быть в наших контактах.
-    //
-    // FIX: сверяем сразу несколько вариантов идентификатора:
-    //   1) pid из пакета (g.myPid отправителя — всегда без суффикса -t...)
-    //   2) fromPid (conn.peer — может иметь суффикс -t... от unavailable-id retry)
-    //   3) нормализованные версии обоих (без суффикса -t...)
-    // Это устраняет расхождение когда ID был занят и зарегистрирован с суффиксом.
-    //
-    // FIX 2: также проверяем knownPids из ВХОДЯЩЕГО hello-пакета — отправитель
-    // присылает свой список известных участников, и мы в нём должны быть, что
-    // подтверждает что он был в группе до нас (знает наш pid).
-    const canonPid = pid || fromPid;
-    const stripSuffix = id => (id||'').replace(/-t[a-z0-9]{3,6}$/, '');
-    const knownList = g.knownPids||[];
-    const isKnown = knownList.some(p =>
-      p === canonPid || p === fromPid ||
-      stripSuffix(p) === stripSuffix(canonPid) ||
-      stripSuffix(p) === stripSuffix(fromPid)
-    );
-    // Если у нас knownPids пустой (только зашли), смотрим в knownPids из пакета:
-    // если наш myPid там есть — отправитель нас знает (добавил через рандеву)
-    const theirKnownPids = knownPids||[];
-    const myPidInTheirs = g.myPid && theirKnownPids.some(p =>
-      p === g.myPid || stripSuffix(p) === stripSuffix(g.myPid||'')
-    );
-    let isContact = false;
-    if(fp){
-      try{
-        const contacts = await getContacts();
-        isContact = !!contacts[fp];
-      }catch(_){}
-    }
-    if(isKnown || isContact || myPidInTheirs){
-      g.seed = seed;
-      for(const k of Object.keys(_grpKeyCache)){
-        if(k.startsWith(code+':')) delete _grpKeyCache[k];
-      }
-      _grpLog(`#${code} получили seed от доверенного ${fromPid.slice(-12)} · isKnown=${isKnown} isContact=${isContact} myPidInTheirs=${myPidInTheirs}`);
-      _grpSave();
-      _grpFlushDecRetry(code);
-    } else {
-      _grpLog(`#${code} ⚠ seed отклонён от ${fromPid.slice(-12)} · isKnown=${isKnown} isContact=${isContact} myPidInTheirs=${myPidInTheirs} · myKnownPids=[${(g.knownPids||[]).map(p=>p.slice(-8)).join(',')}]`, 'warn');
-    }
-  } else if(seed && g.seed){
-    // Оба клиента сгенерировали seed независимо (одновременный вход, оба стали rv-holder).
-    // Детерминированное разрешение: меньший seed лексикографически побеждает.
-    // Оба клиента применят одно и то же правило → сойдутся к одному seed.
-    if(seed !== g.seed){
-      if(seed < g.seed){
-        _grpLog(`#${code} seed-конфликт: принимаем seed от ${fromPid.slice(-12)} (меньший лексикографически)`, 'warn');
-        g.seed = seed;
-        for(const k of Object.keys(_grpKeyCache)){ if(k.startsWith(code+':')) delete _grpKeyCache[k]; }
-        _grpSave();
-        _grpFlushDecRetry(code);
-      } else {
-        _grpLog(`#${code} seed-конфликт: оставляем наш seed (он меньше), ${fromPid.slice(-12)} должен принять наш`, 'warn');
-        // Наш seed меньше — принудительно шлём hello чтобы партнёр принял наш seed
-        try{ const conn = _grpConns[code]?.get(fromPid); if(conn?.open) conn.send({__grp_hello__:{
-          pid:g.myPid, name:g.myName||'Аноним', fp:myFingerprint, keyVer:g.keyVer||0,
-          knownPids:[...(_grpConns[code]?.keys()||[]),g.myPid||''].filter(p=>p&&!p.includes('-pchk-')),
-          members:_grpMemberList(code), pub:myPubKeyRaw?Array.from(myPubKeyRaw):null, seed:g.seed
-        }}); }catch(_){}
-      }
-    }
-  }
-  _grpUpsertMember(code, {pid: pid||fromPid, name, fp, online:true, lastSeen:Date.now()});
-  if(typeof keyVer === 'number' && keyVer > (g.keyVer||0)){
-    g.keyVer = keyVer; _grpSave();
-    // Сбрасываем кеш — иначе старый ключ может остаться в памяти
-    for(const k of Object.keys(_grpKeyCache)){ if(k.startsWith(code+':')) delete _grpKeyCache[k]; }
-    // Отвечаем нашим hello с обновлённым keyVer — отправитель узнает что мы синхронизировались
-    const conn = _grpConns[code]?.get(fromPid);
-    if(conn?.open){
-      const _replyKnownPids = [...(_grpConns[code]?.keys() || []), g.myPid||'']
-        .filter(p => p && p !== fromPid && !p.includes('-pchk-'));
-      try{ conn.send({__grp_hello__:{
-        pid: g.myPid, name: g.myName||'Аноним',
-        fp: myFingerprint, keyVer: g.keyVer||0,
-        knownPids: _replyKnownPids, members: _grpMemberList(code),
-        pub: myPubKeyRaw ? Array.from(myPubKeyRaw) : null,
-      }}); }catch(_){}
-    }
-    if(_grpActive===code) _grpUpdateStatus(code);
-  }
-  const allPids = [...new Set([...(knownPids||[]), ...(g.knownPids||[])].filter(p => p && p !== g.myPid && !p.includes('-pchk-')))].slice(-50);
-  g.knownPids = allPids; _grpSave();
-  _grpMergeMemberList(code, members||[]);
-  allPids.filter(p => p !== fromPid && !(_grpConns[code]?.has(p))).forEach(p => _grpOutConnect(code, p));
-  if(_grpActive === code){ grpRenderMembers(code); _grpUpdateStatus(code); }
-}
-
-// Обработка зашифрованного сообщения группы
-async function _grpHandleMessage(code, fromPid, g, payload, rawData){
-  const {id, ver, enc, ts, pid:sPid, name:sName, fp:sFp, sig, pub} = payload;
-  if(!id) return;
-  if(!_grpSeen[code]) _grpSeen[code] = new Set();
-  if(_grpSeen[code].has(id)) return;
-
-  // ── Верификация Ed25519 подписи ──
-  let verified = false;
-  if(sig && pub){
-    try{
-      const pubBytes = new Uint8Array(pub);
-      // fp должен совпадать с хешем pub из сообщения
-      const expectedFp = bytesToFingerprint(await sha256(pubBytes));
-      if(sFp && expectedFp !== sFp){
-        _grpLog(`#${code} msg ${id}: fp≠pub — отброшено`, 'error');
-        return;
-      }
-      const pubKey = await crypto.subtle.importKey('raw', pubBytes, {name:'Ed25519'}, false, ['verify']);
-      const sigData = new TextEncoder().encode(`grp-msg:${id}:${ts}:${enc}`);
-      verified = await crypto.subtle.verify('Ed25519', pubKey, new Uint8Array(sig), sigData);
-      if(!verified){
-        _grpLog(`#${code} msg ${id}: неверная подпись — отброшено`, 'error');
-        return;
-      }
-    }catch(e){
-      _grpLog(`#${code} msg ${id}: ошибка верификации — отброшено`, 'error');
-      return;
-    }
-  } else {
-    _grpLog(`#${code} msg ${id}: нет подписи (старый клиент)`, 'warn');
-  }
-
-  _grpSeen[code].add(id);
-  // Ограничиваем размер Set — удаляем старые ID если накопилось > 500
-  if(_grpSeen[code].size > 500){
-    const iter = _grpSeen[code].values();
-    for(let i=0; i<100; i++) _grpSeen[code].delete(iter.next().value);
-  }
-  // FIX #5: сохраняем seen IDs в IDB для защиты от replay после перезагрузки
-  _grpSeenScheduleSave();
-
-  let text;
-  try{
-    text = await _grpDec(code, ver ?? g.keyVer ?? 0, enc);
-  } catch(e){
-    const hasSeed = !!((_grpAll[code]?.seed));
-    // Ставим в очередь на повторную расшифровку — seed может прийти чуть позже (hello-обмен ещё не завершён)
-    if(!_grpDecRetry[code]) _grpDecRetry[code] = [];
-    // Не дублируем и не накапливаем слишком много
-    if(_grpDecRetry[code].length < 50 && !_grpDecRetry[code].some(r=>r.payload.id===id)){
-      _grpDecRetry[code].push({fromPid, payload, rawData, queued: Date.now()});
-      _grpLog(`#${code} ✗ дешифровка msg ${id} · ver=${ver} hasSeed=${hasSeed} — в очередь на retry`, 'warn');
-    } else {
-      _grpLog(`#${code} ✗ дешифровка msg ${id} · ver=${ver} hasSeed=${hasSeed} · ${e?.message||e}`, 'error');
-    }
-    return;
-  }
-
-  const isMe = (sPid === g.myPid);
-  const msgObj = {id, ts, pid:sPid, name:sName, fp:sFp, text, own:isMe, verified};
-  g.history = (g.history||[]); g.history.push(msgObj); _grpSave();
-
-  if(_grpActive === code){
-    _grpRenderMsg(code, msgObj, isMe ? 'out' : 'in');
-  } else if(!isMe){
-    _grpUnread[code] = (_grpUnread[code]||0) + 1; _grpUpdateBadge();
-    _sendNotif(`Группа #${code}`, `${sName||'?'}: ${text.slice(0,60)}`);
-  }
-  _grpForward(code, fromPid, rawData);
-}
-async function _grpOnData(code, fromPid, data){
-  const g = _grpAll[code]; if(!g) return;
-  if(data.__grp_hb__){
-    // Сообщаем watchdog что партнёр жив
-    const conn = _grpConns[code]?.get(fromPid);
-    if(conn?._grpHbRx) conn._grpHbRx();
-    return;
-  }
-
-  if(data.__grp_hello__){
-    await _grpHandleHello(code, fromPid, g, data.__grp_hello__);
-    return;
-  }
-  if(data.__grp_msg__){
-    await _grpHandleMessage(code, fromPid, g, data.__grp_msg__, data);
-    return;
-  }
-  if(data.__grp_key_rotate__){
-    const {ver, fp, pub, sig, ts} = data.__grp_key_rotate__;
-    if(typeof ver === 'number' && ver > (g.keyVer||0)){
-      // FIX KEY_ROTATE_AUTH: верифицируем Ed25519 подпись ротации
-      // Предотвращает сброс keyVer злоумышленником
-      let sigOk = false;
-      if(pub && sig && ts){
-        try{
-          if(Math.abs(Date.now() - ts) > 60000){
-            _grpLog(`#${code} key_rotate: устаревший ts — игнорируем`, 'warn');
-            return;
-          }
-          const pubBytes = new Uint8Array(pub);
-          const expectedFp = bytesToFingerprint(await sha256(pubBytes));
-          if(fp && expectedFp !== fp){
-            _grpLog(`#${code} key_rotate: fp≠pub — игнорируем`, 'error');
-            return;
-          }
-          const pubKey = await crypto.subtle.importKey('raw', pubBytes, {name:'Ed25519'}, false, ['verify']);
-          const sigData = new TextEncoder().encode(`grp-rotate:${code}:${ver}:${ts}`);
-          sigOk = await crypto.subtle.verify('Ed25519', pubKey, new Uint8Array(sig), sigData);
-          if(!sigOk){
-            _grpLog(`#${code} key_rotate: неверная подпись — игнорируем`, 'error');
-            return;
-          }
-        }catch(e){
-          _grpLog(`#${code} key_rotate: ошибка верификации — игнорируем`, 'error');
-          return;
-        }
-      }
-      // Подпись проверена (или отсутствует — backward compat с legacy клиентами)
-      g.keyVer = ver; _grpSave();
-      // FIX KEY_CACHE: сбрасываем кеш — старый ключ больше не актуален
-      for(const k of Object.keys(_grpKeyCache)){
-        if(k.startsWith(code+':')) delete _grpKeyCache[k];
-      }
-      if(_grpActive === code) _grpUpdateStatus(code);
-    }
-    _grpForward(code, fromPid, data);
-    return;
-  }
-  // FIX G: __grp_ping__ теперь проходит через _grpHandlePingMsg с Ed25519 верификацией
-  // (раньше здесь был отдельный путь без проверки подписи — уязвимость спуфинга)
-  if(data.__grp_ping__){
-    _grpHandlePingMsg({__grp_incoming_ping__: data.__grp_ping__})
-      .catch(e => console.warn('[grp-ping]', e));
-    return;
-  }
-}
-
-// ── Вспомогательное ───────────────────────────────────────────────────────────
-function _grpForward(code, exceptPid, data){
-  _grpConns[code]?.forEach((c,pid)=>{ if(pid!==exceptPid&&c?.open) try{c.send(data)}catch(_){} });
-}
-function _grpBroadcast(code, data){
-  _grpConns[code]?.forEach(c=>{ if(c?.open) try{c.send(data)}catch(_){} });
-}
-// Повторно расшифровываем сообщения из очереди после обновления seed
-async function _grpFlushDecRetry(code){
-  const queue = _grpDecRetry[code];
-  if(!queue || queue.length === 0) return;
-  const g = _grpAll[code]; if(!g?.seed) return;
-  _grpDecRetry[code] = [];
-  const now = Date.now();
-  for(const {fromPid, payload, rawData, queued} of queue){
-    // Отбрасываем совсем старые (>30с) — скорее всего уже не нужны
-    if(now - queued > 30000) continue;
-    // Убираем из seen чтобы повторная обработка прошла
-    _grpSeen[code]?.delete(payload.id);
-    await _grpHandleMessage(code, fromPid, g, payload, rawData);
-  }
-}
-
-function _grpBroadcastHello(code){
-  const g=_grpAll[code]; if(!g) return;
-  // knownPids: только реально подключённые — не рассылаем устаревшие исторические PIDs
-  const connectedPids = [...(_grpConns[code]?.keys() || []), g.myPid||'']
-    .filter(p => p && !p.includes('-pchk-'));
-  _grpBroadcast(code,{__grp_hello__:{
-    pid:g.myPid, name:g.myName||$('my-name-input')?.value?.trim()||'Аноним',
-    fp:myFingerprint, keyVer:g.keyVer||0,
-    knownPids:connectedPids, members:_grpMemberList(code),
-    pub: myPubKeyRaw ? Array.from(myPubKeyRaw) : null,
-    seed: g.seed || undefined
-  }});
-}
-
-// ── Участники ─────────────────────────────────────────────────────────────────
-function _grpMemberList(code){
-  return _grpAll[code]?.members||[];
-}
-function _grpUpsertMember(code, info, save=true){
-  const g=_grpAll[code]; if(!g) return;
-  g.members=g.members||[];
-  // Ищем существующую запись: сначала по fp (один участник может прийти с новым pid в новой сессии),
-  // затем по pid. Это предотвращает дубли когда SESSION_SALT меняется между сессиями.
-  let idx = info.fp ? g.members.findIndex(m=>m.fp===info.fp) : -1;
-  if(idx<0) idx = g.members.findIndex(m=>m.pid===info.pid);
-  if(idx>=0){
-    // Обновляем запись, но не затираем fp если в новой записи он отсутствует
-    const existing = g.members[idx];
-    g.members[idx] = {...existing, ...info, fp: info.fp || existing.fp};
-  } else{
-    g.members.push(info);
-  }
-  // Удаляем дубли по fp (если тот же fp появился под старым pid до этого фикса)
-  if(info.fp){
-    const seen = new Set(); let first = true;
-    g.members = g.members.filter(m=>{
-      if(!m.fp || m.fp !== info.fp) return true;
-      if(first){ first=false; return true; }
-      return false;
-    });
-  }
-  // Ограничиваем список 20 участниками
-  if(g.members.length>20) g.members=g.members.slice(-20);
-  if(save) _grpSave();
-}
-function _grpMergeMemberList(code, list){
-  // Обновляем всех участников одним батчем, сохраняем один раз в конце
-  for(const m of list) _grpUpsertMember(code, {...m, online:false}, false);
-  _grpSave();
-}
-
-// ── Отправка сообщения ────────────────────────────────────────────────────────
-async function grpSendMsg(code, text){
-  const g=_grpAll[code]; if(!g||!g.myPid){ toast('Нет соединения'); return; }
-  if(!myPrivKey){ toast('Ключ не готов'); return; }
-  const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-  const ts=Date.now();
-  const ver=g.keyVer||0;
-  const enc=await _grpEnc(code,ver,text);
-  // Подписываем: id + ts + enc — достаточно чтобы связать подпись с конкретным зашифрованным содержимым
-  const sigData=new TextEncoder().encode(`grp-msg:${id}:${ts}:${enc}`);
-  const sigBuf=await crypto.subtle.sign('Ed25519',myPrivKey,sigData);
-  const sig=Array.from(new Uint8Array(sigBuf));
-  const pub=Array.from(myPubKeyRaw);
-  const pkt={__grp_msg__:{id,ver,enc,ts,pid:g.myPid,name:g.myName||'Аноним',fp:myFingerprint,sig,pub}};
-  if(!_grpSeen[code]) _grpSeen[code]=new Set();
-  _grpSeen[code].add(id);
-  _grpBroadcast(code,pkt);
-  const msgObj={id,ts,pid:g.myPid,name:g.myName||'Аноним',fp:myFingerprint,text,own:true};
-  g.history=(g.history||[]); g.history.push(msgObj); _grpSave();
-  if(_grpActive===code) _grpRenderMsg(code,msgObj,'out');
-}
-
-// ── Выход ─────────────────────────────────────────────────────────────────────
-function grpLeave(code){
-  _grpLog(`#${code} → выход из группы`);
-  const peer=_grpMyPeer[code];
-  // FIX: удаляем из Map ДО destroy — peer.destroy() эмитирует 'close' синхронно,
-  // и гард `if(_grpMyPeer[code]!==peer)` в close-хендлере должен сработать правильно.
-  delete _grpMyPeer[code];
-  safePeerDestroy(peer);
-  const rvp=_grpRvPeer[code];
-  safePeerDestroy(rvp); delete _grpRvPeer[code];
-  _grpOnSelfLeft(code,false);
-}
-
-function _grpOnSelfLeft(code, silent){
-  _grpStopPresence(code);
-  const g=_grpAll[code];
-  if(g){ g.myPid=null; (g.members||[]).forEach(m=>m.online=false); _grpSave(); }
-  delete _grpMyPeer[code]; delete _grpConns[code]; delete _grpSeen[code]; delete _grpPresence[code];
-  _grpConnecting[code] = false;
-  _grpUpdateConnBtn(code,'idle'); _grpUpdateStatus(code);
-  if(_grpActive===code) grpRenderMembers(code);
-  grpRenderGroupList();
-  if(!silent) _grpSysMsg(code,'✕ Отключились от группы');
-}
-
-function _grpOnPeerGone(code, pid){
-  const g=_grpAll[code]; if(!g) return;
-  // Guard: если pid уже удалён (двойной вызов от watchdog + conn.close) — выходим
-  if(!_grpConns[code]?.has(pid)) return;
-  _grpConns[code].delete(pid);
-  // Помечаем участника офлайн
-  const m=(g.members||[]).find(x=>x.pid===pid);
-  if(m){ m.online=false; m.lastSeen=Date.now(); _grpSave(); }
-  const remaining = _grpConns[code]?.size||0;
-  _grpLog(`#${code} участник ушёл: ${pid.slice(-16)} · осталось: ${remaining}`, 'warn');
-  if(_grpActive===code){ grpRenderMembers(code); _grpUpdateStatus(code); }
-  grpRenderGroupList();
-  // Авто-переподключение: если остались без участников — пробуем через рандеву
-  if(remaining===0 && g.myPid && _grpMyPeer[code] && !_grpMyPeer[code].destroyed){
-    // FIX: если мы сами держим rv-слот — не подключаемся к себе же!
-    // rv-слот уже открыт и слушает входящих, просто ждём.
-    const amRvHolder = !!(_grpRvPeer[code] && !_grpRvPeer[code].destroyed);
-    if(amRvHolder){
-      _grpLog(`#${code} → нет участников, мы rv-holder — ждём новых подключений...`, 'warn');
-    } else {
-      _grpLog(`#${code} → нет участников, пробуем переподключиться через рандеву...`, 'warn');
-      setTimeout(async ()=>{
-        if(!_grpMyPeer[code] || _grpMyPeer[code].destroyed) return;
-        if((_grpConns[code]?.size||0) > 0) return; // уже переподключились
-        const g2 = _grpAll[code]; if(!g2?.myPid) return;
-        // Сначала пробуем рандеву
-        const ok = await _grpRvHandshake(code, g2.myPid).catch(()=>false);
-        if(!ok && _grpMyPeer[code] && !_grpMyPeer[code].destroyed && (_grpConns[code]?.size||0)===0){
-          // Рандеву не ответило — занимаем rv-слот сами
-          _grpTryClaimRv(code);
-        }
-      }, 1500);
-    }
-  }
-  // Ротация ключа: инициирует участник с лексикографически наименьшим PID
-  // FIX: ротируем ТОЛЬКО если остались другие участники (есть кому отправить rotate-пакет).
-  // Если remaining=0 — мы одни, ротировать бессмысленно: некого предупреждать, нечего защищать.
-  // keyVer синхронизируется через hello-пакет при следующем подключении нового участника.
-  const myPid=g.myPid;
-  const activePids=[myPid,...(_grpConns[code]?.keys()||[])].filter(Boolean).sort();
-  if(remaining > 0 && activePids[0]===myPid){
-    g.keyVer=(g.keyVer||0)+1; _grpSave();
-    // FIX KEY_CACHE: сбрасываем кеш ключей чтобы новая версия вступила в силу немедленно
-    for(const k of Object.keys(_grpKeyCache)){
-      if(k.startsWith(code+':')) delete _grpKeyCache[k];
-    }
-    _grpLog(`#${code} → ротация ключа v${g.keyVer} (я инициатор)`);
-    // FIX KEY_ROTATE_AUTH: подписываем ротацию — получатели верифицируют Ed25519 подпись
-    const rotateTs = Date.now();
-    const rotateSigData = new TextEncoder().encode(`grp-rotate:${code}:${g.keyVer}:${rotateTs}`);
-    crypto.subtle.sign('Ed25519', myPrivKey, rotateSigData).then(sigBuf => {
-      _grpBroadcast(code,{__grp_key_rotate__:{
-        ver: g.keyVer,
-        fp:  myFingerprint,
-        pub: Array.from(myPubKeyRaw),
-        sig: Array.from(new Uint8Array(sigBuf)),
-        ts:  rotateTs
-      }});
-    }).catch(e => {
-      // Если подписать не удалось — всё равно рассылаем без подписи (деградация, не падаем)
-      console.warn('[grp] rotate sign failed:', e);
-      _grpBroadcast(code,{__grp_key_rotate__:{ver:g.keyVer}});
-    });
-    if(_grpActive===code) _grpUpdateStatus(code);
-  }
-}
-
-// ── Пинг офлайн-участника ────────────────────────────────────────────────────
-async function grpPingMember(fp, code){
-  if(!fp||!_pjOk){ toast('Нет соединения'); return; }
-  // Пинг разрешён только если сам подключён к группе
-  if(!_grpIsConnected(code)){ toast('Вы не в группе'); return; }
-  if(!myPrivKey||!myPubKeyRaw){ toast('Ключ не готов'); return; }
-  const contacts=await getContacts();
-  const pubHex=getPubKeyHex(fp, contacts);
-  if(!pubHex){ toast('Нет ключа — нужно хотя бы раз связаться напрямую'); return; }
-  const targetPid=await _fpToPid(pubHex);
-  const cfg=_grpSrv();
-  const tempId='grp-ping-'+Math.random().toString(36).slice(2,12);
-  toast('⏳ Пингуем...');
-  const p=createAuthPeer(tempId,cfg);
-  const tm=setTimeout(()=>{ safePeerDestroy(p); toast('Участник офлайн'); },8000);
-  p.on('open',async ()=>{
-    try{
-      const conn=p.connect(targetPid,{reliable:true,serialization:'json'});
-      conn.on('open', async ()=>{
-        clearTimeout(tm);
-        const myName=$('my-name-input')?.value?.trim()||'Аноним';
-        // FIX #3: подписываем пинг чтобы получатель мог верифицировать fromName/fromFp
-        const ts = Date.now();
-        const sigData = new TextEncoder().encode(`grp-ping:${code}:${myFingerprint}:${ts}`);
-        const sigBuf = await crypto.subtle.sign('Ed25519', myPrivKey, sigData);
-        conn.send({__grp_incoming_ping__:{
-          groupCode: code,
-          fromName:  myName,
-          fromFp:    myFingerprint,
-          pub:       Array.from(myPubKeyRaw),
-          sig:       Array.from(new Uint8Array(sigBuf)),
-          ts
-        }});
-        setTimeout(()=>{ safeConnClose(conn); safePeerDestroy(p); },2000);
-        toast('📣 Пинг отправлен!');
-      });
-      conn.on('error',()=>{ clearTimeout(tm); safePeerDestroy(p); toast('Участник офлайн'); });
-    }catch(_){ clearTimeout(tm); safePeerDestroy(p); }
-  });
-  p.on('error',()=>{ clearTimeout(tm); toast('Участник офлайн'); });
-}
-
-async function _grpHandlePingMsg(data){
-  const {groupCode,fromName,fromFp,pub,sig,ts}=data.__grp_incoming_ping__||{};
-  // FIX #3: верифицируем подпись — предотвращает спуфинг fromName
-  if(pub && sig && ts){
-    try{
-      // Проверяем timestamp (не старше 60с)
-      if(Math.abs(Date.now()-ts) > 60000){
-        console.warn('[grp-ping] устаревший пинг, игнорируем');
-        return;
-      }
-      const pubBytes = new Uint8Array(pub);
-      const pubKey = await crypto.subtle.importKey('raw', pubBytes, {name:'Ed25519'}, false, ['verify']);
-      const sigData = new TextEncoder().encode(`grp-ping:${groupCode}:${fromFp}:${ts}`);
-      const ok = await crypto.subtle.verify('Ed25519', pubKey, new Uint8Array(sig), sigData);
-      if(!ok){
-        console.warn('[grp-ping] неверная подпись пинга — возможный спуфинг, игнорируем');
-        return;
-      }
-      // Проверяем что fp совпадает с pub
-      const expectedFp = bytesToFingerprint(await sha256(pubBytes));
-      if(fromFp && expectedFp !== fromFp){
-        console.warn('[grp-ping] fp не совпадает с pub — игнорируем');
-        return;
-      }
-    }catch(e){
-      console.warn('[grp-ping] ошибка верификации:', e);
-      return;
-    }
-  }
-  toast(`📣 ${fromName||fromFp||'?'} зовёт в группу #${groupCode||'?'}!`);
-  _sendNotif(`📣 Группа #${groupCode||'?'}`,`${fromName||'?'} приглашает вас`);
-}
-
-// ── Group Presence ────────────────────────────────────────────────────────────
-
-// Запустить heartbeat presence для группы (вызывается при открытии чата)
-// При восстановлении signaling все группы стартуют одновременно — добавляем jitter
-// чтобы не создавать burst из N одновременных PRESENCE-запросов (до батчера).
-function _grpStartPresence(code){
-  if(_grpPresenceHb[code]) return; // уже запущен
-  // Jitter: 0..1500мс — разносим первый тик групп по времени.
-  // PresenceBatcher всё равно объединит запросы попавшие в одно окно 80мс,
-  // но при большом числе групп jitter снижает пиковую нагрузку на event loop.
-  const jitter = Math.random() * 1500;
-  _grpPresenceHb[code] = setTimeout(() => {
-    _grpCheckPresence(code);
-    _grpPresenceHb[code] = setInterval(()=>_grpCheckPresence(code), GRP_PRESENCE_INTERVAL);
-  }, jitter);
-}
-
-// Остановить heartbeat (при закрытии/смене чата или выходе из группы)
-function _grpStopPresence(code){
-  if(_grpPresenceHb[code]){ clearInterval(_grpPresenceHb[code]); delete _grpPresenceHb[code]; }
-}
-
-// Остановить все heartbeats (при потере signaling)
-function _grpStopAllPresence(){
-  for(const code of Object.keys(_grpPresenceHb)){
-    clearInterval(_grpPresenceHb[code]);
-    delete _grpPresenceHb[code];
-  }
-}
-
-// Основная проверка присутствия участников группы
-async function _grpCheckPresence(code, force=false){
-  if(!_pjOk) return;
-  const g = _grpAll[code]; if(!g) return;
-  // Throttle: не проверяем чаще GRP_PRESENCE_INTERVAL если не force
-  const now = Date.now();
-  if(!force && _grpLastCheckTime[code] && now - _grpLastCheckTime[code] < GRP_PRESENCE_INTERVAL) return;
-  _grpLastCheckTime[code] = now;
-
-  // Собираем PID-ы которые нужно проверить:
-  // knownPids минус свой pid и те что уже подключены через DataChannel
-  const myPid = g.myPid;
-  const connected = _grpConns[code]; // Map pid→conn, может быть undefined
-  const candidates = (g.knownPids||[]).filter(pid => pid && pid !== myPid);
-  if(!candidates.length) return;
-
-  if(!_grpPresence[code]) _grpPresence[code] = {};
-
-  // Отмечаем как "checking" только тех кто не подключён напрямую
-  const toCheck = candidates.filter(pid => !connected?.has(pid));
-  toCheck.forEach(pid => {
-    _grpPresence[code][pid] = 'checking';
-  });
-  // Подключённые через DataChannel — всегда online
-  connected?.forEach((_, pid) => { _grpPresence[code][pid] = 'online'; });
-
-  if(_grpActive === code) grpRenderMembers(code);
-
-  const srv = currentSrv(); if(!srv) return;
-
-  // ── Метод 1: WS presence query через батчер (объединяет запросы всех групп) ──
-  // Запрос идёт в теле WS-фрейма — не попадает в access logs сервера.
-  // Fallback на WebRTC если маяк недоступен или батчер вернул null.
-  let restOk = false;
-  if(toCheck.length && _presencePeer && !_presencePeer.destroyed){
-    try{
-      const idsToQuery = [...new Set(toCheck)];
-      const onlineSet = await PresenceBatcher.query(idsToQuery.slice(0, 200));
-      if(onlineSet !== null){
-        const onlinePrefixes = new Set([...onlineSet].map(p => p.replace(/-t[a-z0-9]{3}$/, '')));
-        const pidOnline = pid => onlineSet.has(pid) || onlinePrefixes.has(pid);
-        toCheck.forEach(pid => {
-          _grpPresence[code][pid] = pidOnline(pid) ? 'online' : 'offline';
-        });
-        restOk = true;
-      }
-    }catch(e){
-      _grpLog(`#${code} presence WS: ${e.message}`, 'warn');
-    }
-  }
-
-  // ── Метод 2: WebRTC-connect fallback ──
-  // Переиспользуем общий _checkPeer вместо создания нового пира на каждую группу.
-  // Это важно при WS-недоступности с несколькими группами — иначе поднималось бы
-  // N отдельных WebRTC-соединений только для проверки присутствия.
-  if(!restOk && toCheck.length){
-    let chkPeer = null;
-    try{
-      chkPeer = await _getCheckPeer();
-
-      const BATCH = 6;
-      for(let i = 0; i < toCheck.length; i += BATCH){
-        if(chkPeer.destroyed) break;
-        await Promise.all(toCheck.slice(i, i + BATCH).map(pid =>
-          new Promise(resolve => {
-            let done = false;
-            const tm = setTimeout(()=>finish('offline'), 4000);
-            function finish(status){
-              if(done) return; done = true;
-              clearTimeout(tm);
-              try{ conn?.close(); }catch(_){}
-              _grpPresence[code][pid] = status;
-              resolve();
-            }
-            let conn;
-            try{
-              conn = chkPeer.connect(pid, {reliable:false, serialization:'json'});
-              conn.on('open',  ()=>finish('online'));
-              conn.on('close', ()=>finish('offline'));
-              conn.on('error', ()=>finish('offline'));
-            }catch(_){ finish('offline'); }
-          })
-        ));
-      }
-    }catch(e){
-      _grpLog(`#${code} presence WebRTC: ${e.message}`, 'warn');
-      toCheck.forEach(pid=>{ if(_grpPresence[code][pid]==='checking') _grpPresence[code][pid]='offline'; });
-    }finally{
-      _releaseCheckPeer(); // освобождаем общий пир (не уничтожаем — может использоваться другой группой)
-    }
-  }
-
-  // Перерисовываем если группа открыта
-  if(_grpActive === code) grpRenderMembers(code);
-  grpRenderGroupList();
-}
-
-// ── UI ────────────────────────────────────────────────────────────────────────
-function _grpUpdateBadge(){
-  const total=Object.values(_grpUnread).reduce((a,b)=>a+b,0);
-  const badge=$('tab-grp-badge'); if(!badge) return;
-  badge.textContent=total>99?'99+':total;
-  badge.style.display=total>0?'flex':'none';
-}
-
-function _grpIsConnected(code){
-  const peer=_grpMyPeer[code];
-  return peer&&!peer.destroyed;
-}
-
-function _grpUpdateConnBtn(code, state){
-  const btn=$('grp-connect-btn');
-  const hint=$('grp-connect-hint');
-  if(!btn || _grpActive!==code) return;
-
-  // Проверяем готовность инфраструктуры
-  const sigOk   = !!_pjOk;
-  const idReady = !!myPresenceId;
-  const canConnect = sigOk && idReady;
-
-  // Если идёт подключение — всегда показываем connecting независимо от canConnect
-  if(state==='connecting' || _grpConnecting[code]){
-    btn.textContent='⏳ подключение...';
-    btn.disabled=true;
-    btn.className='grp-connect-btn connecting';
-    if(hint) hint.textContent='';
-    return;
-  }
-
-  // Инфраструктура не готова и не подключены
-  if(!canConnect && !_grpIsConnected(code)){
-    btn.textContent = '→ Войти';
-    btn.disabled = true;
-    btn.className = 'grp-connect-btn';
-    if(hint){
-      if(!sigOk && !idReady) hint.textContent = '⏳ сервер и идентификация';
-      else if(!sigOk)        hint.textContent = '⏳ нет signaling-сервера';
-      else                   hint.textContent = '⏳ идентификация...';
-    }
-    return;
-  }
-
-  if(hint) hint.textContent='';
-
-  if(state==='connected' || _grpIsConnected(code)){
-    btn.textContent='✕ Выйти';
-    btn.disabled=false;
-    btn.className='grp-connect-btn leave';
-  } else {
-    btn.textContent='→ Войти';
-    btn.disabled=false;
-    btn.className='grp-connect-btn';
-  }
-}
-
-function _grpUpdateStatus(code){
-  if(_grpActive!==code) return;
-  const g=_grpAll[code]; if(!g) return;
-  const connected=_grpIsConnected(code);
-  const isConnecting=!!_grpConnecting[code];
-  const inp=$('grp-chat-input'), btn=$('grp-chat-send');
-  const statusEl=$('grp-chat-status'), keyBadge=$('grp-key-badge');
-
-  // Считаем онлайн через presence даже без DataChannel (для заголовка)
-  const presence=_grpPresence[code]||{};
-  const conns=_grpConns[code];
-  const myPid=g.myPid;
-  const presenceOnline=(g.members||[]).filter(m=>
-    m.pid!==myPid&&(conns?.has(m.pid)||presence[m.pid]==='online')
-  ).length;
-  const totalVisible=presenceOnline+(connected?1:0); // +1 = я онлайн
-
-  if(connected){
-    if(inp) inp.disabled=false; if(btn) btn.disabled=false;
-    const n=(_grpConns[code]?.size||0)+1;
-    if(statusEl){
-      statusEl.textContent=`● ${n}/${GRP_MAX} в чате · ключ v${g.keyVer||0}`;
-      statusEl.className='grp-chat-status s-ok';
-    }
-    if(keyBadge) keyBadge.style.display='inline-flex';
-    if($('grp-members-count')) $('grp-members-count').textContent=`${n}/${GRP_MAX}`;
-  } else if(isConnecting){
-    if(inp) inp.disabled=true; if(btn) btn.disabled=true;
-    if(statusEl){
-      statusEl.textContent='⏳ подключение...';
-      statusEl.className='grp-chat-status s-connecting';
-    }
-    if(keyBadge) keyBadge.style.display='none';
-  } else {
-    if(inp) inp.disabled=true; if(btn) btn.disabled=true;
-    const sigOk=!!_pjOk, idReady=!!myPresenceId;
-    if(statusEl){
-      if(!sigOk || !idReady){
-        statusEl.textContent=!sigOk?'⏳ нет сервера':'⏳ идентификация...';
-        statusEl.className='grp-chat-status s-warn';
-      } else {
-        statusEl.textContent='○ не подключено';
-        statusEl.className='grp-chat-status';
-      }
-    }
-    if(keyBadge) keyBadge.style.display='none';
-    // Показываем presence-статус даже когда не подключён
-    if(totalVisible>0){
-      if(statusEl){
-        statusEl.textContent=`● ${totalVisible} онлайн (не в чате)`;
-        statusEl.className='grp-chat-status s-warn';
-      }
-      if($('grp-members-count')) $('grp-members-count').textContent=`${totalVisible}`;
-    } else {
-      if($('grp-members-count')) $('grp-members-count').textContent='';
-    }
-  }
-  _grpUpdateConnBtn(code, connected?'connected':isConnecting?'connecting':'idle');
-}
-
-function _grpSysMsg(code, text){
-  if(_grpActive!==code) return;
-  const c=$('grp-msgs'); if(!c) return;
-  const el=document.createElement('div'); el.className='sysmsg'; el.textContent=text;
-  c.appendChild(el); c.scrollTop=c.scrollHeight;
-}
-
-function _grpRenderMsg(code,msg,dir){
-  const c=$('grp-msgs'); if(!c) return;
-  const ts=new Date(msg.ts).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
-  const safe=(msg.text||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  // verified=false (явно) → подпись не прошла верификацию, показываем предупреждение
-  // verified=undefined → старое сообщение из истории или свои → без метки
-  const unverifiedMark = (msg.verified===false && !msg.own)
-    ? `<span title="Подпись не верифицирована" style="color:var(--e);font-size:10px;margin-left:4px">⚠</span>`
-    : '';
-  const el=document.createElement('div');
-  el.className=`msg ${dir}`; el.dataset.ts=msg.ts; el.dataset.msgId=msg.id||'';
-  if(dir==='in') el.innerHTML=`<div class="msender">${esc(msg.name||'?')}${unverifiedMark}</div>${safe}<div class="mmeta">${ts}</div>`;
-  else el.innerHTML=`${safe}<div class="mmeta">${ts}</div>`;
-  c.appendChild(el); c.scrollTop=c.scrollHeight;
-}
-
-// ── Экраны ────────────────────────────────────────────────────────────────────
-function grpRenderGroupList(){
-  const list=$('grp-list'); if(!list) return;
-  const codes=Object.keys(_grpAll);
-  if(!codes.length){ list.innerHTML='<div class="grp-empty">Нет групп<br><span style="opacity:.6">Создайте новую или введите код</span></div>'; return; }
-  list.innerHTML=codes.map(code=>{
-    const g=_grpAll[code];
-    const connected=_grpIsConnected(code);
-    const unread=_grpUnread[code]||0;
-    const last=(g.history||[]).at(-1);
-    const lastText=last?(last.text||'').slice(0,40):'';
-    const nm=esc(g.name||code);
-    const myPid=g.myPid;
-
-    // Считаем онлайн: DataChannel-соединения + presence (для не-подключённых)
-    const presence=_grpPresence[code]||{};
-    const conns=_grpConns[code];
-    const members=g.members||[];
-    // Онлайн-имена участников (кроме себя)
-    const onlineNames=members
-      .filter(m=>m.pid!==myPid&&(conns?.has(m.pid)||presence[m.pid]==='online'))
-      .map(m=>esc(m.name||'?'));
-    // Себя считаем онлайн если подключены
-    const iAmOnline=connected;
-    const totalOnline=onlineNames.length+(iAmOnline?1:0);
-    const anyOnline=totalOnline>0;
-
-    // Строка статуса: имена онлайн-участников
-    let subOnline;
-    if(anyOnline){
-      const names=iAmOnline?['вы',...onlineNames]:onlineNames;
-      subOnline=`● ${names.slice(0,3).join(', ')}${names.length>3?' +'+(names.length-3):''} онлайн`;
-    } else {
-      subOnline='○ офлайн';
-    }
-
-    return `<div class="grp-item" onclick="grpOpenChat('${code}')">
-      <div class="grp-item-dot${anyOnline?' on':''}"></div>
-      <div class="grp-item-info">
-        <div class="grp-item-name">${nm}${unread>0?`<span class="grp-item-badge">${unread}</span>`:''}<span style="font-size:10px;font-weight:400;color:var(--mu);letter-spacing:1px;margin-left:4px">#${code}</span></div>
-        <div class="grp-item-sub">${subOnline}${lastText?` · ${esc(lastText)}`:''}</div>
-      </div>
-      <button class="grp-item-leave" onclick="event.stopPropagation();grpConfirmLeave('${code}')" title="Покинуть">×</button>
-    </div>`;
-  }).join('');
-}
-
-function grpOpenChat(code){
-  // Останавливаем presence прошлой группы если была другая
-  if(_grpActive && _grpActive !== code) _grpStopPresence(_grpActive);
-  _grpActive=code;
-  _grpUnread[code]=0; _grpUpdateBadge();
-  const g=_grpAll[code]; if(!g) return;
-  if($('grp-chat-title')) $('grp-chat-title').textContent=`${g.name||code} · #${code}`;
-  const c=$('grp-msgs');
-  if(c){ c.innerHTML=''; for(const m of(g.history||[])) _grpRenderMsg(code,m,m.own?'out':'in'); c.scrollTop=c.scrollHeight; }
-  // Открываем панель участников сразу — пользователь хочет видеть кто онлайн
-  const mp=$('grp-members'); if(mp) mp.classList.add('open');
-  _grpMemOpen=true; if($('grp-mem-arr')) $('grp-mem-arr').textContent='▲';
-  grpRenderMembers(code); _grpUpdateStatus(code);
-  showTab('sgrpc');
-  // Запускаем presence heartbeat для этой группы
-  if(_pjOk) _grpStartPresence(code);
-}
-
-function grpRenderMembers(code){
-  const panel=$('grp-members'); if(!panel) return;
-  const g=_grpAll[code]; if(!g){ panel.innerHTML=''; return; }
-  const conns=_grpConns[code]; const myPid=g.myPid;
-  const amIConnected=_grpIsConnected(code);
-  const presence=_grpPresence[code]||{};
-  const members=(g.members||[]).slice().sort((a,b)=>(a.pid||'').localeCompare(b.pid||''));
-  if(!members.length){ panel.innerHTML='<div style="padding:12px 14px;font-size:11px;color:var(--mu)">Никого нет</div>'; return; }
-  panel.innerHTML=members.map(m=>{
-    const isMe=m.pid===myPid;
-    const connected=!isMe&&(conns?.has(m.pid)||false);           // DataChannel открыт
-    const presenceStatus=isMe?null:presence[m.pid];              // 'online'|'offline'|'checking'|undefined
-    const visibleOnline=isMe?amIConnected:(connected||presenceStatus==='online');
-    const checking=!isMe&&!connected&&presenceStatus==='checking';
-    // Статусная строка
-    let sub;
-    if(isMe && amIConnected) sub='вы · онлайн';
-    else if(isMe) sub='вы · не подключены';
-    else if(connected) sub='в чате';
-    else if(presenceStatus==='online') sub='в сети · не в чате';
-    else if(checking) sub='проверяем...';
-    else sub='офлайн';
-    // Пинг: не я, не онлайн совсем, есть fp, я подключён
-    const canPing=!isMe&&!visibleOnline&&!checking&&!!m.fp&&amIConnected;
-    const nm=esc(m.name||'?');
-    const dotClass=connected?'grp-member-dot connected':presenceStatus==='online'?'grp-member-dot away':checking?'grp-member-dot checking':'grp-member-dot';
-    return `<div class="grp-member${visibleOnline?' online':''}">
-      <div class="${dotClass}"></div>
-      <div class="grp-member-info">
-        <div class="grp-member-name">${nm}${isMe?' <span style="font-size:9px;color:var(--mu)">(вы)</span>':''}</div>
-        <div class="grp-member-sub">${sub}</div>
-      </div>
-      ${canPing?`<button class="grp-ping-btn" onclick="grpPingMember('${m.fp}','${code}')" title="Позвать">📣</button>`:''}
-    </div>`;
-  }).join('');
-}
-
-function grpToggleMembers(){
-  const panel=$('grp-members'); if(!panel) return;
-  _grpMemOpen=!_grpMemOpen; panel.classList.toggle('open',_grpMemOpen);
-  if($('grp-mem-arr')) $('grp-mem-arr').textContent=_grpMemOpen?'▲':'▼';
-}
-
-function grpToggleConnect(){
-  if(!_grpActive) return;
-  if(_grpIsConnected(_grpActive)) grpLeave(_grpActive);
-  else { const myName=$('my-name-input')?.value?.trim()||'Аноним'; grpJoin(_grpActive,myName); }
-}
-
-// ── Создание / Вход ───────────────────────────────────────────────────────────
-function grpCreate(){
-  const nameEl=$('grp-new-name');
-  const name=nameEl?.value?.trim()||'';
-  const code=_grpGenCode();
-  // FIX #1: генерируем случайный seed — ключ шифрования зависит от него, а не только от кода
-  const seedBytes = crypto.getRandomValues(new Uint8Array(32));
-  const seed = Array.from(seedBytes).map(b=>b.toString(16).padStart(2,'0')).join('');
-  _grpAll[code]={code,name:name||`Группа ${code}`,keyVer:0,seed,members:[],history:[],knownPids:[],createdAt:Date.now()};
-  _grpSave();
-  if(nameEl) nameEl.value='';
-  grpRenderGroupList();
-  toast(`Создана группа #${code}`);
-  grpOpenChat(code);
-  const myName=$('my-name-input')?.value?.trim()||'Аноним';
-  setTimeout(()=>grpJoin(code,myName),100);
-}
-
-function grpJoinByCode(){
-  const inp=$('grp-join-code'); if(!inp) return;
-  const code=inp.value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
-  if(code.length<3||code.length>5){ toast('Код: 3–5 символов'); return; }
-  if(!_grpAll[code]){
-    _grpAll[code]={code,name:`Группа ${code}`,keyVer:0,members:[],history:[],knownPids:[],createdAt:Date.now()};
-    _grpSave();
-  }
-  inp.value=''; grpRenderGroupList();
-  grpOpenChat(code);
-  const myName=$('my-name-input')?.value?.trim()||'Аноним';
-  setTimeout(()=>grpJoin(code,myName),100);
-}
-
-function _grpGenCode(){
-  const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let code;
-  do{ const len=3+Math.floor(Math.random()*3); code=Array.from({length:len},()=>chars[Math.floor(Math.random()*chars.length)]).join(''); }
-  while(_grpAll[code]);
-  return code;
-}
-
-function grpConfirmLeave(code){
-  const g=_grpAll[code];
-  if(!confirm(`Покинуть группу #${code} «${g?.name||code}»?\n\nВаша история и код группы останутся для других.`)) return;
-  grpLeave(code); delete _grpAll[code]; delete _grpUnread[code]; _grpSave();
-  grpRenderGroupList(); _grpUpdateBadge();
-  if(_grpActive===code){ _grpActive=null; showTab('sgrp'); }
-  toast(`Покинули #${code}`);
-}
-
-function showTabGrp(){ showTab('sgrp'); }
-
-function grpSendChatMsg(){
-  const inp=$('grp-chat-input'); if(!inp||!_grpActive) return;
-  const text=inp.value.trim(); if(!text) return;
-  inp.value=''; inp.style.height='auto';
-  grpSendMsg(_grpActive,text);
-}
-
-document.addEventListener('DOMContentLoaded', ()=>{ _grpUpdateBadge(); });
 // ══════════════════════════════════════════════════════════════════════════════
 // END GROUPS MODULE
 // ══════════════════════════════════════════════════════════════════════════════
@@ -20269,7 +18693,7 @@ function _attachSwipeReply(el, text, sender, ts, fp){
     const clamped = Math.max(0, Math.min(TABS.length - 1, idx));
     const t = TABS[clamped];
     if(t === 'contacts')       { typeof showContactsTab === 'function' && showContactsTab(); }
-    else if(t === 'grp')       { typeof showTabGrp      === 'function' && showTabGrp();      }
+
     else                       { typeof showTab         === 'function' && showTab(t);         }
   }
 
@@ -20339,7 +18763,7 @@ function _attachSwipeReply(el, text, sender, ts, fp){
           if(!codes.length) return;
           // force=true — игнорируем throttle при ручном обновлении
           await Promise.all(codes.map(code => _grpCheckPresence(code, true)));
-          if(typeof grpRenderGroupList === 'function') grpRenderGroupList();
+
         }
       };
     }
@@ -20577,6 +19001,8 @@ async function roomCreateUI() {
 // ── ROOMS: чат ────────────────────────────────────────────────────────────────
 
 async function roomOpenChat(roomId) {
+  // Останавливаем polling предыдущей комнаты
+  if (_activeRoomId && _activeRoomId !== roomId) roomStopPolling(_activeRoomId);
   _activeRoomId = roomId;
   showTab('sroom-chat');
 
@@ -20584,17 +19010,19 @@ async function roomOpenChat(roomId) {
   const room  = rooms[roomId];
   if (!room) return;
 
-  // Заголовок
   const title = document.getElementById('room-chat-title');
   if (title) title.textContent = room.config?.name || 'Группа';
 
-  // Участники
   roomRenderMembers(room);
 
-  // Сообщения
+  // Сразу забираем новые сообщения из pub/sub
+  roomFetchMessages(roomId).catch(() => {});
+
   await roomRenderMessages(roomId, room);
 
-  // Подсказка синхронизации для новых участников
+  // Запускаем polling пока чат открыт
+  roomStartPolling(roomId, 15_000);
+
   const hint = document.getElementById('room-sync-hint');
   if (hint) {
     const msgs = await roomMsgsLoad(roomId).catch(() => []);
@@ -21112,14 +19540,7 @@ async function deviceSyncAll() {
   }
 }
 
-// При открытии раздела устройств — обновляем список
-const _origSnOpen = typeof snOpen === 'function' ? snOpen : null;
-function snOpen(pageId) {
-  if (_origSnOpen) _origSnOpen(pageId);
-  if (pageId === 'sn-devices') {
-    devicesRenderList();
-  }
-}
+// sn-devices handled in main snOpen
 
 // Обрабатываем входящий инвайт с пометкой devicelink=1
 (function checkDeviceInvite() {
@@ -21197,6 +19618,655 @@ Object.assign(window, {
   channelSubmitComment, channelManageSubscribersUI,
   deviceAddShowQR, deviceShareLink, devicesRenderList,
   deviceRemove,    deviceSyncAll,
+});
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Unified Chats Manager
+// ══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// Tovsa Unified Chats Manager
+// Единый список: контакты + группы + каналы
+// Папки: автоматические + пользовательские
+// Архив: скрытая системная папка
+// ══════════════════════════════════════════════════════════════════════════════
+
+const FOLDERS_IDB_KEY    = 'chat_folders_v1';
+const ARCHIVED_IDB_KEY   = 'chat_archived_v1';
+const FOLDER_SETTINGS_KEY = 'folder_settings_v1';
+
+// Системные папки (неудаляемые, но скрываемые кроме "Все")
+const SYSTEM_FOLDERS = [
+  { id: 'all',      name: 'Все',      icon: '💬', auto: true,  types: ['contact','room','channel'], alwaysVisible: true },
+  { id: 'personal', name: 'Личные',   icon: '👤', auto: true,  types: ['contact'] },
+  { id: 'groups',   name: 'Группы',   icon: '🔒', auto: true,  types: ['room'] },
+  { id: 'channels', name: 'Каналы',   icon: '📢', auto: true,  types: ['channel'] },
+  { id: 'archive',  name: 'Архив',    icon: '📦', auto: true,  types: ['contact','room','channel'], archive: true },
+];
+
+let _activeFolderId   = 'all';
+let _chatsSearchQuery = '';
+let _fabOpen          = false;
+let _allChatItems     = [];
+
+// ── Настройки папок: скрытые + порядок ───────────────────────────────────────
+async function folderSettingsLoad() {
+  try { return await idbGet('meta', FOLDER_SETTINGS_KEY) || { hidden: [], order: [] }; }
+  catch(_) { return { hidden: [], order: [] }; }
+}
+async function folderSettingsSave(s) {
+  try { await idbSet('meta', FOLDER_SETTINGS_KEY, s); } catch(_) {}
+}
+
+// ── Загрузка и сохранение ─────────────────────────────────────────────────────
+
+async function foldersLoad() {
+  try {
+    const saved = await idbGet('meta', FOLDERS_IDB_KEY);
+    return saved || [];
+  } catch(_) { return []; }
+}
+
+async function foldersSave(folders) {
+  try { await idbSet('meta', FOLDERS_IDB_KEY, folders); } catch(_) {}
+}
+
+async function archivedLoad() {
+  try { return await idbGet('meta', ARCHIVED_IDB_KEY) || {}; } catch(_) { return {}; }
+}
+
+async function archivedSave(data) {
+  try { await idbSet('meta', ARCHIVED_IDB_KEY, data); } catch(_) {}
+}
+
+// ── Объединённый список чатов ─────────────────────────────────────────────────
+
+async function buildChatList() {
+  const [contacts, history, rooms, channels, archived] = await Promise.all([
+    getContacts().catch(() => ({})),
+    getHistory().catch(() => ({})),
+    roomsLoad().catch(() => ({})),
+    channelsLoad().catch(() => ({})),
+    archivedLoad().catch(() => ({})),
+  ]);
+
+  const items = [];
+
+  // Контакты
+  for (const [fp, c] of Object.entries(contacts)) {
+    if (c._stranger) continue;
+    const msgs    = history[fp] || [];
+    const last    = msgs.at(-1);
+    const unread  = msgs.filter(m => m.type !== 'out' && !m._read).length;
+    const cachedAva = _avatarCache?.[fp];
+    items.push({
+      id:       fp,
+      type:     'contact',
+      name:     c.name || fp.slice(0,8)+'...',
+      avatar:   cachedAva || null,
+      initials: (c.name||'?').replace(/[\p{Emoji_Presentation}\p{Emoji}\uFE0F]/gu,'').trim()[0]?.toUpperCase() || '?',
+      lastText: last ? (last.type === 'out' ? 'Вы: ' : '') + (last.__file__ ? '[файл]' : last.text || '') : '',
+      lastTs:   last?.ts || c.savedAt || 0,
+      unread,
+      archived: !!archived[fp],
+      online:   _presenceCache?.[fp] === 'online',
+      isMyDevice: !!c.isMyDevice,
+    });
+  }
+
+  // Группы (rooms)
+  for (const [roomId, room] of Object.entries(rooms)) {
+    const msgs   = await roomMsgsLoad(roomId).catch(() => []);
+    const last   = msgs.at(-1);
+    const unread = msgs.filter(m => m.from !== myPubKeyHex && !m._read).length;
+    items.push({
+      id:       roomId,
+      type:     'room',
+      name:     room.config?.name || 'Группа',
+      avatar:   null,
+      initials: (room.config?.name || 'Г')[0]?.toUpperCase() || 'Г',
+      lastText: last ? last.text || '' : '',
+      lastTs:   last?.ts ? last.ts * 1000 : room.createdAt || 0,
+      unread,
+      archived: !!archived[roomId],
+      members:  room.roster?.length || 0,
+      myRole:   room.myRole,
+    });
+  }
+
+  // Каналы
+  for (const [channelId, ch] of Object.entries(channels)) {
+    const msgs   = await channelMsgsLoad(channelId).catch(() => []);
+    const last   = msgs.at(-1);
+    const unread = msgs.filter(m => !m._read && !m._own).length;
+    items.push({
+      id:       channelId,
+      type:     'channel',
+      name:     ch.name || 'Канал',
+      avatar:   null,
+      initials: (ch.name || 'К')[0]?.toUpperCase() || 'К',
+      lastText: last ? last.text || '' : '',
+      lastTs:   last?.ts ? last.ts * 1000 : ch.createdAt || 0,
+      unread,
+      archived: !!archived[channelId],
+      myRole:   ch.myRole,
+    });
+  }
+
+  // Сортировка по времени последнего сообщения
+  items.sort((a, b) => b.lastTs - a.lastTs);
+  _allChatItems = items;
+  return items;
+}
+
+// ── Фильтрация ────────────────────────────────────────────────────────────────
+
+function filterByFolder(items, folderId, customFolders) {
+  const sys = SYSTEM_FOLDERS.find(f => f.id === folderId);
+  if (sys) {
+    if (sys.archive) return items.filter(i => i.archived);
+    return items.filter(i => !i.archived && sys.types.includes(i.type));
+  }
+  // Кастомная папка
+  const custom = customFolders.find(f => f.id === folderId);
+  if (!custom) return items;
+  return items.filter(i => !i.archived && custom.items?.includes(i.id));
+}
+
+function filterBySearch(items, query) {
+  if (!query) return items;
+  const q = query.toLowerCase();
+  return items.filter(i =>
+    i.name.toLowerCase().includes(q) ||
+    i.lastText?.toLowerCase().includes(q)
+  );
+}
+
+// ── Рендеринг ─────────────────────────────────────────────────────────────────
+
+async function renderFolderPills(customFolders) {
+  const bar = document.getElementById('folders-bar');
+  if (!bar) return;
+
+  const settings   = await folderSettingsLoad();
+  const hiddenSet  = new Set(settings.hidden || []);
+  const orderMap   = {};
+  (settings.order || []).forEach((id, i) => { orderMap[id] = i; });
+
+  // Собираем все папки, применяем порядок и фильтр скрытых
+  const allFolders = [...SYSTEM_FOLDERS, ...customFolders]
+    .filter(f => f.alwaysVisible || !hiddenSet.has(f.id))
+    .sort((a, b) => {
+      const oa = orderMap[a.id] ?? 999;
+      const ob = orderMap[b.id] ?? 999;
+      return oa - ob;
+    });
+
+  bar.innerHTML = allFolders.map(f => `
+    <button class="folder-pill ${f.id === _activeFolderId ? 'act' : ''}"
+      onclick="setActiveFolder('${f.id}')">
+      ${f.icon ? f.icon + ' ' : ''}${f.name}
+    </button>
+  `).join('') + `<button class="folder-pill-add" onclick="openFolderModal()" title="Управление папками">⋯</button>`;
+}
+
+function _fmtChatTime(ts) {
+  if (!ts) return '';
+  const d   = new Date(ts);
+  const now = new Date();
+  if (d.toDateString() === now.toDateString())
+    return d.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
+  const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) return 'вчера';
+  return d.toLocaleDateString('ru', { day: 'numeric', month: 'short' });
+}
+
+function _buildChatItemHTML(item) {
+  const typeEmoji = item.type === 'room' ? '🔒' : item.type === 'channel' ? '📢' : null;
+  const avatarBg  = item.type === 'room' ? 'room' : item.type === 'channel' ? 'channel' : '';
+  const avatarContent = item.avatar
+    ? `<img src="${item.avatar}" alt="">`
+    : `<span style="font-size:16px;font-weight:700;color:var(--a)">${item.initials}</span>`;
+  const typeBadge = typeEmoji
+    ? `<div class="chat-type-badge">${typeEmoji}</div>` : '';
+  const unreadBadge = item.unread > 0
+    ? `<div class="chat-item-unread">${item.unread > 99 ? '99+' : item.unread}</div>` : '';
+  const myDeviceBadge = item.isMyDevice
+    ? `<span style="font-size:9px;color:var(--a);background:var(--ad);padding:1px 5px;border-radius:4px">📲</span>` : '';
+
+  return `<div class="chat-item" data-id="${item.id}" data-type="${item.type}"
+    onclick="openChatItem('${item.id}','${item.type}')"
+    oncontextmenu="chatItemCtx(event,'${item.id}','${item.type}');return false">
+    <div class="chat-item-avatar ${avatarBg}">
+      ${avatarContent}${typeBadge}
+    </div>
+    <div class="chat-item-info">
+      <div class="chat-item-name">
+        ${item.name}${myDeviceBadge}
+      </div>
+      <div class="chat-item-last">${item.lastText ? (item.lastText.length > 40 ? item.lastText.slice(0,40)+'…' : item.lastText) : '<span style="opacity:.4">нет сообщений</span>'}</div>
+    </div>
+    <div class="chat-item-meta">
+      <div class="chat-item-time">${_fmtChatTime(item.lastTs)}</div>
+      ${unreadBadge}
+    </div>
+  </div>`;
+}
+
+async function renderChatsList() {
+  const list = document.getElementById('chats-list');
+  if (!list) return;
+
+  list.innerHTML = '<div class="chats-empty" style="opacity:.4">⏳</div>';
+
+  const [items, customFolders] = await Promise.all([
+    buildChatList(),
+    foldersLoad(),
+  ]);
+
+  renderFolderPills(customFolders);
+
+  let filtered = filterByFolder(items, _activeFolderId, customFolders);
+  filtered     = filterBySearch(filtered, _chatsSearchQuery);
+
+  // Бейдж на таббаре
+  const totalUnread = items.filter(i => !i.archived).reduce((n, i) => n + (i.unread || 0), 0);
+  const badge = document.getElementById('tab-chats-badge');
+  if (badge) {
+    badge.textContent = totalUnread > 0 ? (totalUnread > 99 ? '99+' : String(totalUnread)) : '';
+    badge.style.display = totalUnread > 0 ? 'flex' : 'none';
+  }
+
+  if (!filtered.length) {
+    const emptyMsg = _activeFolderId === 'archive'
+      ? 'Архив пуст'
+      : _chatsSearchQuery
+        ? 'Ничего не найдено'
+        : 'Нет чатов в этой папке';
+    list.innerHTML = `<div class="chats-empty">${emptyMsg}<br><span style="opacity:.5">Нажмите ＋ чтобы начать</span></div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(_buildChatItemHTML).join('');
+}
+
+// ── Действия ──────────────────────────────────────────────────────────────────
+
+function setActiveFolder(folderId) {
+  _activeFolderId = folderId;
+  renderChatsList();
+}
+
+function chatsFilterSearch(query) {
+  _chatsSearchQuery = query;
+  if (_allChatItems.length) {
+    foldersLoad().then(customFolders => {
+      const list = document.getElementById('chats-list');
+      if (!list) return;
+      let filtered = filterByFolder(_allChatItems, _activeFolderId, customFolders);
+      filtered = filterBySearch(filtered, query);
+      if (!filtered.length) {
+        list.innerHTML = `<div class="chats-empty">${query ? 'Ничего не найдено' : 'Нет чатов'}</div>`;
+        return;
+      }
+      list.innerHTML = filtered.map(_buildChatItemHTML).join('');
+    });
+  }
+}
+
+function openChatItem(id, type) {
+  closeFabMenu();
+  if (type === 'contact') {
+    openHistory(id);
+  } else if (type === 'room') {
+    roomOpenChat(id);
+  } else if (type === 'channel') {
+    channelOpenView(id);
+  }
+}
+
+// Контекстное меню чата (архив, папки, удалить)
+function chatItemCtx(e, id, type) {
+  e.preventDefault();
+  const item = _allChatItems.find(i => i.id === id);
+  if (!item) return;
+  const isArchived = item.archived;
+
+  // Используем существующий механизм ctx-menu или простой confirm
+  const action = isArchived
+    ? confirm('Разархивировать чат?') ? 'unarchive' : null
+    : confirm('Архивировать чат?') ? 'archive' : null;
+
+  if (!action) return;
+
+  archivedLoad().then(async archived => {
+    if (action === 'archive')   archived[id] = true;
+    if (action === 'unarchive') delete archived[id];
+    await archivedSave(archived);
+    await renderChatsList();
+    toast(action === 'archive' ? '📦 Архивировано' : '📬 Разархивировано');
+  });
+}
+
+// ── FAB ───────────────────────────────────────────────────────────────────────
+
+function toggleFabMenu() {
+  _fabOpen = !_fabOpen;
+  const menu = document.getElementById('fab-menu');
+  const fab  = document.getElementById('chats-fab');
+  if (menu) menu.classList.toggle('open', _fabOpen);
+  if (fab)  fab.style.transform = _fabOpen ? 'rotate(45deg)' : '';
+}
+
+function closeFabMenu() {
+  _fabOpen = false;
+  const menu = document.getElementById('fab-menu');
+  const fab  = document.getElementById('chats-fab');
+  if (menu) menu.classList.remove('open');
+  if (fab)  fab.style.transform = '';
+}
+
+function fabNewContact() {
+  closeFabMenu();
+  // Открываем форму добавления контакта
+  showTab('sn');
+  setTimeout(() => {
+    const form = document.getElementById('add-contact-form');
+    if (form) form.style.display = 'flex';
+  }, 100);
+}
+
+function fabNewRoom() {
+  closeFabMenu();
+  const name = prompt('Название группы:');
+  if (!name?.trim()) return;
+  roomCreate({ name: name.trim(), historyPolicy: 'any_member' }).then(room => {
+    toast('✓ Группа создана');
+    renderChatsList();
+    roomOpenChat(room.roomId);
+  }).catch(e => toast('Ошибка: ' + e.message));
+}
+
+function fabNewChannel() {
+  closeFabMenu();
+  const name = prompt('Название канала:');
+  if (!name?.trim()) return;
+  channelCreate({ name: name.trim() }).then(ch => {
+    toast('✓ Канал создан');
+    renderChatsList();
+    channelOpenView(ch.channelId);
+  }).catch(e => toast('Ошибка: ' + e.message));
+}
+
+// ── Папки: управление ─────────────────────────────────────────────────────────
+
+// ── Drag-and-drop state ───────────────────────────────────────────────────────
+let _dragSrcId = null;
+
+async function openFolderModal() {
+  closeFabMenu();
+  const bg   = document.getElementById('folder-modal-bg');
+  const body = document.getElementById('folder-modal-body');
+  if (!bg || !body) return;
+
+  await _renderFolderModalBody();
+  bg.classList.add('on');
+}
+
+async function _renderFolderModalBody() {
+  const body = document.getElementById('folder-modal-body');
+  if (!body) return;
+
+  const [customFolders, settings] = await Promise.all([foldersLoad(), folderSettingsLoad()]);
+  const hiddenSet = new Set(settings.hidden || []);
+  const orderMap  = {};
+  (settings.order || []).forEach((id, i) => { orderMap[id] = i; });
+
+  // Все папки в правильном порядке
+  const allFolders = [...SYSTEM_FOLDERS, ...customFolders]
+    .sort((a, b) => (orderMap[a.id] ?? 999) - (orderMap[b.id] ?? 999));
+
+  const sysFolders    = allFolders.filter(f => f.auto);
+  const customFolders2 = allFolders.filter(f => !f.auto);
+
+  const renderRow = (f, isCustom) => {
+    const isHidden  = hiddenSet.has(f.id);
+    const cantHide  = !!f.alwaysVisible;
+    const toggleHtml = cantHide
+      ? `<span style="font-size:9px;color:var(--mu)">всегда</span>`
+      : `<label class="frow-toggle" title="${isHidden ? 'Показать' : 'Скрыть'}">
+          <input type="checkbox" ${!isHidden ? 'checked' : ''} onchange="folderToggleVisible('${f.id}',this.checked)">
+          <div class="frow-toggle-track"><div class="frow-toggle-thumb"></div></div>
+        </label>`;
+
+    const actionsHtml = isCustom
+      ? `<button class="frow-del" onclick="folderDelete('${f.id}')" title="Удалить">✕</button>`
+      : '';
+
+    return `<div class="frow" data-folder-id="${f.id}"
+        draggable="true"
+        ondragstart="folderDragStart(event,'${f.id}')"
+        ondragover="folderDragOver(event)"
+        ondragend="folderDragEnd(event)"
+        ondrop="folderDrop(event,'${f.id}')">
+      <div class="frow-drag" title="Перетащить">⠿</div>
+      <div class="frow-icon">${f.icon || '📁'}</div>
+      <div class="frow-name">${f.name}</div>
+      ${isCustom ? `<button onclick="folderOpenPicker('${f.id}')" style="background:none;border:1px solid var(--bd);border-radius:6px;padding:3px 8px;color:var(--mu);cursor:pointer;font-size:10px;flex-shrink:0">чаты</button>` : ''}
+      ${toggleHtml}
+      ${actionsHtml}
+    </div>`;
+  };
+
+  body.innerHTML =
+    `<div class="folder-section-title">Системные</div>` +
+    sysFolders.map(f => renderRow(f, false)).join('') +
+    (customFolders2.length
+      ? `<div class="folder-section-title">Мои папки</div>` + customFolders2.map(f => renderRow(f, true)).join('')
+      : '');
+}
+
+function closeFolderModal() {
+  document.getElementById('folder-modal-bg')?.classList.remove('on');
+}
+
+// ── Toggle visible ─────────────────────────────────────────────────────────────
+async function folderToggleVisible(folderId, visible) {
+  const settings = await folderSettingsLoad();
+  const hidden   = new Set(settings.hidden || []);
+  if (visible) hidden.delete(folderId);
+  else         hidden.add(folderId);
+  settings.hidden = [...hidden];
+  await folderSettingsSave(settings);
+  // Если скрываем активную — переключаемся на "все"
+  if (!visible && _activeFolderId === folderId) {
+    _activeFolderId = 'all';
+  }
+  renderChatsList();
+}
+
+// ── Drag-and-drop порядок ─────────────────────────────────────────────────────
+function folderDragStart(e, id) {
+  _dragSrcId = id;
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function folderDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('.frow.drag-over').forEach(el => el.classList.remove('drag-over'));
+  e.currentTarget.classList.add('drag-over');
+}
+
+function folderDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+  document.querySelectorAll('.frow.drag-over').forEach(el => el.classList.remove('drag-over'));
+}
+
+async function folderDrop(e, targetId) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!_dragSrcId || _dragSrcId === targetId) return;
+
+  // Собираем текущий порядок из DOM
+  const rows = [...document.querySelectorAll('.frow[data-folder-id]')];
+  const ids  = rows.map(r => r.dataset.folderId);
+
+  const srcIdx = ids.indexOf(_dragSrcId);
+  const dstIdx = ids.indexOf(targetId);
+  if (srcIdx < 0 || dstIdx < 0) return;
+
+  // Переставляем
+  ids.splice(srcIdx, 1);
+  ids.splice(dstIdx, 0, _dragSrcId);
+
+  const settings = await folderSettingsLoad();
+  settings.order = ids;
+  await folderSettingsSave(settings);
+  _dragSrcId = null;
+
+  // Перерисовываем модал и пилюли
+  await _renderFolderModalBody();
+  renderChatsList();
+}
+
+// ── Создание папки ────────────────────────────────────────────────────────────
+function folderCreateNew() {
+  // Показываем инлайн-форму в модале вместо prompt
+  const body = document.getElementById('folder-modal-body');
+  if (!body) return;
+  // Проверяем нет ли уже формы
+  if (document.getElementById('folder-create-form')) return;
+
+  const form = document.createElement('div');
+  form.id = 'folder-create-form';
+  form.style.cssText = 'padding:12px 16px;display:flex;gap:8px;border-bottom:1px solid var(--bd)';
+  form.innerHTML = `
+    <input id="folder-create-input" placeholder="Название папки..." maxlength="32"
+      style="flex:1;background:var(--bg);border:1px solid var(--a);border-radius:8px;padding:8px 12px;color:var(--tx);font-family:inherit;font-size:13px;outline:none"
+      onkeydown="if(event.key==='Enter')_folderCreateConfirm();if(event.key==='Escape')this.closest('#folder-create-form').remove()">
+    <button onclick="_folderCreateConfirm()" style="background:var(--a);border:none;border-radius:8px;padding:8px 12px;color:#0a0a0f;font-weight:700;cursor:pointer;font-size:13px">+</button>
+  `;
+  body.prepend(form);
+  form.querySelector('#folder-create-input').focus();
+}
+
+async function _folderCreateConfirm() {
+  const inp = document.getElementById('folder-create-input');
+  const name = inp?.value.trim();
+  if (!name) return;
+  inp.closest('#folder-create-form')?.remove();
+
+  const folders = await foldersLoad();
+  folders.push({ id: 'custom_' + Date.now(), name, icon: '📁', auto: false, items: [] });
+  await foldersSave(folders);
+  await _renderFolderModalBody();
+  renderChatsList();
+  toast('✓ Папка создана');
+}
+
+// ── Удаление папки ────────────────────────────────────────────────────────────
+async function folderDelete(folderId) {
+  let folders = await foldersLoad();
+  folders = folders.filter(f => f.id !== folderId);
+  await foldersSave(folders);
+  if (_activeFolderId === folderId) _activeFolderId = 'all';
+  await _renderFolderModalBody();
+  renderChatsList();
+  toast('Папка удалена');
+}
+
+// ── Чат-пикер для кастомных папок ────────────────────────────────────────────
+async function folderOpenPicker(folderId) {
+  const body    = document.getElementById('folder-modal-body');
+  const folders = await foldersLoad();
+  const folder  = folders.find(f => f.id === folderId);
+  if (!folder || !body) return;
+
+  const items = (_allChatItems || []).filter(i => !i.archived);
+  const inSet = new Set(folder.items || []);
+
+  // Инлайн-пикер после строки папки
+  const existingPicker = document.getElementById('chat-picker-' + folderId);
+  if (existingPicker) { existingPicker.remove(); return; } // toggle
+
+  const row = body.querySelector(`[data-folder-id="${folderId}"]`);
+  if (!row) return;
+
+  const picker = document.createElement('div');
+  picker.id = 'chat-picker-' + folderId;
+  picker.className = 'chat-picker-list';
+  picker.innerHTML = items.length
+    ? items.map(it => {
+        const typeLabel = it.type === 'contact' ? 'чат' : it.type === 'room' ? 'группа' : 'канал';
+        return `<label class="chat-picker-item">
+          <input type="checkbox" ${inSet.has(it.id) ? 'checked' : ''}
+            onchange="folderPickerChange('${folderId}','${it.id}',this.checked)">
+          <span class="chat-picker-name">${it.name}</span>
+          <span class="chat-picker-type">${typeLabel}</span>
+        </label>`;
+      }).join('')
+    : '<div style="padding:16px;text-align:center;font-size:11px;color:var(--mu)">Нет чатов</div>';
+
+  row.after(picker);
+}
+
+async function folderPickerChange(folderId, chatId, checked) {
+  const folders = await foldersLoad();
+  const folder  = folders.find(f => f.id === folderId);
+  if (!folder) return;
+  const items = new Set(folder.items || []);
+  if (checked) items.add(chatId);
+  else         items.delete(chatId);
+  folder.items = [...items];
+  await foldersSave(folders);
+  renderChatsList();
+}
+
+// ── Обновление при новых сообщениях ──────────────────────────────────────────
+
+// Перехватываем события новых сообщений
+['tovsa-room-msg', 'tovsa-channel-msg', 'tovsa-room-invite'].forEach(evt => {
+  window.addEventListener(evt, () => {
+    if (_activeFolderId !== undefined) {
+      // Тихое обновление списка
+      buildChatList().then(() => {
+        foldersLoad().then(folders => {
+          renderFolderPills(folders);
+          const list = document.getElementById('chats-list');
+          if (!list) return;
+          let filtered = filterByFolder(_allChatItems, _activeFolderId, folders);
+          filtered = filterBySearch(filtered, _chatsSearchQuery);
+          list.innerHTML = filtered.map(_buildChatItemHTML).join('');
+          // Бейдж
+          const totalUnread = _allChatItems.filter(i=>!i.archived).reduce((n,i)=>n+(i.unread||0),0);
+          const badge = document.getElementById('tab-chats-badge');
+          if (badge) { badge.textContent = totalUnread > 99 ? '99+' : totalUnread || ''; badge.style.display = totalUnread ? 'flex' : 'none'; }
+        });
+      });
+    }
+  });
+});
+
+// Закрываем FAB при клике вне
+document.addEventListener('click', e => {
+  if (_fabOpen && !e.target.closest('#chats-fab') && !e.target.closest('#fab-menu')) {
+    closeFabMenu();
+  }
+});
+
+// Экспорт
+Object.assign(window, {
+  renderChatsList, buildChatList,
+  setActiveFolder, chatsFilterSearch,
+  openChatItem, chatItemCtx,
+  toggleFabMenu, closeFabMenu,
+  fabNewContact, fabNewRoom, fabNewChannel,
+  openFolderModal, closeFolderModal,
+  folderCreateNew, _folderCreateConfirm, folderDelete,
+  folderToggleVisible, folderDragStart, folderDragOver, folderDragEnd, folderDrop,
+  folderOpenPicker, folderPickerChange,
 });
 
 

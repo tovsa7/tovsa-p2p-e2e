@@ -31,7 +31,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "category": "Communication",
+    "category": "SocialNetworking",
     "shortDescription": "P2P мессенджер с E2E шифрованием"
   },
   "plugins": {

@@ -1,0 +1,281 @@
+name: Build Desktop Apps (Tauri)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  # ── Генерируем ключи если нет ─────────────────────────────────────────────
+  setup-keys:
+    runs-on: ubuntu-latest
+    outputs:
+      pubkey: ${{ steps.keys.outputs.pubkey }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Generate or load signing keys
+        id: keys
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -n "${{ secrets.TAURI_SIGNING_KEY }}" ]; then
+            echo "Используем существующий ключ"
+            # Извлекаем публичный ключ из приватного
+            echo "${{ secrets.TAURI_SIGNING_KEY }}" > /tmp/private.key
+            PUBKEY=$(npx @tauri-apps/cli@2 signer sign --private-key /tmp/private.key \
+              --password "${{ secrets.TAURI_SIGNING_KEY_PASS }}" \
+              /dev/null 2>/dev/null | grep "public key" | awk '{print $NF}' || \
+              cat /tmp/private.key | tail -1)
+            rm /tmp/private.key
+          else
+            echo "Генерируем новую пару ключей..."
+            npm install -g @tauri-apps/cli@2
+            OUTPUT=$(tauri signer generate 2>&1)
+            echo "$OUTPUT"
+
+            PRIVKEY=$(echo "$OUTPUT" | grep -A1 "Private key" | tail -1 | tr -d ' ')
+            PUBKEY=$(echo "$OUTPUT"  | grep -A1 "Public key"  | tail -1 | tr -d ' ')
+
+            echo "======== СОХРАНИТЕ КАК СЕКРЕТ TAURI_SIGNING_KEY ========"
+            echo "$PRIVKEY"
+            echo "========================================================"
+
+            # Сохраняем в Secrets автоматически
+            gh secret set TAURI_SIGNING_KEY          --body "$PRIVKEY" || true
+            gh secret set TAURI_SIGNING_KEY_PASS     --body ""         || true
+            gh secret set TAURI_SIGNING_PUBLIC_KEY   --body "$PUBKEY"  || true
+          fi
+          echo "pubkey=${{ secrets.TAURI_SIGNING_PUBLIC_KEY }}" >> $GITHUB_OUTPUT
+
+  # ── Сборка для всех платформ ──────────────────────────────────────────────
+  build:
+    needs: setup-keys
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+          - os: macos-latest
+            platform: macos
+          - os: ubuntu-22.04
+            platform: linux
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        shell: bash
+        run: |
+          HASH=$(git rev-parse --short HEAD)
+          DATE=$(date +%Y%m%d)
+          echo "VERSION=${DATE}-${HASH}" >> $GITHUB_OUTPUT
+          # node доступен на всех платформах — используем его для semver
+          node -e "
+            const d = new Date();
+            const semver = '1.' + (d.getMonth()+1) + '.' + d.getDate();
+            const fs = require('fs');
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'SEMVER=' + semver + '\n');
+            console.log('SEMVER=' + semver);
+          "
+
+      - name: Inject pubkey and version into tauri.conf.json
+        shell: bash
+        env:
+          SEMVER: ${{ steps.version.outputs.SEMVER }}
+          PUBKEY: ${{ secrets.TAURI_SIGNING_PUBLIC_KEY }}
+        run: |
+          echo "Patching version: $SEMVER"
+          node patch-version.js
+
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libappindicator3-dev \
+            librsvg2-dev patchelf libssl-dev pkg-config
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install tauri-cli
+        run: npm install -g @tauri-apps/cli@2
+
+      - name: Generate icons
+        shell: bash
+        run: |
+          mkdir -p src-tauri/icons
+          if [ -f "icon-512.png" ]; then
+            tauri icon icon-512.png --output src-tauri/icons 2>/dev/null || true
+          fi
+          # Fallback иконки
+          for f in icon.png icon.ico icon.icns; do
+            [ -f "src-tauri/icons/$f" ] || cp "$(ls src-tauri/icons/*.png 2>/dev/null | head -1)" \
+              "src-tauri/icons/$f" 2>/dev/null || touch "src-tauri/icons/$f"
+          done
+
+      - name: Create dist
+        run: |
+          mkdir -p dist
+          echo '<meta http-equiv="refresh" content="0;url=https://tovsa7.github.io/tovsa-p2p-e2e/">' > dist/index.html
+
+      - name: Build
+        run: tauri build
+        env:
+          TAURI_SIGNING_PRIVATE_KEY:          ${{ secrets.TAURI_SIGNING_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_KEY_PASS }}
+
+      - name: Collect artifacts
+        id: collect
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          case "${{ matrix.platform }}" in
+            windows) GLOB="src-tauri/target/release/bundle/nsis/*.exe" ;;
+            macos)   GLOB="src-tauri/target/release/bundle/dmg/*.dmg" ;;
+            linux)   GLOB="src-tauri/target/release/bundle/appimage/*.AppImage" ;;
+          esac
+          FILES=$(ls $GLOB 2>/dev/null || find src-tauri/target/release/bundle -name "*.${GLOB##*.}" | head -3)
+          echo "FILES<<EOF" >> $GITHUB_OUTPUT
+          echo "$FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          ls -lh $FILES 2>/dev/null || true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name:              desktop-${{ matrix.platform }}
+          path:              ${{ steps.collect.outputs.FILES }}
+          if-no-files-found: warn
+          retention-days:    1
+
+  # ── Публикуем Release + update.json ──────────────────────────────────────
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: |
+          HASH=$(git rev-parse --short HEAD)
+          DATE=$(date +%Y%m%d)
+          echo "VERSION=${DATE}-${HASH}" >> $GITHUB_OUTPUT
+          node -e "
+            const d = new Date();
+            const semver = '1.' + (d.getMonth()+1) + '.' + d.getDate();
+            require('fs').appendFileSync(process.env.GITHUB_OUTPUT, 'SEMVER=' + semver + '\n');
+            console.log('SEMVER=' + semver);
+          "
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Generate update.json
+        run: |
+          VERSION="${{ steps.version.outputs.SEMVER }}"
+          DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          OWNER="${{ github.repository_owner }}"
+          REPO="${{ github.event.repository.name }}"
+          TAG="${{ steps.version.outputs.VERSION }}"
+          BASE="https://github.com/${OWNER}/${REPO}/releases/download/${TAG}"
+
+          # Собираем подписи (.sig файлы)
+          WIN_URL="${BASE}/$(ls artifacts/desktop-windows/*.exe 2>/dev/null | xargs basename 2>/dev/null || echo 'tovsa_setup.exe')"
+          MAC_URL="${BASE}/$(ls artifacts/desktop-macos/*.dmg   2>/dev/null | xargs basename 2>/dev/null || echo 'tovsa.dmg')"
+          LIN_URL="${BASE}/$(ls artifacts/desktop-linux/*.AppImage 2>/dev/null | xargs basename 2>/dev/null || echo 'tovsa.AppImage')"
+
+          WIN_SIG=$(cat artifacts/desktop-windows/*.exe.sig 2>/dev/null || echo "")
+          MAC_SIG=$(cat artifacts/desktop-macos/*.dmg.sig   2>/dev/null || echo "")
+          LIN_SIG=$(cat artifacts/desktop-linux/*.AppImage.sig 2>/dev/null || echo "")
+
+          node -e "
+            const u = {
+              version: '${VERSION}',
+              notes:   'Tovsa ${TAG}',
+              pub_date: '${DATE}',
+              platforms: {
+                'windows-x86_64': { url: '${WIN_URL}', signature: '${WIN_SIG}' },
+                'darwin-x86_64':  { url: '${MAC_URL}', signature: '${MAC_SIG}' },
+                'darwin-aarch64': { url: '${MAC_URL}', signature: '${MAC_SIG}' },
+                'linux-x86_64':   { url: '${LIN_URL}', signature: '${LIN_SIG}' },
+              }
+            };
+            process.stdout.write(JSON.stringify(u, null, 2));
+          " > update.json
+
+          echo "update.json:"
+          cat update.json
+
+      - name: Commit update.json to repo
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add update.json
+          git diff --staged --quiet || git commit -m "chore: update.json for ${TAG} [skip ci]"
+          git push || true
+        env:
+          TAG: ${{ steps.version.outputs.VERSION }}
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name:     "Tovsa ${{ steps.version.outputs.VERSION }}"
+          body: |
+            ## Установка
+
+            | Платформа | Файл |
+            |-----------|------|
+            | Android   | `tovsa-*.apk` |
+            | Windows   | `tovsa_*_x64-setup.exe` |
+            | macOS     | `tovsa_*.dmg` |
+            | Linux     | `tovsa_*.AppImage` |
+
+            **PWA:** https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+
+            ---
+            `${{ github.sha }}`
+          files: |
+            artifacts/**/*.exe
+            artifacts/**/*.dmg
+            artifacts/**/*.AppImage
+            artifacts/**/*.sig
+            update.json
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

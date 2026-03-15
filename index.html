@@ -8991,23 +8991,18 @@ function vrShowPreviewModal(kind, blob, waveform, durSec){
           timeEl.textContent = mm+':'+(ss<10?'0':'')+ss;
         }
       };
+      // Сразу используем известную длину из записи
+      const _previewDur = durSec || _vr._previewDurSec || 0;
+      if(_previewDur > 0 && scrub){
+        scrub.min=0; scrub.max=_previewDur; scrub.value=0; scrub.step=0.01;
+      }
       cvid.onloadedmetadata = () => {
-        if(isFinite(cvid.duration)){
-          if(scrub){ scrub.min=0; scrub.max=cvid.duration; scrub.value=0; scrub.step=0.01; }
-          _updateTime();
-        }
+        const d = isFinite(cvid.duration) ? cvid.duration : _previewDur;
+        if(d > 0 && scrub){ scrub.max=d; scrub.step=0.01; }
+        _updateTime();
       };
-      // Для WebM с Infinity duration — ждём первого timeupdate
-      cvid.addEventListener('timeupdate', function _firstUpdate(){
-        if(isFinite(cvid.duration)){
-          if(scrub){ scrub.min=0; scrub.max=cvid.duration; scrub.step=0.01; }
-          cvid.removeEventListener('timeupdate', _firstUpdate);
-        }
-      });
       cvid.addEventListener('durationchange', () => {
-        if(isFinite(cvid.duration)){
-          if(scrub){ scrub.max=cvid.duration; scrub.step=0.01; }
-        }
+        if(isFinite(cvid.duration) && scrub){ scrub.max=cvid.duration; }
       });
       cvid.ontimeupdate = _updateTime;
       cvid.onended = () => { cvid.currentTime=0; cvid.play().catch(()=>{}); };
@@ -9153,6 +9148,7 @@ function _vrDispatchFile(blob, kind, waveform){
   const file=new File([blob],name,{type:mime});
   file._kind=kind;
   file._waveform=kind==='voice'?waveform:null;
+  file._durSec=_vr._previewDurSec||0;
   vrSendFile(file);
 }
 
@@ -13862,11 +13858,20 @@ async function buildFileBubble(meta,blobOrNull,msgType){
     const scrubEl=d.querySelector('#'+scid);
     let _scrubbing=false;
 
+    // Используем meta.durSec как начальное значение max (WebM часто имеет Infinity)
+    const _knownDur = meta.durSec || 0;
+    if(_knownDur > 0 && scrubEl){
+      scrubEl.max = _knownDur;
+      scrubEl.step = 0.01;
+      if(durEl2){ const mm=Math.floor(_knownDur/60),ss=Math.floor(_knownDur%60); durEl2.textContent=mm+':'+(ss<10?'0':'')+ss; }
+    }
     vidEl.addEventListener('loadedmetadata',()=>{
       if(isFinite(vidEl.duration)){
         const mm=Math.floor(vidEl.duration/60),ss=Math.floor(vidEl.duration%60);
         if(durEl2) durEl2.textContent=mm+':'+(ss<10?'0':'')+ss;
-        if(scrubEl) scrubEl.max=vidEl.duration;
+        if(scrubEl){ scrubEl.max=vidEl.duration; scrubEl.step=0.01; }
+      } else if(_knownDur > 0 && scrubEl){
+        scrubEl.max = _knownDur; // WebM Infinity — используем известную длину
       }
     });
 
@@ -14470,6 +14475,7 @@ async function _finishFileSend(file, ts, allChunks, d){
     mime:file.type||'application/octet-stream', fileId:ts, ts, type:'out'};
   if(file._kind)     meta.kind     = file._kind;
   if(file._waveform) meta.waveform = file._waveform;
+  if(file._durSec)   meta.durSec   = file._durSec;
   if(currentPeerFp){
     const h = await getHistory();
     if(!h[currentPeerFp]) h[currentPeerFp] = [];

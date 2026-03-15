@@ -3795,7 +3795,7 @@ async function encActivatePortableKey(privKeyJwk) {
     _encActiveKey = await crypto.subtle.importKey('raw', bits, 'AES-GCM', false, ['encrypt','decrypt']);
     console.log('[enc] portableKey activated');
   } catch(e) {
-    console.warn('[enc] portableKey failed, keeping sessionKey:', e.message);
+    console.debug('[enc] portableKey failed, keeping sessionKey:', e.message);
   }
 }
 
@@ -3833,7 +3833,7 @@ async function _encDecrypt(stored) {
     }
     return JSON.parse(new TextDecoder().decode(plainBuf));
   } catch(e) {
-    console.warn('[enc] decrypt failed, returning raw:', e.message);
+    console.debug('[enc] decrypt failed, returning raw:', e.message); // не спамим консоль
     // Если это зашифрованный blob который мы не можем расшифровать —
     // возвращаем null чтобы вызывающий код сгенерировал новые данные
     if (stored && stored.__enc) return null;

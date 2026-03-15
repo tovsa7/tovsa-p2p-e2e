@@ -23480,15 +23480,35 @@ function dtCancel(reason) {
 
 // Инициализация
 document.addEventListener('DOMContentLoaded', () => {
-  // Версия из SW cache
-  if ('caches' in window) {
-    caches.keys().then(keys => {
-      const sw = keys.find(k => k.startsWith('tovsa-v'));
-      const el = document.getElementById('app-version');
-      if (sw && el) el.textContent = sw.replace('tovsa-', '');
-      else if (el) el.textContent = '—';
-    }).catch(() => {});
-  }
+  // Версия из последнего коммита GitHub
+  (async () => {
+    const el = document.getElementById('app-version');
+    if (!el) return;
+    try {
+      const cached = sessionStorage.getItem('_appVersion');
+      if (cached) { el.textContent = cached; return; }
+      const res = await fetch('https://api.github.com/repos/tovsa7/tovsa-p2p-e2e/commits/HEAD', {
+        headers: { 'Accept': 'application/vnd.github.v3+json' }
+      });
+      if (!res.ok) throw new Error('api error');
+      const data = await res.json();
+      const date = new Date(data.commit.author.date);
+      const d = String(date.getDate()).padStart(2,'0');
+      const m = String(date.getMonth()+1).padStart(2,'0');
+      const y = String(date.getFullYear()).slice(2);
+      const sha = data.sha.slice(0, 7);
+      const ver = `${d}.${m}.${y}-${sha}`;
+      el.textContent = ver;
+      sessionStorage.setItem('_appVersion', ver);
+    } catch(_) {
+      // Fallback: SW cache name
+      try {
+        const keys = await caches.keys();
+        const sw = keys.find(k => k.startsWith('tovsa-v'));
+        el.textContent = sw ? sw.replace('tovsa-', '') : '—';
+      } catch(_) { el.textContent = '—'; }
+    }
+  })();
   dtInitSignaling();
   setTimeout(dtRenderDeviceSection, 1000);
 });

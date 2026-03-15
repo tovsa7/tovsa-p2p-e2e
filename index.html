@@ -19343,6 +19343,7 @@ document.addEventListener('visibilitychange', ()=>{
     }
     if (!tokenInput) return;
 
+    console.log('[invite] token found: ' + tokenInput.slice(0,12) + '...');
     // Ждём готовности ключей
     let waited = 0;
     while (!myPrivKey && waited < 8000) {

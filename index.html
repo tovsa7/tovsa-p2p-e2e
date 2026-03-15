@@ -18684,7 +18684,7 @@ document.addEventListener('visibilitychange', ()=>{
         console.info('[manifest] PUSH_SERVER обновлён:', m.push);
         PUSH_SERVER = m.push;
       }
-      _dbgPush('info', ['[manifest] домашний сервер: caps=' + (m.capabilities||[]).join(',') +
+      _dbgPush('info', ['[manifest] домашний сервер: caps=' + (m.capabilities||[]).join(',') + ' push=' + (m.push||'нет') +
         ' peers=' + m.peers + '/' + m.peers_max + ' proto=' + m.min_proto + '-' + m.max_proto]);
     } catch(_) {}
   })();
@@ -19044,12 +19044,13 @@ document.addEventListener('visibilitychange', ()=>{
     const ts = Math.floor(Date.now() / 1000);
     const auth = await _invSign(`invite2:create:${ts}`);
 
+    console.log('[invite] create → ' + PUSH_SERVER);
     const res = await fetch(PUSH_SERVER + '/invite2/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ kvKey, blob, notifyBlob, maxUses, expiresIn, ...auth }),
     });
-    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || 'create failed'); }
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || 'create failed [HTTP ' + res.status + '] url=' + PUSH_SERVER); }
 
     const result  = await res.json();
     const tokenB64 = _invB64u(secret);

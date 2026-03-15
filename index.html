@@ -8474,7 +8474,7 @@ function _vrAttachBtn(btnId, context){
       _state = 'recording';
       btn.classList.add('recording');
       _showLockHints(true);
-      _showBar();
+      // Бар показывается только при фиксации (свайп вверх)
       const mode = _vr.mode;
       vrBeginRecording(mode, context).then(() => {
         // Если запись не стартовала (нет доступа) — сбрасываем
@@ -8519,8 +8519,7 @@ function _vrAttachBtn(btnId, context){
       btn.classList.remove('recording');
       _showLockHints(false);
       try { navigator.vibrate && navigator.vibrate([30, 40, 30]); } catch(_){}
-      // Показываем бар с кнопкой ➤ (уже вызван _showBar при старте записи)
-      btn.textContent = '➤'; btn.className = 'mic-send-btn';
+      _showBar(); // показываем бар только сейчас
     }
   }, { passive: false });
 

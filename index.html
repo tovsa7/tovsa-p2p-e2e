@@ -2737,51 +2737,6 @@ if (typeof globalThis !== 'undefined') {
   </div>
   <!-- Circle live preview (during recording) -->
 
-  <!-- Отмена слева от кнопки (свайп влево = отмена) -->
-  <div id="vr-cancel-hint" style="
-    position:fixed;
-    right:calc(14px + 44px + 8px);
-    bottom:calc(env(safe-area-inset-bottom,0px) + 115px);
-    display:none;
-    flex-direction:row;
-    align-items:center;
-    gap:4px;
-    z-index:250;
-    pointer-events:none;
-  ">
-    <div style="width:38px;height:38px;border-radius:50%;background:var(--sf);border:1px solid var(--bd);
-      display:flex;align-items:center;justify-content:center;font-size:16px;
-      box-shadow:0 2px 8px rgba(0,0,0,.3);transition:background .15s" id="vr-cancel-icon">✕</div>
-    <div style="display:flex;flex-direction:row;align-items:center;gap:2px;opacity:.5" id="vr-cancel-arrows">
-      <div style="font-size:18px;color:var(--mu)">◀</div>
-      <div style="font-size:14px;color:var(--mu)">◀</div>
-      <div style="font-size:10px;color:var(--mu)">◀</div>
-    </div>
-  </div>
-
-  <!-- Замочек над кнопкой (свайп вверх = фиксация) -->
-  <div id="vr-lock-hint" style="
-    position:fixed;
-    right:14px;
-    bottom:calc(env(safe-area-inset-bottom,0px) + 115px);
-    display:none;
-    flex-direction:column;
-    align-items:center;
-    gap:4px;
-    z-index:250;
-    pointer-events:none;
-  ">
-    <!-- Стрелки вверх — анимируются при свайпе -->
-    <div style="display:flex;flex-direction:column;align-items:center;gap:2px;opacity:.5" id="vr-lock-arrows">
-      <div style="font-size:10px;color:var(--mu)">▲</div>
-      <div style="font-size:14px;color:var(--mu)">▲</div>
-      <div style="font-size:18px;color:var(--mu)">▲</div>
-    </div>
-    <!-- Замочек -->
-    <div style="width:38px;height:38px;border-radius:50%;background:var(--sf);border:1px solid var(--bd);
-      display:flex;align-items:center;justify-content:center;font-size:18px;
-      box-shadow:0 2px 8px rgba(0,0,0,.3);transition:background .15s" id="vr-lock-icon">🔒</div>
-  </div>
   <!-- Подсказка режима (короткий тап) -->
   <div class="vr-swipe-hint up" id="vr-hint-up" style="pointer-events:none"></div>
 </div>
@@ -23442,6 +23397,24 @@ window.addEventListener('resize', ()=>{
 </div>
 <!-- Circle live preview — вне всех экранов, показывается поверх всего -->
 <div id="vr-circle-preview"><video id="vr-circle-video" autoplay playsinline muted></video></div>
+
+<!-- ── Gesture hints (position:fixed, вне всех экранов) ── -->
+<div id="vr-cancel-hint" style="position:fixed;right:calc(14px + 44px + 8px);bottom:calc(env(safe-area-inset-bottom,0px) + 115px);display:none;flex-direction:row;align-items:center;gap:4px;z-index:600;pointer-events:none">
+  <div style="width:38px;height:38px;border-radius:50%;background:var(--sf);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 8px rgba(0,0,0,.3);transition:background .15s" id="vr-cancel-icon">✕</div>
+  <div style="display:flex;flex-direction:row;align-items:center;gap:2px;opacity:.5" id="vr-cancel-arrows">
+    <div style="font-size:18px;color:var(--mu)">◀</div>
+    <div style="font-size:14px;color:var(--mu)">◀</div>
+    <div style="font-size:10px;color:var(--mu)">◀</div>
+  </div>
+</div>
+<div id="vr-lock-hint" style="position:fixed;right:14px;bottom:calc(env(safe-area-inset-bottom,0px) + 115px);display:none;flex-direction:column;align-items:center;gap:4px;z-index:600;pointer-events:none">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:2px;opacity:.5" id="vr-lock-arrows">
+    <div style="font-size:10px;color:var(--mu)">▲</div>
+    <div style="font-size:14px;color:var(--mu)">▲</div>
+    <div style="font-size:18px;color:var(--mu)">▲</div>
+  </div>
+  <div style="width:38px;height:38px;border-radius:50%;background:var(--sf);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,.3);transition:background .15s" id="vr-lock-icon">🔒</div>
+</div>
 
 </body>
 </html>

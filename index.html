@@ -675,8 +675,7 @@ textarea::placeholder{color:var(--mu)}
 .theme-card-label .tc-check{font-size:11px;opacity:0}
 .theme-card.active .tc-check{opacity:1}
 /* settings sub-screens */
-.sn-page{display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden}
-.sn-page.on{display:flex}
+.sn-page{display:none !important;flex-direction:column;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden}.sn-page.on{display:flex !important}
 .sn-page::-webkit-scrollbar{width:4px}
 .sn-page::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
 /* menu rows */
@@ -2143,7 +2142,7 @@ if (typeof globalThis !== 'undefined') {
       </div>
       <button class="panic-btn" onclick="secPanicConfirm()">⊘ Удалить все данные</button>
     </div>
-  </div>  </div>
+  </div>
 
   <!-- ── Мои устройства ───────────────────────────────────────────────────── -->
   <div class="sn-page" id="sn-devices">
@@ -2189,6 +2188,9 @@ if (typeof globalThis !== 'undefined') {
       <div id="device-sync-status" style="font-size:10px;color:var(--mu);margin-top:8px;display:none"></div>
     </div>
   </div>
+
+
+
   <div class="sn-page" id="sn-debug">
     <div class="sh-back" onclick="snBack()">← назад</div>
     <div class="sn-section">
@@ -2202,7 +2204,6 @@ if (typeof globalThis !== 'undefined') {
       <div id="dbg-console" style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;font-size:10px;line-height:1.7;color:var(--mu);max-height:340px;overflow-y:auto;font-family:'JetBrains Mono',monospace;word-break:break-all;white-space:pre-wrap"><span style="opacity:.4">// лог появится при подключении...</span></div>
     </div>
   </div>
-
 </div>
 
 <!-- Sig-room connection modal overlay -->
@@ -5190,9 +5191,10 @@ let contactsScrollTop=0;
 function showTab(tab){
   // ── Сохраняем состояние уходящей вкладки ────────────────────────────────
   if(activeTab === 'sn'){
-    // Запоминаем под-страницу настроек
+    // Сохраняем под-страницу (кроме debug — она не восстанавливается)
     const activeSn = document.querySelector('#sn .sn-page.on');
-    if(activeSn) _tabState.sn.subPage = activeSn.id;
+    const activeSnId = activeSn ? activeSn.id : 'sn-home';
+    _tabState.sn.subPage = (activeSnId === 'sn-debug') ? 'sn-home' : activeSnId;
   }
   // Сохраняем состояние чатов только когда уходим НА ДРУГУЮ вкладку (не при возврате внутри чатов)
   const _leavingChatsArea = (activeTab === 'chats' || activeTab === 'contacts' || activeTab === 'rooms' || activeTab === 'channels');

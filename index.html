@@ -8462,7 +8462,19 @@ function _vrAttachBtn(btnId, context){
     // Locked: ждём следующего тапа для отправки
     if(_state === 'locked') return;
 
-    if(_vr.state !== 'idle') return;
+    // Если запись уже идёт — тап останавливает её
+    if(_vr.state !== 'idle'){
+      if(_state === 'idle'){
+        // Кнопка "свободна" но запись идёт — значит зависший стейт
+        // Останавливаем запись
+        btn.classList.remove('recording');
+        _showLockHints(false);
+        const dur = _vr.startTs ? Date.now() - _vr.startTs : 0;
+        if(dur < VR_MIN_MS) vrCancelRecording();
+        else vrStopRecording(false);
+      }
+      return;
+    }
 
     _startX = e.touches[0].clientX;
     _startY = e.touches[0].clientY;

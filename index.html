@@ -1772,7 +1772,7 @@ if (typeof globalThis !== 'undefined') {
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px">
         <div style="font-size:10px;color:var(--mu);letter-spacing:1px">ВЕРСИЯ</div>
-        <div style="font-size:11px;color:var(--a);letter-spacing:1px">1.2.0</div>
+        <div style="font-size:11px;color:var(--a);letter-spacing:1px" id="app-version">...</div>
       </div>
       <div id="sn-update-wrap" style="display:none;padding:0 0 4px 0">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--ad);border:1px solid rgba(0,255,157,.2);border-radius:10px">
@@ -23480,6 +23480,15 @@ function dtCancel(reason) {
 
 // Инициализация
 document.addEventListener('DOMContentLoaded', () => {
+  // Версия из SW cache
+  if ('caches' in window) {
+    caches.keys().then(keys => {
+      const sw = keys.find(k => k.startsWith('tovsa-v'));
+      const el = document.getElementById('app-version');
+      if (sw && el) el.textContent = sw.replace('tovsa-', '');
+      else if (el) el.textContent = '—';
+    }).catch(() => {});
+  }
   dtInitSignaling();
   setTimeout(dtRenderDeviceSection, 1000);
 });

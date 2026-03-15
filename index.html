@@ -3552,8 +3552,7 @@ async function initIdentity(){
       const privJwkForEnc = await idbGet('keys','id_priv_jwk').catch(()=>null);
       if (privJwkForEnc && typeof encActivatePortableKey === 'function') {
         await encActivatePortableKey(privJwkForEnc);
-        // Мигрируем данные зашифрованные sessionKey → portableKey
-        await encMigrateExisting();
+        // Миграция запускается отдельно (см. setTimeout после initIdentity)
       }
     } catch(_) {}
     // Инициализируем P-256 ключ для шифрования push уведомлений
@@ -8952,16 +8951,15 @@ async function vrSendFile(file){
 // ════════════════════════════════════════════════════════════════════════════
 
 // Инициализируем шифрование IDB до любых операций с базой
-// encInitSessionKey должна завершиться ДО initIdentity
-// иначе idbGet не сможет расшифровать ключи (race condition)
+// Инициализация: сначала ключ шифрования, потом identity
 encInitSessionKey()
   .then(() => initIdentity())
-  .then(() => encMigrateExisting())
   .catch(e => {
-    console.warn('[init] error:', e);
-    // Fallback — пробуем initIdentity без шифрования
-    if (!myFingerprint) initIdentity().catch(console.warn);
+    console.warn('[init] encInit error, trying without encryption:', e);
+    initIdentity().catch(console.warn);
   });
+// Миграция данных — отдельно, не блокирует UI
+setTimeout(() => encMigrateExisting().catch(console.warn), 3000);
 initMyContactCard();
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -17674,6 +17672,37 @@ function _dbgFormat(args){
     return String(a);
   }).join(' ');
 }
+
+// ── Перехват console → встроенная консоль ────────────────────────────────────
+(function() {
+  const _origError = console.error.bind(console);
+  const _origWarn  = console.warn.bind(console);
+  const _origLog   = console.log.bind(console);
+  const _origInfo  = console.info.bind(console);
+
+  const _wrap = (orig, level) => function(...args) {
+    orig(...args);
+    if (typeof _dbgPush === 'function') {
+      try { _dbgPush(level, args); } catch(_) {}
+    }
+  };
+
+  console.error = _wrap(_origError, 'error');
+  console.warn  = _wrap(_origWarn,  'warn');
+  console.info  = _wrap(_origInfo,  'info');
+  // console.log только если содержит ключевые слова для диагностики
+  console.log = function(...args) {
+    _origLog(...args);
+    if (typeof _dbgPush === 'function') {
+      const s = args.join(' ');
+      if (s.includes('[enc]') || s.includes('[identity]') || s.includes('[init]') ||
+          s.includes('[ntfy]') || s.includes('[sig]') || s.includes('[sync]') ||
+          s.includes('error') || s.includes('Error') || s.includes('failed')) {
+        try { _dbgPush('log', args); } catch(_) {}
+      }
+    }
+  };
+})();
 
 function _dbgPush(level, args){
   const t = new Date().toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit',second:'2-digit'});

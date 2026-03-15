@@ -1,22 +1,22 @@
 {
   "version": "1.3.15",
-  "notes": "Tovsa 20260315-2a74d6f",
-  "pub_date": "2026-03-15T10:23:57Z",
+  "notes": "Tovsa 20260315-3d97f2a",
+  "pub_date": "2026-03-15T10:29:09Z",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/tovsa7/tovsa-p2p-e2e/releases/download/20260315-2a74d6f/Tovsa_1.3.15_x64-setup.exe",
+      "url": "https://github.com/tovsa7/tovsa-p2p-e2e/releases/download/20260315-3d97f2a/Tovsa_1.3.15_x64-setup.exe",
       "signature": ""
     },
     "darwin-x86_64": {
-      "url": "https://github.com/tovsa7/tovsa-p2p-e2e/releases/download/20260315-2a74d6f/Tovsa_1.3.15_aarch64.dmg",
+      "url": "https://github.com/tovsa7/tovsa-p2p-e2e/releases/download/20260315-3d97f2a/Tovsa_1.3.15_aarch64.dmg",
       "signature": ""
     },
     "darwin-aarch64": {
-      "url": "https://github.com/tovsa7/tovsa-p2p-e2e/releases/download/20260315-2a74d6f/Tovsa_1.3.15_aarch64.dmg",
+      "url": "https://github.com/tovsa7/tovsa-p2p-e2e/releases/download/20260315-3d97f2a/Tovsa_1.3.15_aarch64.dmg",
       "signature": ""
     },
     "linux-x86_64": {
-      "url": "https://github.com/tovsa7/tovsa-p2p-e2e/releases/download/20260315-2a74d6f/Tovsa_1.3.15_amd64.AppImage",
+      "url": "https://github.com/tovsa7/tovsa-p2p-e2e/releases/download/20260315-3d97f2a/Tovsa_1.3.15_amd64.AppImage",
       "signature": ""
     }
   }

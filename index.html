@@ -16376,31 +16376,33 @@ async function _handleAllIncoming(from, kind, data) {
   if (kind === 'invite_accepted') {
     console.log('[invite] invite_accepted handler, pubKeyHex=' + (data?.pubKeyHex||'').slice(0,8));
     try {
-      const { pubKeyHex, name, encPub, pushToken, signalingUrl } = data || {};
+      const { pubKeyHex, name, encPub, pushToken, signalingUrl, pendingId } = data || {};
       if (!pubKeyHex || pubKeyHex.length !== 64) { console.log('[invite] invalid pubKeyHex len=' + (pubKeyHex||'').length); return; }
       const sha = await crypto.subtle.digest('SHA-256', new Uint8Array(pubKeyHex.match(/.{2}/g).map(h=>parseInt(h,16))));
       const fp  = Array.from(new Uint8Array(sha)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,24);
 
-      // Всегда добавляем в очередь заявок — даже если fp уже в contacts.
-      // contacts[fp] мог быть добавлен неполным (без encPub/pushToken) старым кодом.
-      // addContactRequest() сама проверяет дубли по pubKeyHex.
-      await addContactRequest({ pubKeyHex, fp, name: name||'Tovsa User',
+      // addContactRequest() возвращает false если дубль — тогда не показываем toast снова
+      const added = await addContactRequest({ pubKeyHex, fp, name: name||'Tovsa User',
         encPub: encPub||'', pushToken: pushToken||'', signalingUrl: signalingUrl||null });
 
-      const msg = (typeof _invitePendingPush !== 'undefined' && _invitePendingPush)
-        ? '📬 ' + (name||'Пользователь') + ' принял приглашение — проверьте заявки'
-        : '📬 ' + (name||'Пользователь') + ' принял ваше приглашение';
-      _invitePendingPush = false;
-      toast(msg);
-      renderContactRequestsBadge();
-      console.log('[invite] accepted by', fp.slice(0,8));
+      if (added) {
+        const msg = (typeof _invitePendingPush !== 'undefined' && _invitePendingPush)
+          ? '📬 ' + (name||'Пользователь') + ' принял приглашение — проверьте заявки'
+          : '📬 ' + (name||'Пользователь') + ' принял ваше приглашение';
+        _invitePendingPush = false;
+        toast(msg);
+        renderContactRequestsBadge();
+      }
+      console.log('[invite] accepted by', fp.slice(0,8), added ? '(new)' : '(duplicate, acking)');
 
-      // Отправляем delivery_ack — B узнает что его invite_accepted дошёл
-      // Используем encPub B для sealed envelope
+      // delivery_ack — всегда отправляем (даже при дубле) чтобы B мог снять pending
       if (encPub && typeof sealEnvelope === 'function' && _myEncKey && myPubKeyHex) {
         try {
           const ackSealed = await sealEnvelope(
-            { from: myPubKeyHex, kind: 'delivery_ack', data: { ackedKind: 'invite_accepted' } },
+            { from: myPubKeyHex, kind: 'delivery_ack', data: {
+                ackedKind: 'invite_accepted',
+                pendingId, // эхом возвращаем id чтобы B вызвал _psAck(pendingId)
+            }},
             encPub,
           );
           const bMailbox = await getContactMailboxId(pubKeyHex, 0) ?? pubKeyHex;
@@ -16411,7 +16413,7 @@ async function _handleAllIncoming(from, kind, data) {
             if (!window._pendingSealedRelays) window._pendingSealedRelays = [];
             window._pendingSealedRelays.push({ to: bMailbox, sealed: ackSealed });
           }
-          console.log('[invite] delivery_ack sent to', fp.slice(0,8));
+          console.log('[invite] delivery_ack sent to', fp.slice(0,8), 'pendingId=' + (pendingId||'').slice(0,8));
         } catch(e) { console.warn('[invite] delivery_ack send error:', e.message); }
       }
     } catch(e) { console.warn('[invite] accept handler:', e.message); }
@@ -16497,14 +16499,19 @@ async function _psSave(items) {
 }
 
 // Добавить pending запись и сразу попробовать отправить
-async function _psAdd({ kind, to, sealed, expiresAt }) {
+async function _psAdd({ kind, to, sealed, expiresAt, id: preId }) {
   const items = await _psLoad();
-  const id    = crypto.randomUUID();
+  const id    = preId || crypto.randomUUID();
+  // Идемпотентность — не добавляем если id уже есть (retry при reconnect)
+  if (items.some(i => i.id === id)) {
+    console.log('[ps] duplicate add ignored, id=' + id.slice(0,8));
+    _psTrySend({ id, to, sealed, kind });
+    return id;
+  }
   items.push({ id, kind, to, sealed, sentAt: Date.now(),
                expiresAt: expiresAt || Date.now() + PENDING_SEALED_TTL, acked: false });
   await _psSave(items);
   console.log('[ps] added', kind, 'id=' + id.slice(0,8));
-  // Сразу пробуем отправить
   _psTrySend({ id, to, sealed, kind });
   return id;
 }
@@ -16565,10 +16572,11 @@ async function saveContactRequests(reqs) {
 
 async function addContactRequest(data) {
   const reqs = await loadContactRequests();
-  if (reqs.some(r => r.pubKeyHex === data.pubKeyHex)) return; // дубль
+  if (reqs.some(r => r.pubKeyHex === data.pubKeyHex)) return false; // дубль
   reqs.push({ ...data, receivedAt: Date.now() });
   await saveContactRequests(reqs);
   renderContactRequestsBadge();
+  return true;
 }
 
 async function renderContactRequestsBadge() {
@@ -19859,7 +19867,10 @@ document.addEventListener('visibilitychange', ()=>{
         const mySrv      = typeof currentSrv === 'function' ? currentSrv() : null;
         const mySigUrl   = mySrv ? `wss://${mySrv.host}/signal` : null;
 
-        // Шифруем свои данные ключом владельца — только он сможет расшифровать
+        // Генерируем id ДО sealEnvelope — вкладываем в данные
+        // чтобы A мог вернуть его в delivery_ack и мы могли вызвать _psAck
+        const pendingId = crypto.randomUUID();
+
         const sealed = await sealEnvelope(
           { from: myPubKeyHex, kind: 'invite_accepted', data: {
             pubKeyHex:    myPubKeyHex,
@@ -19867,15 +19878,15 @@ document.addEventListener('visibilitychange', ()=>{
             encPub:       myEncPub,
             pushToken:    myPushTok,
             signalingUrl: mySigUrl,
+            pendingId,    // A эхом вернёт в delivery_ack → _psAck(pendingId)
           }},
           info.encPub,
         );
         const ownerMailbox = await getContactMailboxId(info.ownerPubHex, 0) ?? info.ownerPubHex;
 
-        // Сохраняем в persistent store — будет ретраиться при каждом reconnect
-        // пока не получим delivery_ack от A или не истечёт TTL (48ч)
-        await _psAdd({ kind: 'invite_accepted', to: ownerMailbox, sealed });
-        // _psAdd сам пробует отправить немедленно если signaling открыт
+        // Сохраняем с тем же id — будет ретраиться при каждом reconnect
+        // пока не получим delivery_ack с pendingId или не истечёт TTL (48ч)
+        await _psAdd({ id: pendingId, kind: 'invite_accepted', to: ownerMailbox, sealed });
       } catch(e) { console.warn('[invite] sealed send error:', e.message); }
     }
 

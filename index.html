@@ -8399,21 +8399,22 @@ function _vrAttachBtn(btnId, context){
 
   // ── Показ locked бара ───────────────────────────────────────────────────
   const _showLockedBar = () => {
-    const bar = document.getElementById('vr-bar');
-    const mi  = document.getElementById('mi');
-    if(bar){ bar.style.display = 'flex'; }
-    if(mi)  mi.style.display = 'none';
-    // Кнопка становится стрелкой отправки
+    const ids = _vrIds(context);
+    const bar   = document.getElementById(ids.bar);
+    const input = document.getElementById(ids.input);
+    if(bar)   bar.style.display   = 'flex';
+    if(input) input.style.display = 'none';
     btn.textContent = '➤';
     btn.className   = 'mic-send-btn';
     btn.title       = 'Отправить запись';
   };
 
   const _hideBar = () => {
-    const bar = document.getElementById('vr-bar');
-    const mi  = document.getElementById('mi');
-    if(bar) bar.style.display = 'none';
-    if(mi)  mi.style.display  = '';
+    const ids = _vrIds(context);
+    const bar   = document.getElementById(ids.bar);
+    const input = document.getElementById(ids.input);
+    if(bar)   bar.style.display   = 'none';
+    if(input) input.style.display = '';
     btn.style.transform = '';
     btn.style.opacity   = '';
     _syncBtn();
@@ -8716,30 +8717,42 @@ async function vrBeginRecording(kind, context){
   _vr._autoStop = setTimeout(() => vrStopRecording(false), maxMs);
 }
 
+
+// Возвращает ID элементов панели ввода по контексту записи
+function _vrIds(ctx){
+  if(ctx === 'fav')  return { bar:'fav-vr-bar', input:'fav-input', time:'fav-vr-time', wave:'fav-vr-wave' };
+  if(ctx === 'room') return { bar:'room-vr-bar', input:'room-chat-input', time:'room-vr-time', wave:'room-vr-wave' };
+  return { bar:'vr-bar', input:'mi', time:'vr-time', wave:'vr-wave' };
+}
 function vrShowRecBar(show){
-  // Теперь бар управляется через _vrAttachBtn._hideBar / _showLockedBar
-  // Эта функция только сбрасывает состояние при stop/cancel
-  if(!show){
-    const bar = document.getElementById('vr-bar');
-    const mi  = document.getElementById('mi');
-    if(bar) bar.style.display = 'none';
-    if(mi)  mi.style.display  = '';
+  const ctx = _vr.context || 'chat';
+  const ids = _vrIds(ctx);
+  const bar   = document.getElementById(ids.bar);
+  const input = document.getElementById(ids.input);
+
+  if(show){
+    // Скрываем поле ввода, показываем бар
+    if(input) input.style.display = 'none';
+    if(bar)   bar.style.display   = 'flex';
+  } else {
+    // Показываем поле ввода, скрываем бар
+    if(bar)   bar.style.display   = 'none';
+    if(input) input.style.display = '';
+    // Сбрасываем все подсказки
     const lock = document.getElementById('vr-lock-hint');
     if(lock){ lock.style.display = 'none'; lock.style.transform = ''; lock.style.background = ''; }
-    const hu = document.getElementById('vr-hint-up');
-    if(hu){ hu.classList.remove('visible'); hu.style.opacity = ''; }
-    const btn = document.getElementById('mic-send-btn');
-    if(btn){
-      btn.classList.remove('recording');
-      btn.style.opacity   = '';
-      btn.style.transform = '';
-    }
+    // Сбрасываем кнопки
+    ['mic-send-btn','fav-mic-btn','sh-mic-btn','room-mic-btn'].forEach(id => {
+      const b = document.getElementById(id);
+      if(b){ b.classList.remove('recording'); b.style.opacity = ''; b.style.transform = ''; }
+    });
     vrUpdateSendBtn();
   }
 }
 
 function vrStartTimer(){
-  const el = document.getElementById('vr-time');
+  const ids = _vrIds(_vr.context || 'chat');
+  const el = document.getElementById(ids.time);
   _vr.timer = setInterval(()=>{
     if(!el) return;
     const s = Math.floor((Date.now() - _vr.startTs) / 1000);
@@ -8749,7 +8762,8 @@ function vrStartTimer(){
 }
 
 function vrStartWaveAnim(){
-  const waveEl = document.getElementById('vr-wave');
+  const ids = _vrIds(_vr.context || 'chat');
+  const waveEl = document.getElementById(ids.wave);
   if(!waveEl) return;
   // Заполняем 24 бара
   waveEl.innerHTML = '';
@@ -8857,14 +8871,10 @@ function vrOnStop(){
   _vr._previewKind     = kind;
   _vr._previewWaveform = kind === 'voice' ? waveform : null;
   _vr._previewDurSec   = durSec;
+  _vr._previewContext  = ctx;
 
-  if(ctx === 'fav'){
-    // Сразу сохраняем в избранное без preview
-    vrPreviewFav();
-  } else {
-    // Показываем preview с кнопками Отправить / Перезаписать
-    vrShowPreviewModal(kind, blob, waveform, durSec);
-  }
+  // Показываем preview для всех контекстов
+  vrShowPreviewModal(kind, blob, waveform, durSec);
 }
 
 // ── Preview Modal ─────────────────────────────────────────────────────────────
@@ -8967,7 +8977,12 @@ function vrClosePreviewModal(){
 function vrPreviewSend(){
   vrClosePreviewModal();
   if(!_vr._previewBlob) return;
-  _vrDispatchFile(_vr._previewBlob, _vr._previewKind, _vr._previewWaveform);
+  const ctx = _vr._previewContext || _vr.context || 'chat';
+  if(ctx === 'fav'){
+    vrPreviewFav();
+  } else {
+    _vrDispatchFile(_vr._previewBlob, _vr._previewKind, _vr._previewWaveform);
+  }
   _vr._previewBlob = null;
 }
 

@@ -2697,12 +2697,16 @@ if (typeof globalThis !== 'undefined') {
     <input type="file" id="file-input" style="display:none" onchange="sendFile(this)">
     <!-- Recording bar: показывается только в LOCKED режиме -->
     <div class="vr-bar" id="vr-bar" style="display:none;align-items:center;gap:8px;flex:1">
-      <!-- Кнопка отмены — слева -->
-      <button class="vr-cancel-btn" id="vr-cancel-btn" onclick="vrCancelRecording()" title="Отменить">✕</button>
-      <!-- Индикатор + таймер + волна -->
       <div class="vr-dot"></div>
       <div class="vr-time" id="vr-time">0:00</div>
       <div class="vr-wave" id="vr-wave" style="flex:1"></div>
+      <!-- Отмена — текстом в баре -->
+      <button id="vr-cancel-btn" onclick="vrCancelRecording()"
+        style="background:none;border:none;color:var(--mu);font-size:12px;
+               font-family:inherit;cursor:pointer;padding:4px 8px;
+               -webkit-tap-highlight-color:transparent;white-space:nowrap">
+        Отмена
+      </button>
     </div>
     <!-- Normal input (hidden while recording) -->
     <textarea id="mi" placeholder="сообщение..." onkeydown="handleMiKey(event)" oninput="onTypingInput();autoGrowMi(this);vrUpdateSendBtn()"></textarea>
@@ -2711,9 +2715,25 @@ if (typeof globalThis !== 'undefined') {
   </div>
   <!-- Circle live preview (during recording) -->
   <div id="vr-circle-preview"><video id="vr-circle-video" autoplay playsinline muted></video></div>
-  <!-- Slide hints: появляются пока держишь палец -->
-  <div class="vr-swipe-hint left" id="vr-hint-left">✕ Отмена</div>
-  <div class="vr-swipe-hint up"   id="vr-hint-up">🔒 Зафиксировать</div>
+  <!-- Замочек над кнопкой (свайп вверх = фиксация) -->
+  <div id="vr-lock-hint" style="
+    position:fixed;
+    right:14px;
+    bottom:calc(env(safe-area-inset-bottom,0px) + 115px);
+    width:38px;height:38px;
+    border-radius:50%;
+    background:var(--sf);
+    border:1px solid var(--bd);
+    display:none;
+    align-items:center;justify-content:center;
+    font-size:18px;
+    z-index:250;
+    transition:transform .15s,background .15s;
+    pointer-events:none;
+    box-shadow:0 2px 8px rgba(0,0,0,.3)
+  ">🔒</div>
+  <!-- Подсказка режима (короткий тап) -->
+  <div class="vr-swipe-hint up" id="vr-hint-up" style="pointer-events:none"></div>
 </div>
 
 <!-- ════════════════════════════════════════════════════════════════════════ -->
@@ -8312,29 +8332,24 @@ function _vrAttachBtn(btnId, context){
   // ── Показ/скрытие подсказок ─────────────────────────────────────────────
   const _showSlideHints = (show) => {
     if(context !== 'chat') return;
-    const hl = document.getElementById('vr-hint-left');
-    const hu = document.getElementById('vr-hint-up');
-    if(hl) hl.classList.toggle('visible', show);
-    if(hu) hu.classList.toggle('visible', show);
+    const lock = document.getElementById('vr-lock-hint');
+    if(lock) lock.style.display = show ? 'flex' : 'none';
   };
 
   const _hideAllHints = () => {
-    const hl = document.getElementById('vr-hint-left');
+    const lock = document.getElementById('vr-lock-hint');
+    if(lock){ lock.style.display = 'none'; lock.style.transform = ''; lock.style.background = ''; }
     const hu = document.getElementById('vr-hint-up');
-    if(hl){ hl.classList.remove('visible'); hl.style.opacity=''; }
-    if(hu){ hu.classList.remove('visible'); hu.style.opacity=''; }
+    if(hu){ hu.classList.remove('visible'); hu.style.opacity = ''; }
   };
 
   const _updateHintProgress = (dx, dy) => {
-    const hl = document.getElementById('vr-hint-left');
-    const hu = document.getElementById('vr-hint-up');
-    if(hl){
-      const p = Math.min(1, Math.max(0, -dx / VR_SWIPE_PX));
-      hl.style.opacity = String(0.4 + p * 0.6);
-    }
-    if(hu){
+    // Замочек анимируется при свайпе вверх — поднимается и подсвечивается
+    const lock = document.getElementById('vr-lock-hint');
+    if(lock && dy < 0){
       const p = Math.min(1, Math.max(0, -dy / VR_SWIPE_PX));
-      hu.style.opacity = String(0.4 + p * 0.6);
+      lock.style.transform = `translateY(${-p * 12}px)`;
+      lock.style.background = p > 0.8 ? 'var(--a)' : 'var(--sf)';
     }
   };
 
@@ -8451,15 +8466,8 @@ function _vrAttachBtn(btnId, context){
       clearTimeout(_tapTimer); _tapTimer = null;
       _vrToggleMode();
       // Показываем подсказку
-      const hint = document.getElementById('vr-hint-up');
-      if(hint){
-        hint.textContent = _vr.mode === 'circle' ? '🔴 Кружок' : '🎤 Голосовое';
-        hint.classList.add('visible');
-        setTimeout(() => {
-          hint.classList.remove('visible');
-          hint.textContent = '🔒 Зафиксировать';
-        }, 1000);
-      }
+      // Показываем подсказку режима через toast
+      toast(_vr.mode === 'circle' ? '🔴 Режим кружка' : '🎤 Голосовой режим');
       return;
     }
 
@@ -8660,10 +8668,10 @@ function vrShowRecBar(show){
     const mi  = document.getElementById('mi');
     if(bar) bar.style.display = 'none';
     if(mi)  mi.style.display  = '';
-    const hl = document.getElementById('vr-hint-left');
+    const lock = document.getElementById('vr-lock-hint');
+    if(lock){ lock.style.display = 'none'; lock.style.transform = ''; lock.style.background = ''; }
     const hu = document.getElementById('vr-hint-up');
-    if(hl){ hl.classList.remove('visible'); hl.style.opacity=''; }
-    if(hu){ hu.classList.remove('visible'); hu.style.opacity=''; }
+    if(hu){ hu.classList.remove('visible'); hu.style.opacity = ''; }
     const btn = document.getElementById('mic-send-btn');
     if(btn){
       btn.classList.remove('recording');

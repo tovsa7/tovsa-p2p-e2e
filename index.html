@@ -8973,33 +8973,56 @@ function vrShowPreviewModal(kind, blob, waveform, durSec){
     const cvid   = document.getElementById('vr-preview-circle-video');
     const scrub  = document.getElementById('vr-preview-circle-scrub');
     const timeEl = document.getElementById('vr-preview-circle-time');
+    let _scrubbing = false;
     if(cvid){
       if(cvid._blobUrl){ URL.revokeObjectURL(cvid._blobUrl); }
       const url = URL.createObjectURL(blob);
       cvid._blobUrl = url;
       cvid.src = url;
       cvid.play().catch(()=>{});
-      cvid.onloadedmetadata = () => {
-        if(scrub){ scrub.max = cvid.duration; scrub.value = 0; }
-      };
-      let _scrubbing = false;
-      cvid.ontimeupdate = () => {
-        if(!isFinite(cvid.duration) || _scrubbing) return;
-        if(scrub) scrub.value = cvid.currentTime;
+      const _updateTime = () => {
+        if(!isFinite(cvid.duration)) return;
+        if(scrub && !_scrubbing) scrub.value = cvid.currentTime;
         if(timeEl){
           const rem = cvid.duration - cvid.currentTime;
           const mm=Math.floor(rem/60), ss=Math.floor(rem%60);
           timeEl.textContent = mm+':'+(ss<10?'0':'')+ss;
         }
       };
+      cvid.onloadedmetadata = () => {
+        if(isFinite(cvid.duration)){
+          if(scrub){ scrub.min=0; scrub.max=cvid.duration; scrub.value=0; scrub.step=0.01; }
+          _updateTime();
+        }
+      };
+      // Для WebM с Infinity duration — ждём первого timeupdate
+      cvid.addEventListener('timeupdate', function _firstUpdate(){
+        if(isFinite(cvid.duration)){
+          if(scrub){ scrub.min=0; scrub.max=cvid.duration; scrub.step=0.01; }
+          cvid.removeEventListener('timeupdate', _firstUpdate);
+        }
+      });
+      cvid.addEventListener('durationchange', () => {
+        if(isFinite(cvid.duration)){
+          if(scrub){ scrub.max=cvid.duration; scrub.step=0.01; }
+        }
+      });
+      cvid.ontimeupdate = _updateTime;
       cvid.onended = () => { cvid.currentTime=0; cvid.play().catch(()=>{}); };
     }
     if(scrub){
       scrub.addEventListener('mousedown',  () => { _scrubbing = true; });
       scrub.addEventListener('touchstart', () => { _scrubbing = true; }, { passive: true });
       scrub.addEventListener('input', () => {
-        const v = document.getElementById('vr-preview-circle-video');
-        if(v && isFinite(v.duration)) v.currentTime = parseFloat(scrub.value);
+        if(cvid && isFinite(cvid.duration)){
+          cvid.currentTime = parseFloat(scrub.value);
+          // Обновляем время сразу
+          if(timeEl){
+            const rem = cvid.duration - cvid.currentTime;
+            const mm=Math.floor(rem/60), ss=Math.floor(rem%60);
+            timeEl.textContent = mm+':'+(ss<10?'0':'')+ss;
+          }
+        }
       });
       scrub.addEventListener('mouseup',  () => { _scrubbing = false; });
       scrub.addEventListener('touchend', () => { _scrubbing = false; });

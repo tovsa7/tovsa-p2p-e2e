@@ -2735,7 +2735,7 @@ if (typeof globalThis !== 'undefined') {
     <button class="mic-send-btn mic-mode" id="mic-send-btn">🎤</button>
   </div>
   <!-- Circle live preview (during recording) -->
-  <div id="vr-circle-preview"><video id="vr-circle-video" autoplay playsinline muted></video></div>
+
   <!-- Замочек над кнопкой (свайп вверх = фиксация) -->
   <div id="vr-lock-hint" style="
     position:fixed;
@@ -8563,11 +8563,11 @@ function _vrAttachBtn(btnId, context){
     if(_recTimer){
       clearTimeout(_recTimer); _recTimer = null;
       console.log('[vr] tap detected, toggling mode from ' + _vr.mode);
-      // Отменяем предзапрошенный stream
       if(_streamReady){ _streamReady.then(s => s && s.getTracks().forEach(t=>t.stop())); _streamReady = null; }
       _state = 'idle';
-      _vrToggleMode();
-      console.log('[vr] mode after toggle: ' + _vr.mode);
+      _vrToggleMode(); // обновляет иконку через _syncBtn
+      _syncBtn();      // принудительно обновляем эту кнопку тоже
+      console.log('[vr] mode after toggle: ' + _vr.mode + ' btn=' + btn.textContent);
       toast(_vr.mode === 'circle' ? '🔴 Режим кружка' : '🎤 Голосовой режим');
       return;
     }
@@ -23431,5 +23431,8 @@ window.addEventListener('resize', ()=>{
     </div>
   </div>
 </div>
+<!-- Circle live preview — вне всех экранов, показывается поверх всего -->
+<div id="vr-circle-preview"><video id="vr-circle-video" autoplay playsinline muted></video></div>
+
 </body>
 </html>

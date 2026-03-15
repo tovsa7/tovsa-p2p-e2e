@@ -8384,6 +8384,8 @@ function _vrAttachBtn(btnId, context){
     if(inp) inp.style.display = 'none';
     btn.textContent = '➤';
     btn.className   = 'mic-send-btn';
+    // Запускаем таймер только когда бар виден
+    vrStartTimer();
   };
 
   const _hideBar = () => {
@@ -8447,16 +8449,8 @@ function _vrAttachBtn(btnId, context){
   }, { passive: false });
 
   btn.addEventListener('touchmove', e => {
-    // Движение > 8px отменяет тап-режим
-    if(_phase === 'tap-pending' && _tapTimer){
-      const dx = Math.abs(e.touches[0].clientX - _startX);
-      const dy = Math.abs(e.touches[0].clientY - _startY);
-      if(dx > 8 || dy > 8){
-        clearTimeout(_tapTimer); _tapTimer = null;
-        _phase = 'idle'; // не тап и не запись — просто отмена
-      }
-      return;
-    }
+    // tap-pending: движение не отменяет тап — он определяется только по времени
+    if(_phase === 'tap-pending') return;
 
     if(_phase !== 'recording') return;
     e.preventDefault();
@@ -8675,9 +8669,8 @@ async function vrBeginRecording(kind, context){
     }
   }
 
-  // Запускаем UI
-  vrShowRecBar(true);
-  vrStartTimer();
+  // Запускаем анимацию волны (для circle preview и анализатора)
+  // Бар и таймер показываются только при фиксации (swipe up)
   vrStartWaveAnim();
 
   // Авто-стоп по таймауту

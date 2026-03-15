@@ -6792,6 +6792,7 @@ class TovSaSignaling {
           'room_msg','room_invite','room_config','room_rekey',
           'history_req','history_resp',
           'ch_sub','ch_sub_ack','ch_msg','ch_comment',
+          'invite_accepted',
         ]);
         if (ROOM_KINDS.has(kind)) {
           if (typeof roomHandleIncoming === 'function') {
@@ -23481,33 +23482,32 @@ function dtCancel(reason) {
 // Инициализация
 document.addEventListener('DOMContentLoaded', () => {
   // Версия из последнего коммита GitHub
+  // Версия из Last-Modified заголовка sw.js — обновляется автоматически при деплое
   (async () => {
     const el = document.getElementById('app-version');
     if (!el) return;
     try {
-      const cached = sessionStorage.getItem('_appVersion');
-      if (cached) { el.textContent = cached; return; }
-      console.log('[version] fetching from GitHub...');
-      const res = await fetch('https://api.github.com/repos/tovsa7/tovsa-p2p-e2e/commits/HEAD', {
-        headers: { 'Accept': 'application/vnd.github.v3+json' }
-      });
-      console.log('[version] status:', res.status);
-      if (!res.ok) throw new Error('api error ' + res.status);
-      const data = await res.json();
-      const date = new Date(data.commit.author.date);
-      const d = String(date.getDate()).padStart(2,'0');
-      const m = String(date.getMonth()+1).padStart(2,'0');
-      const y = String(date.getFullYear()).slice(2);
-      const sha = data.sha.slice(0, 7);
-      const ver = `${d}.${m}.${y}-${sha}`;
-      el.textContent = ver;
-      sessionStorage.setItem('_appVersion', ver);
-    } catch(err) {
-      console.log('[version] error:', err.message);
-      // Fallback: SW cache name
+      const res = await fetch('./sw.js', { method: 'HEAD', cache: 'no-store' });
+      const lm = res.headers.get('Last-Modified') || res.headers.get('ETag');
+      if (lm) {
+        // Last-Modified: "Sun, 15 Mar 2026 18:00:00 GMT"
+        const d = new Date(lm);
+        if (!isNaN(d)) {
+          const dd = String(d.getDate()).padStart(2,'0');
+          const mm = String(d.getMonth()+1).padStart(2,'0');
+          const yy = String(d.getFullYear()).slice(2);
+          el.textContent = `${dd}.${mm}.${yy}`;
+          return;
+        }
+        // ETag fallback — показываем как есть
+        el.textContent = lm.replace(/"/g,'').slice(0,12);
+        return;
+      }
+      throw new Error('no header');
+    } catch(_) {
       try {
         const keys = await caches.keys();
-        const sw = keys.find(k => k.startsWith('tovsa-v'));
+        const sw = keys.find(k => k.startsWith('tovsa-'));
         el.textContent = sw ? sw.replace('tovsa-', '') : '—';
       } catch(_) { el.textContent = '—'; }
     }

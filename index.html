@@ -8332,7 +8332,7 @@ function vrInit(){
   }
   _vrAttachBtn('mic-send-btn', 'chat');
   _vrAttachBtn('fav-mic-btn',  'fav');
-  _vrAttachBtn('sh-mic-btn',   'chat');
+  _vrAttachBtn('sh-mic-btn',   'sh');
   vrUpdateSendBtn();
 }
 
@@ -8684,7 +8684,7 @@ async function vrBeginRecordingWithStream(kind, context, stream){
 
 async function vrBeginRecording(kind, context){
   if(_vr.state !== 'idle') return;
-  if((context||'chat') !== 'fav' && (!dc || dc.readyState !== 'open')){ toast('Нет соединения'); return; }
+  // Запись разрешена везде; отправка проверяет соединение при необходимости
 
   _vr.cancelled = false;
   _vr.chunks    = [];
@@ -8750,6 +8750,7 @@ async function vrBeginRecording(kind, context){
 // Возвращает ID элементов панели ввода по контексту записи
 function _vrIds(ctx){
   if(ctx === 'fav')  return { bar:'fav-vr-bar', input:'fav-input', time:'fav-vr-time', wave:'fav-vr-wave' };
+  if(ctx === 'sh')   return { bar:'sh-vr-bar',  input:'sh-mi',     time:'sh-vr-time',  wave:'sh-vr-wave'  };
   if(ctx === 'room') return { bar:'room-vr-bar', input:'room-chat-input', time:'room-vr-time', wave:'room-vr-wave' };
   return { bar:'vr-bar', input:'mi', time:'vr-time', wave:'vr-wave' };
 }
@@ -9024,8 +9025,22 @@ function vrPreviewSend(){
   const ctx = _vr._previewContext || _vr.context || 'chat';
   if(ctx === 'fav'){
     vrPreviewFav();
+  } else if(ctx === 'sh'){
+    // Офлайн история — отправляем через очередь если соединения нет
+    if(dc && dc.readyState === 'open'){
+      _vrDispatchFile(_vr._previewBlob, _vr._previewKind, _vr._previewWaveform);
+    } else {
+      toast('Нет соединения — голосовые сообщения в очереди не поддерживаются');
+    }
+  } else if(ctx === 'room'){
+    _vrDispatchFileRoom(_vr._previewBlob, _vr._previewKind, _vr._previewWaveform);
   } else {
-    _vrDispatchFile(_vr._previewBlob, _vr._previewKind, _vr._previewWaveform);
+    // chat
+    if(dc && dc.readyState === 'open'){
+      _vrDispatchFile(_vr._previewBlob, _vr._previewKind, _vr._previewWaveform);
+    } else {
+      toast('Нет соединения');
+    }
   }
   _vr._previewBlob = null;
 }

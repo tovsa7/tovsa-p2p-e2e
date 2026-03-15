@@ -2723,7 +2723,7 @@ if (typeof globalThis !== 'undefined') {
       <div class="vr-time" id="vr-time">0:00</div>
       <div class="vr-wave" id="vr-wave" style="flex:1"></div>
       <!-- Отмена — текстом в баре -->
-      <button id="vr-cancel-btn" onclick="vrCancelRecording()"
+      <button id="vr-cancel-btn" onclick="vrCancelFromBar()"
         style="background:none;border:none;color:var(--mu);font-size:12px;
                font-family:inherit;cursor:pointer;padding:4px 8px;
                -webkit-tap-highlight-color:transparent;white-space:nowrap">
@@ -8754,13 +8754,13 @@ function _vrIds(ctx){
   return { bar:'vr-bar', input:'mi', time:'vr-time', wave:'vr-wave' };
 }
 function vrShowRecBar(show){
+  if(show) return; // показ бара управляется через _showBar в _vrAttachBtn
   const ctx = _vr.context || 'chat';
   const ids = _vrIds(ctx);
   const bar   = document.getElementById(ids.bar);
   const input = document.getElementById(ids.input);
 
-  if(show){
-    // Скрываем поле ввода, показываем бар
+  if(false){
     if(input) input.style.display = 'none';
     if(bar)   bar.style.display   = 'flex';
   } else {
@@ -8842,7 +8842,16 @@ function vrStopRecording(cancel){
 
 function vrCancelRecording(){
   vrStopRecording(true);
-  toast('Запись отменена');
+}
+
+// Вызывается кнопкой "Отмена" в баре (locked режим)
+function vrCancelFromBar(){
+  // Сбрасываем состояние всех _vrAttachBtn через _vrHideBar
+  ['mic-send-btn','fav-mic-btn','sh-mic-btn','room-mic-btn'].forEach(id => {
+    const b = document.getElementById(id);
+    if(b && b._vrHideBar) b._vrHideBar();
+  });
+  vrCancelRecording();
 }
 
 function vrOnStop(){
@@ -8865,7 +8874,11 @@ function vrOnStop(){
   if(prev) prev.style.display='none';
   if(pvid) pvid.srcObject=null;
 
-  vrShowRecBar(false);
+  // Сбрасываем UI через _vrHideBar всех кнопок
+  ['mic-send-btn','fav-mic-btn','sh-mic-btn','room-mic-btn'].forEach(id => {
+    const b = document.getElementById(id);
+    if(b && b._vrHideBar) b._vrHideBar();
+  });
   _vr.state = 'idle';
   vrUpdateSendBtn();
 

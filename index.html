@@ -6502,6 +6502,10 @@ function _updateGlobalHiddenUI() {
 // Группы
 /** @type {Record<string, GroupRecord>} */
 let _grpAll     = {};    // code → GroupRecord  (persist, сохраняется в IDB)
+
+// Заглушки для presence групп (реализация в groups module если подключён)
+function _grpStartPresence(code){ if(typeof window._grpStartPresenceFn === 'function') window._grpStartPresenceFn(code); }
+function _grpStopAllPresence(){ if(typeof window._grpStopAllPresenceFn === 'function') window._grpStopAllPresenceFn(); }
 let _grpDecRetry= {};    // code → [{fromPid, payload, rawData, ts}] — очередь на повторную расшифровку
 let _grpMyPeer  = {};    // code → Peer (основной signaling-пир)
 /** @type {Record<string, Map<string, any>>} */

@@ -2853,8 +2853,9 @@ if (typeof globalThis !== 'undefined') {
 <!-- VR Preview Modal — показывается после записи, до отправки -->
 <div id="vr-preview-modal">
   <!-- Кружок: video preview -->
-  <div id="vr-preview-circle" style="display:none">
+  <div id="vr-preview-circle" style="display:none;position:relative;cursor:pointer" onclick="vrCirclePreviewToggle()">
     <video id="vr-preview-circle-video" playsinline loop></video>
+    <div id="vr-circle-pause-ov" style="display:none;position:absolute;inset:0;border-radius:50%;background:rgba(0,0,0,.4);align-items:center;justify-content:center;font-size:28px;color:#fff">⏸</div>
   </div>
   <!-- Scrubber под кружком — снаружи overflow:hidden -->
   <div id="vr-preview-circle-scrub-wrap" style="display:none;width:260px;align-items:center;gap:8px">
@@ -9075,6 +9076,14 @@ function vrShowPreviewModal(kind, blob, waveform, durSec){
   modal.classList.add('on');
 }
 
+function vrCirclePreviewToggle(){
+  const v = document.getElementById('vr-preview-circle-video');
+  const ov = document.getElementById('vr-circle-pause-ov');
+  if(!v) return;
+  if(v.paused){ v.play().catch(()=>{}); if(ov) ov.style.display='none'; }
+  else { v.pause(); if(ov) ov.style.display='flex'; }
+}
+
 function vrPreviewPlayToggle(){
   if(!_vrPreviewAudio) return;
   if(_vrPreviewAudio.paused) _vrPreviewAudio.play().catch(()=>{});
@@ -13878,11 +13887,11 @@ async function buildFileBubble(meta,blobOrNull,msgType){
     // Обновляем scrubber во время воспроизведения
     vidEl.addEventListener('timeupdate',()=>{
       if(_scrubbing) return;
-      if(scrubEl && isFinite(vidEl.duration)){
-        scrubEl.value=vidEl.currentTime;
-      }
-      if(durEl2 && isFinite(vidEl.duration)){
-        const rem=vidEl.duration-vidEl.currentTime;
+      if(scrubEl) scrubEl.value = vidEl.currentTime;
+      // Показываем оставшееся время — если duration Infinity используем _knownDur
+      const dur = isFinite(vidEl.duration) ? vidEl.duration : _knownDur;
+      if(durEl2 && dur > 0){
+        const rem = Math.max(0, dur - vidEl.currentTime);
         const mm=Math.floor(rem/60),ss=Math.floor(rem%60);
         durEl2.textContent=mm+':'+(ss<10?'0':'')+ss;
       }
@@ -13891,7 +13900,8 @@ async function buildFileBubble(meta,blobOrNull,msgType){
     // input — обновляем позицию сразу (работает и на touch)
     scrubEl.addEventListener('input', () => {
       _scrubbing = true;
-      if(isFinite(vidEl.duration)) vidEl.currentTime = parseFloat(scrubEl.value);
+      // WebM может иметь Infinity duration — всё равно перематываем
+      vidEl.currentTime = parseFloat(scrubEl.value);
     });
     // change — после отпускания сбрасываем флаг
     scrubEl.addEventListener('change', () => { _scrubbing = false; });

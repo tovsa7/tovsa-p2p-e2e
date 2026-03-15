@@ -19092,7 +19092,10 @@ document.addEventListener('visibilitychange', ()=>{
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kvKey }),
       });
-      if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || 'fetch failed'); }
+      if (!res.ok) {
+        const e = await res.json().catch(()=>({}));
+        throw new Error((e.error || 'fetch failed') + ' [HTTP ' + res.status + '] ' + serverUrl);
+      }
       const json = await res.json();
       blob = json.blob; expiresAt = json.expiresAt; maxUses = json.maxUses; remaining = json.remaining;
     } catch(e) {

@@ -17894,35 +17894,8 @@ function _dbgFormat(args){
 }
 
 // ── Перехват console → встроенная консоль ────────────────────────────────────
-(function() {
-  const _origError = console.error.bind(console);
-  const _origWarn  = console.warn.bind(console);
-  const _origLog   = console.log.bind(console);
-  const _origInfo  = console.info.bind(console);
-
-  const _wrap = (orig, level) => function(...args) {
-    orig(...args);
-    if (typeof _dbgPush === 'function') {
-      try { _dbgPush(level, args); } catch(_) {}
-    }
-  };
-
-  console.error = _wrap(_origError, 'error');
-  console.warn  = _wrap(_origWarn,  'warn');
-  console.info  = _wrap(_origInfo,  'info');
-  // console.log только если содержит ключевые слова для диагностики
-  console.log = function(...args) {
-    _origLog(...args);
-    if (typeof _dbgPush === 'function') {
-      const s = args.join(' ');
-      if (s.includes('[enc]') || s.includes('[identity]') || s.includes('[init]') ||
-          s.includes('[ntfy]') || s.includes('[sig]') || s.includes('[sync]') ||
-          s.includes('error') || s.includes('Error') || s.includes('failed')) {
-        try { _dbgPush('log', args); } catch(_) {}
-      }
-    }
-  };
-})();
+// Устанавливается после _dbgPush чтобы не было circular issues
+// Placeholder — реальный перехват ниже после _dbgPush
 
 function _dbgPush(level, args){
   const t = new Date().toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
@@ -17931,6 +17904,40 @@ function _dbgPush(level, args){
   if(_dbgLines.length > _DBG_MAX) _dbgLines.shift();
   _dbgRender();
 }
+
+// ── Перехват console после определения _dbgPush ───────────────────────────────
+(function() {
+  const _origError = console.error.bind(console);
+  const _origWarn  = console.warn.bind(console);
+  const _origLog   = console.log.bind(console);
+  const _origInfo  = console.info.bind(console);
+
+  const _safe = (args) => {
+    try {
+      const s = args.map(a => {
+        if(typeof a === 'string') return a;
+        if(a instanceof Error) return a.message;
+        try { return String(a); } catch(_) { return '[object]'; }
+      }).join(' ');
+      return s;
+    } catch(_) { return ''; }
+  };
+
+  console.error = function(...args) { _origError(...args); try { _dbgPush('error', args); } catch(_) {}; };
+  console.warn  = function(...args) { _origWarn(...args);  try { _dbgPush('warn',  args); } catch(_) {}; };
+  console.info  = function(...args) { _origInfo(...args);  try { _dbgPush('info',  args); } catch(_) {}; };
+  console.log   = function(...args) {
+    _origLog(...args);
+    try {
+      const s = _safe(args);
+      if(s.includes('[enc]') || s.includes('[identity]') || s.includes('[init]') ||
+         s.includes('[ntfy]') || s.includes('[sig]') || s.includes('[sync]') ||
+         s.includes('[vr]') || s.includes('error') || s.includes('Error') || s.includes('failed')){
+        _dbgPush('log', args);
+      }
+    } catch(_) {}
+  };
+})();
 
 function _dbgRender(){
   const el = document.getElementById('dbg-console');

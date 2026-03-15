@@ -19513,7 +19513,8 @@ document.addEventListener('visibilitychange', ()=>{
   document.addEventListener('DOMContentLoaded', () => {
     _updateNotifUI();
     _checkPersist();
-    _checkInviteParam();
+    // Даём время манифесту обновить PUSH_SERVER (warmup async)
+    setTimeout(_checkInviteParam, 2500);
     // Если initIdentity уже завершился (ключ в localStorage) — подписываемся
     if(localStorage.getItem('_myPubHex') &&
        'Notification' in window && Notification.permission === 'granted') {

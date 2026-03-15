@@ -224,11 +224,8 @@ textarea::placeholder{color:var(--mu)}
 .mic-send-btn.rec-mode{background:rgba(224,108,117,.2);border:1px solid rgba(224,108,117,.4);color:var(--e)}
 .mic-send-btn:active{transform:scale(.91)}
 /* ── Circle live preview (during recording) ── */
-#vr-circle-preview{display:none;position:fixed;inset:0;background:#000;z-index:500;flex-direction:column;align-items:center;justify-content:center}
-#vr-circle-preview video{width:100%;height:100%;object-fit:cover;display:block}
-#vr-circle-preview-hint{position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 100px);left:50%;transform:translateX(-50%);color:rgba(255,255,255,.7);font-size:12px;white-space:nowrap;pointer-events:none}
-#vr-circle-rec-dot{position:absolute;top:20px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;color:#fff;font-size:12px}
-#vr-circle-rec-dot .dot{width:8px;height:8px;border-radius:50%;background:var(--e);animation:blink .7s infinite}
+#vr-circle-preview{display:none;position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 130px);right:16px;width:180px;height:180px;border-radius:50%;overflow:hidden;border:3px solid var(--a);background:#000;z-index:500;box-shadow:0 4px 24px rgba(0,0,0,.6)}
+#vr-circle-preview video{width:100%;height:100%;object-fit:cover;display:block;transform:scaleX(-1)}
 
 /* ── VR Preview Modal — показывается после записи, до отправки ── */
 #vr-preview-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:600;flex-direction:column;align-items:center;justify-content:center;gap:20px}
@@ -8365,7 +8362,7 @@ function vrInit(){
   const mi = document.getElementById('mi');
   if(mi){
     mi.addEventListener('input', vrUpdateSendBtn);
-    mi.addEventListener('focus', vrUpdateSendBtn);
+    // mi focus больше не вызывает vrUpdateSendBtn — мешает иконке mic
   }
   _vrAttachBtn('mic-send-btn', 'chat');
   _vrAttachBtn('fav-mic-btn',  'fav');
@@ -8565,6 +8562,7 @@ function _vrAttachBtn(btnId, context){
       _state = 'idle';
       _vrToggleMode(); // обновляет иконку через _syncBtn
       _syncBtn();      // принудительно обновляем эту кнопку тоже
+      requestAnimationFrame(() => _syncBtn()); // гарантируем перерисовку
       console.log('[vr] mode after toggle: ' + _vr.mode + ' btn=' + btn.textContent);
       toast(_vr.mode === 'circle' ? '🔴 Режим кружка' : '🎤 Голосовой режим');
       return;
@@ -8672,7 +8670,6 @@ async function vrBeginRecordingWithStream(kind, context, stream){
 
   _vr.state   = kind;
   _vr.startTs = Date.now();
-  vrUpdateSendBtn();
 
   const audioTrack = stream.getAudioTracks()[0];
   if(audioTrack){
@@ -8687,7 +8684,7 @@ async function vrBeginRecordingWithStream(kind, context, stream){
   if(kind === 'circle'){
     const prev = document.getElementById('vr-circle-preview');
     const pvid = document.getElementById('vr-circle-video');
-    if(prev && pvid){ pvid.srcObject = stream; prev.style.display = 'flex'; }
+    if(prev && pvid){ pvid.srcObject = stream; prev.style.display = 'block'; }
   }
 
   vrStartWaveAnim();
@@ -8728,7 +8725,6 @@ async function vrBeginRecording(kind, context){
 
   _vr.state   = kind;
   _vr.startTs = Date.now();
-  vrUpdateSendBtn();
 
   // Аудио-анализатор для waveform (и для отображения в баре)
   const audioTrack = _vr.stream.getAudioTracks()[0];
@@ -23432,11 +23428,7 @@ window.addEventListener('resize', ()=>{
   </div>
 </div>
 <!-- Circle live preview — вне всех экранов, показывается поверх всего -->
-<div id="vr-circle-preview">
-  <video id="vr-circle-video" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;display:block;transform:scaleX(-1)"></video>
-  <div id="vr-circle-rec-dot"><div class="dot"></div><span id="vr-circle-time">0:00</span></div>
-  <div id="vr-circle-preview-hint">← свайп для отмены · ↑ свайп для фиксации</div>
-</div>
+<div id="vr-circle-preview"><video id="vr-circle-video" autoplay playsinline muted></video></div>
 
 </body>
 </html>

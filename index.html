@@ -19120,12 +19120,13 @@ document.addEventListener('visibilitychange', ()=>{
   };
 
   // ── Использовать инвайт ───────────────────────────────────────────────────
-  window._requestViaInvite = async function(tokenInput) {
+  window._requestViaInvite = async function(tokenInput, cachedInfo) {
     const { secret, serverUrl } = _invParseToken(tokenInput);
     const { kvKey, notifyKey } = await _invDeriveKeys(secret);
 
-    // Клиентская проверка "нельзя добавить себя"
-    const info = await window._getInviteInfo(tokenInput);
+    // Используем уже полученный info если есть, иначе фетчим
+    const info = cachedInfo || await window._getInviteInfo(tokenInput);
+    console.log('[invite] use → ' + serverUrl + '/invite2/use');
     const myHex = localStorage.getItem('_myPubHex');
     const myFp  = myHex ? await _pubHexToFp(myHex) : null;
     if (info.ownerFp && myFp && info.ownerFp === myFp) throw new Error('нельзя добавить себя');
@@ -19139,7 +19140,7 @@ document.addEventListener('visibilitychange', ()=>{
       // name намеренно НЕ передаётся — сервер не должен знать кто принял инвайт
       body: JSON.stringify({ kvKey, notifyKey, ...auth }),
     });
-    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || 'use failed'); }
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error((e.error || 'use failed') + ' [HTTP ' + res.status + ']'); }
 
     // Сохраняем encPub и pushToken владельца инвайта
     if (info.ownerPubHex) {
@@ -19390,7 +19391,7 @@ document.addEventListener('visibilitychange', ()=>{
 
       if (!ok) return;
 
-      const result = await window._requestViaInvite(tokenInput);
+      const result = await window._requestViaInvite(tokenInput, info);
 
       // Сразу добавляем контакт локально — не ждём подтверждения
       if (result.ownerPubHex) {

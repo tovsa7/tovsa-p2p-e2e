@@ -19132,7 +19132,9 @@ document.addEventListener('visibilitychange', ()=>{
     if (info.ownerFp && myFp && info.ownerFp === myFp) throw new Error('нельзя добавить себя');
 
     const ts = Math.floor(Date.now() / 1000);
+    console.log('[invite] signing use request...');
     const auth = await _invSign(`invite2:use:${kvKey}:${ts}`);
+    console.log('[invite] signed, sending use...');
 
     const res = await fetch(serverUrl + '/invite2/use', {
       method: 'POST',

@@ -2458,6 +2458,11 @@ if (typeof globalThis !== 'undefined') {
         <div class="prof-avatar-edit">✎</div>
       </div>
       <input type="file" id="prof-avatar-input" accept="image/*" style="display:none" onchange="onAvatarFile(this)">
+      <!-- Кнопки управления аватаркой (показываются когда есть кастомная или оригинальная) -->
+      <div id="prof-avatar-actions" style="display:none;gap:6px;margin-top:-8px;margin-bottom:6px;flex-direction:row;align-items:center">
+        <button id="prof-avatar-orig-btn" onclick="profViewOrigAvatar()" style="background:none;border:1px solid var(--bd);border-radius:8px;color:var(--mu);font-size:10px;padding:3px 8px;cursor:pointer;font-family:inherit;display:none">фото контакта</button>
+        <button id="prof-avatar-reset-btn" onclick="profResetAvatar()" style="background:none;border:1px solid rgba(224,108,117,.3);border-radius:8px;color:var(--e);font-size:10px;padding:3px 8px;cursor:pointer;font-family:inherit;display:none">сбросить моё</button>
+      </div>
       <!-- Имя: клик → редактировать -->
       <div class="prof-name-row">
         <div class="prof-name" id="prof-name" onclick="startEditProfName()"></div>
@@ -5906,7 +5911,7 @@ function ctxInfo(){
 let _infoFp=null;
 
 // ── Аватарка-кэш (in-memory) ─────────────────────────────────────────────
-const _avatarCache = {}; // fp → dataUrl | null
+const _avatarCache = {}; // fp → dataUrl | null (показываемая: custom ?? orig)
 async function _getAvatarCached(fp){
   if(fp in _avatarCache) return _avatarCache[fp];
   const v = await getAvatar(fp);
@@ -5914,15 +5919,40 @@ async function _getAvatarCached(fp){
   return v || null;
 }
 
-// ── Аватарки (IDB meta, ключ avatar_<fp>) ─────────────────────────────────
+// ── Аватарки ──────────────────────────────────────────────────────────────────
+// Два слоя:
+//   avatar_<fp>      — кастомная (поставил я для этого контакта)
+//   avatar_orig_<fp> — оригинальная (прислал контакт сам через P2P)
+//
+// Отображаемая = custom ?? orig
+// ─────────────────────────────────────────────────────────────────────────────
 async function getAvatar(fp){
-  try{ return await idbGet('meta','avatar_'+fp); }catch(_){ return null; }
+  try{
+    const custom = await idbGet('meta','avatar_'+fp);
+    if(custom) return custom;
+    return await idbGet('meta','avatar_orig_'+fp) || null;
+  }catch(_){ return null; }
+}
+async function getAvatarOrig(fp){
+  try{ return await idbGet('meta','avatar_orig_'+fp) || null; }catch(_){ return null; }
+}
+async function getAvatarCustom(fp){
+  try{ return await idbGet('meta','avatar_'+fp) || null; }catch(_){ return null; }
 }
 async function setAvatar(fp, dataUrl){
+  // Сохраняет кастомную аватарку (поставленную пользователем)
   try{ await idbSet('meta','avatar_'+fp, dataUrl); }catch(_){}
 }
+async function setAvatarOrig(fp, dataUrl){
+  // Сохраняет оригинальную от контакта (приходит по P2P)
+  try{ await idbSet('meta','avatar_orig_'+fp, dataUrl); }catch(_){}
+}
 async function delAvatar(fp){
+  // Удаляет кастомную — откатывает к оригинальной
   try{ await idbSet('meta','avatar_'+fp, null); }catch(_){}
+}
+async function delAvatarOrig(fp){
+  try{ await idbSet('meta','avatar_orig_'+fp, null); }catch(_){}
 }
 
 function _renderAvatar(fp, dataUrl, name){
@@ -5934,6 +5964,57 @@ function _renderAvatar(fp, dataUrl, name){
     const emojiMatch=(name||'').match(/(\p{Emoji_Presentation}|\p{Emoji}\uFE0F)/u);
     el.textContent = emojiMatch ? emojiMatch[0] : '👤';
   }
+  // Обновляем видимость кнопок управления аватаркой
+  _updateAvatarActionBtns(fp);
+}
+
+async function _updateAvatarActionBtns(fp) {
+  if(!fp) return;
+  const actionsWrap = document.getElementById('prof-avatar-actions');
+  const origBtn     = document.getElementById('prof-avatar-orig-btn');
+  const resetBtn    = document.getElementById('prof-avatar-reset-btn');
+  if(!actionsWrap) return;
+
+  const custom = await getAvatarCustom(fp);
+  const orig   = await getAvatarOrig(fp);
+
+  // Кнопка "фото контакта" — если есть оригинал И у нас кастомная (они разные)
+  if(origBtn) origBtn.style.display = (orig && custom) ? '' : 'none';
+  // Кнопка "сбросить моё" — если есть кастомная
+  if(resetBtn) resetBtn.style.display = custom ? '' : 'none';
+  // Показываем враппер если хоть одна кнопка видна
+  if(actionsWrap) actionsWrap.style.display = (orig && custom) || custom ? 'flex' : 'none';
+}
+
+// Показать оригинальную аватарку контакта (без сохранения)
+async function profViewOrigAvatar() {
+  if(!_infoFp) return;
+  const orig = await getAvatarOrig(_infoFp);
+  if(!orig) { toast('Оригинальная аватарка ещё не получена'); return; }
+  // Показываем в лайтбоксе
+  const lb     = document.getElementById('prof-lightbox');
+  const lbImg  = document.getElementById('prof-lightbox-media');
+  const lbCap  = document.getElementById('prof-lightbox-caption');
+  if(lb && lbImg) {
+    lbImg.src        = orig;
+    lbImg.style.display = '';
+    if(lbCap) lbCap.textContent = 'Оригинальная аватарка контакта';
+    lb.classList.add('on');
+  }
+}
+
+// Сбросить кастомную — вернуться к оригинальной
+async function profResetAvatar() {
+  if(!_infoFp) return;
+  if(!confirm('Удалить свою аватарку для этого контакта?')) return;
+  await delAvatar(_infoFp);
+  delete _avatarCache[_infoFp];
+  const orig = await getAvatarOrig(_infoFp);
+  _avatarCache[_infoFp] = orig || null;
+  const name = $('prof-name')?.textContent || '';
+  _renderAvatar(_infoFp, orig, name);
+  _refreshContactAvatars(_infoFp, orig || null);
+  toast('Аватарка сброшена');
 }
 
 function triggerAvatarUpload(){
@@ -10653,13 +10734,13 @@ async function _handleIdentityPacket(data, setIdDone){
       // Кешируем pubKeyHex для push-уведомлений (даже если контакт не сохранён)
       try { const _pc=JSON.parse(localStorage.getItem('_ntfyPubCache')||'{}'); _pc[res.fp]=res.pubHex; localStorage.setItem('_ntfyPubCache',JSON.stringify(_pc)); } catch(_){}
       // Аватарка от собеседника — сохраняем если у нас её нет
+      // Аватарка от собеседника — всегда обновляем оригинальный слот
       if(res.avatar){
         try{
-          const existing = await idbGet('meta', 'avatar_' + res.fp);
-          if(!existing){
-            await idbSet('meta', 'avatar_' + res.fp, res.avatar);
-            _avatarCache[res.fp] = res.avatar;
-          }
+          await setAvatarOrig(res.fp, res.avatar);
+          // Обновляем кеш только если нет кастомной
+          const custom = await getAvatarCustom(res.fp);
+          if(!custom) _avatarCache[res.fp] = res.avatar;
         }catch(_){}
       }
       if(contact){
@@ -15314,7 +15395,7 @@ async function roomCreate({ name, historyPolicy = 'any_member' }) {
     adminPrivKey: myPrivKey,
   });
 
-  const myName = localStorage.getItem('_myName') || 'Tovsa User';
+  const myName = localStorage.getItem('myName') || localStorage.getItem('_myName') || 'Tovsa User';
   const room = {
     roomId,
     roomKeyBytes,
@@ -16704,7 +16785,7 @@ async function acceptContactRequest(idx) {
     if (r.encPub && typeof sealEnvelope === 'function' && _myEncKey && myPubKeyHex) {
       try {
         const myEncPub = _myEncKey?.publicKeyB64u || null;
-        const myName   = localStorage.getItem('_myName') || '';
+        const myName   = ( $('my-name-input')?.value?.trim() || localStorage.getItem('myName') || localStorage.getItem('_myName') || '');
         const sealed   = await sealEnvelope(
           { from: myPubKeyHex, kind: 'contact_confirmed', data: {
             name:    myName,
@@ -17062,7 +17143,7 @@ function _acRenderQR(text) {
   if (!canvas || !qrWrap) return;
   qrWrap.style.display = 'flex';
   let myName = '';
-  try { myName = localStorage.getItem('_myName') || localStorage.getItem('myName') || ''; } catch(_) {}
+  try { myName = localStorage.getItem('myName') || localStorage.getItem('_myName') || ''; } catch(_) {}
   if (nameEl) nameEl.textContent = myName;
   if (typeof QRCode !== 'undefined') {
     const tmp = document.createElement('div');
@@ -19899,7 +19980,7 @@ document.addEventListener('visibilitychange', ()=>{
   // ── Создать инвайт ────────────────────────────────────────────────────────
   window._createInvite = async function({ maxUses = 30, expiresIn = 604800 } = {}) {
     const myHex  = localStorage.getItem('_myPubHex');
-    const myName = localStorage.getItem('_myName') || 'Tovsa User';
+    const myName = localStorage.getItem('myName') || localStorage.getItem('_myName') || 'Tovsa User';
     if (!myHex) throw new Error('ключ не готов');
 
     const myFp   = await _pubHexToFp(myHex);
@@ -20080,7 +20161,7 @@ document.addEventListener('visibilitychange', ()=>{
     if (info.encPub && info.ownerPubHex) {
       try {
         const myEncPub   = typeof _myEncKey !== 'undefined' ? (_myEncKey?.publicKeyB64u || null) : null;
-        const myName     = localStorage.getItem('_myName') || localStorage.getItem('myName') || '';
+        const myName     = localStorage.getItem('myName') || localStorage.getItem('_myName') || '';
         const myPushTok  = localStorage.getItem('_myPushToken') || null;
         const mySrv      = typeof currentSrv === 'function' ? currentSrv() : null;
         const mySigUrl   = mySrv ? `wss://${mySrv.host}/signal` : null;
@@ -22188,13 +22269,37 @@ function _buildChatItemHTML(item) {
       </div>
     </div>`;
   }
-  const typeEmoji = item.type === 'room' ? '🔒' : item.type === 'channel' ? '📢' : null;
-  const avatarBg  = item.type === 'room' ? 'room' : item.type === 'channel' ? 'channel' : '';
+
+  const isActivePeer = item.type === 'contact' && item.id === currentPeerFp;
+  const presenceState = item.type === 'contact' ? (_presenceCache?.[item.id] || '') : '';
+  const isConnected   = item.type === 'contact' && dc && dc.readyState === 'open' && item.id === currentPeerFp;
+
+  const typeEmoji  = item.type === 'room' ? '🔒' : item.type === 'channel' ? '📢' : null;
+  const avatarBg   = item.type === 'room' ? 'room' : item.type === 'channel' ? 'channel' : '';
   const avatarContent = item.avatar
     ? `<img src="${item.avatar}" alt="">`
     : `<span style="font-size:16px;font-weight:700;color:var(--a)">${item.initials}</span>`;
   const typeBadge = typeEmoji
     ? `<div class="chat-type-badge">${typeEmoji}</div>` : '';
+
+  // Онлайн-точка (зелёная анимированная) — когда открыт P2P канал с этим контактом
+  const onlineDot = isActivePeer
+    ? `<div class="ci-online-dot" style="position:absolute;bottom:1px;right:1px;width:10px;height:10px;border:2px solid var(--sf);border-radius:50%"></div>`
+    : '';
+  // Presence-точка — статус из presenceCache
+  const pdTitle = presenceState === 'online' ? 'онлайн'
+    : presenceState === 'checking' ? 'проверяем...'
+    : (_fmtLastSeen ? (_fmtLastSeen(item.id) ? 'был(а) '+_fmtLastSeen(item.id) : 'офлайн') : 'офлайн');
+  const presenceDot = (item.type === 'contact' && !isActivePeer && _pjOk)
+    ? `<div class="ci-presence-dot ${presenceState||'offline'}" id="pd-${item.id}"
+         title="${pdTitle}"
+         style="position:absolute;bottom:1px;right:1px;width:10px;height:10px;border:2px solid var(--sf);border-radius:50%"></div>`
+    : '';
+
+  const activeStyle = isActivePeer
+    ? 'background:rgba(0,255,157,.03);border-left:2px solid var(--a)'
+    : '';
+
   const unreadBadge = item.unread > 0
     ? `<div class="chat-item-unread">${item.unread > 99 ? '99+' : item.unread}</div>` : '';
   const myDeviceBadge = item.isMyDevice
@@ -22202,17 +22307,33 @@ function _buildChatItemHTML(item) {
   const botBadge = item.isBot
     ? `<span class="bot-badge">⚙ бот</span>` : '';
 
+  // Last seen под последним сообщением для контактов офлайн
+  const lsText = (item.type === 'contact' && presenceState !== 'online' && _pjOk && typeof _fmtLastSeen === 'function')
+    ? _fmtLastSeen(item.id) : null;
+  const lastTextStr = item.lastText
+    ? (item.lastText.length > 40 ? item.lastText.slice(0,40)+'…' : item.lastText)
+    : '<span style="opacity:.4">нет сообщений</span>';
+  const lastHtml = lsText
+    ? `${lastTextStr}<span style="display:block;font-size:9px;color:var(--mu);opacity:.7">был(а) ${esc(lsText)}</span>`
+    : lastTextStr;
+
+  const queueCount = typeof _offlineQueue !== 'undefined'
+    ? (_offlineQueue.filter(m => m.fp === item.id).length) : 0;
+  const queueBadge = queueCount > 0
+    ? `<span class="citem-queue-badge">${queueCount}</span>` : '';
+
   return `<div class="chat-item" data-id="${item.id}" data-type="${item.type}"
+    style="${activeStyle}"
     onclick="openChatItem('${item.id}','${item.type}')"
     oncontextmenu="chatItemCtx(event,'${item.id}','${item.type}');return false">
-    <div class="chat-item-avatar ${avatarBg}">
-      ${avatarContent}${typeBadge}
+    <div class="chat-item-avatar ${avatarBg}" style="position:relative">
+      ${avatarContent}${typeBadge}${onlineDot}${presenceDot}
     </div>
     <div class="chat-item-info">
       <div class="chat-item-name">
-        ${_esc(item.name)}${myDeviceBadge}${botBadge}
+        ${_esc(item.name)}${myDeviceBadge}${botBadge}${queueBadge}
       </div>
-      <div class="chat-item-last">${item.lastText ? (item.lastText.length > 40 ? item.lastText.slice(0,40)+'…' : item.lastText) : '<span style="opacity:.4">нет сообщений</span>'}</div>
+      <div class="chat-item-last">${lastHtml}</div>
     </div>
     <div class="chat-item-meta">
       <div class="chat-item-time">${_fmtChatTime(item.lastTs)}</div>

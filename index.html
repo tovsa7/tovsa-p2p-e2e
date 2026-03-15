@@ -3679,7 +3679,7 @@ async function initIdentity(){
     await initEncKey();
     console.log('[sealed] encKey ready, pub:', _myEncKey?.publicKeyB64u?.slice(0,12)+'...');
     // Подписываемся на sealed push (v2) — не раскрывает fingerprint серверу.
-    if (typeof sealedPushSubscribe === 'function' && PUSH_SERVER && !PUSH_SERVER.includes('ВАШ')) {
+    if (typeof sealedPushSubscribe === 'function' && typeof PUSH_SERVER !== 'undefined' && PUSH_SERVER && !PUSH_SERVER.includes('ВАШ')) {
       sealedPushSubscribe(PUSH_SERVER).catch(() => {});
     }
     // Gossip при старте: загружаем манифест домашнего сервера → наполняем кеш соседей.
@@ -3735,7 +3735,12 @@ function _encBytesToHex(bytes) {
   return Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join('');
 }
 function _encBytesToB64(bytes) {
-  return btoa(String.fromCharCode(...bytes));
+  let s = '';
+  const chunk = 8192;
+  for(let i = 0; i < bytes.length; i += chunk){
+    s += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(s);
 }
 function _encB64ToBytes(b64) {
   return Uint8Array.from(atob(b64), c => c.charCodeAt(0));

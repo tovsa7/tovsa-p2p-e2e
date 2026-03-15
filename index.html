@@ -19452,38 +19452,7 @@ function vibrate(ms){ navigator.vibrate && navigator.vibrate(ms); }
 
 // ── 0. СВАЙП ВЛЕВО НА КНОПКЕ ЗАПИСИ → ОТМЕНА ─────────────────────────────────
 // Во время записи свайп влево от кнопки отменяет запись
-(function(){
-  const CANCEL_THRESHOLD = 60; // px влево
-  let tracking = false;
-  let startX = 0;
-  let cancelled = false;
-
-  document.addEventListener('touchstart', e => {
-    const btn = document.getElementById('mic-send-btn');
-    if(!btn) return;
-    if(typeof _vr === 'undefined' || _vr.state === 'idle') return;
-    // Начало касания на кнопке или vr-bar
-    const target = e.target;
-    if(btn.contains(target) || (document.getElementById('vr-bar') || {}).contains && document.getElementById('vr-bar').contains(target)){
-      tracking = true;
-      cancelled = false;
-      startX = e.touches[0].clientX;
-    }
-  }, { passive: true });
-
-  document.addEventListener('touchmove', e => {
-    if(!tracking || typeof _vr === 'undefined' || _vr.state === 'idle'){ tracking = false; return; }
-    const dx = e.touches[0].clientX - startX;
-    if(dx < -CANCEL_THRESHOLD && !cancelled){
-      cancelled = true;
-      tracking  = false;
-      vibrate(30);
-      vrCancelRecording();
-    }
-  }, { passive: true });
-
-  document.addEventListener('touchend', () => { tracking = false; }, { passive: true });
-})();
+// [vr cancel gesture — перенесён в _vrAttachBtn]
 
 // ── 1. СВАЙП ПО СООБЩЕНИЮ → ОТВЕТИТЬ ─────────────────────────────────────────
 // Вправо = ответить (для входящих и исходящих)

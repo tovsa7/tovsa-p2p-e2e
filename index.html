@@ -202,8 +202,12 @@ textarea::placeholder{color:var(--mu)}
 .vr-hint{font-size:10px;color:var(--mu);white-space:nowrap;transition:opacity .2s,transform .2s}
 /* Подсказки свайпов */
 .vr-swipe-hint{position:fixed;font-size:12px;color:var(--mu);pointer-events:none;transition:opacity .2s,transform .2s;opacity:0;white-space:nowrap;z-index:250;background:var(--sf);border:1px solid var(--bd);border-radius:20px;padding:5px 13px}
-.vr-swipe-hint.left{right:70px;bottom:calc(env(safe-area-inset-bottom,0px) + 28px);transform:translateY(0)}
-.vr-swipe-hint.up{left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 80px);transform:translateX(-50%)}
+/* ← отмена: слева над клавиатурой */
+.vr-swipe-hint.left{left:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 72px);transform:translateX(-8px)}
+.vr-swipe-hint.left.visible{transform:translateX(0)}
+/* ↑ зафиксировать: по центру над кнопкой */
+.vr-swipe-hint.up{left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 120px);transform:translateX(-50%) translateY(8px)}
+.vr-swipe-hint.up.visible{transform:translateX(-50%) translateY(0)}
 .vr-swipe-hint.visible{opacity:1}
 /* Кнопка стоп при фиксации */
 .vr-stop-btn{width:38px;height:38px;border-radius:50%;background:var(--e);border:none;color:#fff;font-size:14px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:transform .15s;-webkit-tap-highlight-color:transparent}
@@ -2344,7 +2348,7 @@ if (typeof globalThis !== 'undefined') {
   <div class="iarea">
     <button class="btn" onclick="$('fav-file-input').click()" style="padding:10px 12px;flex-shrink:0" title="Прикрепить файл">📎</button>
     <input type="file" id="fav-file-input" style="display:none" onchange="saveFavFile(this)">
-    <textarea id="fav-input" placeholder="заметка..." onkeydown="handleFavKey(event)" oninput="autoGrowMi(this)"></textarea>
+    <textarea id="fav-input" placeholder="заметка..." onkeydown="handleFavKey(event)" oninput="autoGrowMi(this);vrUpdateSendBtn()"></textarea>
     <button class="mic-send-btn mic-mode" id="fav-mic-btn">🎤</button>
     <button class="btn" onclick="sendFav()" id="fav-send-btn">→</button>
   </div>
@@ -2703,7 +2707,7 @@ if (typeof globalThis !== 'undefined') {
   <!-- Circle live preview (during recording) -->
   <div id="vr-circle-preview"><video id="vr-circle-video" autoplay playsinline muted></video></div>
   <!-- Swipe hints — fixed, above keyboard -->
-  <div class="vr-swipe-hint left" id="vr-hint-left">← отмена</div>
+  <div class="vr-swipe-hint left" id="vr-hint-left">✕ отмена</div>
   <div class="vr-swipe-hint up"   id="vr-hint-up">🔒 зафиксировать</div>
 </div>
 
@@ -8193,7 +8197,10 @@ function vrUpdateSendBtn(){
   }
   // Синхронизируем кнопку в избранном
   const favBtn = document.getElementById('fav-mic-btn');
+  const favInput = document.getElementById('fav-input');
+  const favHasText = favInput && favInput.value.trim().length > 0;
   if(favBtn){
+    favBtn.style.display = favHasText ? 'none' : '';
     if(_vr.state !== 'idle'){
       favBtn.className = 'mic-send-btn rec-mode';
     } else if(_vr.mode === 'circle'){
@@ -8330,26 +8337,29 @@ function _vrAttachBtn(btnId, context){
 
   // ── Фиксация записи ──────────────────────────────────────────────────────
   const _lockRecording = () => {
+    if(_locked) return; // уже зафиксировано
     _locked = true;
     _showHints(false);
     _btnRecEnd();
+    btn.style.transform = '';
     vibrate([30, 40, 30]);
-    // Показываем кнопку ⏹ в баре
+    // Показываем кнопку ⏹ в баре — единственный способ остановить
     const stopBtn = document.getElementById('vr-stop-btn');
     if(stopBtn) stopBtn.style.display = '';
-    // Подсказка "зафиксировано — нажми ⏹"
-    const hu = document.getElementById('vr-hint-up');
-    if(hu){
-      hu.textContent = '🔒 зафиксировано · нажми ⏹';
-      hu.classList.add('visible');
-      setTimeout(() => { hu.classList.remove('visible'); hu.textContent = '🔒 зафиксировать'; }, 2000);
-    }
+    // Кнопка mic становится неактивной визуально
+    btn.style.opacity = '0.4';
+    btn.title = 'Запись зафиксирована — нажми ⏹ для остановки';
   };
 
   // ── TOUCH ─────────────────────────────────────────────────────────────────
   btn.addEventListener('touchstart', e => {
     e.preventDefault();
     _touchActive = true;
+    // Если есть текст — не запускаем таймер голоса
+    if(context === 'chat'){
+      const mi = document.getElementById('mi');
+      if(mi && mi.value.trim()) return;
+    }
     _didRecord   = false;
     _locked      = false;
     _startX = e.touches[0].clientX;
@@ -8403,9 +8413,22 @@ function _vrAttachBtn(btnId, context){
 
   btn.addEventListener('touchend', e => {
     e.preventDefault();
+    _touchActive = true;
+    setTimeout(() => { _touchActive = false; }, 300);
+
+    // Всегда проверяем текст первым — приоритет отправки над голосом
+    if(context === 'chat'){
+      const mi = document.getElementById('mi');
+      if(mi && mi.value.trim()){
+        if(_holdTimer){ clearTimeout(_holdTimer); _holdTimer = null; }
+        sendMsg();
+        return;
+      }
+    }
+
     if(_holdTimer){
       clearTimeout(_holdTimer); _holdTimer = null;
-      // Короткое нажатие — переключить режим
+      // Короткое нажатие без текста — переключить режим
       _vrToggleMode();
       return;
     }
@@ -8483,7 +8506,11 @@ function vrLockedStop(){
   const stopBtn = document.getElementById('vr-stop-btn');
   if(stopBtn) stopBtn.style.display = 'none';
   const btn = document.getElementById('mic-send-btn');
-  if(btn) btn.classList.remove('recording');
+  if(btn){
+    btn.classList.remove('recording');
+    btn.style.opacity = '';
+    btn.style.transform = '';
+  }
   if(_vr.state !== 'idle'){
     const dur = Date.now() - _vr.startTs;
     if(dur < VR_MIN_MS) vrCancelRecording();
@@ -8580,7 +8607,12 @@ function vrShowRecBar(show){
     if(hl){ hl.classList.remove('visible'); hl.style.color=''; hl.style.transform=''; }
     if(hu){ hu.classList.remove('visible'); hu.style.color=''; hu.style.transform=''; }
     const btn = document.getElementById('mic-send-btn');
-    if(btn) btn.classList.remove('recording');
+    if(btn){
+      btn.classList.remove('recording');
+      btn.style.opacity = '';
+      btn.style.transform = '';
+      btn.title = '';
+    }
   }
 }
 

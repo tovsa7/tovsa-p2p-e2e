@@ -8275,47 +8275,30 @@ function vrUpdateSendBtn(){
   const mi  = document.getElementById('mi');
   const ab  = document.getElementById('attach-btn');
   if(btn){
-    const hasText = mi && mi.value.trim().length > 0;
-    if(hasText){
-      btn.textContent = '➤';
-      btn.className   = 'mic-send-btn';
-      if(ab) ab.style.display = 'none';
-      btn.title = 'Отправить';
-    } else if(_vr.state !== 'idle'){
-      btn.className   = 'mic-send-btn rec-mode';
-      if(ab) ab.style.display = 'none';
+    if(btn._vrSync){
+      btn._vrSync();
     } else {
-      if(_vr.mode === 'circle'){
-        btn.textContent = '🔴';
-        btn.className   = 'mic-send-btn mic-mode circle-mode';
-        btn.title       = 'Тап — переключить на голосовое · Удержание — кружок';
+      // fallback если _vrSync не установлен
+      const hasText = mi && mi.value.trim().length > 0;
+      if(hasText){
+        btn.textContent = '➤'; btn.className = 'mic-send-btn';
+        if(ab) ab.style.display = 'none';
+      } else if(_vr.state !== 'idle'){
+        btn.className = 'mic-send-btn rec-mode';
+        if(ab) ab.style.display = 'none';
+      } else if(_vr.mode === 'circle'){
+        btn.textContent = '🔴'; btn.className = 'mic-send-btn mic-mode circle-mode';
+        if(ab) ab.style.display = '';
       } else {
-        btn.textContent = '🎤';
-        btn.className   = 'mic-send-btn mic-mode';
-        btn.title       = 'Тап — переключить на кружок · Удержание — голосовое';
+        btn.textContent = '🎤'; btn.className = 'mic-send-btn mic-mode';
+        if(ab) ab.style.display = '';
       }
-      if(ab) ab.style.display = '';
     }
   }
   // Синхронизируем кнопки в избранном и истории через _vrSync (он знает mode)
   for(const btnId of ['fav-mic-btn','sh-mic-btn','room-mic-btn']){
     const b = document.getElementById(btnId);
     if(b && b._vrSync) b._vrSync();
-  }
-  const favBtn = document.getElementById('fav-mic-btn');
-  const favInput = document.getElementById('fav-input');
-  const favHasText = favInput && favInput.value.trim().length > 0;
-  if(favBtn){
-    favBtn.style.display = favHasText ? '' : '';
-    if(_vr.state !== 'idle'){
-      favBtn.className = 'mic-send-btn rec-mode';
-    } else if(_vr.mode === 'circle'){
-      favBtn.textContent = '🔴';
-      favBtn.className   = 'mic-send-btn mic-mode circle-mode';
-    } else {
-      favBtn.textContent = '🎤';
-      favBtn.className   = 'mic-send-btn mic-mode';
-    }
   }
 }
 
@@ -8405,6 +8388,7 @@ function _vrAttachBtn(btnId, context){
     } else {
       btn.textContent = '🎤'; btn.className = 'mic-send-btn mic-mode';
     }
+
   };
   btn._vrSync = _syncBtn;
   _syncBtn();
@@ -8467,38 +8451,18 @@ function _vrAttachBtn(btnId, context){
     _pressTs      = Date.now();
     _capturedMode = _vr.mode; // захватываем режим прямо сейчас
     _state        = 'pressed';
-    console.log('[vr] touchstart mode=' + _capturedMode + ' context=' + context);
 
-    // Запрашиваем stream СРАЗУ в user gesture (до setTimeout)
-    // Это нужно чтобы браузер не блокировал getUserMedia
-    _streamReady = _getStream(_capturedMode).catch(err => {
-      console.warn('[vr] stream pre-request failed:', err.message);
-      return null;
-    });
-
-    // Через TAP_MS — если ещё держат — начинаем запись
+    // Через TAP_MS — начинаем запись (stream запрашивается внутри)
     _recTimer = setTimeout(async () => {
       _recTimer = null;
       if(_state !== 'pressed') return;
-      console.log('[vr] hold timeout, starting rec mode=' + _capturedMode);
-
-      const stream = await _streamReady;
-      _streamReady = null;
-
-      if(!stream){
-        toast('Нет доступа к ' + (_capturedMode === 'circle' ? 'камере/микрофону' : 'микрофону'));
-        _state = 'idle'; _syncBtn(); return;
-      }
-
-      if(_vr.state !== 'idle' || _state !== 'pressed'){ stream.getTracks().forEach(t=>t.stop()); return; }
 
       _state = 'recording';
       btn.classList.add('recording');
       _showLock(true);
       _showBar();
 
-      // Запускаем MediaRecorder напрямую (stream уже есть)
-      await vrBeginRecordingWithStream(_capturedMode, context, stream);
+      await vrBeginRecording(_capturedMode, context);
 
       if(_state === 'recording' && _vr.state === 'idle'){
         _state = 'idle'; btn.classList.remove('recording'); _showLock(false); _hideBar();
@@ -8543,7 +8507,6 @@ function _vrAttachBtn(btnId, context){
     if(inp && inp.value.trim()){
       if(_recTimer){ clearTimeout(_recTimer); _recTimer = null; }
       _state = 'idle';
-      if(_streamReady){ _streamReady.then(s => s && s.getTracks().forEach(t=>t.stop())); _streamReady = null; }
       if(context === 'fav') sendFav();
       else if(context === 'room') roomSendMessageUI();
       else sendMsg();
@@ -8557,13 +8520,10 @@ function _vrAttachBtn(btnId, context){
     // Тап — таймер ещё жив
     if(_recTimer){
       clearTimeout(_recTimer); _recTimer = null;
-      console.log('[vr] tap detected, toggling mode from ' + _vr.mode);
-      if(_streamReady){ _streamReady.then(s => s && s.getTracks().forEach(t=>t.stop())); _streamReady = null; }
       _state = 'idle';
-      _vrToggleMode(); // обновляет иконку через _syncBtn
-      _syncBtn();      // принудительно обновляем эту кнопку тоже
-      requestAnimationFrame(() => _syncBtn()); // гарантируем перерисовку
-      console.log('[vr] mode after toggle: ' + _vr.mode + ' btn=' + btn.textContent);
+      _vrToggleMode();
+      _syncBtn();
+      requestAnimationFrame(() => _syncBtn());
       toast(_vr.mode === 'circle' ? '🔴 Режим кружка' : '🎤 Голосовой режим');
       return;
     }
@@ -8583,7 +8543,6 @@ function _vrAttachBtn(btnId, context){
 
   btn.addEventListener('touchcancel', () => {
     if(_recTimer){ clearTimeout(_recTimer); _recTimer = null; }
-    if(_streamReady){ _streamReady.then(s => s && s.getTracks().forEach(t=>t.stop())); _streamReady = null; }
     if(_state === 'recording'){ vrCancelRecording(); _hideBar(); }
     _state = 'idle';
     btn.classList.remove('recording');
@@ -8638,8 +8597,7 @@ function vrLockedStop(){
 // ── Переключение режима 🎤 ↔ 🔴 ──────────────────────────────────────────────
 function _vrToggleMode(){
   _vr.mode = _vr.mode === 'voice' ? 'circle' : 'voice';
-  vibrate(12);
-  // Синхронизируем все кнопки немедленно
+  try { navigator.vibrate && navigator.vibrate(12); } catch(_) {}
   ['mic-send-btn','fav-mic-btn','sh-mic-btn','room-mic-btn'].forEach(id => {
     const b = document.getElementById(id);
     if(b && b._vrSync) b._vrSync();

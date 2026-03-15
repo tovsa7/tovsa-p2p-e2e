@@ -8300,16 +8300,10 @@ function vrUpdateSendBtn(){
       if(ab) ab.style.display = '';
     }
   }
-  // Синхронизируем кнопки в избранном и истории
-  for(const [btnId, inputId] of [['fav-mic-btn','fav-input'],['sh-mic-btn','sh-mi']]){
-    const btn2 = document.getElementById(btnId);
-    const inp2 = document.getElementById(inputId);
-    const has  = inp2 && inp2.value.trim().length > 0;
-    if(btn2){
-      btn2.style.display = has ? '' : '';
-      btn2.textContent   = has ? '➤' : '🎤';
-      btn2.className     = has ? 'mic-send-btn' : 'mic-send-btn mic-mode';
-    }
+  // Синхронизируем кнопки в избранном и истории через _vrSync (он знает mode)
+  for(const btnId of ['fav-mic-btn','sh-mic-btn','room-mic-btn']){
+    const b = document.getElementById(btnId);
+    if(b && b._vrSync) b._vrSync();
   }
   const favBtn = document.getElementById('fav-mic-btn');
   const favInput = document.getElementById('fav-input');

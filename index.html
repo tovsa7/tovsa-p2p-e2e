@@ -3177,7 +3177,7 @@ function safeBase64(u8){
 const ID_KEY='p2p_identity_v1';
 // IndexedDB replaces localStorage for contacts, history, favourites
 const DB_NAME='tovsa_v1';
-const DB_VER=3;
+const DB_VER=4; // v4: добавлены voice, rooms, channels (совпадает с sw.js)
 let _db=null;
 
 function openDB(){
@@ -3190,8 +3190,11 @@ function openDB(){
       if(!db.objectStoreNames.contains('history'))  db.createObjectStore('history');
       if(!db.objectStoreNames.contains('fav'))      db.createObjectStore('fav');
       if(!db.objectStoreNames.contains('files'))    db.createObjectStore('files');
+      if(!db.objectStoreNames.contains('voice'))    db.createObjectStore('voice');
       if(!db.objectStoreNames.contains('keys'))     db.createObjectStore('keys');
       if(!db.objectStoreNames.contains('meta'))     db.createObjectStore('meta');
+      if(!db.objectStoreNames.contains('rooms'))    db.createObjectStore('rooms');
+      if(!db.objectStoreNames.contains('channels')) db.createObjectStore('channels');
     };
     req.onsuccess=e=>{_db=e.target.result;res(_db);};
     req.onerror=()=>rej(req.error);
@@ -3504,7 +3507,11 @@ async function initIdentity(){
     const storedPriv = await idbGet('keys','id_priv_jwk').catch(()=>null);
     const storedPub  = await idbGet('keys','id_pub_raw').catch(()=>null);
 
-    if(storedPriv && storedPub){
+    // Проверяем что данные — реальный JWK, а не зашифрованный blob
+    const isValidJwk = storedPriv && typeof storedPriv === 'object' && storedPriv.kty && !storedPriv.__enc;
+    const isValidPub = storedPub && (Array.isArray(storedPub) || storedPub instanceof Uint8Array);
+
+    if(isValidJwk && isValidPub){
       // Ключи уже в IDB
       myPrivKey = await crypto.subtle.importKey('jwk', storedPriv, {name:'Ed25519'}, false, ['sign']);
       myPubKeyRaw = new Uint8Array(storedPub);
@@ -3643,8 +3650,9 @@ async function encInitSessionKey() {
     salt = _encBytesToHex(crypto.getRandomValues(new Uint8Array(32)));
     localStorage.setItem('_enc_salt', salt);
   }
-  // Дополнительный контекст — hostname как часть соли
-  const ctx = location.hostname || 'tovsa';
+  // Стабильный контекст — НЕ используем hostname т.к. в TWA/file:// он пустой
+  // appSalt уже уникален для каждой установки — дополнительный контекст не нужен
+  const ctx = 'tovsa';
   _encActiveKey = await _encDerive(ctx + ':session', salt, 50000);
   console.log('[enc] sessionKey ready');
 }
@@ -3721,6 +3729,9 @@ async function _encDecrypt(stored) {
     return JSON.parse(new TextDecoder().decode(plainBuf));
   } catch(e) {
     console.warn('[enc] decrypt failed, returning raw:', e.message);
+    // Если это зашифрованный blob который мы не можем расшифровать —
+    // возвращаем null чтобы вызывающий код сгенерировал новые данные
+    if (stored && stored.__enc) return null;
     return stored; // fallback — незашифрованные данные (миграция)
   }
 }

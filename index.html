@@ -1100,7 +1100,14 @@ textarea::placeholder{color:var(--mu)}
 
 </style>
 
-<script>
+<script>// Автофокус только на десктопе (pointer:fine) — на мобильном не открываем клавиатуру
+function _focusMiDesktop(id){
+  if(window.matchMedia('(pointer:fine)').matches){
+    try{ const el=document.getElementById(id||'mi'); if(el) el.focus(); }catch(_){}
+  }
+}
+
+
 // ── Sealed Relay Crypto (v1.0) ──────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 // Tovsa Sealed Relay — криптографический модуль v1.0
@@ -2283,16 +2290,23 @@ if (typeof globalThis !== 'undefined') {
   </div>
   <div class="msgs" id="sh-msgs" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:16px;display:flex;flex-direction:column;gap:8px;touch-action:pan-y"></div>
   <div class="sh-empty" id="sh-empty" style="display:none">Нет сохранённых сообщений</div>
-  <!-- Офлайн-очередь: поле ввода в истории -->
-  <div id="sh-iarea" class="iarea" style="display:none;flex-direction:column;gap:8px;padding:10px 12px">
-    <div id="sh-offline-banner" style="display:flex;align-items:center;gap:8px;font-size:10px;color:var(--w);padding:0 2px">
-      <span style="width:6px;height:6px;border-radius:50%;background:var(--w);flex-shrink:0;animation:blink .9s infinite"></span>
-      <span>Контакт не в сети — сообщение будет отправлено при подключении</span>
+  <!-- История: офлайн-очередь -->
+  <div id="sh-offline-banner" style="display:none;align-items:center;gap:8px;font-size:10px;color:var(--w);padding:6px 14px;background:rgba(229,192,123,.08);border-top:1px solid rgba(229,192,123,.2)">
+    <span style="width:6px;height:6px;border-radius:50%;background:var(--w);flex-shrink:0;animation:blink .9s infinite"></span>
+    <span>Не в сети — сообщение отправится при подключении</span>
+  </div>
+  <div id="sh-iarea" class="iarea" style="display:none;position:relative">
+    <button class="btn" onclick="$('sh-file-input').click()" style="padding:10px 12px;flex-shrink:0;display:none" id="sh-attach-btn" title="Прикрепить файл">📎</button>
+    <input type="file" id="sh-file-input" style="display:none" onchange="sendOfflineFile(this)">
+    <!-- Бар записи -->
+    <div id="sh-vr-bar" style="display:none;align-items:center;gap:8px;flex:1">
+      <div class="vr-dot"></div>
+      <div class="vr-time" id="sh-vr-time">0:00</div>
+      <div class="vr-wave" id="sh-vr-wave" style="flex:1"></div>
+      <button onclick="vrCancelRecording()" style="background:none;border:none;color:var(--mu);font-size:12px;font-family:inherit;cursor:pointer;padding:4px 8px;white-space:nowrap">Отмена</button>
     </div>
-    <div style="display:flex;gap:8px;align-items:flex-end">
-      <textarea id="sh-mi" placeholder="Написать сообщение..." onkeydown="handleShMiKey(event)" oninput="autoGrowMi(this)" style="flex:1;background:var(--bg);border:1px solid var(--bd);border-radius:16px;padding:10px 16px;color:var(--tx);font-family:inherit;font-size:var(--fs);outline:none;resize:none;overflow:hidden;line-height:1.4;height:calc(1.4em + 20px);max-height:120px;overflow-y:auto;scrollbar-width:none;transition:border-color .2s" onfocus="this.style.borderColor='var(--a)'" onblur="this.style.borderColor='var(--bd)'"></textarea>
-      <button class="btn" onclick="sendOfflineMsg()" style="padding:10px 16px;flex-shrink:0;align-self:flex-end">📤</button>
-    </div>
+    <textarea id="sh-mi" placeholder="сообщение..." onkeydown="handleShMiKey(event)" oninput="autoGrowMi(this);vrUpdateSendBtn()"></textarea>
+    <button class="mic-send-btn mic-mode" id="sh-mic-btn">🎤</button>
   </div>
 </div>
 
@@ -2348,12 +2362,18 @@ if (typeof globalThis !== 'undefined') {
     </div>
     <button class="reply-bar-close" onclick="cancelEdit()">×</button>
   </div>
-  <div class="iarea">
-    <button class="btn" onclick="$('fav-file-input').click()" style="padding:10px 12px;flex-shrink:0" title="Прикрепить файл">📎</button>
+  <div class="iarea" id="fav-iarea" style="position:relative">
+    <button class="btn" id="fav-attach-btn" onclick="$('fav-file-input').click()" style="padding:10px 12px;flex-shrink:0" title="Прикрепить файл">📎</button>
     <input type="file" id="fav-file-input" style="display:none" onchange="saveFavFile(this)">
+    <!-- Бар записи (locked) -->
+    <div id="fav-vr-bar" style="display:none;align-items:center;gap:8px;flex:1">
+      <div class="vr-dot"></div>
+      <div class="vr-time" id="fav-vr-time">0:00</div>
+      <div class="vr-wave" id="fav-vr-wave" style="flex:1"></div>
+      <button onclick="vrCancelRecording()" style="background:none;border:none;color:var(--mu);font-size:12px;font-family:inherit;cursor:pointer;padding:4px 8px;white-space:nowrap">Отмена</button>
+    </div>
     <textarea id="fav-input" placeholder="заметка..." onkeydown="handleFavKey(event)" oninput="autoGrowMi(this);vrUpdateSendBtn()"></textarea>
     <button class="mic-send-btn mic-mode" id="fav-mic-btn">🎤</button>
-    <button class="btn" onclick="sendFav()" id="fav-send-btn">→</button>
   </div>
 </div>
 
@@ -2782,11 +2802,20 @@ if (typeof globalThis !== 'undefined') {
   <!-- Сообщения -->
   <div class="msgs" id="room-msgs" style="flex:1;scroll-behavior:smooth"></div>
   <!-- Ввод -->
-  <div class="iarea">
+  <div class="iarea" id="room-iarea" style="position:relative">
+    <button class="btn" id="room-attach-btn" onclick="$('room-file-input').click()" style="padding:10px 12px;flex-shrink:0;display:none" title="Прикрепить файл">📎</button>
+    <input type="file" id="room-file-input" style="display:none" onchange="roomSendFileUI(this)">
+    <!-- Бар записи (locked) -->
+    <div id="room-vr-bar" style="display:none;align-items:center;gap:8px;flex:1">
+      <div class="vr-dot"></div>
+      <div class="vr-time" id="room-vr-time">0:00</div>
+      <div class="vr-wave" id="room-vr-wave" style="flex:1"></div>
+      <button onclick="vrCancelRecording()" style="background:none;border:none;color:var(--mu);font-size:12px;font-family:inherit;cursor:pointer;padding:4px 8px;white-space:nowrap">Отмена</button>
+    </div>
     <textarea id="room-chat-input" placeholder="сообщение группе..."
       onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();roomSendMessageUI()}"
-      oninput="autoGrowMi(this)" style="flex:1;border-radius:16px;padding:10px 16px;height:calc(1.4em + 20px);font-size:13px"></textarea>
-    <button class="btn" onclick="roomSendMessageUI()" style="border-radius:20px;padding:10px 20px;flex-shrink:0;align-self:flex-end">→</button>
+      oninput="autoGrowMi(this);vrUpdateSendBtn()"></textarea>
+    <button class="mic-send-btn mic-mode" id="room-mic-btn">🎤</button>
   </div>
 </div>
 
@@ -5597,11 +5626,11 @@ async function openHistory(fp){
     container.scrollTop=container.scrollHeight;
   }
   // Показываем поле ввода только если контакт офлайн (нет активного соединения с ним)
-  const shIarea = $('sh-iarea');
-  if(shIarea){
-    const isActiveChat = $('sc').dataset.active==='1' && currentPeerFp===fp && dc && dc.readyState==='open';
-    shIarea.style.display = isActiveChat ? 'none' : '';
-  }
+  const shIarea   = $('sh-iarea');
+  const shBanner  = $('sh-offline-banner');
+  const isActive  = $('sc').dataset.active==='1' && currentPeerFp===fp && dc && dc.readyState==='open';
+  if(shIarea)  shIarea.style.display  = isActive ? 'none' : 'flex';
+  if(shBanner) shBanner.style.display = isActive ? 'none' : 'flex';
   _updateQueueBadge(fp);
 
   showTab('sh');
@@ -6058,7 +6087,7 @@ async function updateFavLast(){
 async function showFav(){
   showTab('sfav');
   await renderFavMsgs();
-  setTimeout(()=>$('fav-input').focus(),50);
+  setTimeout(()=>_focusMiDesktop('fav-input'),50);
 }
 
 async function saveFavFile(input){
@@ -6272,7 +6301,7 @@ function showPeerIdentity(fp,known,name){
   if($('sc').dataset.waitingIdentity === '1'){
     $('sc').dataset.waitingIdentity = '';
     showTab('sc');
-    setTimeout(() => { try{ $('mi').focus(); }catch(_){} }, 100);
+    setTimeout(() => _focusMiDesktop('mi'), 100);
   }
   // Сбрасываем бейдж при смене собеседника
   _showPeerPushBadge(null);
@@ -8220,12 +8249,22 @@ function vrUpdateSendBtn(){
       if(ab) ab.style.display = '';
     }
   }
-  // Синхронизируем кнопку в избранном
+  // Синхронизируем кнопки в избранном и истории
+  for(const [btnId, inputId] of [['fav-mic-btn','fav-input'],['sh-mic-btn','sh-mi']]){
+    const btn2 = document.getElementById(btnId);
+    const inp2 = document.getElementById(inputId);
+    const has  = inp2 && inp2.value.trim().length > 0;
+    if(btn2){
+      btn2.style.display = has ? '' : '';
+      btn2.textContent   = has ? '➤' : '🎤';
+      btn2.className     = has ? 'mic-send-btn' : 'mic-send-btn mic-mode';
+    }
+  }
   const favBtn = document.getElementById('fav-mic-btn');
   const favInput = document.getElementById('fav-input');
   const favHasText = favInput && favInput.value.trim().length > 0;
   if(favBtn){
-    favBtn.style.display = favHasText ? 'none' : '';
+    favBtn.style.display = favHasText ? '' : '';
     if(_vr.state !== 'idle'){
       favBtn.className = 'mic-send-btn rec-mode';
     } else if(_vr.mode === 'circle'){
@@ -8285,6 +8324,7 @@ function vrInit(){
   }
   _vrAttachBtn('mic-send-btn', 'chat');
   _vrAttachBtn('fav-mic-btn',  'fav');
+  _vrAttachBtn('sh-mic-btn',   'chat');
   vrUpdateSendBtn();
 }
 
@@ -8320,10 +8360,14 @@ function _vrAttachBtn(btnId, context){
       btn.textContent = '➤';
       btn.className   = 'mic-send-btn';
       btn.title       = 'Отправить запись';
+    } else if(_vr.mode === 'circle'){
+      btn.textContent = '🔴';
+      btn.className   = 'mic-send-btn mic-mode circle-mode';
+      btn.title       = 'Тап — голосовое · Держи — кружок';
     } else {
       btn.textContent = '🎤';
       btn.className   = 'mic-send-btn mic-mode';
-      btn.title       = 'Держи для голосового · Проведи вверх — кружок';
+      btn.title       = 'Тап — кружок · Держи — голосовое';
     }
   };
   btn._vrSync = _syncBtn;
@@ -8382,6 +8426,7 @@ function _vrAttachBtn(btnId, context){
 
   btn.addEventListener('touchstart', e => {
     e.preventDefault();
+    e.stopPropagation();
 
     if(context === 'chat'){
       const mi = document.getElementById('mi');
@@ -8408,7 +8453,12 @@ function _vrAttachBtn(btnId, context){
   }, { passive: false });
 
   btn.addEventListener('touchmove', e => {
-    if(_tapTimer){ clearTimeout(_tapTimer); _tapTimer = null; }
+    // Отменяем tapTimer только при значительном движении (> 8px)
+    if(_tapTimer){
+      const dx = Math.abs(e.touches[0].clientX - _startX);
+      const dy = Math.abs(e.touches[0].clientY - _startY);
+      if(dx > 8 || dy > 8){ clearTimeout(_tapTimer); _tapTimer = null; }
+    }
     if(!_recording || _locked || _cancelled) return;
     e.preventDefault();
     const dx = e.touches[0].clientX - _startX;
@@ -8450,6 +8500,7 @@ function _vrAttachBtn(btnId, context){
 
   btn.addEventListener('touchend', e => {
     e.preventDefault();
+    e.stopPropagation();
 
     // Если есть текст — отправляем
     if(context === 'chat'){
@@ -8590,6 +8641,11 @@ function _vrToggleMode(){
   _vr.mode = _vr.mode === 'voice' ? 'circle' : 'voice';
   vibrate(12);
   vrUpdateSendBtn();
+  // Синхронизируем _syncBtn всех подключённых кнопок
+  ['mic-send-btn','fav-mic-btn','sh-mic-btn'].forEach(id => {
+    const b = document.getElementById(id);
+    if(b && b._vrSync) b._vrSync();
+  });
 }
 
 // ── Запись ───────────────────────────────────────────────────────────────────
@@ -10699,7 +10755,7 @@ async function onConn(){
     contactsSubScreen='sc';
     $('sc').dataset.waitingIdentity = '';
   }
-  if(!($('sc').dataset.waitingIdentity === '1')) $('mi').focus();
+  if(!($('sc').dataset.waitingIdentity === '1')) _focusMiDesktop('mi');
   _e2eUpdateLockBadge();
 
   // Скрываем кнопку "позвать онлайн" — уже подключены
@@ -11899,7 +11955,7 @@ function sendMsg(){
     idbSet('meta','offlineQueue',_offlineQueue).catch(()=>{});
     addMsg(t,'out',_replyText||null,_replySender||null,_replyTs||null,ts);
     if(_replyText) cancelReply();
-    i.value=''; i.style.height='auto'; i.focus();
+    i.value=''; i.style.height='auto'; _focusMiDesktop('mi');
     
     return;
   }
@@ -11915,7 +11971,7 @@ function sendMsg(){
   }
   i.value='';
   i.style.height='auto';
-  i.focus();
+  _focusMiDesktop('mi');
   clearTimeout(_typingTimer);
   clearTimeout(_typingStopTimer);
   _typingTimer = null;
@@ -12871,13 +12927,13 @@ function msgCtxReply(){
     $('fav-reply-bar-sender').textContent=sender||'';
     $('fav-reply-bar-text').textContent=text;
     $('fav-reply-bar').classList.add('on');
-    setTimeout(()=>$('fav-input').focus(),50);
+    setTimeout(()=>_focusMiDesktop('fav-input'),50);
   } else {
     _replyText=text;_replySender=sender||'';_replyIsOut=!!isOut;_replyTs=ts||null;
     $('reply-bar-sender').textContent=sender||'';
     $('reply-bar-text').textContent=text;
     $('reply-bar').classList.add('on');
-    setTimeout(()=>$('mi').focus(),50);
+    setTimeout(()=>_focusMiDesktop('mi'),50);
   }
 }
 
@@ -19442,7 +19498,7 @@ function _attachSwipeReply(el, text, sender, ts, fp){
           barSender.textContent = sender || '';
           barText.textContent = text;
           bar.classList.add('on');
-          setTimeout(()=>{ const i=document.getElementById('fav-input'); i&&i.focus(); }, 50);
+          setTimeout(()=>{ _focusMiDesktop('fav-input'); }, 50);
         }
       } else {
         // Используем те же переменные что и msgCtxReply (module-level let, не window.*)
@@ -19457,7 +19513,7 @@ function _attachSwipeReply(el, text, sender, ts, fp){
           barSender.textContent = sender || '';
           barText.textContent = text;
           bar.classList.add('on');
-          setTimeout(()=>{ const i=document.getElementById('mi'); i&&i.focus(); }, 50);
+          setTimeout(()=>_focusMiDesktop('mi'), 50);
         }
       }
     }

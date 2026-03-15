@@ -13874,37 +13874,40 @@ async function buildFileBubble(meta,blobOrNull,msgType){
       scrubEl.step = 0.01;
       if(durEl2){ const mm=Math.floor(_knownDur/60),ss=Math.floor(_knownDur%60); durEl2.textContent=mm+':'+(ss<10?'0':'')+ss; }
     }
-    vidEl.addEventListener('loadedmetadata',()=>{
-      if(isFinite(vidEl.duration)){
-        const mm=Math.floor(vidEl.duration/60),ss=Math.floor(vidEl.duration%60);
-        if(durEl2) durEl2.textContent=mm+':'+(ss<10?'0':'')+ss;
-        if(scrubEl){ scrubEl.max=vidEl.duration; scrubEl.step=0.01; }
-      } else if(_knownDur > 0 && scrubEl){
-        scrubEl.max = _knownDur; // WebM Infinity — используем известную длину
-      }
-    });
+    // Устанавливаем max из мета-данных или известной длины
+    const _setMax = (dur) => {
+      if(dur > 0 && isFinite(dur) && scrubEl) scrubEl.max = dur;
+    };
+    if(_knownDur > 0){ _setMax(_knownDur); }
+    vidEl.addEventListener('loadedmetadata', () => _setMax(vidEl.duration));
+    vidEl.addEventListener('durationchange', () => _setMax(vidEl.duration));
 
-    // Обновляем scrubber во время воспроизведения
-    vidEl.addEventListener('timeupdate',()=>{
+    // Показ времени
+    const _showTime = (cur, dur) => {
+      if(!durEl2 || dur <= 0) return;
+      const rem = Math.max(0, dur - cur);
+      const mm=Math.floor(rem/60), ss=Math.floor(rem%60);
+      durEl2.textContent = mm+':'+(ss<10?'0':'')+ss;
+    };
+    // Инициализируем время из известной длины
+    if(_knownDur > 0) _showTime(0, _knownDur);
+
+    // Обновляем scrubber и время
+    vidEl.addEventListener('timeupdate', () => {
       if(_scrubbing) return;
-      if(scrubEl) scrubEl.value = vidEl.currentTime;
-      // Показываем оставшееся время — если duration Infinity используем _knownDur
       const dur = isFinite(vidEl.duration) ? vidEl.duration : _knownDur;
-      if(durEl2 && dur > 0){
-        const rem = Math.max(0, dur - vidEl.currentTime);
-        const mm=Math.floor(rem/60),ss=Math.floor(rem%60);
-        durEl2.textContent=mm+':'+(ss<10?'0':'')+ss;
-      }
+      if(scrubEl) scrubEl.value = vidEl.currentTime;
+      _showTime(vidEl.currentTime, dur);
     });
 
-    // input — обновляем позицию сразу (работает и на touch)
+    // Перемотка: работает даже с Infinity duration
     scrubEl.addEventListener('input', () => {
       _scrubbing = true;
-      // WebM может иметь Infinity duration — всё равно перематываем
       vidEl.currentTime = parseFloat(scrubEl.value);
+      const dur = isFinite(vidEl.duration) ? vidEl.duration : _knownDur;
+      _showTime(parseFloat(scrubEl.value), dur);
     });
-    // change — после отпускания сбрасываем флаг
-    scrubEl.addEventListener('change', () => { _scrubbing = false; });
+    scrubEl.addEventListener('change',   () => { _scrubbing = false; });
     scrubEl.addEventListener('touchend', () => { _scrubbing = false; });
     scrubEl.addEventListener('mouseup',  () => { _scrubbing = false; });
     scrubEl.addEventListener('click',    e => e.stopPropagation());

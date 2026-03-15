@@ -23487,10 +23487,12 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const cached = sessionStorage.getItem('_appVersion');
       if (cached) { el.textContent = cached; return; }
+      console.log('[version] fetching from GitHub...');
       const res = await fetch('https://api.github.com/repos/tovsa7/tovsa-p2p-e2e/commits/HEAD', {
         headers: { 'Accept': 'application/vnd.github.v3+json' }
       });
-      if (!res.ok) throw new Error('api error');
+      console.log('[version] status:', res.status);
+      if (!res.ok) throw new Error('api error ' + res.status);
       const data = await res.json();
       const date = new Date(data.commit.author.date);
       const d = String(date.getDate()).padStart(2,'0');
@@ -23500,7 +23502,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const ver = `${d}.${m}.${y}-${sha}`;
       el.textContent = ver;
       sessionStorage.setItem('_appVersion', ver);
-    } catch(_) {
+    } catch(err) {
+      console.log('[version] error:', err.message);
       // Fallback: SW cache name
       try {
         const keys = await caches.keys();

@@ -8516,7 +8516,7 @@ function _vrAttachBtn(btnId, context){
     _animLock(dy, dx);
 
     if(dx < -VR_SWIPE_PX && Math.abs(dx) > Math.abs(dy)){
-      _state = 'idle';
+      _state = 'cancelled'; // touchend увидит это и не будет ничего делать
       if(_recTimer){ clearTimeout(_recTimer); _recTimer = null; }
       btn.style.transform = ''; btn.classList.remove('recording');
       _showLock(false); _hideBar(); vibrate(40);
@@ -8531,6 +8531,8 @@ function _vrAttachBtn(btnId, context){
 
   btn.addEventListener('touchend', e => {
     e.preventDefault(); e.stopPropagation();
+
+    if(_state === 'cancelled'){ _state = 'idle'; return; }
 
     const inp = document.getElementById(ids.input);
     if(inp && inp.value.trim()){

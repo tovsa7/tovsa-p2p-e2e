@@ -19328,17 +19328,19 @@ document.addEventListener('visibilitychange', ()=>{
   //   ?invite=<token>          — старые ссылки (совместимость)
   //   #inv2:<token>            — новый формат fragment
   //   tovsa2://host/inv#<token> — federation URI (обрабатывается как #inv2:)
-  async function _checkInviteParam() {
-    // Проверяем ?invite= (старый формат, для совместимости)
-    let tokenInput = new URLSearchParams(location.search).get('invite');
-    if (tokenInput) {
-      history.replaceState(null, '', location.pathname);
-    } else {
-      // Проверяем #inv2: в fragment
-      const hash = location.hash;
-      if (hash.startsWith('#inv2:') || hash.startsWith('#tovsa2:')) {
-        tokenInput = hash.slice(1);
+  async function _checkInviteParam(preloadedToken) {
+    // Токен может быть передан заранее (до history.replaceState)
+    let tokenInput = preloadedToken || null;
+    if (!tokenInput) {
+      tokenInput = new URLSearchParams(location.search).get('invite');
+      if (tokenInput) {
         history.replaceState(null, '', location.pathname);
+      } else {
+        const hash = location.hash;
+        if (hash.startsWith('#inv2:') || hash.startsWith('#tovsa2:')) {
+          tokenInput = hash.slice(1);
+          history.replaceState(null, '', location.pathname);
+        }
       }
     }
     if (!tokenInput) return;
@@ -19517,8 +19519,15 @@ document.addEventListener('visibilitychange', ()=>{
   document.addEventListener('DOMContentLoaded', () => {
     _updateNotifUI();
     _checkPersist();
-    // Даём время манифесту обновить PUSH_SERVER (warmup async)
-    setTimeout(_checkInviteParam, 2500);
+    // Считываем токен сразу (до удаления из URL), передаём в функцию
+    const _earlyToken = new URLSearchParams(location.search).get('invite') ||
+      (location.hash.startsWith('#inv2:') || location.hash.startsWith('#tovsa2:') ? location.hash.slice(1) : null);
+    if (_earlyToken) {
+      history.replaceState(null, '', location.pathname); // убираем из URL сразу
+      setTimeout(() => _checkInviteParam(_earlyToken), 2500);
+    } else {
+      setTimeout(_checkInviteParam, 2500);
+    }
     // Если initIdentity уже завершился (ключ в localStorage) — подписываемся
     if(localStorage.getItem('_myPubHex') &&
        'Notification' in window && Notification.permission === 'granted') {

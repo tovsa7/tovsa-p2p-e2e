@@ -2301,7 +2301,7 @@ if (typeof globalThis !== 'undefined') {
     <button class="btn" onclick="$('sh-file-input').click()" style="padding:10px 12px;flex-shrink:0;display:none" id="sh-attach-btn" title="Прикрепить файл">📎</button>
     <input type="file" id="sh-file-input" style="display:none" onchange="sendOfflineFile(this)">
     <!-- Бар записи -->
-    <div id="sh-vr-bar" style="display:none;align-items:center;gap:8px;flex:1;padding-right:56px">
+    <div id="sh-vr-bar" style="display:none;align-items:center;gap:8px;flex:1;min-width:0;overflow:hidden">
       <div class="vr-dot"></div>
       <div class="vr-time" id="sh-vr-time">0:00</div>
       <div class="vr-wave" id="sh-vr-wave" style="flex:1"></div>
@@ -2368,7 +2368,7 @@ if (typeof globalThis !== 'undefined') {
     <button class="btn" id="fav-attach-btn" onclick="$('fav-file-input').click()" style="padding:10px 12px;flex-shrink:0" title="Прикрепить файл">📎</button>
     <input type="file" id="fav-file-input" style="display:none" onchange="saveFavFile(this)">
     <!-- Бар записи (locked) -->
-    <div id="fav-vr-bar" style="display:none;align-items:center;gap:8px;flex:1;padding-right:56px">
+    <div id="fav-vr-bar" style="display:none;align-items:center;gap:8px;flex:1;min-width:0;overflow:hidden">
       <div class="vr-dot"></div>
       <div class="vr-time" id="fav-vr-time">0:00</div>
       <div class="vr-wave" id="fav-vr-wave" style="flex:1"></div>
@@ -2718,7 +2718,7 @@ if (typeof globalThis !== 'undefined') {
     <button class="btn" onclick="$('file-input').click()" style="padding:10px 12px;flex-shrink:0;display:none" id="attach-btn" title="Прикрепить файл">📎</button>
     <input type="file" id="file-input" style="display:none" onchange="sendFile(this)">
     <!-- Recording bar: показывается только в LOCKED режиме -->
-    <div class="vr-bar" id="vr-bar" style="display:none;align-items:center;gap:8px;flex:1;padding-right:56px">
+    <div class="vr-bar" id="vr-bar" style="display:none;align-items:center;gap:8px;flex:1;min-width:0;overflow:hidden">
       <div class="vr-dot"></div>
       <div class="vr-time" id="vr-time">0:00</div>
       <div class="vr-wave" id="vr-wave" style="flex:1"></div>
@@ -2791,7 +2791,7 @@ if (typeof globalThis !== 'undefined') {
     <button class="btn" id="room-attach-btn" onclick="$('room-file-input').click()" style="padding:10px 12px;flex-shrink:0;display:none" title="Прикрепить файл">📎</button>
     <input type="file" id="room-file-input" style="display:none" onchange="roomSendFileUI(this)">
     <!-- Бар записи (locked) -->
-    <div id="room-vr-bar" style="display:none;align-items:center;gap:8px;flex:1;padding-right:56px">
+    <div id="room-vr-bar" style="display:none;align-items:center;gap:8px;flex:1;min-width:0;overflow:hidden">
       <div class="vr-dot"></div>
       <div class="vr-time" id="room-vr-time">0:00</div>
       <div class="vr-wave" id="room-vr-wave" style="flex:1"></div>

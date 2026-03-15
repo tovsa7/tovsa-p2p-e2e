@@ -224,7 +224,7 @@ textarea::placeholder{color:var(--mu)}
 .mic-send-btn.rec-mode{background:rgba(224,108,117,.2);border:1px solid rgba(224,108,117,.4);color:var(--e)}
 .mic-send-btn:active{transform:scale(.91)}
 /* ── Circle live preview (during recording) ── */
-#vr-circle-preview{display:none;position:fixed;bottom:90px;right:16px;width:120px;height:120px;border-radius:50%;overflow:hidden;border:2px solid var(--a);background:#000;z-index:200;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+#vr-circle-preview{display:none;position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 140px);right:16px;width:160px;height:160px;border-radius:50%;overflow:hidden;border:3px solid var(--a);background:#000;z-index:500;box-shadow:0 4px 24px rgba(0,0,0,.7)}
 #vr-circle-preview video{width:100%;height:100%;object-fit:cover;display:block;transform:scaleX(-1)}
 /* ── VR Preview Modal — показывается после записи, до отправки ── */
 #vr-preview-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:600;flex-direction:column;align-items:center;justify-content:center;gap:20px}
@@ -2889,9 +2889,8 @@ if (typeof globalThis !== 'undefined') {
   </div>
   <!-- Кнопки -->
   <div class="vr-preview-btns">
-    <button class="vr-preview-btn redo" onclick="vrPreviewRedo()">🔄</button>
+    <button class="vr-preview-btn redo" onclick="vrPreviewRedo()">🔄 Перезаписать</button>
     <button class="vr-preview-btn send" onclick="vrPreviewSend()">✈️ Отправить</button>
-    <button class="vr-preview-btn redo" onclick="vrPreviewFav()">⭐</button>
   </div>
 </div>
 
@@ -8644,9 +8643,8 @@ function vrLockedStop(){
 function _vrToggleMode(){
   _vr.mode = _vr.mode === 'voice' ? 'circle' : 'voice';
   vibrate(12);
-  vrUpdateSendBtn();
-  // Синхронизируем _syncBtn всех подключённых кнопок
-  ['mic-send-btn','fav-mic-btn','sh-mic-btn'].forEach(id => {
+  // Синхронизируем все кнопки немедленно
+  ['mic-send-btn','fav-mic-btn','sh-mic-btn','room-mic-btn'].forEach(id => {
     const b = document.getElementById(id);
     if(b && b._vrSync) b._vrSync();
   });

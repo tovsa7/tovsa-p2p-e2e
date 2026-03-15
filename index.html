@@ -19062,6 +19062,13 @@ document.addEventListener('visibilitychange', ()=>{
       localStorage.setItem('_invSecrets', JSON.stringify(store));
     } catch(_) {}
 
+    // Сохраняем blob локально — fallback если сервер недоступен у получателя
+    try {
+      const store = JSON.parse(localStorage.getItem('_invSecrets') || '{}');
+      store['blob_' + kvKey] = blob;
+      localStorage.setItem('_invSecrets', JSON.stringify(store));
+    } catch(_) {}
+
     return {
       kvKey,
       token:         tokenB64,
@@ -19077,15 +19084,30 @@ document.addEventListener('visibilitychange', ()=>{
     const { secret, serverUrl } = _invParseToken(tokenInput);
     const { kvKey, encKey } = await _invDeriveKeys(secret);
 
-    const res = await fetch(serverUrl + '/invite2/fetch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kvKey }),
-    });
-    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || 'fetch failed'); }
+    let blob, expiresAt = 0, maxUses = 0, remaining = 0;
 
-    const { blob, expiresAt, maxUses, remaining } = await res.json();
-    // Расшифровываем локально — сервер не знал plaintext
+    try {
+      const res = await fetch(serverUrl + '/invite2/fetch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kvKey }),
+      });
+      if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || 'fetch failed'); }
+      const json = await res.json();
+      blob = json.blob; expiresAt = json.expiresAt; maxUses = json.maxUses; remaining = json.remaining;
+    } catch(e) {
+      // Fallback: blob закодирован в самом токене (federation URI содержит только secret)
+      // Пробуем достать из localStorage (если мы сами создали этот инвайт)
+      try {
+        const secrets = JSON.parse(localStorage.getItem('_invSecrets') || '{}');
+        const ownBlob = secrets['blob_' + kvKey];
+        if (ownBlob) { blob = ownBlob; }
+        else throw new Error(e.message);
+      } catch(_) {
+        throw new Error('Сервер недоступен: ' + e.message);
+      }
+    }
+
     const data = JSON.parse(await _invAesDecrypt(encKey, _invFromB64u(blob)));
     if (!data.ownerPubHex) throw new Error('повреждённые данные');
     return { ...data, expiresAt, maxUses, remaining };

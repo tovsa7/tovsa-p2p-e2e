@@ -8979,9 +8979,12 @@ function vrShowPreviewModal(kind, blob, waveform, durSec){
       cvid._blobUrl = url;
       cvid.src = url;
       cvid.play().catch(()=>{});
-      cvid.onloadedmetadata = () => { if(scrub) scrub.max = cvid.duration; };
+      cvid.onloadedmetadata = () => {
+        if(scrub){ scrub.max = cvid.duration; scrub.value = 0; }
+      };
+      let _scrubbing = false;
       cvid.ontimeupdate = () => {
-        if(!isFinite(cvid.duration)) return;
+        if(!isFinite(cvid.duration) || _scrubbing) return;
         if(scrub) scrub.value = cvid.currentTime;
         if(timeEl){
           const rem = cvid.duration - cvid.currentTime;
@@ -8991,7 +8994,16 @@ function vrShowPreviewModal(kind, blob, waveform, durSec){
       };
       cvid.onended = () => { cvid.currentTime=0; cvid.play().catch(()=>{}); };
     }
-    if(scrub){ scrub.oninput = () => { const v=document.getElementById('vr-preview-circle-video'); if(v) v.currentTime=parseFloat(scrub.value); }; }
+    if(scrub){
+      scrub.addEventListener('mousedown',  () => { _scrubbing = true; });
+      scrub.addEventListener('touchstart', () => { _scrubbing = true; }, { passive: true });
+      scrub.addEventListener('input', () => {
+        const v = document.getElementById('vr-preview-circle-video');
+        if(v && isFinite(v.duration)) v.currentTime = parseFloat(scrub.value);
+      });
+      scrub.addEventListener('mouseup',  () => { _scrubbing = false; });
+      scrub.addEventListener('touchend', () => { _scrubbing = false; });
+    }
 
   } else {
     if(circleW) circleW.style.display = 'none';
@@ -13844,12 +13856,16 @@ async function buildFileBubble(meta,blobOrNull,msgType){
       }
     });
 
-    scrubEl.addEventListener('input',()=>{ _scrubbing=true; });
-    scrubEl.addEventListener('change',()=>{
-      _scrubbing=false;
-      vidEl.currentTime=parseFloat(scrubEl.value);
+    // input — обновляем позицию сразу (работает и на touch)
+    scrubEl.addEventListener('input', () => {
+      _scrubbing = true;
+      if(isFinite(vidEl.duration)) vidEl.currentTime = parseFloat(scrubEl.value);
     });
-    scrubEl.addEventListener('click', e=>e.stopPropagation());
+    // change — после отпускания сбрасываем флаг
+    scrubEl.addEventListener('change', () => { _scrubbing = false; });
+    scrubEl.addEventListener('touchend', () => { _scrubbing = false; });
+    scrubEl.addEventListener('mouseup',  () => { _scrubbing = false; });
+    scrubEl.addEventListener('click',    e => e.stopPropagation());
 
     vidEl.addEventListener('play',()=>{ if(ov) ov.style.display='none'; });
     vidEl.addEventListener('pause',()=>{ if(ov) ov.style.display=''; });

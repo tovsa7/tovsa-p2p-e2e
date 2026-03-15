@@ -8345,10 +8345,12 @@ function _vrAttachBtn(btnId, context){
   const ids = _vrIds(context);
   const TAP_MS = 500;
 
-  let _state   = 'idle';   // idle | pressed | recording | locked
-  let _startX  = 0, _startY = 0;
-  let _pressTs = 0;
-  let _recTimer = null;    // таймер запуска записи
+  let _state        = 'idle';
+  let _startX       = 0, _startY = 0;
+  let _pressTs      = 0;
+  let _capturedMode = 'voice';
+  let _recTimer     = null;
+  let _streamReady  = null; // Promise от getUserMedia (запрошен в touchstart)
 
   // ── Иконка ──────────────────────────────────────────────────────────────
   const _syncBtn = () => {
@@ -8401,6 +8403,14 @@ function _vrAttachBtn(btnId, context){
     el.style.background = p > 0.85 ? 'var(--a)' : 'var(--sf)';
   };
 
+  // ── Получить stream с правильными constraints ─────────────────────────
+  const _getStream = (mode) => {
+    const constraints = mode === 'circle'
+      ? { video:{ facingMode:'user', width:{ideal:400}, height:{ideal:400} }, audio:true }
+      : { audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:true }, video:false };
+    return navigator.mediaDevices.getUserMedia(constraints);
+  };
+
   // ── TOUCH ────────────────────────────────────────────────────────────────
   btn.addEventListener('touchstart', e => {
     e.preventDefault(); e.stopPropagation();
@@ -8410,28 +8420,45 @@ function _vrAttachBtn(btnId, context){
     if(_state === 'locked') return;
     if(_vr.state !== 'idle') return;
 
-    _startX  = e.touches[0].clientX;
-    _startY  = e.touches[0].clientY;
-    _pressTs = Date.now();
-    _state   = 'pressed';
-    const _capturedMode = _vr.mode; // захватываем режим в момент нажатия
+    _startX       = e.touches[0].clientX;
+    _startY       = e.touches[0].clientY;
+    _pressTs      = Date.now();
+    _capturedMode = _vr.mode; // захватываем режим прямо сейчас
+    _state        = 'pressed';
 
-    // Через 500ms — если палец ещё держат — запускаем запись
-    _recTimer = setTimeout(() => {
+    // Запрашиваем stream СРАЗУ в user gesture (до setTimeout)
+    // Это нужно чтобы браузер не блокировал getUserMedia
+    _streamReady = _getStream(_capturedMode).catch(err => {
+      console.warn('[vr] stream pre-request failed:', err.message);
+      return null;
+    });
+
+    // Через TAP_MS — если ещё держат — начинаем запись
+    _recTimer = setTimeout(async () => {
       _recTimer = null;
       if(_state !== 'pressed') return;
+
+      const stream = await _streamReady;
+      _streamReady = null;
+
+      if(!stream){
+        toast('Нет доступа к ' + (_capturedMode === 'circle' ? 'камере/микрофону' : 'микрофону'));
+        _state = 'idle'; _syncBtn(); return;
+      }
+
+      if(_vr.state !== 'idle' || _state !== 'pressed'){ stream.getTracks().forEach(t=>t.stop()); return; }
+
       _state = 'recording';
       btn.classList.add('recording');
       _showLock(true);
       _showBar();
-      vrBeginRecording(_capturedMode, context).then(() => {
-        if(_state === 'recording' && _vr.state === 'idle'){
-          _state = 'idle';
-          btn.classList.remove('recording');
-          _showLock(false);
-          _hideBar();
-        }
-      });
+
+      // Запускаем MediaRecorder напрямую (stream уже есть)
+      await vrBeginRecordingWithStream(_capturedMode, context, stream);
+
+      if(_state === 'recording' && _vr.state === 'idle'){
+        _state = 'idle'; btn.classList.remove('recording'); _showLock(false); _hideBar();
+      }
     }, TAP_MS);
 
   }, { passive: false });
@@ -8472,6 +8499,7 @@ function _vrAttachBtn(btnId, context){
     if(inp && inp.value.trim()){
       if(_recTimer){ clearTimeout(_recTimer); _recTimer = null; }
       _state = 'idle';
+      if(_streamReady){ _streamReady.then(s => s && s.getTracks().forEach(t=>t.stop())); _streamReady = null; }
       if(context === 'fav') sendFav();
       else if(context === 'room') roomSendMessageUI();
       else sendMsg();
@@ -8479,21 +8507,20 @@ function _vrAttachBtn(btnId, context){
     }
 
     if(_state === 'locked'){
-      _state = 'idle'; _hideBar();
-      vrStopRecording(false);
-      return;
+      _state = 'idle'; _hideBar(); vrStopRecording(false); return;
     }
 
-    // Тап: таймер ещё не сработал (< 500ms)
+    // Тап — таймер ещё жив
     if(_recTimer){
       clearTimeout(_recTimer); _recTimer = null;
+      // Отменяем предзапрошенный stream
+      if(_streamReady){ _streamReady.then(s => s && s.getTracks().forEach(t=>t.stop())); _streamReady = null; }
       _state = 'idle';
       _vrToggleMode();
       toast(_vr.mode === 'circle' ? '🔴 Режим кружка' : '🎤 Голосовой режим');
       return;
     }
 
-    // Отпустил во время записи
     if(_state === 'recording'){
       _state = 'idle';
       btn.classList.remove('recording');
@@ -8504,12 +8531,12 @@ function _vrAttachBtn(btnId, context){
       if(dur < VR_MIN_MS){ vrCancelRecording(); toast('Слишком короткая запись'); }
       else vrStopRecording(false);
     }
-
     _state = 'idle';
   }, { passive: false });
 
   btn.addEventListener('touchcancel', () => {
     if(_recTimer){ clearTimeout(_recTimer); _recTimer = null; }
+    if(_streamReady){ _streamReady.then(s => s && s.getTracks().forEach(t=>t.stop())); _streamReady = null; }
     if(_state === 'recording'){ vrCancelRecording(); _hideBar(); }
     _state = 'idle';
     btn.classList.remove('recording');
@@ -8524,26 +8551,24 @@ function _vrAttachBtn(btnId, context){
     const inp = document.getElementById(ids.input);
     if(inp && inp.value.trim()) return;
     if(_state === 'locked' || _vr.state !== 'idle') return;
-    _pressTs = Date.now(); _state = 'pressed';
+    _pressTs = Date.now(); _capturedMode = _vr.mode; _state = 'pressed';
     _mTimer = setTimeout(() => {
       _mTimer = null;
       if(_state !== 'pressed') return;
-      _state = 'recording';
-      btn.classList.add('recording');
-      _showBar();
-      vrBeginRecording(_vr.mode, context);
+      _state = 'recording'; btn.classList.add('recording'); _showBar();
+      vrBeginRecording(_capturedMode, context);
     }, TAP_MS);
   });
   btn.addEventListener('mouseup', () => {
     const inp = document.getElementById(ids.input);
-    if(inp && inp.value.trim()){ if(_mTimer){ clearTimeout(_mTimer); _mTimer = null; } _state = 'idle'; sendMsg(); return; }
-    if(_state === 'locked'){ _state = 'idle'; _hideBar(); vrStopRecording(false); return; }
-    if(_mTimer){ clearTimeout(_mTimer); _mTimer = null; _state = 'idle'; _vrToggleMode(); toast(_vr.mode === 'circle' ? '🔴 Режим кружка' : '🎤 Голосовой режим'); return; }
-    if(_state === 'recording'){ _state = 'idle'; btn.classList.remove('recording'); _hideBar(); const dur = _vr.startTs ? Date.now() - _vr.startTs : 0; if(dur < VR_MIN_MS) vrCancelRecording(); else vrStopRecording(false); }
+    if(inp && inp.value.trim()){ if(_mTimer){clearTimeout(_mTimer);_mTimer=null;} _state='idle'; sendMsg(); return; }
+    if(_state === 'locked'){ _state='idle'; _hideBar(); vrStopRecording(false); return; }
+    if(_mTimer){ clearTimeout(_mTimer); _mTimer=null; _state='idle'; _vrToggleMode(); toast(_vr.mode==='circle'?'🔴 Режим кружка':'🎤 Голосовой режим'); return; }
+    if(_state === 'recording'){ _state='idle'; btn.classList.remove('recording'); _hideBar(); const dur=_vr.startTs?Date.now()-_vr.startTs:0; if(dur<VR_MIN_MS) vrCancelRecording(); else vrStopRecording(false); }
   });
   btn.addEventListener('mouseleave', () => {
-    if(_mTimer){ clearTimeout(_mTimer); _mTimer = null; _state = 'idle'; }
-    if(_state === 'recording'){ _state = 'idle'; btn.classList.remove('recording'); _hideBar(); vrCancelRecording(); }
+    if(_mTimer){clearTimeout(_mTimer);_mTimer=null;_state='idle';}
+    if(_state==='recording'){_state='idle';btn.classList.remove('recording');_hideBar();vrCancelRecording();}
   });
   btn.addEventListener('click', () => {
     const inp = document.getElementById(ids.input);
@@ -8577,6 +8602,51 @@ function _vrToggleMode(){
 
 // ── Запись ───────────────────────────────────────────────────────────────────
 // context: 'chat' — отправить собеседнику после preview, 'fav' — сохранить в избранное
+// Версия которая принимает уже готовый stream (запрошен в touchstart)
+async function vrBeginRecordingWithStream(kind, context, stream){
+  if(_vr.state !== 'idle') return;
+
+  _vr.cancelled = false;
+  _vr.chunks    = [];
+  _vr.samples   = [];
+  _vr.context   = context || 'chat';
+  _vr.stream    = stream;
+
+  const mimes = kind === 'circle'
+    ? ['video/webm;codecs=vp8,opus','video/webm;codecs=vp9,opus','video/webm','video/mp4']
+    : ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/ogg','audio/mp4'];
+  const mime = mimes.find(m => MediaRecorder.isTypeSupported(m)) || '';
+
+  _vr.mr = new MediaRecorder(stream, mime ? { mimeType: mime } : {});
+  _vr.mr.ondataavailable = e => { if(e.data && e.data.size > 0) _vr.chunks.push(e.data); };
+  _vr.mr.onstop = () => vrOnStop();
+  _vr.mr.start(100);
+
+  _vr.state   = kind;
+  _vr.startTs = Date.now();
+  vrUpdateSendBtn();
+
+  const audioTrack = stream.getAudioTracks()[0];
+  if(audioTrack){
+    const ctx      = new (window.AudioContext || window.webkitAudioContext)();
+    const src      = ctx.createMediaStreamSource(new MediaStream([audioTrack]));
+    _vr.analyser   = ctx.createAnalyser();
+    _vr.analyser.fftSize = 256;
+    _vr.analyser._ctx = ctx;
+    src.connect(_vr.analyser);
+  }
+
+  if(kind === 'circle'){
+    const prev = document.getElementById('vr-circle-preview');
+    const pvid = document.getElementById('vr-circle-video');
+    if(prev && pvid){ pvid.srcObject = stream; prev.style.display = 'block'; }
+  }
+
+  vrStartWaveAnim();
+  const maxMs = kind === 'circle' ? VR_MAX_CIRCLE_MS : VR_MAX_VOICE_MS;
+  _vr._autoStop = setTimeout(() => vrStopRecording(false), maxMs);
+}
+
 async function vrBeginRecording(kind, context){
   if(_vr.state !== 'idle') return;
   if((context||'chat') !== 'fav' && (!dc || dc.readyState !== 'open')){ toast('Нет соединения'); return; }

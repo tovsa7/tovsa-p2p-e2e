@@ -6556,6 +6556,7 @@ function _updateGlobalHiddenUI() {
 // Группы
 /** @type {Record<string, GroupRecord>} */
 let _grpAll     = {};    // code → GroupRecord  (persist, сохраняется в IDB)
+let _invitePendingPush = false; // push пришёл, ждём sealed relay
 
 // Заглушки для presence групп (реализация в groups module если подключён)
 function _grpStartPresence(code){ if(typeof window._grpStartPresenceFn === 'function') window._grpStartPresenceFn(code); }
@@ -13554,27 +13555,11 @@ if('serviceWorker' in navigator){
     if(e.data?.action === 'open-chat'){ window.focus(); showTab('sc'); }
     if(e.data?.action === 'contact-request'){
       window.focus();
-      // Получили push от человека принявшего инвайт — добавляем его как контакт
-      const rPub  = e.data.requesterPubHex || '';
-      const rName = e.data.requesterName   || e.data.name || 'Tovsa User';
-      const rEnc  = e.data.requesterEncPub  || '';
-      const rSig  = e.data.requesterSigUrl  || '';
-      const rPush = e.data.requesterPushTok || '';
-      if(rPub && rPub.length === 64){
-        (async () => {
-          try {
-            const contacts = await getContacts();
-            const sha = await crypto.subtle.digest('SHA-256', new Uint8Array(rPub.match(/.{2}/g).map(h=>parseInt(h,16))));
-            const fp = Array.from(new Uint8Array(sha)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,24);
-            if(!contacts[fp]){
-              await addContactRequest({ pubKeyHex: rPub, fp, name: rName, encPub: rEnc, pushToken: rPush, signalingUrl: rSig||null });
-              toast('📬 Заявка от ' + (rName||'Tovsa User'));
-            }
-          } catch(e){ console.warn('[invite] auto-add contact:', e.message); }
-        })();
-      }
+      _invitePendingPush = true;
+      toast('📬 Кто-то принял ваше приглашение — ожидаем данные...');
       if(typeof showTab === 'function') showTab('schats');
     }
+    
     if(e.data?.action === 'contact-accepted'){
       window.focus();
       // П2 получил push о принятии — синхронизируем (добавит П1 в контакты)
@@ -16351,7 +16336,13 @@ async function _handleAllIncoming(from, kind, data) {
       const fp = Array.from(new Uint8Array(sha)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,24);
       if (!contacts[fp]) {
         await addContactRequest({ pubKeyHex, fp, name: name||'Tovsa User', encPub: encPub||'', pushToken: pushToken||'', signalingUrl: signalingUrl||null });
-        toast('📬 ' + (name||'Пользователь') + ' принял ваше приглашение');
+        // Если было pending push-уведомление — обновляем тост
+        const msg = (typeof _invitePendingPush !== 'undefined' && _invitePendingPush)
+          ? '📬 ' + (name||'Пользователь') + ' принял приглашение — проверьте заявки'
+          : '📬 ' + (name||'Пользователь') + ' принял ваше приглашение';
+        _invitePendingPush = false;
+        toast(msg);
+        renderContactRequestsBadge();
         console.log('[invite] accepted by', fp.slice(0,8));
       }
     } catch(e) { console.warn('[invite] accept handler:', e.message); }

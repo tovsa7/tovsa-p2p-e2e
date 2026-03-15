@@ -8414,6 +8414,7 @@ function _vrAttachBtn(btnId, context){
     _startY  = e.touches[0].clientY;
     _pressTs = Date.now();
     _state   = 'pressed';
+    const _capturedMode = _vr.mode; // захватываем режим в момент нажатия
 
     // Через 500ms — если палец ещё держат — запускаем запись
     _recTimer = setTimeout(() => {
@@ -8423,7 +8424,7 @@ function _vrAttachBtn(btnId, context){
       btn.classList.add('recording');
       _showLock(true);
       _showBar();
-      vrBeginRecording(_vr.mode, context).then(() => {
+      vrBeginRecording(_capturedMode, context).then(() => {
         if(_state === 'recording' && _vr.state === 'idle'){
           _state = 'idle';
           btn.classList.remove('recording');

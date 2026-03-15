@@ -19517,6 +19517,7 @@ document.addEventListener('visibilitychange', ()=>{
   };
 
   document.addEventListener('DOMContentLoaded', () => {
+    console.log('[invite] DOMContentLoaded, search=' + location.search + ' hash=' + location.hash.slice(0,20));
     _updateNotifUI();
     _checkPersist();
     // Считываем токен сразу (до удаления из URL), передаём в функцию

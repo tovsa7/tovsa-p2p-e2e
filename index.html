@@ -15337,12 +15337,9 @@ async function roomInviteMember(roomId, { pubKeyHex, encPub, name }) {
 // Найти активный signaling инстанс
 function _getPeerSig() {
   try {
-    // Основной маяк (_presencePeer) — всегда подключён
-    if (_presencePeer?._sig?._open) return _presencePeer._sig;
-    // Сигналинг комнаты (_sigPeer)
+    // window._activeSig устанавливается маяком при открытии
+    if (window._activeSig?._open) return window._activeSig;
     if (_sigPeer?._sig?._open) return _sigPeer._sig;
-    // Входящий пир (_incomingPeer)
-    if (typeof _incomingPeer !== 'undefined' && _incomingPeer?._sig?._open) return _incomingPeer._sig;
     return null;
   } catch(_) { return null; }
 }
@@ -16982,6 +16979,7 @@ function _beaconConnect(ctx){
     p._onAuthStart = () => _setSrvRow(idx, 'spin', 'аутентификация…');
 
     p.on('open', ()=>{
+      window._activeSig = p._sig; // доступен из других script-блоков
       if(ctx.gone()){ safePeerDestroy(p); return; }
       ctx.stableAt   = Date.now();
       ctx.reconnects   = 0;
@@ -17057,6 +17055,7 @@ function _beaconConnect(ctx){
 
     p.on('disconnected', ()=>{
       if(ctx.gone() || p.destroyed || _presencePeer !== p) return;
+      window._activeSig = null;
       _presenceBeaconReady = false;
       _pjOk = false;
       _onPjStatusChange(false);

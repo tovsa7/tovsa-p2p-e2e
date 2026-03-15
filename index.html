@@ -3585,6 +3585,10 @@ function bytesToFingerprint(bytes){
 
 // ── X25519 ключ для Sealed Relay ──────────────────────────────────────────────
 let _myEncKey = null; // { privateJwk, publicKeyB64u, publicKeyRaw }
+// SEALED_RELAY-сообщения, пришедшие до готовности _myEncKey (гонка холодного старта).
+// Буферизуем и обрабатываем сразу после initEncKey().
+let _earlyEncBuf = []; // Array<{ sealed, ts }>
+const _EARLY_ENC_BUF_TTL = 120_000; // 2 мин — дольше буферизовать смысла нет
 
 async function initEncKey() {
   try {
@@ -3621,8 +3625,37 @@ async function initEncKey() {
     console.warn('[enc] initEncKey failed:', e.message);
     _myEncKey = null;
   }
+  // Flush SEALED_RELAY сообщений, буферизованных до готовности ключа.
+  // Типичный сценарий: холодный старт — signaling доставил buffered SEALED_RELAY
+  // раньше чем initEncKey завершился.
+  if (_myEncKey && _earlyEncBuf.length && typeof unsealEnvelope === 'function') {
+    const now   = Date.now();
+    const toProcess = _earlyEncBuf.splice(0).filter(e => now - e.ts < _EARLY_ENC_BUF_TTL);
+    console.log('[sealed] flushing', toProcess.length, 'early buffered sealed relay(s)');
+    const ROOM_KINDS = new Set([
+      'room_msg','room_invite','room_config','room_rekey',
+      'history_req','history_resp',
+      'ch_sub','ch_sub_ack','ch_msg','ch_comment',
+      'invite_accepted','contact_confirmed','delivery_ack',
+    ]);
+    for (const { sealed } of toProcess) {
+      try {
+        const plain = await unsealEnvelope(sealed, _myEncKey.privateJwk);
+        const { from, kind, data } = plain;
+        console.log('[sealed] early flush kind=' + kind + ' from=' + from.slice(0,8));
+        if (ROOM_KINDS.has(kind)) {
+          if (typeof roomHandleIncoming === 'function')
+            roomHandleIncoming(from, kind, data).catch(e =>
+              console.warn('[sealed] flush roomHandleIncoming err:', e?.message));
+        } else if (kind === 'device_sync') {
+          window.dispatchEvent(new CustomEvent('tovsa-device-sync', { detail: { from, data } }));
+        }
+        // offer/answer/ice через _handleRelay здесь не восстанавливаем —
+        // WebRTC-стек холодного старта их всё равно не мог принять.
+      } catch(e) { console.warn('[sealed] early unseal failed:', e.message); }
+    }
+  }
 }
-
 
 async function initIdentity(){
   try{
@@ -6778,7 +6811,15 @@ class TovSaSignaling {
         break;
       case 'SEALED_RELAY': {
         // Расшифровываем envelope — from, kind, data серверу не были известны
-        if (!_myEncKey || typeof unsealEnvelope !== 'function') break;
+        if (!_myEncKey || typeof unsealEnvelope !== 'function') {
+          // unsealEnvelope уже определена, но _myEncKey ещё не готов (гонка холодного старта).
+          // Буферизуем — flush произойдёт в конце initEncKey().
+          if (typeof unsealEnvelope === 'function') {
+            _earlyEncBuf.push({ sealed: msg.sealed, ts: Date.now() });
+            console.log('[sealed] buffered early (encKey not ready), queue=' + _earlyEncBuf.length);
+          }
+          break;
+        }
         let plain;
         try {
           plain = await unsealEnvelope(msg.sealed, _myEncKey.privateJwk);
@@ -6793,7 +6834,7 @@ class TovSaSignaling {
           'room_msg','room_invite','room_config','room_rekey',
           'history_req','history_resp',
           'ch_sub','ch_sub_ack','ch_msg','ch_comment',
-          'invite_accepted',
+          'invite_accepted','contact_confirmed','delivery_ack',
         ]);
         if (ROOM_KINDS.has(kind)) {
           if (typeof roomHandleIncoming === 'function') {
@@ -16337,21 +16378,89 @@ async function _handleAllIncoming(from, kind, data) {
     try {
       const { pubKeyHex, name, encPub, pushToken, signalingUrl } = data || {};
       if (!pubKeyHex || pubKeyHex.length !== 64) { console.log('[invite] invalid pubKeyHex len=' + (pubKeyHex||'').length); return; }
-      const contacts = await getContacts();
       const sha = await crypto.subtle.digest('SHA-256', new Uint8Array(pubKeyHex.match(/.{2}/g).map(h=>parseInt(h,16))));
-      const fp = Array.from(new Uint8Array(sha)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,24);
-      if (!contacts[fp]) {
-        await addContactRequest({ pubKeyHex, fp, name: name||'Tovsa User', encPub: encPub||'', pushToken: pushToken||'', signalingUrl: signalingUrl||null });
-        // Если было pending push-уведомление — обновляем тост
-        const msg = (typeof _invitePendingPush !== 'undefined' && _invitePendingPush)
-          ? '📬 ' + (name||'Пользователь') + ' принял приглашение — проверьте заявки'
-          : '📬 ' + (name||'Пользователь') + ' принял ваше приглашение';
-        _invitePendingPush = false;
-        toast(msg);
-        renderContactRequestsBadge();
-        console.log('[invite] accepted by', fp.slice(0,8));
+      const fp  = Array.from(new Uint8Array(sha)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,24);
+
+      // Всегда добавляем в очередь заявок — даже если fp уже в contacts.
+      // contacts[fp] мог быть добавлен неполным (без encPub/pushToken) старым кодом.
+      // addContactRequest() сама проверяет дубли по pubKeyHex.
+      await addContactRequest({ pubKeyHex, fp, name: name||'Tovsa User',
+        encPub: encPub||'', pushToken: pushToken||'', signalingUrl: signalingUrl||null });
+
+      const msg = (typeof _invitePendingPush !== 'undefined' && _invitePendingPush)
+        ? '📬 ' + (name||'Пользователь') + ' принял приглашение — проверьте заявки'
+        : '📬 ' + (name||'Пользователь') + ' принял ваше приглашение';
+      _invitePendingPush = false;
+      toast(msg);
+      renderContactRequestsBadge();
+      console.log('[invite] accepted by', fp.slice(0,8));
+
+      // Отправляем delivery_ack — B узнает что его invite_accepted дошёл
+      // Используем encPub B для sealed envelope
+      if (encPub && typeof sealEnvelope === 'function' && _myEncKey && myPubKeyHex) {
+        try {
+          const ackSealed = await sealEnvelope(
+            { from: myPubKeyHex, kind: 'delivery_ack', data: { ackedKind: 'invite_accepted' } },
+            encPub,
+          );
+          const bMailbox = await getContactMailboxId(pubKeyHex, 0) ?? pubKeyHex;
+          const sig = _getPeerSig();
+          if (sig?._open) {
+            sig._wsSend({ type: 'SEALED_RELAY', to: bMailbox, sealed: ackSealed });
+          } else {
+            if (!window._pendingSealedRelays) window._pendingSealedRelays = [];
+            window._pendingSealedRelays.push({ to: bMailbox, sealed: ackSealed });
+          }
+          console.log('[invite] delivery_ack sent to', fp.slice(0,8));
+        } catch(e) { console.warn('[invite] delivery_ack send error:', e.message); }
       }
     } catch(e) { console.warn('[invite] accept handler:', e.message); }
+    return;
+  }
+
+  // B получил подтверждение что A принял заявку
+  if (kind === 'contact_confirmed') {
+    console.log('[invite] contact_confirmed from', from.slice(0,8));
+    try {
+      const { pendingId } = data || {};
+      // Удаляем pending invite_accepted из store
+      if (pendingId) await _psAck(pendingId);
+      // Дополнительно: ищем по from на случай если pendingId не совпал
+      const items = await _psLoad();
+      const mine  = items.filter(i => i.kind === 'invite_accepted');
+      for (const item of mine) {
+        // Пробуем расшифровать чтобы убедиться что это тот самый контакт
+        try {
+          if (_myEncKey) {
+            const plain = await unsealEnvelope(item.sealed, _myEncKey.privateJwk).catch(()=>null);
+            if (plain?.from === from) await _psAck(item.id);
+          }
+        } catch(_) {}
+      }
+      toast('✓ ' + (data?.name || 'Контакт') + ' добавил вас в контакты');
+
+      // Отправляем delivery_ack — A узнает что contact_confirmed дошёл
+      if (data?.encPub && typeof sealEnvelope === 'function' && _myEncKey && myPubKeyHex) {
+        try {
+          const ackSealed = await sealEnvelope(
+            { from: myPubKeyHex, kind: 'delivery_ack', data: { ackedKind: 'contact_confirmed', pendingId: data.pendingId } },
+            data.encPub,
+          );
+          const aMailbox = await getContactMailboxId(from, 0) ?? from;
+          const sig = _getPeerSig();
+          if (sig?._open) sig._wsSend({ type: 'SEALED_RELAY', to: aMailbox, sealed: ackSealed });
+        } catch(e) { console.warn('[invite] delivery_ack for confirm error:', e.message); }
+      }
+    } catch(e) { console.warn('[invite] contact_confirmed handler:', e.message); }
+    return;
+  }
+
+  // Получили delivery_ack — удаляем соответствующий pending
+  if (kind === 'delivery_ack') {
+    console.log('[invite] delivery_ack from', from.slice(0,8), 'ackedKind=', data?.ackedKind);
+    try {
+      if (data?.pendingId) await _psAck(data.pendingId);
+    } catch(e) { console.warn('[invite] delivery_ack handler:', e.message); }
     return;
   }
 
@@ -16360,6 +16469,86 @@ async function _handleAllIncoming(from, kind, data) {
   }
 }
 
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Pending Sealed Relay Store
+// Персистентная очередь исходящих SEALED_RELAY для contact flow.
+// Гарантирует доставку invite_accepted и contact_confirmed даже если
+// отправитель или получатель были офлайн в момент отправки.
+//
+// Схема записи:
+//   { id, kind, to, sealed, sentAt, expiresAt, acked }
+//   id        — уникальный идентификатор записи (crypto.randomUUID)
+//   kind      — 'invite_accepted' | 'contact_confirmed' | 'delivery_ack'
+//   to        — mailboxId получателя
+//   sealed    — зашифрованный envelope (уже готов к отправке)
+//   sentAt    — timestamp первой попытки
+//   expiresAt — timestamp истечения (после — удаляем, показываем ошибку)
+//   acked     — true когда получили delivery_ack от адресата
+// ══════════════════════════════════════════════════════════════════════════════
+const PENDING_SEALED_KEY  = 'pending_sealed_v1';
+const PENDING_SEALED_TTL  = 48 * 60 * 60 * 1000; // 48 часов
+
+async function _psLoad() {
+  try { return await idbGet('meta', PENDING_SEALED_KEY) || []; } catch(_) { return []; }
+}
+async function _psSave(items) {
+  try { await idbSet('meta', PENDING_SEALED_KEY, items); } catch(_) {}
+}
+
+// Добавить pending запись и сразу попробовать отправить
+async function _psAdd({ kind, to, sealed, expiresAt }) {
+  const items = await _psLoad();
+  const id    = crypto.randomUUID();
+  items.push({ id, kind, to, sealed, sentAt: Date.now(),
+               expiresAt: expiresAt || Date.now() + PENDING_SEALED_TTL, acked: false });
+  await _psSave(items);
+  console.log('[ps] added', kind, 'id=' + id.slice(0,8));
+  // Сразу пробуем отправить
+  _psTrySend({ id, to, sealed, kind });
+  return id;
+}
+
+// Пометить запись как доставленную (удаляем)
+async function _psAck(id) {
+  const items = await _psLoad();
+  const next  = items.filter(i => i.id !== id);
+  if (next.length !== items.length) {
+    await _psSave(next);
+    console.log('[ps] acked id=' + id.slice(0,8));
+  }
+}
+
+// Отправить одну запись если signaling открыт
+function _psTrySend({ id, to, sealed, kind }) {
+  const sig = _getPeerSig();
+  if (!sig?._open) return false;
+  sig._wsSend({ type: 'SEALED_RELAY', to, sealed });
+  console.log('[ps] sent', kind, 'id=' + id.slice(0,8));
+  return true;
+}
+
+// Flush всех pending записей — вызывается при каждом reconnect к signaling
+async function _psFlush() {
+  const items = await _psLoad();
+  if (!items.length) return;
+  const now  = Date.now();
+  // Удаляем истёкшие
+  const live = items.filter(i => !i.acked && i.expiresAt > now);
+  const dead = items.filter(i => !i.acked && i.expiresAt <= now);
+  if (dead.length) {
+    console.log('[ps] expired:', dead.map(i => i.kind + '/' + i.id.slice(0,8)));
+    await _psSave(live);
+  }
+  if (!live.length) return;
+  const sig = _getPeerSig();
+  if (!sig?._open) return;
+  console.log('[ps] flushing', live.length, 'pending sealed relay(s)');
+  for (const item of live) {
+    sig._wsSend({ type: 'SEALED_RELAY', to: item.to, sealed: item.sealed });
+    console.log('[ps] retry', item.kind, 'id=' + item.id.slice(0,8));
+  }
+}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Contact Requests Module
@@ -16469,6 +16658,24 @@ async function acceptContactRequest(idx) {
     await saveContactRequests(reqs);
     await renderContactRequestsList();
     renderContactRequestsBadge();
+
+    // Уведомляем B что заявка принята — через persistent sealed relay
+    if (r.encPub && typeof sealEnvelope === 'function' && _myEncKey && myPubKeyHex) {
+      try {
+        const myEncPub = _myEncKey?.publicKeyB64u || null;
+        const myName   = localStorage.getItem('_myName') || '';
+        const sealed   = await sealEnvelope(
+          { from: myPubKeyHex, kind: 'contact_confirmed', data: {
+            name:    myName,
+            encPub:  myEncPub, // нужен B чтобы отправить delivery_ack обратно
+          }},
+          r.encPub,
+        );
+        const bMailbox = await getContactMailboxId(r.pubKeyHex, 0) ?? r.pubKeyHex;
+        await _psAdd({ kind: 'contact_confirmed', to: bMailbox, sealed });
+        console.log('[invite] contact_confirmed queued for', r.fp.slice(0,8));
+      } catch(e) { console.warn('[invite] contact_confirmed send error:', e.message); }
+    }
   } catch(e) { toast('Ошибка: ' + e.message); }
 }
 
@@ -17944,6 +18151,8 @@ function _onPjStatusChange(ok){
         }
       }, 500);
     }
+    // Flush персистентной очереди contact flow (invite_accepted, contact_confirmed, delivery_ack)
+    setTimeout(() => _psFlush().catch(e => console.warn('[ps] flush error:', e.message)), 800);
 
     // Маяк восстановился — если ждали переподключения P2P, возобновляем
     if(_p2pReconnectFp && !_p2pReconnectStopped){
@@ -19661,18 +19870,12 @@ document.addEventListener('visibilitychange', ()=>{
           }},
           info.encPub,
         );
-        // Отправляем на mailboxId владельца
         const ownerMailbox = await getContactMailboxId(info.ownerPubHex, 0) ?? info.ownerPubHex;
-        const sig = _getPeerSig();
-        if (sig?._open) {
-          sig._wsSend({ type: 'SEALED_RELAY', to: ownerMailbox, sealed });
-          console.log('[invite] sealed accept sent to owner immediately');
-        } else {
-          // Кладём в очередь — отправится когда signaling откроется
-          if (!window._pendingSealedRelays) window._pendingSealedRelays = [];
-          window._pendingSealedRelays.push({ to: ownerMailbox, sealed });
-          console.log('[invite] sealed accept queued, waiting for sig');
-        }
+
+        // Сохраняем в persistent store — будет ретраиться при каждом reconnect
+        // пока не получим delivery_ack от A или не истечёт TTL (48ч)
+        await _psAdd({ kind: 'invite_accepted', to: ownerMailbox, sealed });
+        // _psAdd сам пробует отправить немедленно если signaling открыт
       } catch(e) { console.warn('[invite] sealed send error:', e.message); }
     }
 
@@ -20059,26 +20262,9 @@ document.addEventListener('visibilitychange', ()=>{
       history.replaceState(null, '', location.pathname);
       setTimeout(() => { if(typeof showTab === 'function') showTab('sc'); }, 500);
     }
-    if(urlAction === 'contact-request'){
-      history.replaceState(null, '', location.pathname);
-      const pubHex = new URLSearchParams(location.search).get('pubHex') || '';
-      const cname  = new URLSearchParams(location.search).get('name')   || 'Пользователь';
-      if(pubHex) setTimeout(async () => {
-        // Ждём инициализации ключей и getContacts
-        let waited = 0;
-        while(typeof getContacts !== 'function' && waited < 5000){
-          await new Promise(r=>setTimeout(r,200)); waited+=200;
-        }
-        const fp = await _pubHexToFp(pubHex);
-        const contacts = await getContacts();
-        if(!contacts[fp]){
-          contacts[fp] = { pubKeyHex: pubHex, name: cname };
-          await saveContacts(contacts);
-          renderContacts();
-          toast(cname + ' добавлен в контакты ✓');
-        }
-      }, 1000);
-    }
+    // contact-request через URL больше не используется:
+    // push-уведомление несёт только сигнал, данные приходят через SEALED_RELAY.
+    // Приложение получает их автоматически после подключения к signaling.
 
     // Обработка шорткатов PWA: ?tab=contacts, ?tab=connect
     const tabParam = new URLSearchParams(location.search).get('tab');

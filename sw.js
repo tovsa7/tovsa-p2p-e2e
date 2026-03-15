@@ -87,7 +87,7 @@ self.addEventListener('fetch', e => {
 self.addEventListener('push', e => {
   e.waitUntil((async () => {
     let title = 'Tovsa', body = 'Новое сообщение', tag = 'tovsa-msg';
-    let isConn = false, isContactReq = false, contactData = null;
+    let isConn = false, isContactReq = false;
 
     try {
       if (e.data) {
@@ -96,15 +96,12 @@ self.addEventListener('push', e => {
           const d = e.data.json();
           title = d.title || title;
           body  = d.body  || body;
-          // contact-request: воркер кладёт { action, requesterPubHex, requesterFp, name } в data
+          // contact-request: Worker шлёт только сигнал { action: 'contact-request' },
+          // данные о заявителе не передаются (принцип приватности).
+          // Реальные данные приходят через SEALED_RELAY после открытия приложения.
           if (d.data?.action === 'contact-request') {
             isContactReq = true;
             tag = 'tovsa-contact-req';
-            contactData = {
-              requesterPubHex: d.data.requesterPubHex || '',
-              requesterFp:     d.data.requesterFp     || '',
-              name:            d.data.name            || 'Пользователь',
-            };
           }
         } catch(_) {
           try { body = e.data.text() || body; } catch(_) {}
@@ -114,18 +111,14 @@ self.addEventListener('push', e => {
     } catch (_) {}
 
     const actions = isConn
-      ? [{ action: 'accept',         title: '✓ Принять' }]
-      : isContactReq
-        ? [{ action: 'add-contact',  title: '+ Добавить' },
-           { action: 'ignore',       title: 'Игнорировать' }]
-        : [{ action: 'open',         title: 'Открыть'   }];
+      ? [{ action: 'accept', title: '✓ Принять' }]
+      : [{ action: 'open',   title: 'Открыть'   }];
 
     await self.registration.showNotification(title, {
       body, icon: ICON_URL, badge: ICON_URL, tag, renotify: true,
       vibrate: [200, 100, 200], actions,
       data: {
         action: isConn ? 'accept-call' : isContactReq ? 'contact-request' : 'open-chat',
-        ...(contactData || {}),
       }
     });
   })());
@@ -134,45 +127,28 @@ self.addEventListener('push', e => {
 // ── Notification click ─────────────────────────────────────────────────────────
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-  const data         = e.notification.data || {};
-  const isAccept     = e.action === 'accept'       || data.action === 'accept-call';
-  const isOpenChat   = data.action === 'open-chat';
+  const data       = e.notification.data || {};
+  const isAccept   = e.action === 'accept' || data.action === 'accept-call';
+  const isOpenChat = data.action === 'open-chat';
+  // contact-request: открываем приложение без параметров.
+  // Данные о заявителе придут через SEALED_RELAY после подключения к signaling.
   const isContactReq = data.action === 'contact-request';
-  const isAddContact = e.action === 'add-contact';
-  const isIgnore     = e.action === 'ignore';
-
-  // «Игнорировать» — просто закрываем уведомление, уже закрыто выше
-  if (isIgnore) return;
 
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
       const existing = cs.find(c => c.url.includes(self.location.origin));
 
-      if (isContactReq || isAddContact) {
-        // Передаём данные открытому клиенту или открываем новое окно с параметрами
-        const msg = {
-          action:          'contact-request',
-          requesterPubHex: data.requesterPubHex || '',
-          requesterFp:     data.requesterFp     || '',
-          name:            data.name            || 'Пользователь',
-          // Если нажали «Добавить» прямо из уведомления — autoAccept=true
-          autoAccept:      isAddContact,
-        };
-        if (existing) { existing.focus(); existing.postMessage(msg); return; }
-        // Если приложение закрыто и нажали «Добавить» — открываем, клиент подхватит autoAccept
-        const qs = isAddContact
-          ? `?action=contact-request&pubHex=${encodeURIComponent(data.requesterPubHex)}&name=${encodeURIComponent(data.name || '')}`
-          : './';
-        return clients.openWindow(qs);
-      }
-
       if (existing) {
         existing.focus();
-        if (isAccept)   existing.postMessage({ action: 'accept-call' });
-        if (isOpenChat) existing.postMessage({ action: 'open-chat' });
+        if (isAccept)     existing.postMessage({ action: 'accept-call' });
+        if (isOpenChat)   existing.postMessage({ action: 'open-chat' });
+        if (isContactReq) existing.postMessage({ action: 'contact-request' });
         return;
       }
-      const url = isAccept ? './?action=accept-call' : isOpenChat ? './?action=open-chat' : './';
+
+      // Холодный старт — открываем приложение чистым URL.
+      // SEALED_RELAY из signaling-буфера доставит данные после инициализации.
+      const url = isAccept ? './?action=accept-call' : './';
       return clients.openWindow(url);
     })
   );

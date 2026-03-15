@@ -16559,11 +16559,8 @@ async function _acLoadInvite() {
     const kvKey = Object.keys(secrets).find(k => !k.startsWith('blob_'));
     if (kvKey && secrets[kvKey]) {
       const token = secrets[kvKey];
-      let host = '';
-      try { host = new URL(PUSH_SERVER).hostname; } catch(_) {}
-      if (!host) try { host = new URL(window._pushServer || '').hostname; } catch(_) {}
-      const url = host ? `tovsa2://${host}/inv#${token}` : (location.origin + location.pathname + '#inv2:' + token);
-      _acCurrentInvite = { kvKey, token, url, federationUrl: host ? `tovsa2://${host}/inv#${token}` : null };
+      const url = location.origin + location.pathname + '?invite=' + token;
+      _acCurrentInvite = { kvKey, token, url, federationUrl: url };
       if (urlEl) urlEl.textContent = url;
       if (activeWrap) activeWrap.style.display = '';
       if (createBtn) createBtn.style.display = 'none';
@@ -19527,11 +19524,13 @@ document.addEventListener('visibilitychange', ()=>{
       localStorage.setItem('_invSecrets', JSON.stringify(store));
     } catch(_) {}
 
+    // Основная ссылка — https, работает везде
+    const httpsUrl = location.origin + location.pathname + '?invite=' + tokenB64;
     return {
       kvKey,
       token:         tokenB64,
-      url:           location.origin + location.pathname + '#inv2:' + tokenB64,
-      federationUrl: `tovsa2://${host}/inv#${tokenB64}`,
+      url:           httpsUrl,
+      federationUrl: httpsUrl,
       expiresAt:     result.expiresAt,
       maxUses:       result.maxUses,
     };
@@ -19834,6 +19833,10 @@ document.addEventListener('visibilitychange', ()=>{
       }
     }
     if (!tokenInput) return;
+
+    // Браузер через protocol_handlers передаёт полный URI в ?invite=
+    // Декодируем если нужно
+    try { tokenInput = decodeURIComponent(tokenInput); } catch(_) {}
 
     console.log('[invite] token found: ' + tokenInput.slice(0,12) + '...');
     // Ждём готовности ключей

@@ -18085,7 +18085,8 @@ function _dbgPush(level, args){
       const s = _safe(args);
       if(s.includes('[enc]') || s.includes('[identity]') || s.includes('[init]') ||
          s.includes('[ntfy]') || s.includes('[sig]') || s.includes('[sync]') ||
-         s.includes('[vr]') || s.includes('error') || s.includes('Error') || s.includes('failed')){
+         s.includes('[vr]') || s.includes('[invite]') || s.includes('[manifest]') ||
+         s.includes('error') || s.includes('Error') || s.includes('failed')){
         _dbgPush('log', args);
       }
     } catch(_) {}

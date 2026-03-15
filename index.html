@@ -16559,9 +16559,10 @@ async function _acLoadInvite() {
     const kvKey = Object.keys(secrets).find(k => !k.startsWith('blob_'));
     if (kvKey && secrets[kvKey]) {
       const token = secrets[kvKey];
-      const host = (typeof PUSH_SERVER !== 'undefined' && PUSH_SERVER) ? new URL(PUSH_SERVER).hostname : '';
-      const url = `tovsa2://${host}/inv#${token}`;
-      _acCurrentInvite = { kvKey, token, url };
+      let host = '';
+      try { host = new URL(PUSH_SERVER).hostname; } catch(_) {}
+      const url = host ? `tovsa2://${host}/inv#${token}` : (location.origin + location.pathname + '#inv2:' + token);
+      _acCurrentInvite = { kvKey, token, url, federationUrl: host ? `tovsa2://${host}/inv#${token}` : null };
       if (urlEl) urlEl.textContent = url;
       if (activeWrap) activeWrap.style.display = '';
       if (createBtn) createBtn.style.display = 'none';
@@ -19504,7 +19505,13 @@ document.addEventListener('visibilitychange', ()=>{
 
     const result  = await res.json();
     const tokenB64 = _invB64u(secret);
-    const host = new URL(PUSH_SERVER).hostname;
+    // PUSH_SERVER может быть пустым до обновления из манифеста
+    let host = '';
+    try { host = new URL(PUSH_SERVER).hostname; } catch(_) {}
+    // Fallback: берём hostname из URL самого запроса (ответ пришёл — значит URL рабочий)
+    if (!host) {
+      try { host = new URL(PUSH_SERVER + '/').hostname; } catch(_) {}
+    }
 
     // Сохраняем секрет локально для последующего отзыва
     try {

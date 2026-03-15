@@ -3557,6 +3557,47 @@ function bytesToFingerprint(bytes){
   return Array.from(bytes.slice(0,6)).map(b=>FP_ARR[b%FP_ARR.length]).join('');
 }
 
+// ── X25519 ключ для Sealed Relay ──────────────────────────────────────────────
+let _myEncKey = null; // { privateJwk, publicKeyB64u, publicKeyRaw }
+
+async function initEncKey() {
+  try {
+    // Пробуем загрузить из IDB
+    const stored = await idbGet('keys', 'enc_x25519_jwk').catch(() => null);
+    if (stored && stored.kty && !stored.__enc) {
+      const privKey = await crypto.subtle.importKey(
+        'jwk', stored, { name: 'X25519' }, true, ['deriveBits']
+      );
+      const pubKey  = await crypto.subtle.importKey(
+        'jwk',
+        { ...stored, key_ops: [], d: undefined, crv: 'X25519', kty: 'OKP' },
+        { name: 'X25519' }, true, []
+      ).catch(async () => {
+        // Деривируем публичный ключ из приватного
+        const kp = await crypto.subtle.generateKey({ name: 'X25519' }, true, ['deriveBits']);
+        return kp.publicKey;
+      });
+      const pubRaw  = new Uint8Array(await crypto.subtle.exportKey('raw', pubKey));
+      const pubB64u = btoa(String.fromCharCode(...pubRaw))
+        .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+      _myEncKey = { privateJwk: stored, publicKeyB64u: pubB64u, publicKeyRaw: pubRaw };
+      return;
+    }
+    // Генерируем новый
+    const kp = await crypto.subtle.generateKey({ name: 'X25519' }, true, ['deriveBits']);
+    const privJwk = await crypto.subtle.exportKey('jwk', kp.privateKey);
+    const pubRaw  = new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey));
+    const pubB64u = btoa(String.fromCharCode(...pubRaw))
+      .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    await idbSet('keys', 'enc_x25519_jwk', privJwk).catch(() => {});
+    _myEncKey = { privateJwk: privJwk, publicKeyB64u: pubB64u, publicKeyRaw: pubRaw };
+  } catch(e) {
+    console.warn('[enc] initEncKey failed:', e.message);
+    _myEncKey = null;
+  }
+}
+
+
 async function initIdentity(){
   try{
     // ── Загрузка / генерация Ed25519 ключевой пары ──
@@ -9221,9 +9262,9 @@ initMyContactCard();
     const kp      = await crypto.subtle.generateKey({ name: 'X25519' }, true, ['deriveBits']);
     const pubRaw  = new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey));
     const privJwk = await crypto.subtle.exportKey('jwk', kp.privateKey);
-    const encPub  = { publicKeyB64u: btoa(String.fromCharCode(...pubRaw)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'') };
+    const pubB64u = btoa(String.fromCharCode(...pubRaw)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
     const payload = { from: 'aaa', kind: 'test', data: { x: 42 } };
-    const sealed  = await sealEnvelope(payload, encPub);
+    const sealed  = await sealEnvelope(payload, pubB64u);
     const opened  = await unsealEnvelope(sealed, privJwk);
     if (opened.data?.x !== 42) throw new Error('data mismatch');
     ok('sealEnvelope/unsealEnvelope');

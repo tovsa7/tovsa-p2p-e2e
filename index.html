@@ -17933,6 +17933,18 @@ function _onPjStatusChange(ok){
     _startPresenceHeartbeat();
     // Запускаем presence для всех групп (нужен список во вкладке групп)
     for(const code of Object.keys(_grpAll)) _grpStartPresence(code);
+    // Отправляем ожидающие sealed relay (например invite_accepted)
+    if (window._pendingSealedRelays?.length) {
+      const pending = window._pendingSealedRelays.splice(0);
+      setTimeout(() => {
+        const sig = _getPeerSig();
+        if (!sig?._open) return;
+        for (const { to, sealed } of pending) {
+          sig._wsSend({ type: 'SEALED_RELAY', to, sealed });
+          console.log('[invite] pending sealed relay sent to', to.slice(0,12));
+        }
+      }, 500);
+    }
 
     // Маяк восстановился — если ждали переподключения P2P, возобновляем
     if(_p2pReconnectFp && !_p2pReconnectStopped){
@@ -19652,27 +19664,15 @@ document.addEventListener('visibilitychange', ()=>{
         );
         // Отправляем на mailboxId владельца
         const ownerMailbox = await getContactMailboxId(info.ownerPubHex, 0) ?? info.ownerPubHex;
-        const sig = _getPeerSig?.();
-        console.log('[invite] sig open=' + (sig?._open) + ' mailbox=' + ownerMailbox?.slice(0,12));
+        const sig = _getPeerSig();
         if (sig?._open) {
           sig._wsSend({ type: 'SEALED_RELAY', to: ownerMailbox, sealed });
-          console.log('[invite] sealed accept sent to owner');
+          console.log('[invite] sealed accept sent to owner immediately');
         } else {
-          // Сигналинг ещё не открылся — ждём и повторяем
-          console.log('[invite] sig not open — will retry when connected');
-          const _retrySend = (attempts) => {
-            if (attempts <= 0) { console.warn('[invite] gave up sending sealed relay'); return; }
-            setTimeout(() => {
-              const s = _getPeerSig();
-              if (s?._open) {
-                s._wsSend({ type: 'SEALED_RELAY', to: ownerMailbox, sealed });
-                console.log('[invite] sealed accept sent (retry)');
-              } else {
-                _retrySend(attempts - 1);
-              }
-            }, 1000);
-          };
-          _retrySend(10);
+          // Кладём в очередь — отправится когда signaling откроется
+          if (!window._pendingSealedRelays) window._pendingSealedRelays = [];
+          window._pendingSealedRelays.push({ to: ownerMailbox, sealed });
+          console.log('[invite] sealed accept queued, waiting for sig');
         }
       } catch(e) { console.warn('[invite] sealed send error:', e.message); }
     }

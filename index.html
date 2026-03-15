@@ -15337,7 +15337,13 @@ async function roomInviteMember(roomId, { pubKeyHex, encPub, name }) {
 // Найти активный signaling инстанс
 function _getPeerSig() {
   try {
-    return window._peer?._sig || window._peer?._peers?.[0]?._sig || null;
+    // Основной маяк (_presencePeer) — всегда подключён
+    if (_presencePeer?._sig?._open) return _presencePeer._sig;
+    // Сигналинг комнаты (_sigPeer)
+    if (_sigPeer?._sig?._open) return _sigPeer._sig;
+    // Входящий пир (_incomingPeer)
+    if (typeof _incomingPeer !== 'undefined' && _incomingPeer?._sig?._open) return _incomingPeer._sig;
+    return null;
   } catch(_) { return null; }
 }
 
@@ -19652,7 +19658,21 @@ document.addEventListener('visibilitychange', ()=>{
           sig._wsSend({ type: 'SEALED_RELAY', to: ownerMailbox, sealed });
           console.log('[invite] sealed accept sent to owner');
         } else {
-          console.log('[invite] sig not open — sealed relay NOT sent!');
+          // Сигналинг ещё не открылся — ждём и повторяем
+          console.log('[invite] sig not open — will retry when connected');
+          const _retrySend = (attempts) => {
+            if (attempts <= 0) { console.warn('[invite] gave up sending sealed relay'); return; }
+            setTimeout(() => {
+              const s = _getPeerSig();
+              if (s?._open) {
+                s._wsSend({ type: 'SEALED_RELAY', to: ownerMailbox, sealed });
+                console.log('[invite] sealed accept sent (retry)');
+              } else {
+                _retrySend(attempts - 1);
+              }
+            }, 1000);
+          };
+          _retrySend(10);
         }
       } catch(e) { console.warn('[invite] sealed send error:', e.message); }
     }

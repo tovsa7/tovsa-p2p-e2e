@@ -16850,6 +16850,7 @@ async function _acLoadOutgoing() {
         <span class="req-status confirming">
           <span class="req-status-dot"></span>доставляем...
         </span>
+        <button class="req-decline-btn" onclick="acCancelPending('${item.id}')">отмена</button>
       </div>
     </div>`);
   }

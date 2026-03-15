@@ -19351,8 +19351,11 @@ document.addEventListener('visibilitychange', ()=>{
     }
     if (!myPrivKey) { toast('Не удалось загрузить ключ'); return; }
 
-    console.log('[invite] processing token, waited=' + waited + 'ms');
+    console.log('[invite] processing token, waited=' + waited + 'ms, token=' + tokenInput.slice(0,12));
     try {
+      let _serverUrl = 'unknown';
+      try { const _p = _invParseToken(tokenInput); _serverUrl = _p.serverUrl; } catch(pe){ console.log('[invite] parse error: ' + pe.message); throw pe; }
+      console.log('[invite] parsed, serverUrl=' + _serverUrl);
       console.log('[invite] fetching info from token=' + tokenInput.slice(0,8) + '...');
       console.log('[invite] PUSH_SERVER=' + (typeof PUSH_SERVER !== 'undefined' ? PUSH_SERVER : 'undefined'));
       console.log('[invite] _isNullOrigin=' + (typeof _isNullOrigin !== 'undefined' ? _isNullOrigin : 'undefined'));

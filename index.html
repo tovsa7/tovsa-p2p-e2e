@@ -182,7 +182,7 @@ textarea::placeholder{color:var(--mu)}
 .msg-voice-dur{font-size:10px;color:var(--mu);flex-shrink:0;min-width:30px;text-align:right}
 /* ── Circle (video note) bubble ── */
 .msg-circle-wrap{display:flex;flex-direction:column;align-items:center;gap:4px}
-.msg-circle{position:relative;width:200px;height:200px;border-radius:50%;overflow:hidden;cursor:pointer;background:#111;flex-shrink:0;box-shadow:0 0 0 2px var(--bd)}
+.msg-circle{position:relative;width:200px;height:200px;border-radius:50%;overflow:hidden;cursor:pointer;background:#111;flex-shrink:0;box-shadow:0 0 0 2px var(--bd);transition:width .25s ease,height .25s ease,box-shadow .25s ease}.msg-circle.playing{width:260px;height:260px;box-shadow:0 0 0 2px var(--a),0 0 20px rgba(0,255,157,.2)}
 .msg.out .msg-circle{box-shadow:0 0 0 2px rgba(0,255,157,.25)}
 /* кружок и голосовое — без рамки и фона у пузыря */
 .msg.msg-file-bubble:has(.msg-circle-wrap){background:transparent;border:none;padding:2px}
@@ -2854,7 +2854,7 @@ if (typeof globalThis !== 'undefined') {
 <div id="vr-preview-modal">
   <!-- Кружок: video preview -->
   <div id="vr-preview-circle" style="display:none;position:relative;cursor:pointer" onclick="vrCirclePreviewToggle()">
-    <video id="vr-preview-circle-video" playsinline loop></video>
+    <video id="vr-preview-circle-video" playsinline></video>
     <div id="vr-circle-pause-ov" style="display:none;position:absolute;inset:0;border-radius:50%;background:rgba(0,0,0,.4);align-items:center;justify-content:center;font-size:28px;color:#fff">⏸</div>
   </div>
   <!-- Scrubber под кружком — снаружи overflow:hidden -->
@@ -8984,10 +8984,10 @@ function vrShowPreviewModal(kind, blob, waveform, durSec){
       cvid.src = url;
       cvid.play().catch(()=>{});
       const _updateTime = () => {
-        if(!isFinite(cvid.duration)) return;
+        const dur = isFinite(cvid.duration) ? cvid.duration : (_previewDur || 0);
         if(scrub && !_scrubbing) scrub.value = cvid.currentTime;
-        if(timeEl){
-          const rem = cvid.duration - cvid.currentTime;
+        if(timeEl && dur > 0){
+          const rem = Math.max(0, dur - cvid.currentTime);
           const mm=Math.floor(rem/60), ss=Math.floor(rem%60);
           timeEl.textContent = mm+':'+(ss<10?'0':'')+ss;
         }
@@ -13849,15 +13849,15 @@ async function buildFileBubble(meta,blobOrNull,msgType){
     const scid='cs-'+Math.random().toString(36).slice(2);
     inner=`<div class="msg-circle-wrap">
       <div class="msg-circle" id="${cid}">
-        <video src="${url}" playsinline preload="metadata" loop style="width:100%;height:100%;object-fit:cover;display:block"></video>
+        <video src="${url}" playsinline preload="metadata" style="width:100%;height:100%;object-fit:cover;display:block"></video>
         <div class="msg-circle-ov" id="co-${cid}">
           <div class="msg-circle-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
         </div>
       </div>
-      <div style="width:200px;display:flex;align-items:center;gap:6px;margin-top:2px">
-        <div class="msg-circle-dur" id="${cdid}" style="margin:0;min-width:32px">0:00</div>
-        <input type="range" id="${scid}" min="0" max="100" value="0" step="0.1"
-          style="flex:1;height:3px;accent-color:var(--a);cursor:pointer;background:var(--bd);border-radius:2px">
+      <div class="msg-circle-scrub-wrap" id="scw-${cid}" style="width:200px;display:flex;align-items:center;gap:6px;margin-top:4px;transition:width .25s ease">
+        <div class="msg-circle-dur" id="${cdid}" style="margin:0;min-width:32px;text-align:center">0:00</div>
+        <input type="range" id="${scid}" min="0" max="100" value="0" step="0.01"
+          style="flex:1;height:4px;accent-color:var(--a);cursor:pointer;background:var(--bd);border-radius:2px">
       </div>
     </div>`;
     d.innerHTML=inner+`<div class="mmeta" style="text-align:center">${t}</div>`;
@@ -13909,10 +13909,23 @@ async function buildFileBubble(meta,blobOrNull,msgType){
     scrubEl.addEventListener('mouseup',  () => { _scrubbing = false; });
     scrubEl.addEventListener('click',    e => e.stopPropagation());
 
-    vidEl.addEventListener('play',()=>{ if(ov) ov.style.display='none'; });
-    vidEl.addEventListener('pause',()=>{ if(ov) ov.style.display=''; });
-    vidEl.addEventListener('ended',()=>{ vidEl.pause(); vidEl.currentTime=0; if(ov) ov.style.display=''; });
-    d.querySelector('#'+cid).addEventListener('click',()=>{
+    const circleEl = d.querySelector('#'+cid);
+    const scrubWrapEl = d.querySelector('#scw-'+cid);
+    vidEl.addEventListener('play',()=>{
+      if(ov){ ov.style.display='flex'; ov.querySelector('.msg-circle-play').innerHTML='<svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>'; }
+      if(circleEl) circleEl.classList.add('playing');
+      if(scrubWrapEl) scrubWrapEl.style.width = '260px';
+    });
+    vidEl.addEventListener('pause',()=>{
+      if(ov){ ov.style.display=''; ov.querySelector('.msg-circle-play').innerHTML='<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>'; }
+    });
+    vidEl.addEventListener('ended',()=>{
+      vidEl.currentTime=0;
+      if(ov){ ov.style.display=''; ov.querySelector('.msg-circle-play').innerHTML='<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>'; }
+      if(circleEl) circleEl.classList.remove('playing');
+      if(scrubWrapEl) scrubWrapEl.style.width = '200px';
+    });
+    circleEl.addEventListener('click',()=>{
       if(vidEl.paused) vidEl.play().catch(()=>{}); else vidEl.pause();
     });
     return d;

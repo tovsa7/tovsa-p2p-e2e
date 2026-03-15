@@ -8361,18 +8361,19 @@ function _vrAttachBtn(btnId, context){
   };
 
   // ── TOUCH ───────────────────────────────────────────────────────────────
+  // Короткий тап — переключение режима
+  // Долгое удержание — запись
+  let _tapTimer = null;
+
   btn.addEventListener('touchstart', e => {
     e.preventDefault();
 
-    // Если есть текст — отправляем по touchend, не запускаем запись
     if(context === 'chat'){
       const mi = document.getElementById('mi');
       if(mi && mi.value.trim()) return;
     }
 
-    // Если locked — тап = отправить
     if(_locked) return;
-
     if(_vr.state !== 'idle') return;
 
     _recording = false;
@@ -8380,14 +8381,19 @@ function _vrAttachBtn(btnId, context){
     _startX = e.touches[0].clientX;
     _startY = e.touches[0].clientY;
 
-    // Telegram: запись стартует сразу при нажатии
-    btn.classList.add('recording');
-    vrBeginRecording(_vr.mode, context);
-    _recording = true;
-    _showSlideHints(true);
+    // Ждём — короткий тап или удержание?
+    _tapTimer = setTimeout(() => {
+      _tapTimer = null;
+      // Удержание → запись
+      btn.classList.add('recording');
+      vrBeginRecording(_vr.mode, context);
+      _recording = true;
+      _showSlideHints(true);
+    }, 200); // 200ms — граница между тапом и удержанием
   }, { passive: false });
 
   btn.addEventListener('touchmove', e => {
+    if(_tapTimer){ clearTimeout(_tapTimer); _tapTimer = null; }
     if(!_recording || _locked || _cancelled) return;
     e.preventDefault();
     const dx = e.touches[0].clientX - _startX;
@@ -8434,9 +8440,27 @@ function _vrAttachBtn(btnId, context){
     if(context === 'chat'){
       const mi = document.getElementById('mi');
       if(mi && mi.value.trim()){
+        if(_tapTimer){ clearTimeout(_tapTimer); _tapTimer = null; }
         sendMsg();
         return;
       }
+    }
+
+    // Короткий тап (tapTimer ещё не сработал) — переключаем режим
+    if(_tapTimer){
+      clearTimeout(_tapTimer); _tapTimer = null;
+      _vrToggleMode();
+      // Показываем подсказку
+      const hint = document.getElementById('vr-hint-up');
+      if(hint){
+        hint.textContent = _vr.mode === 'circle' ? '🔴 Кружок' : '🎤 Голосовое';
+        hint.classList.add('visible');
+        setTimeout(() => {
+          hint.classList.remove('visible');
+          hint.textContent = '🔒 Зафиксировать';
+        }, 1000);
+      }
+      return;
     }
 
     // Locked: тап на стрелку = отправить
@@ -8467,6 +8491,7 @@ function _vrAttachBtn(btnId, context){
   }, { passive: false });
 
   btn.addEventListener('touchcancel', () => {
+    if(_tapTimer){ clearTimeout(_tapTimer); _tapTimer = null; }
     if(_recording){
       _recording = false;
       btn.classList.remove('recording');

@@ -8412,10 +8412,28 @@ function _vrAttachBtn(btnId, context){
 
   // ── Замочек ──────────────────────────────────────────────────────────────
   const _showLock = (show) => {
-    const el = document.getElementById('vr-lock-hint');
-    if(el) el.style.display = show ? 'flex' : 'none';
-    const ec = document.getElementById('vr-cancel-hint');
-    if(ec) ec.style.display = show ? 'flex' : 'none';
+    const lock = document.getElementById('vr-lock-hint');
+    const cancel = document.getElementById('vr-cancel-hint');
+    if(!show){
+      if(lock) lock.style.display = 'none';
+      if(cancel) cancel.style.display = 'none';
+      return;
+    }
+    // Позиционируем относительно реальных координат кнопки
+    const r = btn.getBoundingClientRect();
+    const btnCenterX = r.left + r.width / 2;
+    const btnBottom  = window.innerHeight - r.top;
+    if(lock){
+      lock.style.display = 'flex';
+      lock.style.right = (window.innerWidth - r.right) + 'px';
+      lock.style.bottom = (btnBottom + r.height / 2) + 'px';
+    }
+    if(cancel){
+      cancel.style.display = 'flex';
+      // Левее кнопки
+      cancel.style.right = (window.innerWidth - r.left + 8) + 'px';
+      cancel.style.bottom = (window.innerHeight - r.bottom + (r.height - 38) / 2) + 'px';
+    }
   };
   const _animLock = (dy, dx) => {
     // Анимация замочка (свайп вверх)
@@ -8525,7 +8543,9 @@ function _vrAttachBtn(btnId, context){
     }
 
     if(_state === 'locked'){
-      _state = 'idle'; _hideBar(); vrStopRecording(false); return;
+      // Зафиксировано — палец отпустили, запись продолжается
+      // Не делаем ничего, ждём тапа по ➤
+      return;
     }
 
     // Тап — таймер ещё жив

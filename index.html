@@ -412,6 +412,14 @@ textarea::placeholder{color:var(--mu)}
 .msg-fwd-header{font-size:11px;color:var(--a);opacity:.85;margin-bottom:3px;padding:2px 0}
 .msg-fwd-name{font-weight:600}
 .citem-fav{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .12s;background:var(--sf)}
+.req-item{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--bd)}
+.req-item-avatar{width:44px;height:44px;border-radius:50%;background:var(--sf);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--a);flex-shrink:0}
+.req-item-info{flex:1;min-width:0}
+.req-item-name{font-size:13px;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.req-item-fp{font-size:10px;color:var(--mu);margin-top:2px}
+.req-item-btns{display:flex;gap:6px;flex-shrink:0}
+.req-accept-btn{padding:6px 14px;background:var(--a);border:none;border-radius:8px;color:#000;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit}
+.req-decline-btn{padding:6px 12px;background:none;border:1px solid var(--bd);border-radius:8px;color:var(--mu);font-size:12px;cursor:pointer;font-family:inherit}
 .citem-fav:hover{background:#16161f}
 .citem-fav-icon{font-size:22px;flex-shrink:0;line-height:1}
 .citem-fav-info{flex:1;min-width:0}
@@ -505,7 +513,7 @@ textarea::placeholder{color:var(--mu)}
 .prof-note-area{width:100%;background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;color:var(--tx);font-family:inherit;font-size:12px;resize:none;outline:none;min-height:56px;transition:border-color .15s;box-sizing:border-box}
 .prof-note-area:focus{border-color:var(--a)}
 .prof-pubkey{font-size:9px;color:var(--mu);word-break:break-all;line-height:1.6;padding:10px 12px;background:var(--bg);border-radius:10px;border:1px solid var(--bd)}
-.prof-action{display:flex;align-items:center;gap:10px;width:100%;padding:11px 14px;border-radius:12px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);font-size:13px;font-family:inherit;cursor:pointer;transition:border-color .15s,background .15s;-webkit-tap-highlight-color:transparent;text-align:left}
+.prof-action{display:flex;align-items:center;gap:10px;width:100%;padding:11px 14px;border-radius:12px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);font-size:13px;font-family:inherit;cursor:pointer;transition:border-color .15s,background .15s;-webkit-tap-highlight-color:transparent;text-align:left;line-height:1.3;font-weight:500}
 .prof-action:hover,.prof-action:active{border-color:var(--a);background:rgba(0,255,157,.04)}
 .prof-action.danger{border-color:rgba(224,108,117,.3);color:var(--e)}
 .prof-action.danger:hover{border-color:var(--e);background:rgba(224,108,117,.04)}
@@ -1509,44 +1517,19 @@ if (typeof globalThis !== 'undefined') {
           </div>
         </div>
       </div>
-      <div style="display:flex;gap:8px">
-        <button class="action-btn" style="flex:1;justify-content:center" onclick="shareMyContact()">↑ поделиться</button>
-        <button class="action-btn" style="flex:1;justify-content:center" onclick="showAddContact()">+ добавить контакт</button>
-      </div>
-      <!-- QR / share панель -->
-      <div id="my-contact-share" style="display:none;flex-direction:column;gap:12px">
-        <div style="display:flex;justify-content:center;position:relative">
-          <div id="my-contact-qr-card" style="background:#0d0d14;border:1px solid rgba(0,255,157,.25);border-radius:16px;padding:20px;display:flex;flex-direction:column;align-items:center;gap:12px;min-width:220px">
-            <div style="font-size:11px;color:var(--a);letter-spacing:2px;text-transform:uppercase">Tovsa</div>
-            <div style="position:relative;display:inline-block">
-              <canvas id="my-contact-qr-canvas" width="256" height="256" style="border-radius:10px;display:block;width:220px;height:220px"></canvas>
-            </div>
-            <div id="my-contact-qr-name" style="font-size:12px;color:var(--tx);font-weight:700;letter-spacing:1px"></div>
-            <div style="font-size:9px;color:var(--mu)">сканируйте — оба добавятся в контакты</div>
-          </div>
-          <button onclick="$('my-contact-share').style.display='none'" style="position:absolute;top:4px;right:4px;background:rgba(30,30,46,.85);border:1px solid var(--bd);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--mu);font-size:16px;line-height:1;transition:color .15s,border-color .15s" onmouseover="this.style.color='var(--tx)';this.style.borderColor='var(--mu)'" onmouseout="this.style.color='var(--mu)';this.style.borderColor='var(--bd)'">×</button>
-        </div>
-        <div id="share-push-warn" style="display:none;font-size:10px;color:var(--w);padding:8px 10px;background:rgba(229,192,123,.07);border:1px solid rgba(229,192,123,.2);border-radius:8px;line-height:1.5">
-          ⚠ Уведомления отключены — вы увидите нового контакта только при следующем открытии приложения
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn" style="flex:1;font-size:11px" onclick="shareMyContactNative()" id="share-native-btn">↑ поделиться</button>
-          <button class="action-btn" style="flex:1;justify-content:center" onclick="copyMyContactLink()">🔗 скопировать</button>
-          <button class="action-btn" style="justify-content:center" onclick="saveMyQR()" title="Сохранить QR">⬇</button>
-        </div>
-        <div id="share-invite-meta" style="font-size:10px;color:var(--mu);text-align:center"></div>
-      </div>
-      <!-- Добавить контакт -->
-      <div id="add-contact-form" style="display:none;flex-direction:column;gap:8px">
-        <textarea id="add-contact-input" placeholder="вставьте код контакта..." style="height:72px"></textarea>
-        <div style="display:flex;gap:8px">
-          <button class="btn" style="flex:1" onclick="importContact()">Добавить</button>
-          <button class="action-btn" onclick="$('add-contact-form').style.display='none';$('add-contact-input').value=''">Отмена</button>
-        </div>
-      </div>
+      <div id="my-contact-share" style="display:none"></div>
+      <div id="add-contact-form" style="display:none"></div>
     </div>
 
     <!-- Меню под-разделов -->
+    <div class="sn-row" onclick="openAddContactScreen()">
+      <div class="sn-row-icon">📬</div>
+      <div class="sn-row-body">
+        <div class="sn-row-title">Добавить контакт</div>
+        <div class="sn-row-desc">Заявки, ссылка-приглашение, QR код</div>
+      </div>
+      <div class="sn-row-arrow">›</div>
+    </div>
     <div class="sn-row" onclick="snOpen('sn-security')">
       <div class="sn-row-icon">🔐</div>
       <div class="sn-row-body">
@@ -2332,6 +2315,64 @@ if (typeof globalThis !== 'undefined') {
   <div class="sk-empty" id="sk-empty" style="display:none">Нет сохранённых контактов.<br>Подключитесь к кому-нибудь<br>и сохраните их из чата.</div>
 </div>
 
+<!-- Экран заявок на добавление -->
+<div class="scr" id="s-requests" style="display:none">
+  <div class="sh-back" onclick="closeContactRequests()">← назад</div>
+  <div class="sh-hdr"><div class="sh-name">Заявки</div></div>
+  <div id="requests-list" style="flex:1;overflow-y:auto;padding:8px 0"></div>
+</div>
+
+
+<!-- Добавить контакт -->
+<div class="scr" id="s-add-contact">
+  <div class="sh-back" onclick="showTab('schats')">← назад</div>
+
+  <div style="flex:1;overflow-y:auto">
+
+    <div class="sn-section">
+      <div class="sn-label">Входящие заявки</div>
+      <div id="add-contact-requests-list">
+        <div style="font-size:12px;color:var(--mu);padding:4px 0">Нет новых заявок</div>
+      </div>
+    </div>
+
+    <div class="sn-section">
+      <div class="sn-label">Моя ссылка-приглашение</div>
+      <div id="ac-invite-active" style="display:none;background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:12px;margin-bottom:8px">
+        <div style="font-size:11px;color:var(--a);word-break:break-all;margin-bottom:8px" id="ac-invite-url"></div>
+        <div style="font-size:10px;color:var(--mu);margin-bottom:10px" id="ac-invite-meta"></div>
+        <div style="display:flex;gap:8px">
+          <button class="action-btn" style="flex:1;justify-content:center" onclick="acCopyInvite()">🔗 копировать</button>
+          <button class="action-btn" style="flex:1;justify-content:center" onclick="acShareInvite()">↗ поделиться</button>
+          <button class="action-btn" style="color:var(--e);border-color:var(--e)" onclick="acRevokeInvite()">✕</button>
+        </div>
+      </div>
+      <div id="ac-qr-wrap" style="display:none;justify-content:center;margin-bottom:10px">
+        <div style="background:#0d0d14;border:1px solid rgba(0,255,157,.25);border-radius:16px;padding:16px;display:flex;flex-direction:column;align-items:center;gap:10px">
+          <div style="font-size:10px;color:var(--a);letter-spacing:2px;text-transform:uppercase">Tovsa</div>
+          <canvas id="ac-qr-canvas" width="256" height="256" style="border-radius:10px;display:block;width:200px;height:200px"></canvas>
+          <div id="ac-qr-name" style="font-size:12px;color:var(--tx);font-weight:700"></div>
+          <button class="action-btn" onclick="acSaveQR()" style="justify-content:center;font-size:11px">⬇ сохранить QR</button>
+        </div>
+      </div>
+      <button id="ac-create-btn" class="btn" style="width:100%" onclick="acCreateInvite()">+ создать ссылку-приглашение</button>
+      <div id="ac-push-warn" style="display:none;font-size:10px;color:var(--w);padding:8px 10px;background:rgba(229,192,123,.07);border:1px solid rgba(229,192,123,.2);border-radius:8px;line-height:1.5;margin-top:8px">
+        ⚠ Уведомления отключены — вы увидите нового контакта только при следующем открытии
+      </div>
+    </div>
+
+    <div class="sn-section">
+      <div class="sn-label">Добавить по ссылке / коду</div>
+      <textarea id="ac-import-input" placeholder="вставьте ссылку или код контакта..." style="height:60px;width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--bd);border-radius:10px;color:var(--tx);font-family:inherit;font-size:12px;padding:10px 12px;resize:none;outline:none"></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn" style="flex:1" onclick="acImportContact()">Добавить</button>
+        <button class="action-btn" onclick="document.getElementById('ac-import-input').value=''">✕</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
 <!-- Избранное -->
 <div class="scr" id="sfav">
   <div class="sh-back" onclick="if(typeof _tabState!=='undefined'){_tabState.chats.subScreen=null;_tabState.chats.subId=null;}showTab('schats')">← назад</div>
@@ -2476,7 +2517,7 @@ if (typeof globalThis !== 'undefined') {
       <div class="prof-section-title">Публичный ключ</div>
       <div class="prof-pubkey" id="prof-pubkey">—</div>
       <button class="prof-action" id="prof-verify-btn" onclick="verifyContactKey()">
-        <span class="pa-icon">🔍</span>Проверить ключ и fingerprint
+        <span class="pa-icon">🔍</span><span>Проверить ключ и fingerprint</span>
       </button>
       <div class="prof-verify-result" id="info-verify-result"></div>
     </div>
@@ -2898,7 +2939,7 @@ if (typeof globalThis !== 'undefined') {
   <!-- FAB -->
   <div class="fab-menu" id="fab-menu">
     <div class="fab-menu-item" onclick="fabNewContact()">
-      Найти контакт <div class="fab-menu-icon">👤</div>
+      Добавить контакт <div class="fab-menu-icon">📬</div>
     </div>
     <div class="fab-menu-item" onclick="fabNewRoom()">
       Создать группу <div class="fab-menu-icon">🔒</div>
@@ -5220,12 +5261,12 @@ function showTab(tab){
   };
   movePill(tabIdMap[tab] || 'tab-connect');
 
-  const isContactsArea = tab==='sk'||tab==='sh'||tab==='sfav'||tab==='sc';
+  const isContactsArea = tab==='sk'||tab==='sh'||tab==='sfav'||tab==='sc'||tab==='s-add-contact';
   const isChatsArea    = tab==='schats'||isContactsArea||tab==='srooms'||tab==='sroom-chat'||tab==='schannels'||tab==='sch-view';
   const isNetArea      = tab==='sn';
   const isConnect      = !isChatsArea && !isNetArea;
 
-  hide('sr');hide('ss');hide('sc');hide('sk');hide('sh');hide('sn');hide('sfav');
+  hide('sr');hide('ss');hide('sc');hide('sk');hide('sh');hide('sn');hide('sfav');hide('s-add-contact');
   hide('schats');hide('srooms');hide('sroom-chat');hide('schannels');hide('sch-view');
 
   $('tagline').style.display = 'block';
@@ -5234,6 +5275,11 @@ function showTab(tab){
   $('tab-net').classList.toggle('act', isNetArea);
   const tabChats = document.getElementById('tab-chats');
   if(tabChats) tabChats.classList.toggle('act', isChatsArea);
+  // Двигаем пилюлю к активной вкладке
+  requestAnimationFrame(()=>{
+    const actTab = document.querySelector('.tabbar .tab.act');
+    if(actTab && typeof movePill === 'function') movePill(actTab.id);
+  });
 
   // ── Показываем нужный экран ───────────────────────────────────────────────
   if(tab === 'connect'){
@@ -5264,6 +5310,10 @@ function showTab(tab){
 
   } else if(tab === 'sh'){
     activeTab = 'contacts'; contactsSubScreen = 'sh'; show('sh');
+
+  } else if(tab === 's-add-contact'){
+    activeTab = 'contacts'; contactsSubScreen = 's-add-contact'; show('s-add-contact');
+    $('tagline').style.display = 'none';
 
   } else if(tab === 'sfav'){
     activeTab = 'contacts'; contactsSubScreen = 'sfav'; show('sfav');
@@ -6025,22 +6075,26 @@ async function verifyContactKey(){
   btn.disabled=true;
 
   try{
-    // Rebuild fingerprint from stored pubKeyHex
-    const pubBytes=new Uint8Array(pubHex.match(/.{2}/g).map(b=>parseInt(b,16)));
-    const hash=await sha256(pubBytes);
-    const computedFp=bytesToFingerprint(hash);
+    const pubBytes = new Uint8Array(pubHex.match(/.{2}/g).map(b=>parseInt(b,16)));
+    const hash     = await sha256(pubBytes);
+    // Вычисляем оба формата fingerprint
+    const computedEmoji = bytesToFingerprint(hash);
+    const computedHex   = Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,24);
+    // storedFp может быть hex или эмодзи — сравниваем с обоими
+    const match = storedFp === computedEmoji || storedFp === computedHex;
+    const displayFp = computedEmoji; // показываем эмодзи-версию
 
     result.style.display='block';
-    if(computedFp===storedFp){
+    if(match){
       result.style.background='rgba(0,255,157,.06)';
       result.style.border='1px solid rgba(0,255,157,.25)';
       result.style.color='var(--a)';
-      result.innerHTML=`✓ Ключ и fingerprint совпадают<br><span style="opacity:.6;font-size:10px">SHA-256(публичный ключ) → ${esc(computedFp)}</span>`;
+      result.innerHTML=`✓ Ключ и fingerprint совпадают<br><span style="opacity:.6;font-size:10px">SHA-256(публичный ключ) → ${esc(displayFp)}</span>`;
     } else {
       result.style.background='rgba(224,108,117,.06)';
       result.style.border='1px solid rgba(224,108,117,.3)';
       result.style.color='var(--e)';
-      result.innerHTML=`✗ Несоответствие! Ключ и fingerprint не совпадают<br><span style="opacity:.7;font-size:10px">Ожидался: ${esc(storedFp)}<br>Вычислен: ${esc(computedFp)}</span>`;
+      result.innerHTML=`✗ Несоответствие! Ключ и fingerprint не совпадают<br><span style="opacity:.7;font-size:10px">Ожидался: ${esc(storedFp)}<br>Вычислен: ${esc(displayFp)}</span>`;
     }
   }catch(e){
     result.style.display='block';
@@ -13513,12 +13567,8 @@ if('serviceWorker' in navigator){
             const sha = await crypto.subtle.digest('SHA-256', new Uint8Array(rPub.match(/.{2}/g).map(h=>parseInt(h,16))));
             const fp = Array.from(new Uint8Array(sha)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,24);
             if(!contacts[fp]){
-              contacts[fp] = { pubKeyHex: rPub, name: rName, addedAt: Date.now(), signalingUrl: rSig||null };
-              if(rEnc && typeof contactSaveEncPubKey === 'function') contactSaveEncPubKey(rPub, rEnc);
-              if(rPush && typeof contactSavePushToken === 'function') contactSavePushToken(rPub, rPush);
-              await saveContacts(contacts);
-              if(typeof renderChatsList === 'function') renderChatsList();
-              toast('✓ ' + rName + ' добавлен в контакты');
+              await addContactRequest({ pubKeyHex: rPub, fp, name: rName, encPub: rEnc, pushToken: rPush, signalingUrl: rSig||null });
+              toast('📬 Заявка от ' + (rName||'Tovsa User'));
             }
           } catch(e){ console.warn('[invite] auto-add contact:', e.message); }
         })();
@@ -16300,13 +16350,8 @@ async function _handleAllIncoming(from, kind, data) {
       const sha = await crypto.subtle.digest('SHA-256', new Uint8Array(pubKeyHex.match(/.{2}/g).map(h=>parseInt(h,16))));
       const fp = Array.from(new Uint8Array(sha)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,24);
       if (!contacts[fp]) {
-        contacts[fp] = { pubKeyHex, name: name||'Tovsa User', addedAt: Date.now(), signalingUrl: signalingUrl||null };
-        if (encPub   && typeof contactSaveEncPubKey  === 'function') contactSaveEncPubKey(pubKeyHex, encPub);
-        if (pushToken && typeof contactSavePushToken === 'function') contactSavePushToken(pubKeyHex, pushToken);
-        await saveContacts(contacts);
-        if (typeof renderChatsList === 'function') renderChatsList();
-        if (typeof _refreshPairBeacons === 'function') _refreshPairBeacons();
-        toast('✓ ' + (name||'Пользователь') + ' принял ваше приглашение');
+        await addContactRequest({ pubKeyHex, fp, name: name||'Tovsa User', encPub: encPub||'', pushToken: pushToken||'', signalingUrl: signalingUrl||null });
+        toast('📬 ' + (name||'Пользователь') + ' принял ваше приглашение');
         console.log('[invite] accepted by', fp.slice(0,8));
       }
     } catch(e) { console.warn('[invite] accept handler:', e.message); }
@@ -16317,6 +16362,367 @@ async function _handleAllIncoming(from, kind, data) {
     return _origRoomHandleIncoming(from, kind, data);
   }
 }
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Contact Requests Module
+// ══════════════════════════════════════════════════════════════════════════════
+const CONTACT_REQUESTS_KEY = 'contact_requests_v1';
+
+async function loadContactRequests() {
+  try { return await idbGet('meta', CONTACT_REQUESTS_KEY) || []; }
+  catch(_) { return []; }
+}
+async function saveContactRequests(reqs) {
+  try { await idbSet('meta', CONTACT_REQUESTS_KEY, reqs); } catch(_) {}
+}
+
+async function addContactRequest(data) {
+  const reqs = await loadContactRequests();
+  if (reqs.some(r => r.pubKeyHex === data.pubKeyHex)) return; // дубль
+  reqs.push({ ...data, receivedAt: Date.now() });
+  await saveContactRequests(reqs);
+  renderContactRequestsBadge();
+}
+
+async function renderContactRequestsBadge() {
+  const reqs = await loadContactRequests();
+  const btn   = document.getElementById('sk-requests-btn');
+  const badge = document.getElementById('sk-requests-badge');
+  const count = document.getElementById('sk-requests-count');
+  if (!btn) return;
+  if (reqs.length > 0) {
+    if (badge) { badge.textContent = reqs.length; badge.style.display = ''; }
+    if (count) count.textContent = reqs.length + ' ' + (reqs.length === 1 ? 'заявка' : reqs.length < 5 ? 'заявки' : 'заявок');
+  } else {
+    if (badge) badge.style.display = 'none';
+    if (count) count.textContent = 'нет новых';
+  }
+}
+
+async function showContactRequests() {
+  const scr = document.getElementById('s-requests');
+  if (!scr) return;
+  scr.style.display = 'flex';
+  scr.style.flexDirection = 'column';
+  await renderContactRequestsList();
+}
+
+function closeContactRequests() {
+  const scr = document.getElementById('s-requests');
+  if (scr) scr.style.display = 'none';
+}
+
+async function renderContactRequestsList() {
+  const list = document.getElementById('requests-list');
+  if (!list) return;
+  const reqs = await loadContactRequests();
+  if (!reqs.length) {
+    list.innerHTML = '<div style="padding:40px 20px;text-align:center;font-size:12px;color:var(--mu)">Нет входящих заявок</div>';
+    return;
+  }
+  list.innerHTML = reqs.map((r, i) => {
+    const initial = (r.name || '?')[0].toUpperCase();
+    const fp = r.fp ? r.fp.slice(0,12)+'...' : '';
+    const ago = _fmtAgo(r.receivedAt);
+    return `<div class="req-item">
+      <div class="req-item-avatar">${initial}</div>
+      <div class="req-item-info">
+        <div class="req-item-name">${esc(r.name || 'Tovsa User')}</div>
+        <div class="req-item-fp">${fp}${ago ? ' · ' + ago : ''}</div>
+      </div>
+      <div class="req-item-btns">
+        <button class="req-accept-btn" onclick="acceptContactRequest(${i})">✓</button>
+        <button class="req-decline-btn" onclick="declineContactRequest(${i})">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function _fmtAgo(ts) {
+  if (!ts) return '';
+  const d = Math.floor((Date.now() - ts) / 1000);
+  if (d < 60) return 'только что';
+  if (d < 3600) return Math.floor(d/60) + ' мин назад';
+  if (d < 86400) return Math.floor(d/3600) + ' ч назад';
+  return Math.floor(d/86400) + ' д назад';
+}
+
+async function acceptContactRequest(idx) {
+  const reqs = await loadContactRequests();
+  const r = reqs[idx];
+  if (!r) return;
+  try {
+    const contacts = await getContacts();
+    if (!contacts[r.fp]) {
+      contacts[r.fp] = {
+        pubKeyHex: r.pubKeyHex,
+        name: r.name || 'Tovsa User',
+        addedAt: Date.now(),
+        signalingUrl: r.signalingUrl || null,
+      };
+      if (r.encPub && typeof contactSaveEncPubKey === 'function') contactSaveEncPubKey(r.pubKeyHex, r.encPub);
+      if (r.pushToken && typeof contactSavePushToken === 'function') contactSavePushToken(r.pubKeyHex, r.pushToken);
+      await saveContacts(contacts);
+      if (typeof _refreshPairBeacons === 'function') _refreshPairBeacons();
+      if (typeof renderChatsList === 'function') renderChatsList();
+      toast('✓ ' + (r.name || 'Контакт') + ' добавлен');
+    }
+    reqs.splice(idx, 1);
+    await saveContactRequests(reqs);
+    await renderContactRequestsList();
+    renderContactRequestsBadge();
+  } catch(e) { toast('Ошибка: ' + e.message); }
+}
+
+async function declineContactRequest(idx) {
+  const reqs = await loadContactRequests();
+  reqs.splice(idx, 1);
+  await saveContactRequests(reqs);
+  await renderContactRequestsList();
+  renderContactRequestsBadge();
+  toast('Заявка отклонена');
+}
+
+Object.assign(window, { showContactRequests, closeContactRequests, acceptContactRequest, declineContactRequest });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Add Contact Screen
+// ══════════════════════════════════════════════════════════════════════════════
+
+let _acCurrentInvite = null; // { kvKey, token, url, federationUrl, expiresAt }
+
+function openAddContactScreen() {
+  showTab('s-add-contact');
+  _acRefresh();
+}
+
+function closeAddContactScreen() {
+  showTab('schats');
+}
+
+async function _acRefresh() {
+  await _acLoadRequests();
+  await _acLoadInvite();
+}
+
+// Загружаем заявки
+async function _acLoadRequests() {
+  const list = document.getElementById('add-contact-requests-list');
+  if (!list) return;
+  const reqs = await loadContactRequests();
+  if (!reqs.length) {
+    list.innerHTML = '<div style="padding:10px 20px;font-size:12px;color:var(--mu)">Нет новых заявок</div>';
+    return;
+  }
+  list.innerHTML = reqs.map((r, i) => {
+    const initial = (r.name||'?')[0].toUpperCase();
+    const ago = _fmtAgo(r.receivedAt);
+    return `<div class="req-item">
+      <div class="req-item-avatar">${initial}</div>
+      <div class="req-item-info">
+        <div class="req-item-name">${esc(r.name||'Tovsa User')}</div>
+        <div class="req-item-fp">${r.fp ? r.fp.slice(0,12)+'...' : ''}${ago?' · '+ago:''}</div>
+      </div>
+      <div class="req-item-btns">
+        <button class="req-accept-btn" onclick="acAcceptRequest(${i})">✓ Добавить</button>
+        <button class="req-decline-btn" onclick="acDeclineRequest(${i})">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+  // Обновляем бейдж
+  renderContactRequestsBadge();
+}
+
+async function acAcceptRequest(idx) {
+  await acceptContactRequest(idx);
+  await _acLoadRequests();
+}
+
+async function acDeclineRequest(idx) {
+  await declineContactRequest(idx);
+  await _acLoadRequests();
+}
+
+// Загружаем/показываем активный инвайт
+async function _acLoadInvite() {
+  const activeWrap = document.getElementById('ac-invite-active');
+  const createBtn  = document.getElementById('ac-create-btn');
+  const qrWrap     = document.getElementById('ac-qr-wrap');
+  const urlEl      = document.getElementById('ac-invite-url');
+  const metaEl     = document.getElementById('ac-invite-meta');
+
+  // Пробуем загрузить сохранённый инвайт
+  try {
+    const secrets = JSON.parse(localStorage.getItem('_invSecrets') || '{}');
+    // Берём первый сохранённый токен
+    const kvKey = Object.keys(secrets).find(k => !k.startsWith('blob_'));
+    if (kvKey && secrets[kvKey]) {
+      const token = secrets[kvKey];
+      const host = (typeof PUSH_SERVER !== 'undefined' && PUSH_SERVER) ? new URL(PUSH_SERVER).hostname : '';
+      const url = `tovsa2://${host}/inv#${token}`;
+      _acCurrentInvite = { kvKey, token, url };
+      if (urlEl) urlEl.textContent = url;
+      if (activeWrap) activeWrap.style.display = '';
+      if (createBtn) createBtn.style.display = 'none';
+      // Генерируем QR
+      _acRenderQR(url);
+      return;
+    }
+  } catch(_) {}
+
+  // Нет сохранённого инвайта
+  _acCurrentInvite = null;
+  if (activeWrap) activeWrap.style.display = 'none';
+  if (qrWrap) qrWrap.style.display = 'none';
+  if (createBtn) createBtn.style.display = '';
+  // push warn
+  const warn = document.getElementById('ac-push-warn');
+  if (warn) {
+    const pushOk = ('Notification' in window) && Notification.permission === 'granted';
+    warn.style.display = pushOk ? 'none' : '';
+  }
+}
+
+async function acCreateInvite() {
+  const btn = document.getElementById('ac-create-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ создаём...'; }
+  try {
+    if (typeof window._createInvite !== 'function') throw new Error('модуль не загружен');
+    const result = await window._createInvite({ maxUses: 50, expiresIn: 60*60*24*30 });
+    _acCurrentInvite = result;
+    await _acLoadInvite();
+    toast('✓ Ссылка создана');
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = '+ создать ссылку-приглашение'; }
+  }
+}
+
+async function acRevokeInvite() {
+  if (!_acCurrentInvite?.kvKey) return;
+  if (!confirm('Отозвать ссылку? Прежняя перестанет работать.')) return;
+  try {
+    await window._revokeInvite(_acCurrentInvite.kvKey);
+    _acCurrentInvite = null;
+    await _acLoadInvite();
+    toast('Ссылка отозвана');
+  } catch(e) { toast('Ошибка: ' + e.message); }
+}
+
+function acCopyInvite() {
+  const url = _acCurrentInvite?.federationUrl || _acCurrentInvite?.url;
+  if (!url) return;
+  navigator.clipboard.writeText(url).then(()=>toast('Скопировано ✓')).catch(()=>toast('Ошибка'));
+}
+
+function acShareInvite() {
+  const url = _acCurrentInvite?.federationUrl || _acCurrentInvite?.url;
+  if (!url) return;
+  if (navigator.share) {
+    navigator.share({ title: 'Tovsa', url }).catch(() => acCopyInvite());
+  } else {
+    acCopyInvite();
+  }
+}
+
+function _acRenderQR(text) {
+  const qrWrap = document.getElementById('ac-qr-wrap');
+  const canvas = document.getElementById('ac-qr-canvas');
+  const nameEl = document.getElementById('ac-qr-name');
+  if (!canvas || !qrWrap) return;
+  qrWrap.style.display = 'flex';
+  let myName = '';
+  try { myName = localStorage.getItem('_myName') || localStorage.getItem('myName') || ''; } catch(_) {}
+  if (nameEl) nameEl.textContent = myName;
+  if (typeof QRCode !== 'undefined') {
+    const tmp = document.createElement('div');
+    tmp.style.cssText = 'position:absolute;left:-9999px;visibility:hidden';
+    document.body.appendChild(tmp);
+    const qr = new QRCode(tmp, { text, width: 256, height: 256, correctLevel: QRCode.CorrectLevel.M });
+    const qrData = qr._oQRCode;
+    const count = qrData.getModuleCount();
+    document.body.removeChild(tmp);
+    const dpr = Math.min(window.devicePixelRatio||1, 3);
+    canvas.width = 256*dpr; canvas.height = 256*dpr;
+    canvas.style.width='200px'; canvas.style.height='200px';
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    const margin=14, cell=(256-margin*2)/count;
+    const dark=(r,c)=>r>=0&&c>=0&&r<count&&c<count&&qrData.isDark(r,c);
+    ctx.fillStyle='#0a0a0f'; ctx.fillRect(0,0,256,256);
+    for(let r=0;r<count;r++) for(let c=0;c<count;c++) {
+      if(!dark(r,c)) continue;
+      const T=dark(r-1,c),B=dark(r+1,c),L=dark(r,c-1),Ri=dark(r,c+1);
+      const x=Math.round(margin+c*cell),y=Math.round(margin+r*cell);
+      const x2=Math.round(margin+(c+1)*cell),y2=Math.round(margin+(r+1)*cell);
+      const w=x2-x,h=y2-y,R=w*0.4;
+      const tl=(!T&&!L)?R:0,tr=(!T&&!Ri)?R:0,br=(!B&&!Ri)?R:0,bl=(!B&&!L)?R:0;
+      const isFinder=(r<7&&c<7)||(r<7&&c>=count-7)||(r>=count-7&&c<7);
+      ctx.fillStyle=isFinder?'#00ff9d':'#00e890';
+      ctx.beginPath();
+      ctx.moveTo(x+tl,y); ctx.lineTo(x+w-tr,y);
+      if(tr)ctx.arcTo(x+w,y,x+w,y+tr,tr); else ctx.lineTo(x+w,y);
+      ctx.lineTo(x+w,y+h-br);
+      if(br)ctx.arcTo(x+w,y+h,x+w-br,y+h,br); else ctx.lineTo(x+w,y+h);
+      ctx.lineTo(x+bl,y+h);
+      if(bl)ctx.arcTo(x,y+h,x,y+h-bl,bl); else ctx.lineTo(x,y+h);
+      ctx.lineTo(x,y+tl);
+      if(tl)ctx.arcTo(x,y,x+tl,y,tl); else ctx.lineTo(x,y);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+}
+
+function acSaveQR() {
+  const canvas = document.getElementById('ac-qr-canvas');
+  if (!canvas) return;
+  canvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download='tovsa-invite-qr.png'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+    toast('QR сохранён');
+  }, 'image/png');
+}
+
+async function acImportContact() {
+  const inp = document.getElementById('ac-import-input');
+  const raw = inp?.value.trim();
+  if (!raw) return;
+  // Используем существующий importContact из settings
+  const origInput = document.getElementById('add-contact-input');
+  if (origInput) {
+    origInput.value = raw;
+    await importContact();
+    if (inp) inp.value = '';
+  } else {
+    // Прямой импорт
+    inp.value = '';
+    toast('⏳ Импортируем...');
+    try {
+      const { secret, serverUrl } = _invParseToken(raw);
+      const info = await window._getInviteInfo(raw);
+      const result = await window._requestViaInvite(raw, info);
+      if (result?.ownerPubHex) {
+        const contacts = await getContacts();
+        const sha = await crypto.subtle.digest('SHA-256', new Uint8Array(result.ownerPubHex.match(/.{2}/g).map(h=>parseInt(h,16))));
+        const fp = Array.from(new Uint8Array(sha)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,24);
+        if (!contacts[fp]) {
+          contacts[fp] = { pubKeyHex: result.ownerPubHex, name: result.ownerName||'Tovsa User', addedAt: Date.now(), signalingUrl: result.signalingUrl||null };
+          if (result.encPub && typeof contactSaveEncPubKey==='function') contactSaveEncPubKey(result.ownerPubHex, result.encPub);
+          await saveContacts(contacts);
+          if (typeof renderChatsList==='function') renderChatsList();
+          toast('✓ ' + (result.ownerName||'Контакт') + ' добавлен');
+          closeAddContactScreen();
+        } else { toast('Контакт уже есть'); }
+      }
+    } catch(e) { toast('Ошибка: ' + e.message); }
+  }
+}
+
+Object.assign(window, { openAddContactScreen, closeAddContactScreen, acCreateInvite, acRevokeInvite, acCopyInvite, acShareInvite, acSaveQR, acImportContact, acAcceptRequest, acDeclineRequest });
+
+
 
 // Переопределяем roomHandleIncoming чтобы обрабатывал и channel kinds
 window.roomHandleIncoming = _handleAllIncoming;
@@ -19861,6 +20267,7 @@ function _attachSwipeReply(el, text, sender, ts, fp){
     if(sub === 'sc')                  return { el: document.getElementById('sc'),         back: 'schats' };
     if(sub === 'sh')                  return { el: document.getElementById('sh'),         back: 'schats' };
     if(sub === 'sfav')                return { el: document.getElementById('sfav'),       back: 'schats' };
+    if(sub === 's-add-contact')        return { el: document.getElementById('s-add-contact'), back: 'schats' };
     if(tab === 'rooms'    && document.getElementById('sroom-chat')?.classList.contains('on'))
                                       return { el: document.getElementById('sroom-chat'), back: 'schats' };
     if(tab === 'channels' && document.getElementById('sch-view')?.classList.contains('on'))
@@ -20580,18 +20987,7 @@ async function channelsRenderList() {
 }
 
 async function channelCreateUI() {
-  const name = prompt('Название канала:');
-  if (!name?.trim()) return;
-  const desc = prompt('Описание (необязательно):') || '';
-
-  try {
-    const ch = await channelCreate({ name: name.trim(), description: desc });
-    toast('✓ Канал создан');
-    await channelsRenderList();
-    channelOpenView(ch.channelId);
-  } catch(e) {
-    toast('Ошибка: ' + e.message);
-  }
+  fabNewChannel();
 }
 
 // ── CHANNELS: просмотр ────────────────────────────────────────────────────────
@@ -21572,34 +21968,76 @@ function closeFabMenu() {
 
 function fabNewContact() {
   closeFabMenu();
-  // Открываем форму добавления контакта
-  showTab('sn');
-  setTimeout(() => {
-    const form = document.getElementById('add-contact-form');
-    if (form) form.style.display = 'flex';
-  }, 100);
+  openAddContactScreen();
+}
+
+function _showCreateDialog({ icon, title, placeholder, hint, onConfirm }) {
+  const existing = document.getElementById('_create-dialog');
+  if (existing) existing.remove();
+
+  const d = document.createElement('div');
+  d.id = '_create-dialog';
+  d.style.cssText = 'position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);display:flex;align-items:flex-end;justify-content:center';
+  d.innerHTML = `
+    <div style="background:var(--sf);border-radius:20px 20px 0 0;padding:24px 20px 32px;width:100%;max-width:600px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:24px">${icon}</span>
+        <span style="font-size:16px;font-weight:700;color:var(--tx)">${title}</span>
+      </div>
+      <input id="_create-dialog-input" type="text" placeholder="${placeholder}" maxlength="64"
+        style="background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:13px 16px;color:var(--tx);font-family:inherit;font-size:15px;outline:none;transition:border-color .15s;-webkit-appearance:none"
+        onfocus="this.style.borderColor='var(--a)'" onblur="this.style.borderColor='var(--bd)'"
+        onkeydown="if(event.key==='Enter')document.getElementById('_create-dialog-ok').click();if(event.key==='Escape')document.getElementById('_create-dialog').remove()">
+      ${hint ? `<div style="font-size:11px;color:var(--mu);line-height:1.5;padding:0 2px">${hint}</div>` : ''}
+      <div style="display:flex;gap:10px">
+        <button onclick="document.getElementById('_create-dialog').remove()"
+          style="flex:1;padding:13px;background:var(--bg);border:1px solid var(--bd);border-radius:12px;color:var(--mu);font-family:inherit;font-size:14px;cursor:pointer">
+          Отмена
+        </button>
+        <button id="_create-dialog-ok"
+          style="flex:2;padding:13px;background:var(--a);border:none;border-radius:12px;color:#0a0a0f;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer"
+          onclick="const v=document.getElementById('_create-dialog-input').value.trim();if(!v)return;document.getElementById('_create-dialog').remove();(${onConfirm.toString()})(v)">
+          Создать
+        </button>
+      </div>
+    </div>`;
+  d.addEventListener('click', e => { if (e.target === d) d.remove(); });
+  document.body.appendChild(d);
+  setTimeout(() => document.getElementById('_create-dialog-input')?.focus(), 80);
 }
 
 function fabNewRoom() {
   closeFabMenu();
-  const name = prompt('Название группы:');
-  if (!name?.trim()) return;
-  roomCreate({ name: name.trim(), historyPolicy: 'any_member' }).then(room => {
-    toast('✓ Группа создана');
-    renderChatsList();
-    roomOpenChat(room.roomId);
-  }).catch(e => toast('Ошибка: ' + e.message));
+  _showCreateDialog({
+    icon: '🔒',
+    title: 'Новая группа',
+    placeholder: 'Название группы...',
+    hint: 'Зашифрованная E2E группа — сервер не видит содержимого',
+    onConfirm: (name) => {
+      roomCreate({ name, historyPolicy: 'any_member' }).then(room => {
+        toast('✓ Группа создана');
+        renderChatsList();
+        roomOpenChat(room.roomId);
+      }).catch(e => toast('Ошибка: ' + e.message));
+    }
+  });
 }
 
 function fabNewChannel() {
   closeFabMenu();
-  const name = prompt('Название канала:');
-  if (!name?.trim()) return;
-  channelCreate({ name: name.trim() }).then(ch => {
-    toast('✓ Канал создан');
-    renderChatsList();
-    channelOpenView(ch.channelId);
-  }).catch(e => toast('Ошибка: ' + e.message));
+  _showCreateDialog({
+    icon: '📢',
+    title: 'Новый канал',
+    placeholder: 'Название канала...',
+    hint: 'Канал для публикации постов подписчикам',
+    onConfirm: (name) => {
+      channelCreate({ name }).then(ch => {
+        toast('✓ Канал создан');
+        renderChatsList();
+        channelOpenView(ch.channelId);
+      }).catch(e => toast('Ошибка: ' + e.message));
+    }
+  });
 }
 
 // ── Папки: управление ─────────────────────────────────────────────────────────

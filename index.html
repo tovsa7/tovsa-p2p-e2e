@@ -19087,6 +19087,7 @@ document.addEventListener('visibilitychange', ()=>{
 
     let blob, expiresAt = 0, maxUses = 0, remaining = 0;
 
+    console.log('[invite] fetch from serverUrl=' + serverUrl);
     try {
       const res = await fetch(serverUrl + '/invite2/fetch', {
         method: 'POST',
@@ -19352,7 +19353,9 @@ document.addEventListener('visibilitychange', ()=>{
 
     console.log('[invite] processing token, waited=' + waited + 'ms');
     try {
-      console.log('[invite] fetching info...');
+      console.log('[invite] fetching info from token=' + tokenInput.slice(0,8) + '...');
+      console.log('[invite] PUSH_SERVER=' + (typeof PUSH_SERVER !== 'undefined' ? PUSH_SERVER : 'undefined'));
+      console.log('[invite] _isNullOrigin=' + (typeof _isNullOrigin !== 'undefined' ? _isNullOrigin : 'undefined'));
       const info = await window._getInviteInfo(tokenInput);
       console.log('[invite] info received:', info?.ownerName);
 

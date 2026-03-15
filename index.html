@@ -420,6 +420,17 @@ textarea::placeholder{color:var(--mu)}
 .req-item-btns{display:flex;gap:6px;flex-shrink:0}
 .req-accept-btn{padding:6px 14px;background:var(--a);border:none;border-radius:8px;color:#000;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit}
 .req-decline-btn{padding:6px 12px;background:none;border:1px solid var(--bd);border-radius:8px;color:var(--mu);font-size:12px;cursor:pointer;font-family:inherit}
+/* Состояния исходящих заявок */
+.req-status{display:inline-flex;align-items:center;gap:5px;font-size:10px;padding:3px 8px;border-radius:10px;font-weight:600;letter-spacing:.5px;flex-shrink:0}
+.req-status.pending{background:rgba(229,192,123,.1);border:1px solid rgba(229,192,123,.3);color:var(--w)}
+.req-status.confirming{background:rgba(0,255,157,.08);border:1px solid rgba(0,255,157,.25);color:var(--a)}
+.req-status.confirmed{background:rgba(0,255,157,.1);border:1px solid rgba(0,255,157,.3);color:var(--a)}
+.req-status.expired{background:rgba(224,108,117,.08);border:1px solid rgba(224,108,117,.25);color:var(--e)}
+.req-status-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.req-status.pending   .req-status-dot{background:var(--w);animation:blink 1.2s infinite}
+.req-status.confirming .req-status-dot{background:var(--a);animation:blink 1.2s infinite}
+.req-status.confirmed .req-status-dot{background:var(--a)}
+.req-status.expired   .req-status-dot{background:var(--e)}
 .citem-fav:hover{background:#16161f}
 .citem-fav-icon{font-size:22px;flex-shrink:0;line-height:1}
 .citem-fav-info{flex:1;min-width:0}
@@ -2336,11 +2347,26 @@ if (typeof globalThis !== 'undefined') {
       </div>
     </div>
 
+    <div class="sn-section" id="ac-outgoing-section" style="display:none">
+      <div class="sn-label">Отправленные заявки</div>
+      <div id="add-contact-outgoing-list"></div>
+    </div>
+
     <div class="sn-section">
       <div class="sn-label">Моя ссылка-приглашение</div>
       <div id="ac-invite-active" style="display:none;background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:12px;margin-bottom:8px">
         <div style="font-size:11px;color:var(--a);word-break:break-all;margin-bottom:8px" id="ac-invite-url"></div>
-        <div style="font-size:10px;color:var(--mu);margin-bottom:10px" id="ac-invite-meta"></div>
+        <!-- Статистика использования -->
+        <div id="ac-invite-stats" style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span id="ac-invite-used" style="font-size:11px;color:var(--tx)">—</span>
+            <span id="ac-invite-expires" style="font-size:10px;color:var(--mu)">—</span>
+          </div>
+          <div style="height:3px;background:var(--bd);border-radius:2px;overflow:hidden">
+            <div id="ac-invite-progress" style="height:100%;background:var(--a);border-radius:2px;transition:width .3s;width:0%"></div>
+          </div>
+        </div>
+        <div id="ac-invite-meta" style="font-size:10px;color:var(--mu);margin-bottom:10px"></div>
         <div style="display:flex;gap:8px">
           <button class="action-btn" style="flex:1;justify-content:center" onclick="acCopyInvite()">🔗 копировать</button>
           <button class="action-btn" style="flex:1;justify-content:center" onclick="acShareInvite()">↗ поделиться</button>
@@ -16499,7 +16525,7 @@ async function _psSave(items) {
 }
 
 // Добавить pending запись и сразу попробовать отправить
-async function _psAdd({ kind, to, sealed, expiresAt, id: preId }) {
+async function _psAdd({ kind, to, sealed, expiresAt, id: preId, toName, confirmedFp }) {
   const items = await _psLoad();
   const id    = preId || crypto.randomUUID();
   // Идемпотентность — не добавляем если id уже есть (retry при reconnect)
@@ -16509,7 +16535,8 @@ async function _psAdd({ kind, to, sealed, expiresAt, id: preId }) {
     return id;
   }
   items.push({ id, kind, to, sealed, sentAt: Date.now(),
-               expiresAt: expiresAt || Date.now() + PENDING_SEALED_TTL, acked: false });
+               expiresAt: expiresAt || Date.now() + PENDING_SEALED_TTL, acked: false,
+               toName: toName || '', confirmedFp: confirmedFp || '' });
   await _psSave(items);
   console.log('[ps] added', kind, 'id=' + id.slice(0,8));
   _psTrySend({ id, to, sealed, kind });
@@ -16523,6 +16550,9 @@ async function _psAck(id) {
   if (next.length !== items.length) {
     await _psSave(next);
     console.log('[ps] acked id=' + id.slice(0,8));
+    // Обновляем экран если открыт
+    if (document.getElementById('s-add-contact')?.style.display !== 'none')
+      _acLoadOutgoing().catch(()=>{});
   }
 }
 
@@ -16576,6 +16606,9 @@ async function addContactRequest(data) {
   reqs.push({ ...data, receivedAt: Date.now() });
   await saveContactRequests(reqs);
   renderContactRequestsBadge();
+  // Обновляем экран если открыт
+  if (document.getElementById('s-add-contact')?.style.display !== 'none')
+    _acLoadRequests().catch(()=>{});
   return true;
 }
 
@@ -16680,7 +16713,8 @@ async function acceptContactRequest(idx) {
           r.encPub,
         );
         const bMailbox = await getContactMailboxId(r.pubKeyHex, 0) ?? r.pubKeyHex;
-        await _psAdd({ kind: 'contact_confirmed', to: bMailbox, sealed });
+        await _psAdd({ kind: 'contact_confirmed', to: bMailbox, sealed,
+                       toName: r.name || '', confirmedFp: r.fp || '' });
         console.log('[invite] contact_confirmed queued for', r.fp.slice(0,8));
       } catch(e) { console.warn('[invite] contact_confirmed send error:', e.message); }
     }
@@ -16715,15 +16749,23 @@ function closeAddContactScreen() {
 
 async function _acRefresh() {
   await _acLoadRequests();
+  await _acLoadOutgoing();
   await _acLoadInvite();
 }
 
-// Загружаем заявки
+// Загружаем заявки — входящие (A принимает от B)
 async function _acLoadRequests() {
   const list = document.getElementById('add-contact-requests-list');
   if (!list) return;
   const reqs = await loadContactRequests();
-  if (!reqs.length) {
+
+  // Проверяем какие из принятых заявок ещё ждут доставки contact_confirmed к B
+  const pending = await _psLoad();
+  const confirmingFps = new Set(
+    pending.filter(i => i.kind === 'contact_confirmed').map(i => i.confirmedFp).filter(Boolean)
+  );
+
+  if (!reqs.length && !confirmingFps.size) {
     list.innerHTML = '<div style="padding:10px 20px;font-size:12px;color:var(--mu)">Нет новых заявок</div>';
     return;
   }
@@ -16742,8 +16784,87 @@ async function _acLoadRequests() {
       </div>
     </div>`;
   }).join('');
-  // Обновляем бейдж
   renderContactRequestsBadge();
+}
+
+// Загружаем исходящие заявки (B отправил invite_accepted, ждёт ответа A)
+async function _acLoadOutgoing() {
+  const section = document.getElementById('ac-outgoing-section');
+  const list    = document.getElementById('add-contact-outgoing-list');
+  if (!section || !list) return;
+
+  const pending = await _psLoad();
+  const now     = Date.now();
+
+  // invite_accepted — B ждёт что A примет
+  const outInvites = pending.filter(i => i.kind === 'invite_accepted');
+  // contact_confirmed — A уже принял, ждём доставки к B
+  const outConfirms = pending.filter(i => i.kind === 'contact_confirmed');
+
+  if (!outInvites.length && !outConfirms.length) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+
+  const rows = [];
+
+  for (const item of outInvites) {
+    const expired  = item.expiresAt <= now;
+    const ago      = _fmtAgo(item.sentAt);
+    const name     = item.toName || '';
+    const initial  = name ? name[0].toUpperCase() : '?';
+    const statusCls = expired ? 'expired' : 'pending';
+    const statusTxt = expired
+      ? '⌛ нет ответа'
+      : '⏳ ожидаем ответа';
+    rows.push(`<div class="req-item">
+      <div class="req-item-avatar" style="background:var(--bg);color:var(--mu)">${initial}</div>
+      <div class="req-item-info">
+        <div class="req-item-name" style="color:var(--tx)">${name ? esc(name) : 'Пользователь'}</div>
+        <div class="req-item-fp">${ago ? ago : ''}</div>
+      </div>
+      <div class="req-item-btns" style="gap:8px;align-items:center">
+        <span class="req-status ${statusCls}">
+          <span class="req-status-dot"></span>${statusTxt}
+        </span>
+        ${expired
+          ? `<button class="req-decline-btn" onclick="acDismissPending('${item.id}')">удалить</button>`
+          : `<button class="req-decline-btn" onclick="acCancelPending('${item.id}')">отмена</button>`
+        }
+      </div>
+    </div>`);
+  }
+
+  for (const item of outConfirms) {
+    const ago  = _fmtAgo(item.sentAt);
+    const name = item.toName || '';
+    const initial = name ? name[0].toUpperCase() : '?';
+    rows.push(`<div class="req-item">
+      <div class="req-item-avatar" style="background:var(--ad);color:var(--a)">${initial}</div>
+      <div class="req-item-info">
+        <div class="req-item-name" style="color:var(--tx)">${name ? esc(name) : 'Контакт'}</div>
+        <div class="req-item-fp">${ago ? ago : ''}</div>
+      </div>
+      <div class="req-item-btns">
+        <span class="req-status confirming">
+          <span class="req-status-dot"></span>доставляем...
+        </span>
+      </div>
+    </div>`);
+  }
+
+  list.innerHTML = rows.join('');
+}
+
+async function acCancelPending(id) {
+  await _psAck(id); // просто удаляем из store
+  await _acLoadOutgoing();
+}
+
+async function acDismissPending(id) {
+  await _psAck(id);
+  await _acLoadOutgoing();
 }
 
 async function acAcceptRequest(idx) {
@@ -16758,40 +16879,136 @@ async function acDeclineRequest(idx) {
 
 // Загружаем/показываем активный инвайт
 async function _acLoadInvite() {
-  const activeWrap = document.getElementById('ac-invite-active');
-  const createBtn  = document.getElementById('ac-create-btn');
-  const qrWrap     = document.getElementById('ac-qr-wrap');
-  const urlEl      = document.getElementById('ac-invite-url');
-  const metaEl     = document.getElementById('ac-invite-meta');
+  const activeWrap   = document.getElementById('ac-invite-active');
+  const createBtn    = document.getElementById('ac-create-btn');
+  const qrWrap       = document.getElementById('ac-qr-wrap');
+  const urlEl        = document.getElementById('ac-invite-url');
+  const metaEl       = document.getElementById('ac-invite-meta');
+  const usedEl       = document.getElementById('ac-invite-used');
+  const expiresEl    = document.getElementById('ac-invite-expires');
+  const progressEl   = document.getElementById('ac-invite-progress');
 
-  // Пробуем загрузить сохранённый инвайт
   try {
     const secrets = JSON.parse(localStorage.getItem('_invSecrets') || '{}');
-    // Берём первый сохранённый токен
-    const kvKey = Object.keys(secrets).find(k => !k.startsWith('blob_'));
-    if (kvKey && secrets[kvKey]) {
-      const token = secrets[kvKey];
-      const url = location.origin + location.pathname + '?invite=' + token;
-      _acCurrentInvite = { kvKey, token, url, federationUrl: url };
-      if (urlEl) urlEl.textContent = url;
-      if (activeWrap) activeWrap.style.display = '';
-      if (createBtn) createBtn.style.display = 'none';
-      // Генерируем QR
-      _acRenderQR(url);
-      return;
+    const kvKey   = Object.keys(secrets).find(k => !k.startsWith('blob_'));
+    if (!kvKey || !secrets[kvKey]) throw new Error('no invite');
+
+    const token = secrets[kvKey];
+    const url   = location.origin + location.pathname + '?invite=' + token;
+    _acCurrentInvite = { kvKey, token, url, federationUrl: url };
+
+    if (urlEl) urlEl.textContent = url;
+    if (activeWrap) activeWrap.style.display = '';
+    if (createBtn)  createBtn.style.display  = 'none';
+    _acRenderQR(url);
+
+    // Сбрасываем стату в "загружаем..."
+    if (usedEl)    usedEl.textContent    = '⏳ загружаем...';
+    if (expiresEl) expiresEl.textContent = '';
+    if (progressEl) progressEl.style.width = '0%';
+
+    // Фетчим живую статистику с сервера
+    try {
+      if (typeof window._listInvites === 'function') {
+        const invites = await window._listInvites();
+        const inv     = invites.find(i => i.kvKey === kvKey);
+        if (inv) {
+          _acCurrentInvite.expiresAt = inv.expiresAt;
+          _acCurrentInvite.maxUses   = inv.maxUses;
+          _acCurrentInvite.usedCount = inv.usedCount;
+          _acRenderInviteStats(inv);
+        } else {
+          // Инвайт не найден на сервере — отозван или истёк
+          if (usedEl)    usedEl.textContent    = '⚠ ссылка недействительна';
+          if (expiresEl) expiresEl.textContent = '';
+          if (metaEl)    metaEl.textContent     = 'Создайте новую ссылку';
+        }
+      }
+    } catch(_) {
+      // Сервер недоступен — показываем что есть локально без счётчиков
+      if (usedEl)    usedEl.textContent    = 'статистика недоступна';
+      if (expiresEl) expiresEl.textContent = '';
     }
+    return;
   } catch(_) {}
 
   // Нет сохранённого инвайта
   _acCurrentInvite = null;
   if (activeWrap) activeWrap.style.display = 'none';
-  if (qrWrap) qrWrap.style.display = 'none';
-  if (createBtn) createBtn.style.display = '';
-  // push warn
+  if (qrWrap)     qrWrap.style.display     = 'none';
+  if (createBtn)  createBtn.style.display  = '';
   const warn = document.getElementById('ac-push-warn');
   if (warn) {
     const pushOk = ('Notification' in window) && Notification.permission === 'granted';
     warn.style.display = pushOk ? 'none' : '';
+  }
+}
+
+function _acRenderInviteStats(inv) {
+  const usedEl     = document.getElementById('ac-invite-used');
+  const expiresEl  = document.getElementById('ac-invite-expires');
+  const progressEl = document.getElementById('ac-invite-progress');
+  const metaEl     = document.getElementById('ac-invite-meta');
+
+  const used    = inv.usedCount  ?? 0;
+  const max     = inv.maxUses    ?? 0;
+  const expAt   = inv.expiresAt  ?? 0;
+  const now     = Math.floor(Date.now() / 1000);
+  const depleted = max > 0 && used >= max;
+  const expired  = expAt > 0 && now > expAt;
+
+  // Использование
+  if (usedEl) {
+    if (depleted) {
+      usedEl.innerHTML = `<span style="color:var(--e)">⚠ лимит исчерпан (${used}/${max})</span>`;
+    } else {
+      const usedTxt = max > 0
+        ? `использована <b style="color:var(--tx)">${used}</b> из <b style="color:var(--tx)">${max}</b> раз`
+        : `использована <b style="color:var(--tx)">${used}</b> раз`;
+      usedEl.innerHTML = usedTxt;
+    }
+  }
+
+  // Прогресс-бар
+  if (progressEl) {
+    const pct = max > 0 ? Math.min(100, Math.round(used / max * 100)) : 0;
+    progressEl.style.width   = pct + '%';
+    progressEl.style.background = depleted ? 'var(--e)' : pct > 80 ? 'var(--w)' : 'var(--a)';
+  }
+
+  // Срок действия
+  if (expiresEl) {
+    if (expired) {
+      expiresEl.innerHTML = `<span style="color:var(--e)">истекла</span>`;
+    } else if (expAt > 0) {
+      const diff   = expAt - now;
+      const days   = Math.floor(diff / 86400);
+      const hours  = Math.floor((diff % 86400) / 3600);
+      const expStr = days > 0
+        ? `ещё ${days} д ${hours} ч`
+        : hours > 0
+          ? `ещё ${hours} ч`
+          : 'истекает скоро';
+      const dateStr = new Date(expAt * 1000).toLocaleDateString('ru', { day:'numeric', month:'short' });
+      expiresEl.textContent = `${expStr} · ${dateStr}`;
+    } else {
+      expiresEl.textContent = 'бессрочная';
+    }
+  }
+
+  // Meta — предупреждение если близко к лимиту или сроку
+  if (metaEl) {
+    const pct  = max > 0 ? used / max : 0;
+    const diff = expAt > 0 ? expAt - now : Infinity;
+    if (depleted || expired) {
+      metaEl.innerHTML = `<span style="color:var(--e)">Ссылка больше не работает — создайте новую</span>`;
+    } else if (pct >= 0.8 && max > 0) {
+      metaEl.innerHTML = `<span style="color:var(--w)">⚠ осталось ${inv.remaining ?? (max - used)} исп.</span>`;
+    } else if (diff < 86400 * 2) {
+      metaEl.innerHTML = `<span style="color:var(--w)">⚠ истекает менее чем через 2 дня</span>`;
+    } else {
+      metaEl.textContent = '';
+    }
   }
 }
 
@@ -16931,7 +17148,7 @@ async function acImportContact() {
   }
 }
 
-Object.assign(window, { openAddContactScreen, closeAddContactScreen, acCreateInvite, acRevokeInvite, acCopyInvite, acShareInvite, acSaveQR, acImportContact, acAcceptRequest, acDeclineRequest });
+Object.assign(window, { openAddContactScreen, closeAddContactScreen, acCreateInvite, acRevokeInvite, acCopyInvite, acShareInvite, acSaveQR, acImportContact, acAcceptRequest, acDeclineRequest, acCancelPending, acDismissPending });
 
 
 
@@ -19886,7 +20103,8 @@ document.addEventListener('visibilitychange', ()=>{
 
         // Сохраняем с тем же id — будет ретраиться при каждом reconnect
         // пока не получим delivery_ack с pendingId или не истечёт TTL (48ч)
-        await _psAdd({ id: pendingId, kind: 'invite_accepted', to: ownerMailbox, sealed });
+        await _psAdd({ id: pendingId, kind: 'invite_accepted', to: ownerMailbox, sealed,
+                       toName: info.ownerName || '' });
       } catch(e) { console.warn('[invite] sealed send error:', e.message); }
     }
 

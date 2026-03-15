@@ -16561,6 +16561,7 @@ async function _acLoadInvite() {
       const token = secrets[kvKey];
       let host = '';
       try { host = new URL(PUSH_SERVER).hostname; } catch(_) {}
+      if (!host) try { host = new URL(window._pushServer || '').hostname; } catch(_) {}
       const url = host ? `tovsa2://${host}/inv#${token}` : (location.origin + location.pathname + '#inv2:' + token);
       _acCurrentInvite = { kvKey, token, url, federationUrl: host ? `tovsa2://${host}/inv#${token}` : null };
       if (urlEl) urlEl.textContent = url;
@@ -19116,7 +19117,8 @@ document.addEventListener('visibilitychange', ()=>{
 
   // ── Cloudflare Workers Push ────────────────────────────────────────────────
   // Замените на URL вашего воркера после деплоя на Cloudflare
-  let PUSH_SERVER = 'https://tovsa-signaling.tovsa7.workers.dev';
+  let PUSH_SERVER = window._pushServer || 'https://tovsa-signaling.tovsa7.workers.dev';
+  window._pushServer = PUSH_SERVER;
 
   // v2.1: при старте фетчим манифест своего signaling-сервера.
   // Это нужно чтобы подхватить актуальный pushUrl если воркер переехал,
@@ -19134,6 +19136,7 @@ document.addEventListener('visibilitychange', ()=>{
       if (m.push && _isValidPushUrl(m.push) && m.push !== PUSH_SERVER) {
         console.info('[manifest] PUSH_SERVER обновлён:', m.push);
         PUSH_SERVER = m.push;
+        window._pushServer = m.push;
       }
       _dbgPush('info', ['[manifest] домашний сервер: caps=' + (m.capabilities||[]).join(',') + ' push=' + (m.push||'нет') +
         ' peers=' + m.peers + '/' + m.peers_max + ' proto=' + m.min_proto + '-' + m.max_proto]);
@@ -19508,10 +19511,7 @@ document.addEventListener('visibilitychange', ()=>{
     // PUSH_SERVER может быть пустым до обновления из манифеста
     let host = '';
     try { host = new URL(PUSH_SERVER).hostname; } catch(_) {}
-    // Fallback: берём hostname из URL самого запроса (ответ пришёл — значит URL рабочий)
-    if (!host) {
-      try { host = new URL(PUSH_SERVER + '/').hostname; } catch(_) {}
-    }
+    if (!host) try { host = new URL(window._pushServer || '').hostname; } catch(_) {}
 
     // Сохраняем секрет локально для последующего отзыва
     try {

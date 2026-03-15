@@ -2301,7 +2301,7 @@ if (typeof globalThis !== 'undefined') {
     <button class="btn" onclick="$('sh-file-input').click()" style="padding:10px 12px;flex-shrink:0;display:none" id="sh-attach-btn" title="Прикрепить файл">📎</button>
     <input type="file" id="sh-file-input" style="display:none" onchange="sendOfflineFile(this)">
     <!-- Бар записи -->
-    <div id="sh-vr-bar" style="display:none;align-items:center;gap:8px;flex:1">
+    <div id="sh-vr-bar" style="display:none;align-items:center;gap:8px;flex:1;padding-right:56px">
       <div class="vr-dot"></div>
       <div class="vr-time" id="sh-vr-time">0:00</div>
       <div class="vr-wave" id="sh-vr-wave" style="flex:1"></div>
@@ -2368,7 +2368,7 @@ if (typeof globalThis !== 'undefined') {
     <button class="btn" id="fav-attach-btn" onclick="$('fav-file-input').click()" style="padding:10px 12px;flex-shrink:0" title="Прикрепить файл">📎</button>
     <input type="file" id="fav-file-input" style="display:none" onchange="saveFavFile(this)">
     <!-- Бар записи (locked) -->
-    <div id="fav-vr-bar" style="display:none;align-items:center;gap:8px;flex:1">
+    <div id="fav-vr-bar" style="display:none;align-items:center;gap:8px;flex:1;padding-right:56px">
       <div class="vr-dot"></div>
       <div class="vr-time" id="fav-vr-time">0:00</div>
       <div class="vr-wave" id="fav-vr-wave" style="flex:1"></div>
@@ -2737,6 +2737,28 @@ if (typeof globalThis !== 'undefined') {
   </div>
   <!-- Circle live preview (during recording) -->
 
+  <!-- Отмена слева от кнопки (свайп влево = отмена) -->
+  <div id="vr-cancel-hint" style="
+    position:fixed;
+    right:calc(14px + 44px + 8px);
+    bottom:calc(env(safe-area-inset-bottom,0px) + 115px);
+    display:none;
+    flex-direction:row;
+    align-items:center;
+    gap:4px;
+    z-index:250;
+    pointer-events:none;
+  ">
+    <div style="width:38px;height:38px;border-radius:50%;background:var(--sf);border:1px solid var(--bd);
+      display:flex;align-items:center;justify-content:center;font-size:16px;
+      box-shadow:0 2px 8px rgba(0,0,0,.3);transition:background .15s" id="vr-cancel-icon">✕</div>
+    <div style="display:flex;flex-direction:row;align-items:center;gap:2px;opacity:.5" id="vr-cancel-arrows">
+      <div style="font-size:18px;color:var(--mu)">◀</div>
+      <div style="font-size:14px;color:var(--mu)">◀</div>
+      <div style="font-size:10px;color:var(--mu)">◀</div>
+    </div>
+  </div>
+
   <!-- Замочек над кнопкой (свайп вверх = фиксация) -->
   <div id="vr-lock-hint" style="
     position:fixed;
@@ -2814,7 +2836,7 @@ if (typeof globalThis !== 'undefined') {
     <button class="btn" id="room-attach-btn" onclick="$('room-file-input').click()" style="padding:10px 12px;flex-shrink:0;display:none" title="Прикрепить файл">📎</button>
     <input type="file" id="room-file-input" style="display:none" onchange="roomSendFileUI(this)">
     <!-- Бар записи (locked) -->
-    <div id="room-vr-bar" style="display:none;align-items:center;gap:8px;flex:1">
+    <div id="room-vr-bar" style="display:none;align-items:center;gap:8px;flex:1;padding-right:56px">
       <div class="vr-dot"></div>
       <div class="vr-time" id="room-vr-time">0:00</div>
       <div class="vr-wave" id="room-vr-wave" style="flex:1"></div>
@@ -8416,28 +8438,51 @@ function _vrAttachBtn(btnId, context){
     if(bar) bar.style.display = 'none';
     if(inp) inp.style.display = '';
     btn.style.transform = '';
+    // Сбрасываем замочек и отмену
+    const lock = document.getElementById('vr-lock-hint');
+    if(lock){ lock.style.display='none'; lock.style.transform=''; }
+    const lockIcon = document.getElementById('vr-lock-icon');
+    if(lockIcon) lockIcon.style.background = '';
+    const lockArrows = document.getElementById('vr-lock-arrows');
+    if(lockArrows) lockArrows.style.opacity = '';
+    const cancelHint = document.getElementById('vr-cancel-hint');
+    if(cancelHint){ cancelHint.style.display='none'; cancelHint.style.transform=''; }
+    const cancelIcon = document.getElementById('vr-cancel-icon');
+    if(cancelIcon) cancelIcon.style.background = '';
+    const cancelArrows = document.getElementById('vr-cancel-arrows');
+    if(cancelArrows) cancelArrows.style.opacity = '';
     _syncBtn();
   };
   btn._vrHideBar = _hideBar;
 
   // ── Замочек ──────────────────────────────────────────────────────────────
   const _showLock = (show) => {
-    if(context !== 'chat') return;
     const el = document.getElementById('vr-lock-hint');
     if(el) el.style.display = show ? 'flex' : 'none';
+    const ec = document.getElementById('vr-cancel-hint');
+    if(ec) ec.style.display = show ? 'flex' : 'none';
   };
-  const _animLock = (dy) => {
+  const _animLock = (dy, dx) => {
+    // Анимация замочка (свайп вверх)
     const lock = document.getElementById('vr-lock-hint');
-    if(!lock) return;
-    const p = Math.min(1, Math.max(0, -dy / VR_SWIPE_PX));
-    // Поднимаем весь хинт
-    lock.style.transform = `translateY(${-p * 20}px)`;
-    // Подсвечиваем замочек при приближении к порогу
-    const icon = document.getElementById('vr-lock-icon');
-    if(icon) icon.style.background = p > 0.85 ? 'var(--a)' : 'var(--sf)';
-    // Стрелки становятся ярче
-    const arrows = document.getElementById('vr-lock-arrows');
-    if(arrows) arrows.style.opacity = String(0.3 + p * 0.7);
+    if(lock){
+      const p = Math.min(1, Math.max(0, -dy / VR_SWIPE_PX));
+      lock.style.transform = `translateY(${-p * 20}px)`;
+      const icon = document.getElementById('vr-lock-icon');
+      if(icon) icon.style.background = p > 0.85 ? 'var(--a)' : 'var(--sf)';
+      const arrows = document.getElementById('vr-lock-arrows');
+      if(arrows) arrows.style.opacity = String(0.3 + p * 0.7);
+    }
+    // Анимация отмены (свайп влево)
+    const cancel = document.getElementById('vr-cancel-hint');
+    if(cancel && dx !== undefined){
+      const p = Math.min(1, Math.max(0, -dx / VR_SWIPE_PX));
+      cancel.style.transform = `translateX(${-p * 20}px)`;
+      const icon = document.getElementById('vr-cancel-icon');
+      if(icon) icon.style.background = p > 0.85 ? 'var(--e)' : 'var(--sf)';
+      const arrows = document.getElementById('vr-cancel-arrows');
+      if(arrows) arrows.style.opacity = String(0.3 + p * 0.7);
+    }
   };
 
   // ── Получить stream с правильными constraints ─────────────────────────
@@ -8495,7 +8540,7 @@ function _vrAttachBtn(btnId, context){
     else
       btn.style.transform = '';
 
-    _animLock(dy);
+    _animLock(dy, dx);
 
     if(dx < -VR_SWIPE_PX && Math.abs(dx) > Math.abs(dy)){
       _state = 'idle';

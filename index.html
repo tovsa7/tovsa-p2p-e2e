@@ -8425,6 +8425,7 @@ function _vrAttachBtn(btnId, context){
     _pressTs      = Date.now();
     _capturedMode = _vr.mode; // захватываем режим прямо сейчас
     _state        = 'pressed';
+    console.log('[vr] touchstart mode=' + _capturedMode + ' context=' + context);
 
     // Запрашиваем stream СРАЗУ в user gesture (до setTimeout)
     // Это нужно чтобы браузер не блокировал getUserMedia
@@ -8437,6 +8438,7 @@ function _vrAttachBtn(btnId, context){
     _recTimer = setTimeout(async () => {
       _recTimer = null;
       if(_state !== 'pressed') return;
+      console.log('[vr] hold timeout, starting rec mode=' + _capturedMode);
 
       const stream = await _streamReady;
       _streamReady = null;
@@ -8513,10 +8515,12 @@ function _vrAttachBtn(btnId, context){
     // Тап — таймер ещё жив
     if(_recTimer){
       clearTimeout(_recTimer); _recTimer = null;
+      console.log('[vr] tap detected, toggling mode from ' + _vr.mode);
       // Отменяем предзапрошенный stream
       if(_streamReady){ _streamReady.then(s => s && s.getTracks().forEach(t=>t.stop())); _streamReady = null; }
       _state = 'idle';
       _vrToggleMode();
+      console.log('[vr] mode after toggle: ' + _vr.mode);
       toast(_vr.mode === 'circle' ? '🔴 Режим кружка' : '🎤 Голосовой режим');
       return;
     }

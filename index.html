@@ -6787,6 +6787,7 @@ class TovSaSignaling {
           break;
         }
         const { from, kind, data } = plain;
+        console.log('[sealed] received kind=' + kind + ' from=' + from.slice(0,8));
         // Room/channel виды — передаём в roomHandleIncoming, не в WebRTC handler
         const ROOM_KINDS = new Set([
           'room_msg','room_invite','room_config','room_rekey',
@@ -16329,9 +16330,10 @@ async function _handleAllIncoming(from, kind, data) {
 
   // Получатель инвайта сообщает свои данные через sealed relay (E2E)
   if (kind === 'invite_accepted') {
+    console.log('[invite] invite_accepted handler, pubKeyHex=' + (data?.pubKeyHex||'').slice(0,8));
     try {
       const { pubKeyHex, name, encPub, pushToken, signalingUrl } = data || {};
-      if (!pubKeyHex || pubKeyHex.length !== 64) return;
+      if (!pubKeyHex || pubKeyHex.length !== 64) { console.log('[invite] invalid pubKeyHex len=' + (pubKeyHex||'').length); return; }
       const contacts = await getContacts();
       const sha = await crypto.subtle.digest('SHA-256', new Uint8Array(pubKeyHex.match(/.{2}/g).map(h=>parseInt(h,16))));
       const fp = Array.from(new Uint8Array(sha)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,24);
@@ -19645,9 +19647,12 @@ document.addEventListener('visibilitychange', ()=>{
         // Отправляем на mailboxId владельца
         const ownerMailbox = await getContactMailboxId(info.ownerPubHex, 0) ?? info.ownerPubHex;
         const sig = _getPeerSig?.();
+        console.log('[invite] sig open=' + (sig?._open) + ' mailbox=' + ownerMailbox?.slice(0,12));
         if (sig?._open) {
           sig._wsSend({ type: 'SEALED_RELAY', to: ownerMailbox, sealed });
           console.log('[invite] sealed accept sent to owner');
+        } else {
+          console.log('[invite] sig not open — sealed relay NOT sent!');
         }
       } catch(e) { console.warn('[invite] sealed send error:', e.message); }
     }

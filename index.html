@@ -2855,12 +2855,12 @@ if (typeof globalThis !== 'undefined') {
   <!-- Кружок: video preview -->
   <div id="vr-preview-circle" style="display:none">
     <video id="vr-preview-circle-video" playsinline loop></video>
-    <!-- scrubber под кружком -->
-    <div style="width:260px;display:flex;align-items:center;gap:8px;margin-top:6px">
-      <span id="vr-preview-circle-time" style="font-size:11px;color:var(--mu);min-width:32px">0:00</span>
-      <input type="range" id="vr-preview-circle-scrub" min="0" max="100" value="0" step="0.1"
-        style="flex:1;height:3px;accent-color:var(--a);cursor:pointer">
-    </div>
+  </div>
+  <!-- Scrubber под кружком — снаружи overflow:hidden -->
+  <div id="vr-preview-circle-scrub-wrap" style="display:none;width:260px;align-items:center;gap:8px">
+    <span id="vr-preview-circle-time" style="font-size:11px;color:var(--mu);min-width:32px">0:00</span>
+    <input type="range" id="vr-preview-circle-scrub" min="0" max="100" value="0" step="0.1"
+      style="flex:1;height:4px;accent-color:var(--a);cursor:pointer">
   </div>
   <!-- Голосовое: плеер + waveform -->
   <div id="vr-preview-voice" style="display:none">
@@ -8969,6 +8969,8 @@ function vrShowPreviewModal(kind, blob, waveform, durSec){
 
   if(kind === 'circle'){
     if(circleW) circleW.style.display = '';
+    const scrubWrap = document.getElementById('vr-preview-circle-scrub-wrap');
+    if(scrubWrap) scrubWrap.style.display = 'flex';
     if(voiceW)  voiceW.style.display  = 'none';
     const cvid   = document.getElementById('vr-preview-circle-video');
     const scrub  = document.getElementById('vr-preview-circle-scrub');
@@ -9030,6 +9032,8 @@ function vrShowPreviewModal(kind, blob, waveform, durSec){
 
   } else {
     if(circleW) circleW.style.display = 'none';
+    const scrubWrapH = document.getElementById('vr-preview-circle-scrub-wrap');
+    if(scrubWrapH) scrubWrapH.style.display = 'none';
     if(voiceW)  voiceW.style.display  = '';
     if(_vrPreviewAudio){ _vrPreviewAudio.pause(); if(_vrPreviewAudio._blobUrl) URL.revokeObjectURL(_vrPreviewAudio._blobUrl); _vrPreviewAudio=null; }
     const url = URL.createObjectURL(blob);

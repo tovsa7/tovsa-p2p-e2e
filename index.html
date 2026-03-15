@@ -13500,9 +13500,29 @@ if('serviceWorker' in navigator){
     if(e.data?.action === 'open-chat'){ window.focus(); showTab('sc'); }
     if(e.data?.action === 'contact-request'){
       window.focus();
-      // П1 получил push о входящей заявке — синхронизируем с сервером
-      if(typeof window._syncContactRequests === 'function')
-        setTimeout(() => window._syncContactRequests(), 500);
+      // Получили push от человека принявшего инвайт — добавляем его как контакт
+      const rPub  = e.data.requesterPubHex || '';
+      const rName = e.data.requesterName   || e.data.name || 'Tovsa User';
+      const rEnc  = e.data.requesterEncPub  || '';
+      const rSig  = e.data.requesterSigUrl  || '';
+      const rPush = e.data.requesterPushTok || '';
+      if(rPub && rPub.length === 64){
+        (async () => {
+          try {
+            const contacts = await getContacts();
+            const sha = await crypto.subtle.digest('SHA-256', new Uint8Array(rPub.match(/.{2}/g).map(h=>parseInt(h,16))));
+            const fp = Array.from(new Uint8Array(sha)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,24);
+            if(!contacts[fp]){
+              contacts[fp] = { pubKeyHex: rPub, name: rName, addedAt: Date.now(), signalingUrl: rSig||null };
+              if(rEnc && typeof contactSaveEncPubKey === 'function') contactSaveEncPubKey(rPub, rEnc);
+              if(rPush && typeof contactSavePushToken === 'function') contactSavePushToken(rPub, rPush);
+              await saveContacts(contacts);
+              if(typeof renderChatsList === 'function') renderChatsList();
+              toast('✓ ' + rName + ' добавлен в контакты');
+            }
+          } catch(e){ console.warn('[invite] auto-add contact:', e.message); }
+        })();
+      }
       if(typeof showTab === 'function') showTab('schats');
     }
     if(e.data?.action === 'contact-accepted'){
@@ -16270,6 +16290,29 @@ async function _handleAllIncoming(from, kind, data) {
   if (CHANNEL_KINDS.has(kind)) {
     return channelHandleIncoming(from, kind, data);
   }
+
+  // Получатель инвайта сообщает свои данные через sealed relay (E2E)
+  if (kind === 'invite_accepted') {
+    try {
+      const { pubKeyHex, name, encPub, pushToken, signalingUrl } = data || {};
+      if (!pubKeyHex || pubKeyHex.length !== 64) return;
+      const contacts = await getContacts();
+      const sha = await crypto.subtle.digest('SHA-256', new Uint8Array(pubKeyHex.match(/.{2}/g).map(h=>parseInt(h,16))));
+      const fp = Array.from(new Uint8Array(sha)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,24);
+      if (!contacts[fp]) {
+        contacts[fp] = { pubKeyHex, name: name||'Tovsa User', addedAt: Date.now(), signalingUrl: signalingUrl||null };
+        if (encPub   && typeof contactSaveEncPubKey  === 'function') contactSaveEncPubKey(pubKeyHex, encPub);
+        if (pushToken && typeof contactSavePushToken === 'function') contactSavePushToken(pubKeyHex, pushToken);
+        await saveContacts(contacts);
+        if (typeof renderChatsList === 'function') renderChatsList();
+        if (typeof _refreshPairBeacons === 'function') _refreshPairBeacons();
+        toast('✓ ' + (name||'Пользователь') + ' принял ваше приглашение');
+        console.log('[invite] accepted by', fp.slice(0,8));
+      }
+    } catch(e) { console.warn('[invite] accept handler:', e.message); }
+    return;
+  }
+
   if (_origRoomHandleIncoming) {
     return _origRoomHandleIncoming(from, kind, data);
   }
@@ -19139,7 +19182,7 @@ document.addEventListener('visibilitychange', ()=>{
     const res = await fetch(serverUrl + '/invite2/use', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      // name намеренно НЕ передаётся — сервер не должен знать кто принял инвайт
+      // Сервер не получает данные получателя — только подпись и kvKey
       body: JSON.stringify({ kvKey, notifyKey, ...auth }),
     });
     if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error((e.error || 'use failed') + ' [HTTP ' + res.status + ']'); }
@@ -19173,6 +19216,36 @@ document.addEventListener('visibilitychange', ()=>{
           }
         }).catch(() => {});
       }
+    }
+
+    // Отправляем свои данные владельцу через sealed relay (E2E — сервер не видит)
+    if (info.encPub && info.ownerPubHex) {
+      try {
+        const myEncPub   = typeof _myEncKey !== 'undefined' ? (_myEncKey?.publicKeyB64u || null) : null;
+        const myName     = localStorage.getItem('_myName') || localStorage.getItem('myName') || '';
+        const myPushTok  = localStorage.getItem('_myPushToken') || null;
+        const mySrv      = typeof currentSrv === 'function' ? currentSrv() : null;
+        const mySigUrl   = mySrv ? `wss://${mySrv.host}/signal` : null;
+
+        // Шифруем свои данные ключом владельца — только он сможет расшифровать
+        const sealed = await sealEnvelope(
+          { from: myPubKeyHex, kind: 'invite_accepted', data: {
+            pubKeyHex:    myPubKeyHex,
+            name:         myName,
+            encPub:       myEncPub,
+            pushToken:    myPushTok,
+            signalingUrl: mySigUrl,
+          }},
+          info.encPub,
+        );
+        // Отправляем на mailboxId владельца
+        const ownerMailbox = await getContactMailboxId(info.ownerPubHex, 0) ?? info.ownerPubHex;
+        const sig = _getPeerSig?.();
+        if (sig?._open) {
+          sig._wsSend({ type: 'SEALED_RELAY', to: ownerMailbox, sealed });
+          console.log('[invite] sealed accept sent to owner');
+        }
+      } catch(e) { console.warn('[invite] sealed send error:', e.message); }
     }
 
     return {

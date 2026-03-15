@@ -230,7 +230,7 @@ textarea::placeholder{color:var(--mu)}
 /* ── VR Preview Modal — показывается после записи, до отправки ── */
 #vr-preview-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:600;flex-direction:column;align-items:center;justify-content:center;gap:20px}
 #vr-preview-modal.on{display:flex}
-#vr-preview-circle{width:260px;height:260px;border-radius:50%;overflow:hidden;background:#000;border:2px solid var(--a);box-shadow:0 0 40px rgba(0,255,157,.15);flex-shrink:0}
+#vr-preview-circle{width:260px;height:260px;border-radius:50%;overflow:hidden;background:#000;border:2px solid var(--a);box-shadow:0 0 40px rgba(0,255,157,.15);flex-shrink:0;transition:width .25s ease,height .25s ease;cursor:pointer}
 #vr-preview-circle video{width:100%;height:100%;object-fit:cover;display:block}
 #vr-preview-voice{width:88%;max-width:340px;background:var(--sf);border:1px solid var(--bd);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px}
 .vr-preview-wave{height:40px;display:flex;align-items:center;gap:2px;overflow:hidden;justify-content:center}
@@ -9006,7 +9006,16 @@ function vrShowPreviewModal(kind, blob, waveform, durSec){
         if(isFinite(cvid.duration) && scrub){ scrub.max=cvid.duration; }
       });
       cvid.ontimeupdate = _updateTime;
-      cvid.onended = () => { cvid.currentTime=0; cvid.play().catch(()=>{}); };
+      cvid.onended = () => {
+        cvid.currentTime = 0;
+        const ov2 = document.getElementById('vr-circle-pause-ov');
+        const el2 = document.getElementById('vr-preview-circle');
+        const sw2 = document.getElementById('vr-preview-circle-scrub-wrap');
+        if(ov2) ov2.style.display='flex';
+        if(el2){ el2.style.width='260px'; el2.style.height='260px'; }
+        if(sw2) sw2.style.width='260px';
+        if(scrub) scrub.value = 0;
+      };
     }
     if(scrub){
       scrub.addEventListener('mousedown',  () => { _scrubbing = true; });
@@ -9077,11 +9086,21 @@ function vrShowPreviewModal(kind, blob, waveform, durSec){
 }
 
 function vrCirclePreviewToggle(){
-  const v = document.getElementById('vr-preview-circle-video');
+  const v  = document.getElementById('vr-preview-circle-video');
   const ov = document.getElementById('vr-circle-pause-ov');
+  const el = document.getElementById('vr-preview-circle');
+  const sw = document.getElementById('vr-preview-circle-scrub-wrap');
   if(!v) return;
-  if(v.paused){ v.play().catch(()=>{}); if(ov) ov.style.display='none'; }
-  else { v.pause(); if(ov) ov.style.display='flex'; }
+  if(v.paused){
+    v.play().catch(()=>{});
+    if(ov) ov.style.display='none';
+    if(el){ el.style.width='300px'; el.style.height='300px'; }
+    if(sw) sw.style.width='300px';
+  } else {
+    v.pause();
+    if(ov) ov.style.display='flex';
+    if(el){ el.style.width='260px'; el.style.height='260px'; }
+    if(sw) sw.style.width='260px'; }
 }
 
 function vrPreviewPlayToggle(){
@@ -13915,9 +13934,9 @@ async function buildFileBubble(meta,blobOrNull,msgType){
     const circleEl = d.querySelector('#'+cid);
     const scrubWrapEl = d.querySelector('#scw-'+cid);
     vidEl.addEventListener('play',()=>{
-      if(ov){ ov.style.display='flex'; ov.querySelector('.msg-circle-play').innerHTML='<svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>'; }
+      if(ov) ov.style.display='none'; // нет иконки во время воспроизведения
       if(circleEl) circleEl.classList.add('playing');
-      if(scrubWrapEl) scrubWrapEl.style.width = '260px';
+      if(scrubWrapEl) scrubWrapEl.style.width = '280px';
     });
     vidEl.addEventListener('pause',()=>{
       if(ov){ ov.style.display=''; ov.querySelector('.msg-circle-play').innerHTML='<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>'; }

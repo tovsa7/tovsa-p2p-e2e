@@ -19350,8 +19350,11 @@ document.addEventListener('visibilitychange', ()=>{
     }
     if (!myPrivKey) { toast('Не удалось загрузить ключ'); return; }
 
+    console.log('[invite] processing token, waited=' + waited + 'ms');
     try {
+      console.log('[invite] fetching info...');
       const info = await window._getInviteInfo(tokenInput);
+      console.log('[invite] info received:', info?.ownerName);
 
       const ok = await new Promise(resolve => {
         const overlay = document.createElement('div');
@@ -19431,6 +19434,7 @@ document.addEventListener('visibilitychange', ()=>{
       }
 
     } catch(e) {
+      console.log('[invite] error: ' + e.message);
       const msg = e.message || 'ошибка';
       if (msg.includes('истёк') || msg.includes('исчерпан') || msg.includes('не найден')) {
         toast('Ссылка больше не действует');

@@ -8342,123 +8342,105 @@ function _vrAttachBtn(btnId, context){
   const btn = document.getElementById(btnId);
   if(!btn) return;
 
-  // Состояние
-  let _phase     = 'idle';   // idle | tap-pending | recording | locked | sending
-  let _startX    = 0;
-  let _startY    = 0;
-  let _tapTimer  = null;     // таймер различения тап vs удержание
-  let _cancelled = false;
+  const ids = _vrIds(context);
+  const TAP_MS = 500;
 
-  // ── Иконка кнопки ───────────────────────────────────────────────────────
+  let _state   = 'idle';   // idle | pressed | recording | locked
+  let _startX  = 0, _startY = 0;
+  let _pressTs = 0;
+  let _recTimer = null;    // таймер запуска записи
+
+  // ── Иконка ──────────────────────────────────────────────────────────────
   const _syncBtn = () => {
-    const inputId = context === 'fav' ? 'fav-input'
-                  : context === 'room' ? 'room-chat-input' : 'mi';
-    const inp = document.getElementById(inputId);
+    const inp = document.getElementById(ids.input);
     const hasText = inp && inp.value.trim().length > 0;
-
-    if(hasText){
-      btn.textContent = '➤';
-      btn.className   = 'mic-send-btn';
-    } else if(_phase === 'locked' || _phase === 'sending'){
-      btn.textContent = '➤';
-      btn.className   = 'mic-send-btn';
+    if(hasText || _state === 'locked'){
+      btn.textContent = '➤'; btn.className = 'mic-send-btn';
     } else if(_vr.mode === 'circle'){
-      btn.textContent = '🔴';
-      btn.className   = 'mic-send-btn mic-mode circle-mode';
+      btn.textContent = '🔴'; btn.className = 'mic-send-btn mic-mode circle-mode';
     } else {
-      btn.textContent = '🎤';
-      btn.className   = 'mic-send-btn mic-mode';
+      btn.textContent = '🎤'; btn.className = 'mic-send-btn mic-mode';
     }
   };
   btn._vrSync = _syncBtn;
   _syncBtn();
 
-  // ── Получаем IDs элементов по контексту ─────────────────────────────────
-  const ids = _vrIds(context);
-
-  // ── Показать/скрыть бар записи ──────────────────────────────────────────
+  // ── Бар ─────────────────────────────────────────────────────────────────
   const _showBar = () => {
     const bar = document.getElementById(ids.bar);
     const inp = document.getElementById(ids.input);
     if(bar) bar.style.display = 'flex';
     if(inp) inp.style.display = 'none';
-    btn.textContent = '➤';
-    btn.className   = 'mic-send-btn';
-    // Запускаем таймер только когда бар виден
     vrStartTimer();
   };
-
   const _hideBar = () => {
+    clearInterval(_vr.timer);
+    const timeEl = document.getElementById(ids.time);
+    if(timeEl) timeEl.textContent = '0:00';
     const bar = document.getElementById(ids.bar);
     const inp = document.getElementById(ids.input);
     if(bar) bar.style.display = 'none';
     if(inp) inp.style.display = '';
     btn.style.transform = '';
-    btn.style.opacity   = '';
     _syncBtn();
   };
+  btn._vrHideBar = _hideBar;
 
-  // ── Подсказки (только chat) ─────────────────────────────────────────────
+  // ── Замочек ──────────────────────────────────────────────────────────────
   const _showLock = (show) => {
+    if(context !== 'chat') return;
     const el = document.getElementById('vr-lock-hint');
-    if(!el || context !== 'chat') return;
-    el.style.display = show ? 'flex' : 'none';
+    if(el) el.style.display = show ? 'flex' : 'none';
   };
-
   const _animLock = (dy) => {
+    if(context !== 'chat') return;
     const el = document.getElementById('vr-lock-hint');
-    if(!el || context !== 'chat') return;
+    if(!el) return;
     const p = Math.min(1, Math.max(0, -dy / VR_SWIPE_PX));
     el.style.transform  = `translateY(${-p * 14}px)`;
     el.style.background = p > 0.85 ? 'var(--a)' : 'var(--sf)';
   };
 
-  // ── Начать запись (вызывается после задержки удержания) ─────────────────
-  const _startRec = async () => {
-    _phase = 'recording';
-    btn.classList.add('recording');
-    _showLock(true);
-    await vrBeginRecording(_vr.mode, context);
-    // Если запись не стартовала (ошибка доступа и т.п.) — сбрасываем
-    if(_vr.state === 'idle'){ _phase = 'idle'; btn.classList.remove('recording'); _showLock(false); _syncBtn(); }
-  };
-
   // ── TOUCH ────────────────────────────────────────────────────────────────
   btn.addEventListener('touchstart', e => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
 
-    // Если есть текст — ничего не делаем (отправится по touchend)
     const inp = document.getElementById(ids.input);
     if(inp && inp.value.trim()) return;
-
-    if(_phase === 'locked'){ return; } // тап по ➤ отправит в touchend
+    if(_state === 'locked') return;
     if(_vr.state !== 'idle') return;
 
-    _phase     = 'tap-pending';
-    _cancelled = false;
-    _startX    = e.touches[0].clientX;
-    _startY    = e.touches[0].clientY;
+    _startX  = e.touches[0].clientX;
+    _startY  = e.touches[0].clientY;
+    _pressTs = Date.now();
+    _state   = 'pressed';
 
-    // Удержание → запись
-    _tapTimer = setTimeout(() => {
-      _tapTimer = null;
-      _startRec();
-    }, 400);
+    // Через 500ms — если палец ещё держат — запускаем запись
+    _recTimer = setTimeout(() => {
+      _recTimer = null;
+      if(_state !== 'pressed') return;
+      _state = 'recording';
+      btn.classList.add('recording');
+      _showLock(true);
+      _showBar();
+      vrBeginRecording(_vr.mode, context).then(() => {
+        if(_state === 'recording' && _vr.state === 'idle'){
+          _state = 'idle';
+          btn.classList.remove('recording');
+          _showLock(false);
+          _hideBar();
+        }
+      });
+    }, TAP_MS);
 
   }, { passive: false });
 
   btn.addEventListener('touchmove', e => {
-    // tap-pending: движение не отменяет тап — он определяется только по времени
-    if(_phase === 'tap-pending') return;
-
-    if(_phase !== 'recording') return;
+    if(_state !== 'recording') return;
     e.preventDefault();
-
     const dx = e.touches[0].clientX - _startX;
     const dy = e.touches[0].clientY - _startY;
 
-    // Двигаем кнопку
     if(dx < 0 && Math.abs(dx) > Math.abs(dy))
       btn.style.transform = `translateX(${Math.max(-60, dx * 0.5)}px)`;
     else if(dy < 0 && Math.abs(dy) > Math.abs(dx))
@@ -8466,125 +8448,106 @@ function _vrAttachBtn(btnId, context){
     else
       btn.style.transform = '';
 
-    if(context === 'chat') _animLock(dy);
+    _animLock(dy);
 
-    // Свайп влево → отмена
     if(dx < -VR_SWIPE_PX && Math.abs(dx) > Math.abs(dy)){
-      _cancelled = true;
-      _phase     = 'idle';
-      btn.style.transform = '';
-      btn.classList.remove('recording');
-      _showLock(false);
-      vibrate(40);
+      _state = 'idle';
+      if(_recTimer){ clearTimeout(_recTimer); _recTimer = null; }
+      btn.style.transform = ''; btn.classList.remove('recording');
+      _showLock(false); _hideBar(); vibrate(40);
       vrCancelRecording();
-    }
-    // Свайп вверх → фиксация
-    else if(dy < -VR_SWIPE_PX && Math.abs(dy) > Math.abs(dx)){
-      _phase = 'locked';
-      btn.style.transform = '';
-      btn.classList.remove('recording');
-      _showLock(false);
-      vibrate([30, 40, 30]);
-      _showBar();
+    } else if(dy < -VR_SWIPE_PX && Math.abs(dy) > Math.abs(dx)){
+      _state = 'locked';
+      btn.style.transform = ''; btn.classList.remove('recording');
+      _showLock(false); vibrate([30, 40, 30]);
+      btn.textContent = '➤'; btn.className = 'mic-send-btn';
     }
   }, { passive: false });
 
   btn.addEventListener('touchend', e => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
 
-    // Есть текст — отправить
     const inp = document.getElementById(ids.input);
     if(inp && inp.value.trim()){
-      if(_tapTimer){ clearTimeout(_tapTimer); _tapTimer = null; }
-      _phase = 'idle';
-      context === 'fav' ? sendFav() : context === 'room' ? roomSendMessageUI() : sendMsg();
+      if(_recTimer){ clearTimeout(_recTimer); _recTimer = null; }
+      _state = 'idle';
+      if(context === 'fav') sendFav();
+      else if(context === 'room') roomSendMessageUI();
+      else sendMsg();
       return;
     }
 
-    // Тап (< 400ms, нет движения) — переключить режим
-    if(_tapTimer){
-      clearTimeout(_tapTimer); _tapTimer = null;
-      _phase = 'idle';
+    if(_state === 'locked'){
+      _state = 'idle'; _hideBar();
+      vrStopRecording(false);
+      return;
+    }
+
+    // Тап: таймер ещё не сработал (< 500ms)
+    if(_recTimer){
+      clearTimeout(_recTimer); _recTimer = null;
+      _state = 'idle';
       _vrToggleMode();
       toast(_vr.mode === 'circle' ? '🔴 Режим кружка' : '🎤 Голосовой режим');
       return;
     }
 
-    // Зафиксировано — тап на ➤ = отправить
-    if(_phase === 'locked'){
-      _phase = 'idle';
-      _hideBar();
-      vrStopRecording(false);
-      return;
-    }
-
-    if(_cancelled){ _cancelled = false; return; }
-
-    // Отпустил во время записи — стоп + preview
-    if(_phase === 'recording'){
-      _phase = 'idle';
+    // Отпустил во время записи
+    if(_state === 'recording'){
+      _state = 'idle';
       btn.classList.remove('recording');
       btn.style.transform = '';
       _showLock(false);
+      _hideBar();
       const dur = _vr.startTs ? Date.now() - _vr.startTs : 0;
-      if(dur < VR_MIN_MS){
-        vrCancelRecording();
-        toast('Слишком короткая запись');
-      } else {
-        vrStopRecording(false);
-      }
+      if(dur < VR_MIN_MS){ vrCancelRecording(); toast('Слишком короткая запись'); }
+      else vrStopRecording(false);
     }
 
-    _phase = 'idle';
+    _state = 'idle';
   }, { passive: false });
 
   btn.addEventListener('touchcancel', () => {
-    if(_tapTimer){ clearTimeout(_tapTimer); _tapTimer = null; }
-    if(_phase === 'recording') vrCancelRecording();
-    _phase     = 'idle';
-    _cancelled = false;
+    if(_recTimer){ clearTimeout(_recTimer); _recTimer = null; }
+    if(_state === 'recording'){ vrCancelRecording(); _hideBar(); }
+    _state = 'idle';
     btn.classList.remove('recording');
     btn.style.transform = '';
     _showLock(false);
   }, { passive: true });
 
   // ── MOUSE ────────────────────────────────────────────────────────────────
-  let _mouseTimer = null;
-  let _mouseRec   = false;
-
+  let _mTimer = null;
   btn.addEventListener('mousedown', e => {
     if(e.button !== 0) return;
     const inp = document.getElementById(ids.input);
     if(inp && inp.value.trim()) return;
-    if(_phase === 'locked' || _vr.state !== 'idle') return;
-    _phase = 'tap-pending';
-    _mouseTimer = setTimeout(() => {
-      _mouseTimer = null;
-      _mouseRec = true;
-      _startRec();
-    }, 400);
+    if(_state === 'locked' || _vr.state !== 'idle') return;
+    _pressTs = Date.now(); _state = 'pressed';
+    _mTimer = setTimeout(() => {
+      _mTimer = null;
+      if(_state !== 'pressed') return;
+      _state = 'recording';
+      btn.classList.add('recording');
+      _showBar();
+      vrBeginRecording(_vr.mode, context);
+    }, TAP_MS);
   });
-
   btn.addEventListener('mouseup', () => {
     const inp = document.getElementById(ids.input);
-    if(inp && inp.value.trim()){ sendMsg(); _mouseTimer && clearTimeout(_mouseTimer); _mouseTimer = null; _phase = 'idle'; return; }
-    if(_phase === 'locked'){ _phase = 'idle'; _hideBar(); vrStopRecording(false); return; }
-    if(_mouseTimer){ clearTimeout(_mouseTimer); _mouseTimer = null; _phase = 'idle'; _vrToggleMode(); toast(_vr.mode === 'circle' ? '🔴 Режим кружка' : '🎤 Голосовой режим'); return; }
-    if(_mouseRec){ _mouseRec = false; _phase = 'idle'; btn.classList.remove('recording'); const dur = _vr.startTs ? Date.now() - _vr.startTs : 0; if(dur < VR_MIN_MS){ vrCancelRecording(); } else { vrStopRecording(false); } }
+    if(inp && inp.value.trim()){ if(_mTimer){ clearTimeout(_mTimer); _mTimer = null; } _state = 'idle'; sendMsg(); return; }
+    if(_state === 'locked'){ _state = 'idle'; _hideBar(); vrStopRecording(false); return; }
+    if(_mTimer){ clearTimeout(_mTimer); _mTimer = null; _state = 'idle'; _vrToggleMode(); toast(_vr.mode === 'circle' ? '🔴 Режим кружка' : '🎤 Голосовой режим'); return; }
+    if(_state === 'recording'){ _state = 'idle'; btn.classList.remove('recording'); _hideBar(); const dur = _vr.startTs ? Date.now() - _vr.startTs : 0; if(dur < VR_MIN_MS) vrCancelRecording(); else vrStopRecording(false); }
   });
-
   btn.addEventListener('mouseleave', () => {
-    if(_mouseTimer){ clearTimeout(_mouseTimer); _mouseTimer = null; _phase = 'idle'; }
-    if(_mouseRec){ _mouseRec = false; _phase = 'idle'; btn.classList.remove('recording'); vrCancelRecording(); }
+    if(_mTimer){ clearTimeout(_mTimer); _mTimer = null; _state = 'idle'; }
+    if(_state === 'recording'){ _state = 'idle'; btn.classList.remove('recording'); _hideBar(); vrCancelRecording(); }
   });
-
   btn.addEventListener('click', () => {
     const inp = document.getElementById(ids.input);
     if(inp && inp.value.trim()) sendMsg();
   });
-
-  btn._vrHideBar = _hideBar;
 }
 
 

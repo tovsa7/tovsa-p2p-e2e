@@ -10866,7 +10866,15 @@ async function _handleIdentityPacket(data, setIdDone){
       // Проверяем есть ли в очереди заявок (ждёт принятия)
       const _pendingReqs = await loadContactRequests().catch(()=>[]);
       const _inRequests  = _pendingReqs.some(r => r.fp === res.fp || r.pubKeyHex === res.pubHex);
-      showPeerIdentity(res.fp, !!contact || _inRequests, displayName);
+      // Также проверяем pending sealed store: если contact_confirmed ещё в пути —
+      // значит мы уже приняли заявку (acceptContactRequest) но B ещё не знает
+      const _pendingSealed = await _psLoad().catch(()=>[]);
+      const _inPending = _pendingSealed.some(i =>
+        (i.kind === 'invite_accepted' || i.kind === 'contact_confirmed') &&
+        (i.confirmedFp === res.fp || i.toName)
+      );
+      const _isKnown = !!contact || _inRequests;
+      showPeerIdentity(res.fp, _isKnown, displayName);
       _showPeerPushBadge(res.push);
       _loadPins(res.fp);
       if(!contact && !_inRequests){
@@ -11360,25 +11368,19 @@ function updateActiveBanner(){
 }
 
 function goBack(){
-  // Пользователь вышел сам — останавливаем авто-реконнект
-  _p2pReconnectStop();
+  // Пользователь вышел из экрана чата — просто возвращаемся к списку,
+  // НЕ разрываем P2P соединение. Соединение живёт пока активен dc.
   _callOnlineWatching = null;
   // Завершаем медиазвонок если был активен
   if(_mc.state !== 'idle') mcallEnd();
-  // Флаг: подавить побочные эффекты dc.onclose (reconnect-bar, sysMsg)
-  window._goingBack = true;
-  setTimeout(()=>{ window._goingBack = false; }, 500);
 
-  _e2eReset();
   _resetReadState();
   _resetPinState();
   _resetReactions();
   _clearUnread();
-  try{if(dc&&dc.readyState==='open')dc.close()}catch(e){}
-  try{if(pc){clearTimeout(pc._connTimeout);pc._cleanup&&pc._cleanup();pc.close();}}catch(e){}
-  setTimeout(()=>{pc=null;dc=null;},300);
-  role=null;
-  // Если был активный чат — проверяем ДО сброса dataset.active
+  // НЕ закрываем dc и pc — соединение остаётся активным
+  // Если нужно явно разорвать — используется кнопка ✕ (discBtn) через disconnectFromContact()
+
   const wasInChat = $('sc').dataset.active==='1' || $('sc').classList.contains('on');
   $('sc').dataset.active='';
   ['a1','a2','b1','b2'].forEach(id=>{$(id).style.display='none';$(id).classList.remove('on')});
@@ -11391,11 +11393,25 @@ function goBack(){
   $('msgs').innerHTML='';
   resetPeerIdentity();
   hideAlert();
-  $('dot').className='dot';setStat('без сервера');
   $('reconnect-bar').style.display='none';
   hideInfoBanner();
   if(contactsSubScreen==='sc') contactsSubScreen='sk';
   showTab(wasInChat ? 'schats' : 'connect');
+  renderChatsList(); // обновляем список — покажет кнопку "→ связь" для активного соединения
+}
+
+// Явный разрыв соединения (кнопка ✕ в списке чатов или ручное отключение)
+function disconnectFromContact(){
+  _p2pReconnectStop();
+  window._goingBack = true;
+  setTimeout(()=>{ window._goingBack = false; }, 500);
+  _e2eReset();
+  try{if(dc&&dc.readyState==='open')dc.close();}catch(e){}
+  try{if(pc){clearTimeout(pc._connTimeout);pc._cleanup&&pc._cleanup();pc.close();}}catch(e){}
+  setTimeout(()=>{pc=null;dc=null;},300);
+  role=null;
+  $('dot').className='dot'; setStat('без сервера');
+  renderChatsList();
 }
 
 function waitIce(){
@@ -18058,7 +18074,6 @@ function _applyPresenceResult(fp, result){
   const prev = _presenceCache[fp];
   _presenceCache[fp] = result;
   _presenceCacheTime[fp] = Date.now();
-  // Обновляем lastSeen при переходе в online или из online
   if(result === 'online'){
     _presenceLastSeenAt[fp] = Date.now();
     idbSet('meta', _LAST_SEEN_IDB_KEY, _presenceLastSeenAt).catch(()=>{});
@@ -18069,9 +18084,11 @@ function _applyPresenceResult(fp, result){
     const lsText = _fmtLastSeen(fp);
     dot.title = result === 'online' ? 'онлайн' : (lsText || 'офлайн');
   }
-  // Обновляем подпись в шапке чата если открыт этот контакт
   _updatePeerLastSeenHeader(fp);
-  // Единый хук: контакт появился онлайн
+  // Перерисовываем список чатов при смене статуса — кнопка "→ связь" зависит от presenceState
+  if(prev !== result && typeof renderChatsList === 'function'){
+    renderChatsList().catch(()=>{});
+  }
   if(prev !== 'online' && result === 'online'){
     _onPeerCameOnline(fp).catch(e => console.warn('[presence] _onPeerCameOnline error:', e));
   }
@@ -22482,7 +22499,7 @@ function _buildChatItemHTML(item) {
     ? `<button class="ci-conn-btn" onclick="event.stopPropagation();connectToContact('${item.id}')">→ связь</button>`
     : '';
   const discBtn  = isActivePeer
-    ? `<button class="ci-disc-btn" onclick="event.stopPropagation();goBack()">✕</button>`
+    ? `<button class="ci-disc-btn" onclick="event.stopPropagation();disconnectFromContact()">✕</button>`
     : '';
 
   const unreadBadge = item.unread > 0

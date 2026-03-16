@@ -1,4 +1,4 @@
-const C        = 'tovsa-v8';
+const C        = 'tovsa-v9';
 const C_FONTS  = 'tovsa-fonts-v1';
 const ICON_URL = './icon-192.png';
 const DB_NAME  = 'tovsa_v1';

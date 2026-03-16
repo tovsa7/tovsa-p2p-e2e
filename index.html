@@ -9852,6 +9852,9 @@ async function _handleIncomingCallConn(conn){
 async function _startIncomingListener(){
   if(_incomingPeer && !_incomingPeer.destroyed) return;
   if(_serverIndex < 0) return;
+  // Если P2P соединение уже активно — не нужен новый входящий listener
+  // Он создаст дублирующее соединение. Запустится сам когда dc закроется.
+  if(dc && dc.readyState === 'open') return;
 
   const srv = currentSrv();
   if(!srv || !myPresenceId) return;
@@ -10684,6 +10687,8 @@ function setupDC(){
       $('reconnect-btn').disabled = !_pjOk;
       $('reconnect-btn').title = _pjOk ? '' : 'Signaling недоступен';
     }
+    // dc закрылся — перезапускаем входящий listener чтобы принимать новые соединения
+    setTimeout(() => { if(!dc || dc.readyState !== 'open') _startIncomingListener(); }, 1000);
   };
 
   if(dc.readyState === 'open') onConn();
@@ -15260,6 +15265,9 @@ function _getPeerSig() {
     // window._activeSig устанавливается маяком при открытии
     if (window._activeSig?._open) return window._activeSig;
     if (_sigPeer?._sig?._open) return _sigPeer._sig;
+    // Fallback: ищем любой открытый сигналинг — presence peer или incoming listener
+    if (_presencePeer?._sig?._open) return _presencePeer._sig;
+    if (_incomingPeer?._sig?._open) return _incomingPeer._sig;
     return null;
   } catch(_) { return null; }
 }

@@ -16674,16 +16674,14 @@ async function _handleAllIncoming(from, kind, data) {
 
       // Удаляем pending invite_accepted / invite_awaiting из store по pendingId (эхо от A)
       if (pendingId) await _psAck(pendingId);
-      // Fallback по from — ищем и invite_accepted и invite_awaiting
+      // Fallback по fromPubHex — ищем invite_accepted и invite_awaiting
       const items = await _psLoad();
-      const mine  = items.filter(i => i.kind === 'invite_accepted' || i.kind === 'invite_awaiting');
+      const mine  = items.filter(i =>
+        (i.kind === 'invite_accepted' || i.kind === 'invite_awaiting') &&
+        i.fromPubHex === from
+      );
       for (const item of mine) {
-        try {
-          if (_myEncKey) {
-            const plain = await unsealEnvelope(item.sealed, _myEncKey.privateJwk).catch(()=>null);
-            if (plain?.from === from) await _psAck(item.id);
-          }
-        } catch(_) {}
+        await _psAck(item.id);
       }
 
       // Обновляем имя контакта
@@ -16766,10 +16764,9 @@ async function _psSave(items) {
 }
 
 // Добавить pending запись и сразу попробовать отправить
-async function _psAdd({ kind, to, sealed, expiresAt, id: preId, toName, confirmedFp }) {
+async function _psAdd({ kind, to, sealed, expiresAt, id: preId, toName, confirmedFp, fromPubHex }) {
   const items = await _psLoad();
   const id    = preId || crypto.randomUUID();
-  // Идемпотентность — не добавляем если id уже есть (retry при reconnect)
   if (items.some(i => i.id === id)) {
     console.log('[ps] duplicate add ignored, id=' + id.slice(0,8));
     _psTrySend({ id, to, sealed, kind });
@@ -16777,7 +16774,8 @@ async function _psAdd({ kind, to, sealed, expiresAt, id: preId, toName, confirme
   }
   items.push({ id, kind, to, sealed, sentAt: Date.now(),
                expiresAt: expiresAt || Date.now() + PENDING_SEALED_TTL, acked: false,
-               toName: toName || '', confirmedFp: confirmedFp || '' });
+               toName: toName || '', confirmedFp: confirmedFp || '',
+               fromPubHex: fromPubHex || '' });
   await _psSave(items);
   console.log('[ps] added', kind, 'id=' + id.slice(0,8));
   _psTrySend({ id, to, sealed, kind });
@@ -20407,7 +20405,7 @@ document.addEventListener('visibilitychange', ()=>{
         // Сохраняем с тем же id — будет ретраиться при каждом reconnect
         // пока не получим delivery_ack с pendingId или не истечёт TTL (48ч)
         await _psAdd({ id: pendingId, kind: 'invite_accepted', to: ownerMailbox, sealed,
-                       toName: info.ownerName || '' });
+                       toName: info.ownerName || '', fromPubHex: info.ownerPubHex || '' });
       } catch(e) { console.warn('[invite] sealed send error:', e.message); }
     }
 

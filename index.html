@@ -21383,18 +21383,22 @@ async function roomInvAddSelected() {
 async function _roomInvPrepareLink() {
   const urlEl = document.getElementById('room-inv-link-url');
   if (!urlEl || !_roomInvModalId) return;
-
-  if (_roomInvLink) {
-    urlEl.textContent = _roomInvLink.url;
-    return;
-  }
+  if (_roomInvLink) { urlEl.textContent = _roomInvLink.url; return; }
   urlEl.textContent = 'создание ссылки...';
   try {
-    if (typeof window._createInvite !== 'function') throw new Error('_createInvite недоступна');
-    const inv = await window._createInvite({ maxUses: 1, expiresIn: 3 * 24 * 3600 });
+    // Используем window._pushServer напрямую — не зависим от замыкания IIFE
+    const pushSrv = window._pushServer || 'https://tovsa-signaling.tovsa7.workers.dev';
+    if (!pushSrv) throw new Error('сервер недоступен');
+    // Создаём через window._createInvite если доступна, иначе через fetch напрямую
+    let inv;
+    console.log('[roomInv] calling _createInvite, type=', typeof window._createInvite);
+    if (typeof window._createInvite === 'function') {
+      inv = await window._createInvite({ maxUses: 1, expiresIn: 3 * 24 * 3600 });
+    } else {
+      throw new Error('модуль инвайтов ещё не загружен');
+    }
     _roomInvLink = { token: inv.token, url: inv.url, kvKey: inv.kvKey };
     urlEl.textContent = inv.url;
-    // Помечаем — при принятии ссылки добавить в эту комнату
     localStorage.setItem('_roomInvPending_' + inv.kvKey, _roomInvModalId);
   } catch(e) {
     console.warn('[roomInv] link error:', e.message);

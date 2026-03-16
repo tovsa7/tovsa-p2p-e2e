@@ -4491,7 +4491,6 @@ async function _beaconMarkOnline(fromPubKeyHex) {
   if (!fromPubKeyHex) return;
   try {
     const toFp = window._pubHexToFp;
-    console.log('[beacon] debug', typeof toFp, 'from len=', fromPubKeyHex?.length, fromPubKeyHex?.slice(0,16));
     if (typeof toFp !== 'function') return;
     const fp = await toFp(fromPubKeyHex);
     if (!fp) return;
@@ -6713,8 +6712,7 @@ class TovSaSignaling {
             to: from, kind: 'offer', delivered: true, viaAnswer: true
           }}));
         }
-        console.log('[sealed] → _handleRelay kind=', kind, 'this._handleRelay=', typeof this._handleRelay);
-        try { await this._handleRelay(from, kind, data); } catch(e) { console.warn('[sealed] _handleRelay threw:', e.message); }
+        await this._handleRelay(from, kind, data);
         break;
       }
       case 'ALIAS-ACK':
@@ -6815,14 +6813,12 @@ class TovSaSignaling {
     this._pendingOffers?.delete(remotePeerId);
   }
   async _handleRelay(from, kind, data) {
-    console.log('[relay-class] from=', from?.slice(0,8), 'kind=', kind);
     switch (kind) {
       case 'offer':  await this._handleOffer(from, data);  break;
       case 'answer': await this._handleAnswer(from, data); break;
       case 'ice':    await this._handleIce(from, data);    break;
       case 'leave':  this._cleanupPc(from);                break;
       case 'beacon':
-        console.log('[beacon] case reached, typeof _beaconMarkOnline=', typeof _beaconMarkOnline);
         if (from && typeof _beaconMarkOnline === 'function') {
           _beaconMarkOnline(from);
         }
@@ -9872,8 +9868,11 @@ async function _startIncomingListener(){
     _incomingPeer = p;
     p._onAuthStart = () => {};
 
+    const _origIncomingRelay = p._sig._handleRelay.bind(p._sig);
     p._sig._handleRelay = async (from, kind, data) => {
       if(kind === 'offer'){ await _handleIncomingRelayOffer(p._sig, from, data); return; }
+      // Остальные виды (beacon, ice, etc.) — передаём в оригинальный обработчик класса
+      await _origIncomingRelay(from, kind, data);
     };
 
     let _retryScheduled = false; // предотвращаем двойной retry из error+close
@@ -17783,7 +17782,6 @@ function _applyPresenceResult(fp, result){
   _updatePeerLastSeenHeader(fp);
   // Перерисовываем список чатов при смене статуса — кнопка "→ связь" зависит от presenceState
   if(prev !== result && typeof renderChatsList === 'function'){
-    console.log('[presence] ' + fp.slice(0,8) + ' ' + (prev||'?') + ' → ' + result);
     renderChatsList().catch(()=>{});
   }
   if(prev !== 'online' && result === 'online'){

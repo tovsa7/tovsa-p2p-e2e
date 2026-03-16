@@ -16611,7 +16611,9 @@ async function _handleAllIncoming(from, kind, data) {
             }},
             encPub,
           );
-          const bMailbox = await getContactMailboxId(pubKeyHex, 0) ?? pubKeyHex;
+          // B ещё не зарегистрировал mailbox alias для A → слём на прямой tvp- ID
+          const bPubBytes = new Uint8Array(pubKeyHex.match(/.{2}/g).map(h=>parseInt(h,16)));
+          const bMailbox  = 'tvp-' + await sha256hex(bPubBytes, 24);
           const sig = _getPeerSig();
           if (sig?._open) {
             sig._wsSend({ type: 'SEALED_RELAY', to: bMailbox, sealed: ackSealed });
@@ -16671,7 +16673,9 @@ async function _handleAllIncoming(from, kind, data) {
             { from: myPubKeyHex, kind: 'delivery_ack', data: { ackedKind: 'contact_confirmed', pendingId: data.pendingId } },
             data.encPub,
           );
-          const aMailbox = await getContactMailboxId(from, 0) ?? from;
+          // A ещё не зарегистрировал mailbox alias для B → слём на прямой tvp- ID
+          const aPubBytes = new Uint8Array(from.match(/.{2}/g).map(h=>parseInt(h,16)));
+          const aMailbox  = 'tvp-' + await sha256hex(aPubBytes, 24);
           const sig = _getPeerSig();
           if (sig?._open) sig._wsSend({ type: 'SEALED_RELAY', to: aMailbox, sealed: ackSealed });
         } catch(e) { console.warn('[invite] delivery_ack for confirm error:', e.message); }
@@ -19797,6 +19801,8 @@ document.addEventListener('visibilitychange', ()=>{
     const hash  = await crypto.subtle.digest('SHA-256', bytes);
     return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('').slice(0, 24);
   }
+  // Экспортируем глобально — используется в _beaconMarkOnline и других местах вне IIFE
+  window._pubHexToFp = _pubHexToFp;
 
   // Подписываем запрос к воркеру Ed25519 ключом пользователя
   // message = произвольная строка (уникальная для каждого эндпоинта)

@@ -5167,6 +5167,13 @@ async function saveEditModal(){
 
 async function saveContact(){
   if(!currentPeerFp) return;
+  // Если пир уже в очереди заявок — перенаправляем на экран заявок
+  const _reqs = await loadContactRequests().catch(()=>[]);
+  if(_reqs.some(r => r.fp === currentPeerFp)) {
+    toast('📬 Заявка ожидает — примите её в разделе Добавить контакты');
+    openAddContactScreen();
+    return;
+  }
   const contacts = await getContacts();
   const existing = contacts[currentPeerFp] || {};
   const name = currentPeerOfferedName || existing.name || 'Неизвестный';
@@ -10206,7 +10213,6 @@ async function _startIncomingListener(){
   const srv = currentSrv();
   if(!srv || !myPresenceId) return;
 
-  // Захватываем версию — если маяк перезапустится, старые reconnect-таймеры не создадут нового слушателя
   const myVer = _beaconVersion;
   const stale = () => _beaconVersion !== myVer;
 
@@ -10216,26 +10222,31 @@ async function _startIncomingListener(){
   try{
     const p = createAuthPeer(hostId, { ...buildPeerConfig(srv) });
     _incomingPeer = p;
-    p._onAuthStart = () => {}; // входящий пир не обновляет UI сервера
+    p._onAuthStart = () => {};
 
-    // Перехватываем RELAY-offer напрямую — не используем старый DataChannel-flow
     p._sig._handleRelay = async (from, kind, data) => {
       if(kind === 'offer'){ await _handleIncomingRelayOffer(p._sig, from, data); return; }
-      // ice-кандидаты, которые могут прийти до offer — игнорируем (используем full-ICE SDP)
+    };
+
+    let _retryScheduled = false; // предотвращаем двойной retry из error+close
+    const _scheduleRetry = (delay) => {
+      if(_retryScheduled) return;
+      _retryScheduled = true;
+      setTimeout(()=>{ if(!stale()) _startIncomingListener(); }, delay);
     };
 
     p.on('error', e =>{
       _incomingPeer = null;
       if(stale()) return;
-      const delay = e.type === 'unavailable-id' ? 2000 : 3000;
-      setTimeout(()=>{ if(!stale()) _startIncomingListener(); }, delay);
+      // unavailable-id: старый peer ещё жив на сервере (TTL до 45с).
+      // Ждём дольше чтобы сервер успел его вытеснить.
+      const delay = e.type === 'unavailable-id' ? 8000 : 3000;
+      _scheduleRetry(delay);
     });
-
     p.on('disconnected', ()=>{ if(!p.destroyed && !stale()) try{ p.reconnect(); }catch(_){} });
     p.on('close', ()=>{
       _incomingPeer = null;
-      // Ждём 1с — сервер должен освободить ID после закрытия соединения
-      if(!stale()) setTimeout(()=>{ if(!stale()) _startIncomingListener(); }, 1000);
+      if(!stale()) _scheduleRetry(1000);
     });
 
   }catch(e){}
@@ -10852,12 +10863,17 @@ async function _handleIdentityPacket(data, setIdDone){
       }
       const displayName = contact?.name || res.name || undefined;
       currentPeerOfferedName = res.name || null;
-      showPeerIdentity(res.fp, !!contact, displayName);
+      // Проверяем есть ли в очереди заявок (ждёт принятия)
+      const _pendingReqs = await loadContactRequests().catch(()=>[]);
+      const _inRequests  = _pendingReqs.some(r => r.fp === res.fp || r.pubKeyHex === res.pubHex);
+      showPeerIdentity(res.fp, !!contact || _inRequests, displayName);
       _showPeerPushBadge(res.push);
       _loadPins(res.fp);
-      if(!contact){
+      if(!contact && !_inRequests){
         const nameHint = res.name ? ` (представился как «${esc(res.name)}»)` : '';
         sysMsg('⚠ Незнакомец' + nameHint + ' — сверьте fingerprint по другому каналу');
+      } else if(!contact && _inRequests){
+        sysMsg('📬 ' + (res.name || 'Пользователь') + ' — заявка ожидает принятия в разделе Добавить контакты');
       } else {
         loadHistoryIntoChat(res.fp);
       }

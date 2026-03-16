@@ -936,7 +936,7 @@ textarea::placeholder{color:var(--mu)}
 .grp-empty{padding:40px 24px;text-align:center;font-size:11px;color:var(--mu);line-height:2.2}
 
 /* ── Unified Chats Screen ─────────────────────────────────────────────────── */
-#schats{display:none;flex-direction:column;flex:1;min-height:0;background:var(--bg);touch-action:pan-y}
+#schats{display:none;flex-direction:column;flex:1;min-height:0;background:var(--bg);touch-action:pan-y;position:relative}
 #schats.on{display:flex}
 
 /* Folders pill row */
@@ -992,7 +992,7 @@ textarea::placeholder{color:var(--mu)}
 .chats-empty{padding:60px 24px;text-align:center;font-size:11px;color:var(--mu);line-height:2.2}
 
 /* FAB — new chat button */
-.chats-fab{position:absolute;bottom:calc(var(--tabbar-h, 56px) + 16px);right:18px;width:52px;height:52px;border-radius:50%;background:var(--a);color:#0a0a0f;font-size:24px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,255,157,.3);transition:transform .15s,box-shadow .15s;z-index:50;-webkit-tap-highlight-color:transparent}
+.chats-fab{position:absolute;bottom:calc(var(--tabbar-h, 56px) + 16px);right:18px;width:52px;height:52px;border-radius:50%;background:var(--a);color:#0a0a0f;font-size:24px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,255,157,.3);transition:transform .15s,box-shadow .15s;z-index:50;-webkit-tap-highlight-color:transparent;isolation:isolate}
 .chats-fab:hover{transform:scale(1.07);box-shadow:0 6px 20px rgba(0,255,157,.4)}
 .chats-fab:active{transform:scale(.95)}
 
@@ -2588,29 +2588,6 @@ if (typeof globalThis !== 'undefined') {
 </div>
 
 <!-- Модальное окно редактирования контакта -->
-<div class="modal-bg" id="edit-modal" style="display:none" onclick="if(event.target===this)closeEditModal()">
-  <div class="modal">
-    <h3>КОНТАКТ</h3>
-    <div>
-      <label>Имя</label>
-      <input id="edit-name" type="text" placeholder="Имя контакта" maxlength="60">
-    </div>
-    <div>
-      <label>Заметка</label>
-      <textarea id="edit-note" placeholder="Любая заметка о собеседнике..."></textarea>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:6px;padding-top:4px">
-      <button class="gbtn" style="width:100%;padding:9px;border-color:rgba(229,192,123,.4);color:var(--w);text-align:center" onclick="editDeleteHistory()">Удалить историю переписки</button>
-      <button class="gbtn" style="width:100%;padding:9px;border-color:rgba(224,108,117,.4);color:var(--e);text-align:center" onclick="editDeleteContact()">Удалить контакт</button>
-    </div>
-    <div class="modal-row">
-      <button class="gbtn" onclick="closeEditModal()">Отмена</button>
-      <button class="btn" onclick="saveEditModal()">Сохранить</button>
-    </div>
-  </div>
-</div>
-
-<!-- Контекстное меню контакта -->
 <!-- Контекстное меню сообщения -->
 <div class="ctx-bg" id="msg-ctx-bg" style="display:none" onclick="closeMsgCtx()"></div>
 <div class="ctx-menu" id="msg-ctx-menu" style="display:none" ontouchend="event.stopPropagation()">
@@ -2974,7 +2951,7 @@ if (typeof globalThis !== 'undefined') {
       Создать канал <div class="fab-menu-icon">📢</div>
     </div>
   </div>
-  <button class="chats-fab" id="chats-fab" onclick="toggleFabMenu()" style="position:relative">＋<span id="fab-main-badge" style="display:none;position:absolute;top:4px;right:4px;width:10px;height:10px;border-radius:50%;background:var(--e);border:2px solid var(--bg)"></span></button>
+  <button class="chats-fab" id="chats-fab" onclick="toggleFabMenu()">＋<span id="fab-main-badge" style="display:none;position:absolute;top:4px;right:4px;width:10px;height:10px;border-radius:50%;background:var(--e);border:2px solid var(--bg)"></span></button>
 </div>
 
 <!-- Folder manager modal -->
@@ -5038,73 +5015,8 @@ async function saveMsg(fp,text,type,ts,replyText,replySender,replyTs,fwdFrom){
 
 let _historyFp=null;
 
-async function clearHistory(){
-  if(!_historyFp)return;
-  if(!confirm('Очистить всю историю переписки с этим контактом?'))return;
-  const h=await getHistory();
-  delete h[_historyFp];
-  await idbSet('history','all',h);
-  await idbSet('contacts','pins_'+_historyFp,[]);
-  if(currentPeerFp===_historyFp){ _pins=[]; _renderPinBar(); }
-  openHistory(_historyFp);
-  toast('История очищена');
-}
 
 // ── Edit contact modal ──
-let _editFp=null;
-
-async function openEditModal(fp){
-  _editFp=fp;
-  const contacts=await getContacts();
-  const c=contacts[fp]||{};
-  $('edit-name').value=c.name||'';
-  $('edit-note').value=c.note||'';
-  $('edit-modal').style.display='flex';
-  setTimeout(()=>$('edit-name').focus(),50);
-}
-
-function closeEditModal(){$('edit-modal').style.display='none';_editFp=null;}
-
-async function editDeleteHistory(){
-  if(!_editFp)return;
-  if(!confirm('Удалить всю историю переписки с этим контактом?'))return;
-  const h=await getHistory();
-  delete h[_editFp];
-  await idbSet('history','all',h);
-  await idbSet('contacts','pins_'+_editFp,[]);
-  if(currentPeerFp===_editFp){ _pins=[]; _renderPinBar(); }
-  renderChatsList();
-  toast('История удалена');
-}
-
-async function editDeleteContact(){
-  if(!_editFp)return;
-  if(!confirm('Удалить контакт и всю историю переписки?'))return;
-  const fp=_editFp;
-  closeEditModal();
-  await deleteContact(fp,null);
-}
-
-async function saveEditModal(){
-  if(!_editFp)return;
-  const fp=_editFp;
-  const name=$('edit-name').value.trim();
-  if(!name){toast('Введите имя');return;}
-  const contacts=await getContacts();
-  const existing=contacts[fp]||{};
-  const isNew=!existing.savedAt;
-  contacts[fp]={...existing,name,note:$('edit-note').value.trim(),savedAt:existing.savedAt||Date.now()};
-  await saveContacts(contacts);
-  closeEditModal();
-  renderChatsList();
-  _refreshPairBeacons(); // [FIX BUG9] создаём парный маяк для нового/обновлённого контакта
-  if(currentPeerFp===fp){
-    showPeerIdentity(fp,true,name);
-    toast(isNew?'Контакт сохранён':'Контакт обновлён');
-  } else {
-    toast('Контакт обновлён');
-  }
-}
 
 async function saveContact(){
   if(!currentPeerFp) return;
@@ -5699,7 +5611,6 @@ async function openHistory(fp){
   showTab('sh');
 }
 
-function toggleContacts(){ showTab('schats'); }
 
 // ── Офлайн-сообщения из истории ──────────────────────────────────────────────
 function handleShMiKey(e){
@@ -6117,24 +6028,7 @@ async function verifyContactKey(){
   }
 }
 
-async function infoDeleteHistory(){
-  if(!_infoFp)return;
-  if(!confirm('Удалить всю историю переписки с этим контактом?'))return;
-  const h=await getHistory();
-  delete h[_infoFp];
-  await idbSet('history','all',h);
-  openInfoModal(_infoFp);
-  renderChatsList();
-  toast('История удалена');
-}
 
-async function infoDeleteContact(){
-  if(!_infoFp)return;
-  if(!confirm('Удалить контакт и всю историю переписки?'))return;
-  const fp=_infoFp;
-  closeInfoModal();
-  await deleteContact(fp,null);
-}
 
 // Attach long-press to contact list via delegation
 document.addEventListener('DOMContentLoaded',()=>{
@@ -11090,14 +10984,6 @@ async function onConn(){
   }
 }
 
-function handleBack(){
-  // Сбрасываем subScreen — возвращаемся в список
-  if(typeof _tabState !== 'undefined') {
-    _tabState.chats.subScreen = null;
-    _tabState.chats.subId     = null;
-  }
-  showTab('schats');
-}
 
 function minimizeChat(){
   closeChatSearch('msgs');
@@ -18867,13 +18753,6 @@ function saveMyQR(){
   }, 'image/png');
 }
 
-function showAddContact(){
-  const addForm  = $('add-contact-form');
-  const shareDiv = $('my-contact-share');
-  shareDiv.style.display = 'none';
-  addForm.style.display = addForm.style.display === 'none' ? 'flex' : 'none';
-  if(addForm.style.display !== 'none') $('add-contact-input').focus();
-}
 
 async function importContact(){
   const raw = $('add-contact-input').value.trim();
@@ -22265,7 +22144,8 @@ function _buildChatItemHTML(item) {
     </div>`;
   }
 
-  const isActivePeer = item.type === 'contact' && item.id === currentPeerFp;
+  const isActivePeer = item.type === 'contact' && item.id === currentPeerFp
+    && dc != null && dc.readyState === 'open';
   const presenceState = item.type === 'contact' ? (_presenceCache?.[item.id] || '') : '';
   const isConnected   = item.type === 'contact' && dc && dc.readyState === 'open' && item.id === currentPeerFp;
 

@@ -16531,14 +16531,13 @@ async function _handleAllIncoming(from, kind, data) {
   if (kind === 'contact_confirmed') {
     console.log('[invite] contact_confirmed from', from.slice(0,8));
     try {
-      const { pendingId } = data || {};
+      const { pendingId, name } = data || {};
       // Удаляем pending invite_accepted из store
       if (pendingId) await _psAck(pendingId);
       // Дополнительно: ищем по from на случай если pendingId не совпал
       const items = await _psLoad();
       const mine  = items.filter(i => i.kind === 'invite_accepted');
       for (const item of mine) {
-        // Пробуем расшифровать чтобы убедиться что это тот самый контакт
         try {
           if (_myEncKey) {
             const plain = await unsealEnvelope(item.sealed, _myEncKey.privateJwk).catch(()=>null);
@@ -16546,7 +16545,25 @@ async function _handleAllIncoming(from, kind, data) {
           }
         } catch(_) {}
       }
-      toast('✓ ' + (data?.name || 'Контакт') + ' добавил вас в контакты');
+
+      // Обновляем имя контакта — оно могло быть 'Tovsa User' если инвайт создан без имени
+      if (name && name !== 'Tovsa User') {
+        try {
+          const sha = await crypto.subtle.digest('SHA-256',
+            new Uint8Array(from.match(/.{2}/g).map(h=>parseInt(h,16))));
+          const fp = Array.from(new Uint8Array(sha)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,24);
+          const contacts = await getContacts();
+          if (contacts[fp] && (!contacts[fp].name || contacts[fp].name === 'Tovsa User')) {
+            contacts[fp].name = name;
+            await saveContacts(contacts);
+            delete _avatarCache[fp]; // сбросим кеш чтобы перерисовать
+            if (typeof renderChatsList === 'function') renderChatsList();
+            if (typeof renderContacts === 'function') renderContacts();
+          }
+        } catch(_) {}
+      }
+
+      toast('✓ ' + (name || 'Контакт') + ' добавил вас в контакты');
 
       // Отправляем delivery_ack — A узнает что contact_confirmed дошёл
       if (data?.encPub && typeof sealEnvelope === 'function' && _myEncKey && myPubKeyHex) {
@@ -22300,6 +22317,15 @@ function _buildChatItemHTML(item) {
     ? 'background:rgba(0,255,157,.03);border-left:2px solid var(--a)'
     : '';
 
+  // Кнопка "→ связь" — когда контакт онлайн но P2P ещё не открыт
+  const isOnline = item.type === 'contact' && presenceState === 'online' && !isActivePeer;
+  const connBtn  = isOnline
+    ? `<button class="ci-conn-btn" onclick="event.stopPropagation();connectToContact('${item.id}')">→ связь</button>`
+    : '';
+  const discBtn  = isActivePeer
+    ? `<button class="ci-disc-btn" onclick="event.stopPropagation();goBack()">✕</button>`
+    : '';
+
   const unreadBadge = item.unread > 0
     ? `<div class="chat-item-unread">${item.unread > 99 ? '99+' : item.unread}</div>` : '';
   const myDeviceBadge = item.isMyDevice
@@ -22340,6 +22366,7 @@ function _buildChatItemHTML(item) {
       ${unreadBadge}
       <div class="chat-item-sync ${window._syncingChats?.has(item.id) ? 'on' : ''}" data-sync-id="${item.id}">↻</div>
     </div>
+    ${connBtn}${discBtn}
   </div>`;
 }
 

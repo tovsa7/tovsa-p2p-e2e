@@ -20297,7 +20297,13 @@ document.addEventListener('visibilitychange', ()=>{
           }},
           info.encPub,
         );
-        const ownerMailbox = await getContactMailboxId(info.ownerPubHex, 0) ?? info.ownerPubHex;
+        const ownerMailbox = await (async () => {
+          // При первом добавлении A ещё не знает encPub B и не зарегистрировал
+          // mailbox alias для B → getContactMailboxId вернёт null.
+          // Используем прямой tvp-<sha256(ownerPubKey)> ID — A всегда его слушает.
+          const pubBytes = new Uint8Array(info.ownerPubHex.match(/.{2}/g).map(h=>parseInt(h,16)));
+          return 'tvp-' + await sha256hex(pubBytes, 24);
+        })();
 
         // Сохраняем с тем же id — будет ретраиться при каждом reconnect
         // пока не получим delivery_ack с pendingId или не истечёт TTL (48ч)

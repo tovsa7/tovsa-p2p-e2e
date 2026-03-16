@@ -4490,10 +4490,11 @@ let _beaconTimer          = null;
 async function _beaconMarkOnline(fromPubKeyHex) {
   if (!fromPubKeyHex) return;
   try {
-    // Конвертируем pubKeyHex → fingerprint для _presenceCache
-    const fp = await _pubHexToFp(fromPubKeyHex);
+    // _pubHexToFp определена внутри PWA IIFE — используем window-экспорт
+    const toFp = window._pubHexToFp;
+    if (typeof toFp !== 'function') return; // IIFE ещё не инициализирована
+    const fp = await toFp(fromPubKeyHex);
     if (!fp) return;
-    // Используем существующую систему кеша
     _applyPresenceResult(fp, 'online');
     console.log('[beacon] онлайн от', fromPubKeyHex.slice(0,8)+'...', '→ fp=', fp);
   } catch(e) {

@@ -19801,6 +19801,8 @@ document.addEventListener('visibilitychange', ()=>{
 
   // ── Создать инвайт ────────────────────────────────────────────────────────
   window._createInvite = async function({ maxUses = 30, expiresIn = 604800 } = {}) {
+    // Fallback на window._pushServer если PUSH_SERVER не определён в данном контексте
+    const _PS = (typeof PUSH_SERVER !== 'undefined' && PUSH_SERVER) ? PUSH_SERVER : (window._pushServer || 'https://tovsa-signaling.tovsa7.workers.dev');
     const myHex  = localStorage.getItem('_myPubHex');
     const myName = localStorage.getItem('myName') || localStorage.getItem('_myName') || 'Tovsa User';
     if (!myHex) throw new Error('ключ не готов');
@@ -19821,7 +19823,7 @@ document.addEventListener('visibilitychange', ()=>{
       ownerName:    myName,
       ownerFp:      myFp,
       signalingUrl: `wss://${mySrv.host}${mySrv.port !== 443 ? ':' + mySrv.port : ''}/signal`,
-      pushUrl:      PUSH_SERVER,
+      pushUrl:      _PS,
       encPub:       myEncPub,
       pushToken:    myPushTok,
       v:            2,
@@ -19844,19 +19846,19 @@ document.addEventListener('visibilitychange', ()=>{
     const ts = Math.floor(Date.now() / 1000);
     const auth = await _invSign(`invite2:create:${ts}`);
 
-    console.log('[invite] create → ' + PUSH_SERVER);
-    const res = await fetch(PUSH_SERVER + '/invite2/create', {
+    console.log('[invite] create → ' + _PS);
+    const res = await fetch(_PS + '/invite2/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ kvKey, blob, notifyBlob, maxUses, expiresIn, ...auth }),
     });
-    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || 'create failed [HTTP ' + res.status + '] url=' + PUSH_SERVER); }
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || 'create failed [HTTP ' + res.status + '] url=' + _PS); }
 
     const result  = await res.json();
     const tokenB64 = _invB64u(secret);
     // PUSH_SERVER может быть пустым до обновления из манифеста
     let host = '';
-    try { host = new URL(PUSH_SERVER).hostname; } catch(_) {}
+    try { host = new URL(_PS).hostname; } catch(_) {}
     if (!host) try { host = new URL(window._pushServer || '').hostname; } catch(_) {}
 
     // Сохраняем секрет локально для последующего отзыва
@@ -21395,7 +21397,7 @@ async function _roomInvPrepareLink() {
     // Помечаем — при принятии ссылки добавить в эту комнату
     localStorage.setItem('_roomInvPending_' + inv.kvKey, _roomInvModalId);
   } catch(e) {
-    console.warn('[roomInv] link error:', e.message, e.stack?.split('\n').slice(0,3).join(' | '));
+    console.warn('[roomInv] link error:', e.message);
     urlEl.textContent = 'Ошибка: ' + e.message;
   }
 }

@@ -6815,6 +6815,7 @@ class TovSaSignaling {
     this._pendingOffers?.delete(remotePeerId);
   }
   async _handleRelay(from, kind, data) {
+    console.log('[relay-class] from=', from?.slice(0,8), 'kind=', kind);
     switch (kind) {
       case 'offer':  await this._handleOffer(from, data);  break;
       case 'answer': await this._handleAnswer(from, data); break;

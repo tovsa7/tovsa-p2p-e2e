@@ -4490,15 +4490,15 @@ let _beaconTimer          = null;
 async function _beaconMarkOnline(fromPubKeyHex) {
   if (!fromPubKeyHex) return;
   try {
-    // _pubHexToFp определена внутри PWA IIFE — используем window-экспорт
     const toFp = window._pubHexToFp;
-    if (typeof toFp !== 'function') return; // IIFE ещё не инициализирована
+    console.log('[beacon] debug', typeof toFp, 'from len=', fromPubKeyHex?.length, fromPubKeyHex?.slice(0,16));
+    if (typeof toFp !== 'function') return;
     const fp = await toFp(fromPubKeyHex);
     if (!fp) return;
     _applyPresenceResult(fp, 'online');
     console.log('[beacon] онлайн от', fromPubKeyHex.slice(0,8)+'...', '→ fp=', fp);
   } catch(e) {
-    console.warn('[beacon] markOnline error:', e);
+    console.warn('[beacon] markOnline error:', e.message, 'from=', fromPubKeyHex?.slice(0,16));
   }
 }
 
@@ -6713,6 +6713,7 @@ class TovSaSignaling {
             to: from, kind: 'offer', delivered: true, viaAnswer: true
           }}));
         }
+        console.log('[sealed] → _handleRelay kind=', kind);
         await this._handleRelay(from, kind, data);
         break;
       }
@@ -6820,10 +6821,7 @@ class TovSaSignaling {
       case 'ice':    await this._handleIce(from, data);    break;
       case 'leave':  this._cleanupPc(from);                break;
       case 'beacon':
-        // Зашифрованный presence beacon — отправитель сообщает что он онлайн.
-        // from = postоянный pubKeyHex отправителя (расшифрован из sealed envelope).
-        // Сервер не знал ни from, ни что это beacon.
-        // Конвертируем pubKeyHex → fp для _applyPresenceResult.
+        console.log('[beacon] case reached, typeof _beaconMarkOnline=', typeof _beaconMarkOnline);
         if (from && typeof _beaconMarkOnline === 'function') {
           _beaconMarkOnline(from);
         }

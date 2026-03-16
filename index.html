@@ -729,6 +729,23 @@ textarea::placeholder{color:var(--mu)}
 .sk-storage-fill.warn{background:var(--w)}
 .sk-storage-fill.err{background:var(--e)}
 .sk-storage-num{white-space:nowrap;flex-shrink:0}
+/* Storage visualization */
+.stor-row{display:flex;flex-direction:column;gap:5px;padding:10px 0;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .12s;-webkit-tap-highlight-color:transparent}
+.stor-row:last-child{border-bottom:none}
+.stor-row:hover{background:var(--sf);margin:0 -18px;padding-left:18px;padding-right:18px}
+.stor-row-head{display:flex;align-items:center;gap:8px}
+.stor-row-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.stor-row-name{flex:1;font-size:12px;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stor-row-size{font-size:11px;color:var(--mu);flex-shrink:0}
+.stor-row-pct{font-size:10px;color:var(--mu);flex-shrink:0;min-width:32px;text-align:right}
+.stor-bar{height:3px;background:var(--bd);border-radius:2px;overflow:hidden}
+.stor-bar-fill{height:100%;border-radius:2px;transition:width .4s}
+.stor-file-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd)}
+.stor-file-row:last-child{border-bottom:none}
+.stor-file-icon{width:32px;height:32px;border-radius:8px;background:var(--bd);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.stor-file-info{flex:1;min-width:0}
+.stor-file-name{font-size:11px;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stor-file-meta{font-size:10px;color:var(--mu);margin-top:2px}
 /* contact item extended */
 .cisize{font-size:10px;color:var(--mu);white-space:nowrap;flex-shrink:0;margin-right:2px}
 .cinote{font-size:10px;color:var(--mu);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-style:italic}
@@ -1569,7 +1586,7 @@ if (typeof globalThis !== 'undefined') {
       <div class="sn-row-icon">💾</div>
       <div class="sn-row-body">
         <div class="sn-row-title">Данные</div>
-        <div class="sn-row-desc">Бэкап, лимит хранилища</div>
+        <div class="sn-row-desc">Бэкап, лимит хранилища, статистика</div>
       </div>
       <div class="sn-row-arrow">›</div>
     </div>
@@ -1709,36 +1726,73 @@ if (typeof globalThis !== 'undefined') {
   <!-- ══ ПОД-ЭКРАН: Данные ══ -->
   <div class="sn-page" id="sn-data">
     <div class="sh-back" onclick="snBack()">← назад</div>
-    <div class="sn-section">
-      <div class="sn-label">Данные</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="action-btn" onclick="backupData()">↓ скачать бэкап</button>
-        <button class="action-btn" onclick="$('restore-file').click()">↑ загрузить бэкап</button>
-        <input type="file" id="restore-file" accept=".json" style="display:none" onchange="restoreData(event)">
-      </div>
-      <div style="font-size:10px;color:var(--mu);line-height:1.6">Бэкап содержит контакты, историю переписки и ваш ключ идентификации.</div>
-      <div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <div style="font-size:11px;color:var(--mu)">Лимит хранилища</div>
-          <div style="display:flex;align-items:center;gap:6px">
-            <input type="number" id="storage-limit-input" min="1" max="102400" step="1"
-              style="width:64px;background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:4px 8px;color:var(--tx);font-size:12px;text-align:right"
-              onchange="saveStorageLimit(this.value)">
-            <span style="font-size:11px;color:var(--mu)">МБ</span>
+    <div style="flex:1;overflow-y:auto">
+
+      <!-- Бэкап -->
+      <div class="sn-section">
+        <div class="sn-label">Данные</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="action-btn" onclick="backupData()">↓ скачать бэкап</button>
+          <button class="action-btn" onclick="$('restore-file').click()">↑ загрузить бэкап</button>
+          <input type="file" id="restore-file" accept=".json" style="display:none" onchange="restoreData(event)">
+        </div>
+        <div style="font-size:10px;color:var(--mu);line-height:1.6">Бэкап содержит контакты, историю переписки и ваш ключ идентификации.</div>
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <div style="font-size:11px;color:var(--mu)">Лимит хранилища</div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="number" id="storage-limit-input" min="1" max="102400" step="1"
+                style="width:64px;background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:4px 8px;color:var(--tx);font-size:12px;text-align:right"
+                onchange="saveStorageLimit(this.value)">
+              <span style="font-size:11px;color:var(--mu)">МБ</span>
+            </div>
+          </div>
+          <input type="range" id="storage-limit-slider" min="10" max="10240" step="10"
+            style="width:100%;accent-color:var(--a);cursor:pointer"
+            oninput="syncLimitSlider(this.value)" onchange="saveStorageLimit(this.value)">
+          <div style="display:flex;align-items:center;gap:10px;padding-top:6px">
+            <div class="sk-storage-bar" style="flex:1"><div class="sk-storage-fill" id="sk-fill" style="width:0%"></div></div>
+            <div class="sk-storage-num" id="sk-storage-num" style="font-size:10px;color:var(--mu);white-space:nowrap">считаем...</div>
           </div>
         </div>
-        <input type="range" id="storage-limit-slider" min="10" max="10240" step="10"
-          style="width:100%;accent-color:var(--a);cursor:pointer"
-          oninput="syncLimitSlider(this.value)" onchange="saveStorageLimit(this.value)">
-        <div style="display:flex;align-items:center;gap:10px;padding-top:6px">
-          <div class="sk-storage-bar" style="flex:1"><div class="sk-storage-fill" id="sk-fill" style="width:0%"></div></div>
-          <div class="sk-storage-num" id="sk-storage-num" style="font-size:10px;color:var(--mu);white-space:nowrap">считаем...</div>
+      </div>
+
+      <!-- Анализ хранилища — встроен в sn-data -->
+      <div class="sn-section">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div class="sn-label" style="margin-bottom:0">Хранилище</div>
+          <button id="stor-refresh-btn" onclick="storAnalyze()" style="background:none;border:none;color:var(--mu);font-size:11px;cursor:pointer;font-family:inherit;padding:0">обновить ↺</button>
+        </div>
+
+        <!-- Общий прогресс -->
+        <div style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">
+            <span id="stor-total-used" style="font-size:16px;font-weight:700;color:var(--tx)">—</span>
+            <span id="stor-total-quota" style="font-size:11px;color:var(--mu)">из —</span>
+          </div>
+          <!-- Stacked bar — каждая категория своим цветом -->
+          <div id="stor-stacked-bar" style="height:8px;background:var(--bd);border-radius:4px;overflow:hidden;display:flex;margin-bottom:3px"></div>
+          <div id="stor-total-pct" style="font-size:10px;color:var(--mu);text-align:right">0%</div>
+        </div>
+
+        <!-- Список категорий -->
+        <div id="stor-category-list" style="display:flex;flex-direction:column">
+          <div style="font-size:11px;color:var(--mu);padding:8px 0;text-align:center">⏳ анализируем...</div>
         </div>
       </div>
+
+      <!-- Детали (inline, показываются под категориями) -->
+      <div class="sn-section" id="stor-detail-section" style="display:none">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <button onclick="storBack()" style="background:none;border:none;color:var(--a);font-size:12px;cursor:pointer;padding:0;font-family:inherit">← назад</button>
+          <div id="stor-detail-title" style="font-size:12px;font-weight:700;color:var(--tx);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+          <div id="stor-detail-size" style="font-size:11px;color:var(--mu)"></div>
+        </div>
+        <div id="stor-detail-list" style="display:flex;flex-direction:column"></div>
+      </div>
+
     </div>
   </div>
-
-  <!-- ══ ПОД-ЭКРАН: Приложение ══ -->
   <div class="sn-page" id="sn-app">
     <div class="sh-back" onclick="snBack()">← назад</div>
     <div class="sn-section">
@@ -5129,18 +5183,63 @@ async function saveContact(){
   toast(`Контакт сохранён как «${name}»`);
 }
 
-async function deleteContact(fp,ev){
-  if(ev){ev.stopPropagation();}
-  if(!confirm('Удалить контакт и всю историю переписки?'))return;
-  const contacts=await getContacts();
+async function deleteContact(fp, ev){
+  if(ev){ ev.stopPropagation(); }
+  if(!confirm('Удалить контакт и всю историю переписки?')) return;
+
+  const contacts = await getContacts();
+  const pubKeyHex = contacts[fp]?.pubKeyHex || null;
+
+  // 1. Удаляем из contacts и history
   delete contacts[fp];
   await saveContacts(contacts);
-  const h=await getHistory();
+  const h = await getHistory();
   delete h[fp];
   await idbSet('history','all',h);
   await idbSet('contacts','pins_'+fp,[]);
+
+  // 2. Чистим IDB — аватарки
+  await idbSet('meta', 'avatar_'+fp, null).catch(()=>{});
+  await idbSet('meta', 'avatar_orig_'+fp, null).catch(()=>{});
+  delete _avatarCache[fp];
+
+  // 3. Чистим pending sealed relay для этого контакта
+  try {
+    const pending = await _psLoad();
+    const next = pending.filter(i => i.confirmedFp !== fp);
+    if (next.length !== pending.length) await _psSave(next);
+  } catch(_) {}
+
+  // 4. Чистим localStorage по pubKeyHex (encPub, pushToken, push кеши)
+  if (pubKeyHex) {
+    try { localStorage.removeItem('tvEncPub_'  + pubKeyHex); } catch(_) {}
+    try { localStorage.removeItem('tvPushTok_' + pubKeyHex); } catch(_) {}
+    try {
+      const pc = JSON.parse(localStorage.getItem('_pushPubCache') || '{}');
+      delete pc[fp];
+      localStorage.setItem('_pushPubCache', JSON.stringify(pc));
+    } catch(_) {}
+    try {
+      const nc = JSON.parse(localStorage.getItem('_ntfyPubCache') || '{}');
+      delete nc[fp];
+      localStorage.setItem('_ntfyPubCache', JSON.stringify(nc));
+    } catch(_) {}
+  }
+
+  // 5. Чистим presence кеш в памяти
+  delete _presenceCache[fp];
+  delete _presenceCacheTime[fp];
+  delete _presenceLastSeenAt[fp];
+
+  // 6. Чистим offline queue
+  try {
+    _offlineQueue = _offlineQueue.filter(m => m.fp !== fp);
+    await idbSet('meta','offlineQueue', _offlineQueue);
+  } catch(_) {}
+
   if(currentPeerFp===fp){ _pins=[]; _renderPinBar(); }
   renderContacts();
+  renderChatsList();
   _refreshPairBeacons();
   toast('Контакт удалён');
 }
@@ -24694,6 +24793,392 @@ window.addEventListener('resize', ()=>{
   const actTab = document.querySelector('.tabbar .tab.act');
   if(actTab) movePill(actTab.id);
 });
+</script>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// STORAGE ANALYSIS MODULE
+// Встроен в sn-data. Категории:
+//   contacts  — история + файлы + голосовые + аватарки по fp
+//   rooms     — данные групп
+//   channels  — данные каналов
+//   fav       — избранное
+//   system    — ключи, мета, pending, очереди
+//   other     — остаток от storage.estimate().usage (SW кеш, LS, кеши браузера)
+// ══════════════════════════════════════════════════════════════════════════════
+
+function _storBytes(val) {
+  if (val === null || val === undefined) return 0;
+  try {
+    if (typeof val === 'string') return new TextEncoder().encode(val).length;
+    return new TextEncoder().encode(JSON.stringify(val)).length;
+  } catch(_) { return 0; }
+}
+
+async function _storScanStore(storeName) {
+  return new Promise(resolve => {
+    const result = new Map();
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onsuccess = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(storeName)) { db.close(); resolve(result); return; }
+      const tx  = db.transaction(storeName, 'readonly');
+      const cur = tx.objectStore(storeName).openCursor();
+      cur.onsuccess = ev => {
+        const c = ev.target.result;
+        if (!c) { db.close(); resolve(result); return; }
+        result.set(String(c.key), _storBytes(c.value));
+        c.continue();
+      };
+      cur.onerror = () => { db.close(); resolve(result); };
+    };
+    req.onerror = () => resolve(result);
+  });
+}
+
+async function _storScanStoreValues(storeName) {
+  return new Promise(resolve => {
+    const result = new Map();
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onsuccess = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(storeName)) { db.close(); resolve(result); return; }
+      const tx  = db.transaction(storeName, 'readonly');
+      const cur = tx.objectStore(storeName).openCursor();
+      cur.onsuccess = ev => {
+        const c = ev.target.result;
+        if (!c) { db.close(); resolve(result); return; }
+        result.set(String(c.key), c.value);
+        c.continue();
+      };
+      cur.onerror = () => { db.close(); resolve(result); };
+    };
+    req.onerror = () => resolve(result);
+  });
+}
+
+// Размер localStorage текущего origin
+function _storLsSize() {
+  try {
+    let total = 0;
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      const v = localStorage.getItem(k) || '';
+      total += new TextEncoder().encode(k).length + new TextEncoder().encode(v).length;
+    }
+    return total;
+  } catch(_) { return 0; }
+}
+
+const _STOR_COLORS = [
+  '#00ff9d','#7c6fff','#ffb700','#88c0d0','#e06c75',
+  '#e5c07b','#61afef','#c678dd','#56b6c2','#98c379',
+];
+
+let _storData      = null;
+let _storDetailKey = null;
+let _storDetailFp  = null; // fp внутри категории (уровень файлов)
+
+async function storAnalyze() {
+  const list    = document.getElementById('stor-category-list');
+  const detSec  = document.getElementById('stor-detail-section');
+  const usedEl  = document.getElementById('stor-total-used');
+  const refBtn  = document.getElementById('stor-refresh-btn');
+  if (refBtn) refBtn.textContent = '⏳';
+  if (list)   list.innerHTML = '<div style="font-size:11px;color:var(--mu);padding:8px 0;text-align:center">⏳ анализируем...</div>';
+  if (detSec) detSec.style.display = 'none';
+  _storDetailKey = null; _storDetailFp = null;
+
+  const [history, meta, files, voice, keys, rooms, channels, contacts, fav] = await Promise.all([
+    _storScanStore('history'),
+    _storScanStore('meta'),
+    _storScanStoreValues('files'),
+    _storScanStoreValues('voice'),
+    _storScanStore('keys'),
+    _storScanStore('rooms'),
+    _storScanStore('channels'),
+    _storScanStore('contacts'),
+    _storScanStore('fav'),
+  ]);
+
+  const contactsData = await getContacts().catch(() => ({}));
+
+  // Разбиваем историю по fp
+  const histData = await getHistory().catch(() => ({}));
+  const histPerFp = {};
+  for (const [fp, msgs] of Object.entries(histData)) histPerFp[fp] = _storBytes(msgs);
+
+  // Файлы → по fp
+  const filesPerFp = {};
+  const filesArr   = [];
+  for (const [key, val] of files) {
+    const b  = _storBytes(val);
+    const fp = val?.fp || val?.peerFp || null;
+    filesPerFp[fp || '__unknown__'] = (filesPerFp[fp || '__unknown__'] || 0) + b;
+    filesArr.push({ fp, key, bytes: b, name: val?.name || key, type: val?.type || '', ts: val?.ts || 0 });
+  }
+
+  // Голосовые → по fp
+  const voicePerFp = {};
+  const voiceArr   = [];
+  for (const [key, val] of voice) {
+    const b  = _storBytes(val);
+    const fp = val?.fp || val?.peerFp || null;
+    voicePerFp[fp || '__unknown__'] = (voicePerFp[fp || '__unknown__'] || 0) + b;
+    voiceArr.push({ fp, key, bytes: b, name: 'голосовое ' + new Date(val?.ts||0).toLocaleDateString('ru'), type: 'audio', ts: val?.ts || 0 });
+  }
+
+  // Аватарки из meta
+  const avatarPerFp = {};
+  for (const [key, b] of meta) {
+    const m = key.match(/^avatar_(?:orig_)?(.+)$/);
+    if (m) avatarPerFp[m[1]] = (avatarPerFp[m[1]] || 0) + b;
+  }
+
+  const categories = [];
+
+  // ── Контакты ────────────────────────────────────────────────────────────────
+  let contactTotal = 0;
+  const contactRows = [];
+  for (const [fp, c] of Object.entries(contactsData)) {
+    if (c._stranger) continue;
+    const bytes = (histPerFp[fp]||0) + (filesPerFp[fp]||0) + (voicePerFp[fp]||0) +
+                  (avatarPerFp[fp]||0) + (contacts.get(fp)||0);
+    contactTotal += bytes;
+    const heavy = [...filesArr,...voiceArr].filter(f=>f.fp===fp).sort((a,b)=>b.bytes-a.bytes).slice(0,20);
+    contactRows.push({ fp, name: c.name||fp.slice(0,8)+'...', bytes,
+      breakdown:{ hist:histPerFp[fp]||0, file:filesPerFp[fp]||0, voice:voicePerFp[fp]||0, ava:avatarPerFp[fp]||0 }, heavy });
+  }
+  contactRows.sort((a,b)=>b.bytes-a.bytes);
+  if (contactTotal > 0) categories.push({ key:'contacts', icon:'👤', label:'Контакты', bytes:contactTotal, color:_STOR_COLORS[0], children:contactRows });
+
+  // ── Группы ──────────────────────────────────────────────────────────────────
+  let roomTotal = 0;
+  const roomRows = [];
+  const roomsData = await roomsLoad().catch(()=>({}));
+  for (const [rid, r] of Object.entries(roomsData)) {
+    const b = (rooms.get(rid)||0) + (histPerFp[rid]||0);
+    roomTotal += b;
+    roomRows.push({ fp:rid, name:r.config?.name||'Группа', bytes:b, breakdown:{hist:histPerFp[rid]||0, meta:rooms.get(rid)||0}, heavy:[] });
+  }
+  roomRows.sort((a,b)=>b.bytes-a.bytes);
+  if (roomTotal > 0) categories.push({ key:'rooms', icon:'🔒', label:'Группы', bytes:roomTotal, color:_STOR_COLORS[1], children:roomRows });
+
+  // ── Каналы ──────────────────────────────────────────────────────────────────
+  let chTotal = 0;
+  const chRows = [];
+  const chData = await channelsLoad().catch(()=>({}));
+  for (const [cid, ch] of Object.entries(chData)) {
+    const b = (channels.get(cid)||0) + (histPerFp[cid]||0);
+    chTotal += b;
+    chRows.push({ fp:cid, name:ch.name||'Канал', bytes:b, breakdown:{hist:histPerFp[cid]||0, meta:channels.get(cid)||0}, heavy:[] });
+  }
+  chRows.sort((a,b)=>b.bytes-a.bytes);
+  if (chTotal > 0) categories.push({ key:'channels', icon:'📢', label:'Каналы', bytes:chTotal, color:_STOR_COLORS[2], children:chRows });
+
+  // ── Избранное ────────────────────────────────────────────────────────────────
+  const favBytes = fav.get('all')||0;
+  if (favBytes > 0) categories.push({ key:'fav', icon:'★', label:'Избранное', bytes:favBytes, color:_STOR_COLORS[3], children:[] });
+
+  // ── Система ──────────────────────────────────────────────────────────────────
+  let sysBytes = 0;
+  const sysItems = [];
+  for (const [k,b] of keys) { sysBytes += b; sysItems.push({ name:'keys:'+k, bytes:b }); }
+  for (const [k,b] of meta) {
+    if (!k.match(/^avatar_/)) { sysBytes += b; sysItems.push({ name:'meta:'+k, bytes:b }); }
+  }
+  // localStorage
+  const lsBytes = _storLsSize();
+  if (lsBytes > 0) { sysBytes += lsBytes; sysItems.push({ name:'localStorage (все ключи)', bytes:lsBytes }); }
+  sysItems.sort((a,b)=>b.bytes-a.bytes);
+  if (sysBytes > 0) categories.push({ key:'system', icon:'⚙', label:'Система', bytes:sysBytes, color:_STOR_COLORS[4], children:sysItems.slice(0,40) });
+
+  const tovsaTotal = categories.reduce((s,c)=>s+c.bytes, 0);
+
+  // ── Прочие данные origin ──────────────────────────────────────────────────────
+  // storage.estimate() показывает весь origin: IDB всех БД + кеши SW + LS.
+  // Мы посчитали только tovsa_v1 + LS. Остаток = SW кеши + другие IDB (если есть).
+  let otherBytes = 0;
+  let quotaBytes = 0;
+  if (navigator.storage?.estimate) {
+    try {
+      const { usage, quota } = await navigator.storage.estimate();
+      quotaBytes = quota || 0;
+      otherBytes = Math.max(0, (usage||0) - tovsaTotal);
+    } catch(_) {}
+  }
+  if (otherBytes > 0) {
+    const otherItems = [
+      { name: 'SW кеш (index.html, иконки, шрифты)', bytes: otherBytes }
+    ];
+    categories.push({ key:'other', icon:'🗂', label:'Прочие данные', bytes:otherBytes, color:_STOR_COLORS[5],
+      children: otherItems,
+      hint: 'Кеши Service Worker, шрифты Google, прочие данные этого origin' });
+  }
+
+  const grandTotal = tovsaTotal + otherBytes;
+  _storData = { categories, grandTotal, quotaBytes, tovsaTotal, otherBytes };
+  if (refBtn) refBtn.textContent = 'обновить ↺';
+  storRender();
+}
+
+function storRender() {
+  if (!_storData) return;
+  const { categories, grandTotal, quotaBytes } = _storData;
+
+  // Общая строка
+  const usedEl  = document.getElementById('stor-total-used');
+  const quotaEl = document.getElementById('stor-total-quota');
+  const pctEl   = document.getElementById('stor-total-pct');
+  const stkBar  = document.getElementById('stor-stacked-bar');
+
+  if (usedEl)  usedEl.textContent  = fmtSize(grandTotal);
+  if (quotaEl) quotaEl.textContent = quotaBytes ? 'из ' + fmtSize(quotaBytes) : '';
+  const pct = quotaBytes ? Math.round(grandTotal / quotaBytes * 100) : 0;
+  if (pctEl) pctEl.textContent = quotaBytes ? pct + '%' : '';
+
+  // Stacked bar
+  if (stkBar && grandTotal > 0) {
+    stkBar.innerHTML = categories.map(cat => {
+      const w = Math.round(cat.bytes / grandTotal * 100);
+      return `<div title="${cat.label}: ${fmtSize(cat.bytes)}" style="width:${w}%;background:${cat.color};transition:width .5s;min-width:${w>0?2:0}px"></div>`;
+    }).join('');
+  }
+
+  // Скрываем детали
+  const detailSec = document.getElementById('stor-detail-section');
+  if (detailSec) detailSec.style.display = 'none';
+  _storDetailKey = null; _storDetailFp = null;
+
+  const list = document.getElementById('stor-category-list');
+  if (!list) return;
+
+  if (!categories.length) {
+    list.innerHTML = '<div style="font-size:11px;color:var(--mu);padding:8px 0;text-align:center">Хранилище пусто</div>';
+    return;
+  }
+
+  list.innerHTML = categories.map(cat => {
+    const p = grandTotal > 0 ? Math.round(cat.bytes / grandTotal * 100) : 0;
+    const hasChildren = cat.children?.length > 0;
+    return `<div class="stor-row" onclick="${hasChildren ? `storOpenCategory('${cat.key}')` : ''}">
+      <div class="stor-row-head">
+        <div class="stor-row-icon" style="background:${cat.color}22;color:${cat.color}">${cat.icon}</div>
+        <div class="stor-row-name">${cat.label}</div>
+        <div class="stor-row-size">${fmtSize(cat.bytes)}</div>
+        <div class="stor-row-pct">${p}%</div>
+        ${hasChildren ? '<div style="color:var(--mu);font-size:12px;margin-left:2px">›</div>' : ''}
+      </div>
+      <div class="stor-bar"><div class="stor-bar-fill" style="width:${p}%;background:${cat.color}"></div></div>
+      ${cat.hint ? `<div style="font-size:10px;color:var(--mu);margin-top:3px">${cat.hint}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function storOpenCategory(key) {
+  const cat = _storData?.categories?.find(c => c.key === key);
+  if (!cat || !cat.children?.length) return;
+  _storDetailKey = key; _storDetailFp = null;
+
+  const detailSec   = document.getElementById('stor-detail-section');
+  const detailTitle = document.getElementById('stor-detail-title');
+  const detailSize  = document.getElementById('stor-detail-size');
+  const detailList  = document.getElementById('stor-detail-list');
+  if (!detailSec || !detailList) return;
+  detailSec.style.display = '';
+  detailSec.scrollIntoView({ behavior:'smooth', block:'start' });
+  if (detailTitle) detailTitle.textContent = cat.icon + ' ' + cat.label;
+  if (detailSize)  detailSize.textContent  = fmtSize(cat.bytes);
+
+  const total = cat.bytes || 1;
+
+  if (key === 'system' || key === 'other') {
+    detailList.innerHTML = cat.children.map(item => {
+      const p = Math.round(item.bytes / total * 100);
+      return `<div class="stor-row" style="cursor:default">
+        <div class="stor-row-head">
+          <div class="stor-row-icon" style="background:var(--bd);color:var(--mu);font-size:9px;font-weight:700">${key==='system'?'sys':'ext'}</div>
+          <div class="stor-row-name" style="font-size:11px">${_esc(item.name)}</div>
+          <div class="stor-row-size">${fmtSize(item.bytes)}</div>
+          <div class="stor-row-pct">${p}%</div>
+        </div>
+        <div class="stor-bar"><div class="stor-bar-fill" style="width:${p}%;background:${cat.color}"></div></div>
+      </div>`;
+    }).join('');
+    return;
+  }
+
+  const icon = key === 'rooms' ? '🔒' : key === 'channels' ? '📢' : '👤';
+  detailList.innerHTML = cat.children.map(item => {
+    const p = Math.round(item.bytes / total * 100);
+    const hasFiles = item.heavy?.length > 0;
+    return `<div class="stor-row" onclick="${hasFiles ? `storOpenFiles('${key}','${item.fp}')` : ''}">
+      <div class="stor-row-head">
+        <div class="stor-row-icon" style="background:${cat.color}22;color:${cat.color}">${icon}</div>
+        <div class="stor-row-name">${_esc(item.name)}</div>
+        <div class="stor-row-size">${fmtSize(item.bytes)}</div>
+        <div class="stor-row-pct">${p}%</div>
+        ${hasFiles ? '<div style="color:var(--mu);font-size:12px;margin-left:2px">›</div>' : ''}
+      </div>
+      <div class="stor-bar"><div class="stor-bar-fill" style="width:${p}%;background:${cat.color}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function storOpenFiles(catKey, fp) {
+  const cat  = _storData?.categories?.find(c => c.key === catKey);
+  const item = cat?.children?.find(i => i.fp === fp);
+  if (!item?.heavy?.length) return;
+  _storDetailFp = fp;
+
+  const detailTitle = document.getElementById('stor-detail-title');
+  const detailSize  = document.getElementById('stor-detail-size');
+  const detailList  = document.getElementById('stor-detail-list');
+  if (!detailList) return;
+  if (detailTitle) detailTitle.textContent = '📎 ' + item.name;
+  if (detailSize)  detailSize.textContent  = fmtSize(item.bytes);
+
+  const typeIcon = t => {
+    if (!t) return '📄';
+    if (t.startsWith('image')) return '🖼';
+    if (t.startsWith('video')) return '🎬';
+    if (t.startsWith('audio')) return '🎵';
+    if (t.includes('pdf'))    return '📕';
+    if (t.includes('zip')||t.includes('rar')) return '🗜';
+    return '📄';
+  };
+  detailList.innerHTML = item.heavy.map(f => {
+    const date = f.ts ? new Date(f.ts).toLocaleDateString('ru',{day:'numeric',month:'short'}) : '';
+    return `<div class="stor-file-row">
+      <div class="stor-file-icon">${typeIcon(f.type)}</div>
+      <div class="stor-file-info">
+        <div class="stor-file-name">${_esc(f.name||f.key)}</div>
+        <div class="stor-file-meta">${fmtSize(f.bytes)}${date?' · '+date:''}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function storBack() {
+  // Уровень файлов → назад в категорию
+  if (_storDetailFp && _storDetailKey) {
+    _storDetailFp = null;
+    storOpenCategory(_storDetailKey);
+    return;
+  }
+  // Уровень категории → назад в список
+  storRender();
+}
+
+// Хук snOpen — запускаем анализ при открытии sn-data
+const _origSnOpen = typeof snOpen === 'function' ? snOpen : null;
+snOpen = function(pageId) {
+  if (_origSnOpen) _origSnOpen(pageId);
+  if (pageId === 'sn-data') {
+    _storData = null;
+    storAnalyze();
+  }
+};
 </script>
 
 <!-- Pin scope modal -->

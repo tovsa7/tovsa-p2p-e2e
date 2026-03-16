@@ -16660,16 +16660,23 @@ async function _handleAllIncoming(from, kind, data) {
     return;
   }
 
-  // B получил подтверждение что A принял заявку
   if (kind === 'contact_confirmed') {
     console.log('[invite] contact_confirmed from', from.slice(0,8));
     try {
       const { pendingId, name } = data || {};
-      // Удаляем pending invite_accepted из store
+
+      // Проверяем дубль — если A уже в contacts, молча подтверждаем и выходим
+      const _cfContacts = await getContacts().catch(()=>({}));
+      const _cfSha = await crypto.subtle.digest('SHA-256',
+        new Uint8Array(from.match(/.{2}/g).map(h=>parseInt(h,16))));
+      const _cfFp = Array.from(new Uint8Array(_cfSha)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,24);
+      const _alreadyInContacts = !!_cfContacts[_cfFp];
+
+      // Удаляем pending invite_accepted / invite_awaiting из store по pendingId (эхо от A)
       if (pendingId) await _psAck(pendingId);
-      // Дополнительно: ищем по from на случай если pendingId не совпал
+      // Fallback по from — ищем и invite_accepted и invite_awaiting
       const items = await _psLoad();
-      const mine  = items.filter(i => i.kind === 'invite_accepted');
+      const mine  = items.filter(i => i.kind === 'invite_accepted' || i.kind === 'invite_awaiting');
       for (const item of mine) {
         try {
           if (_myEncKey) {
@@ -16679,33 +16686,34 @@ async function _handleAllIncoming(from, kind, data) {
         } catch(_) {}
       }
 
-      // Обновляем имя контакта — оно могло быть 'Tovsa User' если инвайт создан без имени
-      if (name && name !== 'Tovsa User') {
+      // Обновляем имя контакта
+      if (name && name !== 'Tovsa User' && _cfContacts[_cfFp]) {
         try {
-          const sha = await crypto.subtle.digest('SHA-256',
-            new Uint8Array(from.match(/.{2}/g).map(h=>parseInt(h,16))));
-          const fp = Array.from(new Uint8Array(sha)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,24);
-          const contacts = await getContacts();
-          if (contacts[fp] && (!contacts[fp].name || contacts[fp].name === 'Tovsa User')) {
-            contacts[fp].name = name;
-            await saveContacts(contacts);
-            delete _avatarCache[fp]; // сбросим кеш чтобы перерисовать
+          if (!_cfContacts[_cfFp].name || _cfContacts[_cfFp].name === 'Tovsa User') {
+            _cfContacts[_cfFp].name = name;
+            await saveContacts(_cfContacts);
+            delete _avatarCache[_cfFp];
             if (typeof renderChatsList === 'function') renderChatsList();
             if (typeof renderContacts === 'function') renderContacts();
           }
         } catch(_) {}
       }
 
-      toast('✓ ' + (name || 'Контакт') + ' добавил вас в контакты');
+      // Toast только при первом получении — при дубле A уже в contacts
+      if (!_alreadyInContacts) {
+        toast('✓ ' + (name || 'Контакт') + ' добавил вас в контакты');
+      }
 
-      // Отправляем delivery_ack — A узнает что contact_confirmed дошёл
+      // delivery_ack — всегда отправляем чтобы A снял pending contact_confirmed
       if (data?.encPub && typeof sealEnvelope === 'function' && _myEncKey && myPubKeyHex) {
         try {
           const ackSealed = await sealEnvelope(
-            { from: myPubKeyHex, kind: 'delivery_ack', data: { ackedKind: 'contact_confirmed', pendingId: data.pendingId } },
+            { from: myPubKeyHex, kind: 'delivery_ack', data: {
+                ackedKind: 'contact_confirmed',
+                pendingId: data.pendingId, // возвращаем id чтобы A вызвал _psAck
+            }},
             data.encPub,
           );
-          // A ещё не зарегистрировал mailbox alias для B → слём на прямой tvp- ID
           const aPubBytes = new Uint8Array(from.match(/.{2}/g).map(h=>parseInt(h,16)));
           const aMailbox  = 'tvp-' + await sha256hex(aPubBytes, 24);
           const sig = _getPeerSig();
@@ -16776,17 +16784,28 @@ async function _psAdd({ kind, to, sealed, expiresAt, id: preId, toName, confirme
   return id;
 }
 
-// Пометить запись как доставленную (удаляем)
+// Пометить запись как доставленную.
+// Для invite_accepted: переводим в 'invite_awaiting' — доставлено, ждём contact_confirmed.
+// Для остальных: удаляем.
 async function _psAck(id) {
   const items = await _psLoad();
-  const next  = items.filter(i => i.id !== id);
-  if (next.length !== items.length) {
-    await _psSave(next);
+  const idx   = items.findIndex(i => i.id === id);
+  if (idx === -1) return;
+
+  const item = items[idx];
+  if (item.kind === 'invite_accepted') {
+    // Не удаляем — переводим в статус "доставлено, ждём принятия"
+    items[idx] = { ...item, kind: 'invite_awaiting', ackedAt: Date.now() };
+    await _psSave(items);
+    console.log('[ps] invite_accepted → invite_awaiting id=' + id.slice(0,8));
+  } else {
+    // invite_awaiting, contact_confirmed, delivery_ack — удаляем
+    items.splice(idx, 1);
+    await _psSave(items);
     console.log('[ps] acked id=' + id.slice(0,8));
-    // Обновляем экран если открыт
-    if (document.getElementById('s-add-contact')?.style.display !== 'none')
-      _acLoadOutgoing().catch(()=>{});
   }
+  if (document.getElementById('s-add-contact')?.style.display !== 'none')
+    _acLoadOutgoing().catch(()=>{});
 }
 
 // Отправить одну запись если signaling открыт
@@ -16803,12 +16822,14 @@ async function _psFlush() {
   const items = await _psLoad();
   if (!items.length) return;
   const now  = Date.now();
-  // Удаляем истёкшие
-  const live = items.filter(i => !i.acked && i.expiresAt > now);
+  // invite_awaiting — уже доставлено, ретраить не нужно, только чистим истёкшие
+  const live = items.filter(i => !i.acked && i.expiresAt > now && i.kind !== 'invite_awaiting');
   const dead = items.filter(i => !i.acked && i.expiresAt <= now);
   if (dead.length) {
     console.log('[ps] expired:', dead.map(i => i.kind + '/' + i.id.slice(0,8)));
-    await _psSave(live);
+    // Удаляем только истёкшие не-awaiting; awaiting чистим отдельно
+    const cleaned = items.filter(i => i.expiresAt > now);
+    await _psSave(cleaned);
   }
   if (!live.length) return;
   const sig = _getPeerSig();
@@ -16936,19 +16957,22 @@ async function acceptContactRequest(idx) {
     // Уведомляем B что заявка принята — через persistent sealed relay
     if (r.encPub && typeof sealEnvelope === 'function' && _myEncKey && myPubKeyHex) {
       try {
-        const myEncPub = _myEncKey?.publicKeyB64u || null;
-        const myName   = ( $('my-name-input')?.value?.trim() || localStorage.getItem('myName') || localStorage.getItem('_myName') || '');
-        const sealed   = await sealEnvelope(
+        const myEncPub  = _myEncKey?.publicKeyB64u || null;
+        const myName    = ($('my-name-input')?.value?.trim() || localStorage.getItem('myName') || localStorage.getItem('_myName') || '');
+        // Генерируем pendingId ДО sealEnvelope — вкладываем в данные
+        // чтобы B мог вернуть его в delivery_ack и мы вызвали _psAck(pendingId)
+        const pendingId = crypto.randomUUID();
+        const sealed    = await sealEnvelope(
           { from: myPubKeyHex, kind: 'contact_confirmed', data: {
-            name:    myName,
-            encPub:  myEncPub, // нужен B чтобы отправить delivery_ack обратно
+            name:      myName,
+            encPub:    myEncPub, // нужен B чтобы отправить delivery_ack обратно
+            pendingId, // B эхом вернёт в delivery_ack → _psAck(pendingId) у A
           }},
           r.encPub,
         );
-        // B ещё не зарегистрировал mailbox alias для A → слём на прямой tvp- ID
         const bPubBytes2 = new Uint8Array(r.pubKeyHex.match(/.{2}/g).map(h=>parseInt(h,16)));
         const bMailbox   = 'tvp-' + await sha256hex(bPubBytes2, 24);
-        await _psAdd({ kind: 'contact_confirmed', to: bMailbox, sealed,
+        await _psAdd({ id: pendingId, kind: 'contact_confirmed', to: bMailbox, sealed,
                        toName: r.name || '', confirmedFp: r.fp || '' });
         console.log('[invite] contact_confirmed queued for', r.fp.slice(0,8));
       } catch(e) { console.warn('[invite] contact_confirmed send error:', e.message); }
@@ -17031,12 +17055,14 @@ async function _acLoadOutgoing() {
   const pending = await _psLoad();
   const now     = Date.now();
 
-  // invite_accepted — B ждёт что A примет
-  const outInvites = pending.filter(i => i.kind === 'invite_accepted');
+  // invite_accepted — B ждёт что A примет (ещё не доставлено)
+  const outInvites  = pending.filter(i => i.kind === 'invite_accepted');
+  // invite_awaiting — доставлено A, ждём contact_confirmed
+  const outAwaiting = pending.filter(i => i.kind === 'invite_awaiting');
   // contact_confirmed — A уже принял, ждём доставки к B
   const outConfirms = pending.filter(i => i.kind === 'contact_confirmed');
 
-  if (!outInvites.length && !outConfirms.length) {
+  if (!outInvites.length && !outAwaiting.length && !outConfirms.length) {
     section.style.display = 'none';
     return;
   }
@@ -17050,9 +17076,7 @@ async function _acLoadOutgoing() {
     const name     = item.toName || '';
     const initial  = name ? name[0].toUpperCase() : '?';
     const statusCls = expired ? 'expired' : 'pending';
-    const statusTxt = expired
-      ? '⌛ нет ответа'
-      : '⏳ ожидаем ответа';
+    const statusTxt = expired ? '⌛ нет ответа' : '⏳ ожидаем ответа';
     rows.push(`<div class="req-item">
       <div class="req-item-avatar" style="background:var(--bg);color:var(--mu)">${initial}</div>
       <div class="req-item-info">
@@ -17067,6 +17091,25 @@ async function _acLoadOutgoing() {
           ? `<button class="req-decline-btn" onclick="acDismissPending('${item.id}')">удалить</button>`
           : `<button class="req-decline-btn" onclick="acCancelPending('${item.id}')">отмена</button>`
         }
+      </div>
+    </div>`);
+  }
+
+  for (const item of outAwaiting) {
+    const ago     = _fmtAgo(item.ackedAt || item.sentAt);
+    const name    = item.toName || '';
+    const initial = name ? name[0].toUpperCase() : '?';
+    rows.push(`<div class="req-item">
+      <div class="req-item-avatar" style="background:var(--bg);color:var(--mu)">${initial}</div>
+      <div class="req-item-info">
+        <div class="req-item-name" style="color:var(--tx)">${name ? esc(name) : 'Пользователь'}</div>
+        <div class="req-item-fp">${ago ? ago : ''}</div>
+      </div>
+      <div class="req-item-btns" style="gap:8px;align-items:center">
+        <span class="req-status pending">
+          <span class="req-status-dot"></span>ожидает принятия
+        </span>
+        <button class="req-decline-btn" onclick="acCancelPending('${item.id}')">отмена</button>
       </div>
     </div>`);
   }

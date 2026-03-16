@@ -21395,7 +21395,7 @@ async function _roomInvPrepareLink() {
     // Помечаем — при принятии ссылки добавить в эту комнату
     localStorage.setItem('_roomInvPending_' + inv.kvKey, _roomInvModalId);
   } catch(e) {
-    console.warn('[roomInv] link error:', e.message);
+    console.warn('[roomInv] link error:', e.message, e.stack?.split('\n').slice(0,3).join(' | '));
     urlEl.textContent = 'Ошибка: ' + e.message;
   }
 }

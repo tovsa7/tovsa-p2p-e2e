@@ -4495,7 +4495,7 @@ async function _beaconMarkOnline(fromPubKeyHex) {
     if (!fp) return;
     // Используем существующую систему кеша
     _applyPresenceResult(fp, 'online');
-    console.debug('[beacon] онлайн от', fromPubKeyHex.slice(0,8)+'...');
+    console.log('[beacon] онлайн от', fromPubKeyHex.slice(0,8)+'...', '→ fp=', fp);
   } catch(e) {
     console.warn('[beacon] markOnline error:', e);
   }
@@ -17783,6 +17783,7 @@ function _applyPresenceResult(fp, result){
   _updatePeerLastSeenHeader(fp);
   // Перерисовываем список чатов при смене статуса — кнопка "→ связь" зависит от presenceState
   if(prev !== result && typeof renderChatsList === 'function'){
+    console.log('[presence] ' + fp.slice(0,8) + ' ' + (prev||'?') + ' → ' + result);
     renderChatsList().catch(()=>{});
   }
   if(prev !== 'online' && result === 'online'){

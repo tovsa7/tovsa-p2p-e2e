@@ -21382,20 +21382,20 @@ async function _roomInvPrepareLink() {
   const urlEl = document.getElementById('room-inv-link-url');
   if (!urlEl || !_roomInvModalId) return;
 
-  // Создаём обычный invite-link. Когда кто-то его примет — получим invite_accepted
-  // со своим pubKeyHex+encPub, после чего сразу добавим в комнату.
   if (_roomInvLink) {
     urlEl.textContent = _roomInvLink.url;
     return;
   }
   urlEl.textContent = 'создание ссылки...';
   try {
+    if (typeof window._createInvite !== 'function') throw new Error('_createInvite недоступна');
     const inv = await window._createInvite({ maxUses: 1, expiresIn: 3 * 24 * 3600 });
-    _roomInvLink = { token: inv.token, url: inv.url };
+    _roomInvLink = { token: inv.token, url: inv.url, kvKey: inv.kvKey };
     urlEl.textContent = inv.url;
-    // Помечаем контекст — при принятии ссылки добавить в эту комнату
+    // Помечаем — при принятии ссылки добавить в эту комнату
     localStorage.setItem('_roomInvPending_' + inv.kvKey, _roomInvModalId);
   } catch(e) {
+    console.warn('[roomInv] link error:', e.message);
     urlEl.textContent = 'Ошибка: ' + e.message;
   }
 }

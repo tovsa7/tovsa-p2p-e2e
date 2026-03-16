@@ -1511,7 +1511,6 @@ if (typeof globalThis !== 'undefined') {
         </div>
       </div>
       <div id="my-contact-share" style="display:none"></div>
-      <div id="add-contact-form" style="display:none"></div>
     </div>
 
     <!-- Меню под-разделов -->
@@ -2328,12 +2327,6 @@ if (typeof globalThis !== 'undefined') {
 <!-- Контакты -->
 
 <!-- Экран заявок на добавление -->
-<div class="scr" id="s-requests" style="display:none">
-  <div class="sh-back" onclick="closeContactRequests()">← назад</div>
-  <div class="sh-hdr"><div class="sh-name">Заявки</div></div>
-  <div id="requests-list" style="flex:1;overflow-y:auto;padding:8px 0"></div>
-</div>
-
 
 <!-- Добавить контакт -->
 <div class="scr" id="s-add-contact">
@@ -4871,8 +4864,9 @@ async function verifyIdentityMsg(msg){
     const ok=await crypto.subtle.verify('Ed25519',pubKey,new Uint8Array(sig),data);
     if(!ok)return{valid:false,reason:'signature'};
     const hash=await sha256(pubBytes);
-    const fp=bytesToFingerprint(hash);
-    return{valid:true,fp,pubHex:Array.from(pubBytes).map(b=>b.toString(16).padStart(2,'0')).join(''),name:name||'',push:!!push,pushPub:pushPub?new Uint8Array(pushPub):null,avatar:avatar||null};
+    const fp=Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,24);
+    const fpEmoji=bytesToFingerprint(hash); // только для отображения в UI
+    return{valid:true,fp,fpEmoji,pubHex:Array.from(pubBytes).map(b=>b.toString(16).padStart(2,'0')).join(''),name:name||'',push:!!push,pushPub:pushPub?new Uint8Array(pushPub):null,avatar:avatar||null};
   }catch(e){ return null; }
 }
 
@@ -5511,6 +5505,13 @@ function showContactsTab(){
 
 
 async function openHistory(fp){
+  // Если есть активное P2P соединение с этим контактом — сразу в чат
+  if(dc && dc.readyState === 'open' && currentPeerFp === fp){
+    $('sc').dataset.active = '1';
+    contactsSubScreen = 'sc';
+    showTab('sc');
+    return;
+  }
   if($('sc').dataset.active==='1' && currentPeerFp===fp){ showTab('sc'); return; }
   _historyFp=fp;
   const contacts=await getContacts();
@@ -6234,7 +6235,7 @@ async function sendFav(){
   checkStorageAndNotify();
 }
 
-function showPeerIdentity(fp,known,name){
+function showPeerIdentity(fp, known, name, fpEmoji){
   currentPeerFp=fp;
   if(known){
     $('peer-name').textContent=name||'Контакт';
@@ -6261,7 +6262,7 @@ function showPeerIdentity(fp,known,name){
   });
     $('idsavebtn').style.display='block';
     $('peer-fp').style.display='';
-    $('peer-fp').textContent=fp||'';
+    $('peer-fp').textContent = fpEmoji || fp || '';
   }
   // Показываем "был(а) N назад" сразу при открытии чата
   _updatePeerLastSeenHeader(fp);
@@ -10512,11 +10513,10 @@ async function _handleIdentityPacket(data, setIdDone){
       // значит мы уже приняли заявку (acceptContactRequest) но B ещё не знает
       const _pendingSealed = await _psLoad().catch(()=>[]);
       const _inPending = _pendingSealed.some(i =>
-        (i.kind === 'invite_accepted' || i.kind === 'contact_confirmed') &&
-        (i.confirmedFp === res.fp || i.toName)
+        (i.kind === 'contact_confirmed') && i.confirmedFp === res.fp
       );
-      const _isKnown = !!contact || _inRequests;
-      showPeerIdentity(res.fp, _isKnown, displayName);
+      const _isKnown = !!contact || _inRequests || _inPending;
+      showPeerIdentity(res.fp, _isKnown, displayName, res.fpEmoji);
       _showPeerPushBadge(res.push);
       _loadPins(res.fp);
       if(!contact && !_inRequests){
@@ -16528,20 +16528,6 @@ async function renderContactRequestsBadge() {
     if (typeof renderChatsList === 'function') renderChatsList();
   }
 }
-
-async function showContactRequests() {
-  const scr = document.getElementById('s-requests');
-  if (!scr) return;
-  scr.style.display = 'flex';
-  scr.style.flexDirection = 'column';
-  await renderContactRequestsList();
-}
-
-function closeContactRequests() {
-  const scr = document.getElementById('s-requests');
-  if (scr) scr.style.display = 'none';
-}
-
 async function renderContactRequestsList() {
   const list = document.getElementById('requests-list');
   if (!list) return;
@@ -16637,7 +16623,7 @@ async function declineContactRequest(idx) {
   toast('Заявка отклонена');
 }
 
-Object.assign(window, { showContactRequests, closeContactRequests, acceptContactRequest, declineContactRequest });
+Object.assign(window, { acceptContactRequest, declineContactRequest });
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Add Contact Screen

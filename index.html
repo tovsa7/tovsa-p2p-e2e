@@ -16913,7 +16913,9 @@ async function acceptContactRequest(idx) {
           }},
           r.encPub,
         );
-        const bMailbox = await getContactMailboxId(r.pubKeyHex, 0) ?? r.pubKeyHex;
+        // B ещё не зарегистрировал mailbox alias для A → слём на прямой tvp- ID
+        const bPubBytes2 = new Uint8Array(r.pubKeyHex.match(/.{2}/g).map(h=>parseInt(h,16)));
+        const bMailbox   = 'tvp-' + await sha256hex(bPubBytes2, 24);
         await _psAdd({ kind: 'contact_confirmed', to: bMailbox, sealed,
                        toName: r.name || '', confirmedFp: r.fp || '' });
         console.log('[invite] contact_confirmed queued for', r.fp.slice(0,8));
@@ -17571,10 +17573,15 @@ async function _syncPairBeaconsInner() {
         conn.on('error', () => {});
       });
       peer.on('error', e => {
+        if (e.type === 'unavailable-id') {
+          // Этот ID уже занят другим инстансом (другая вкладка или race при _refreshPairBeacons).
+          // НЕ удаляем из _pairBeacons — там может быть sentinel null или другой peer.
+          // НЕ планируем retry — бессмысленно пока тот инстанс жив.
+          safePeerDestroy(peer);
+          return;
+        }
         if(_pairBeacons.get(fp) === null || _pairBeacons.get(fp) === peer)
           _pairBeacons.delete(fp);
-        // unavailable-id: другая вкладка/инстанс уже держит этот ID — это нормально,
-        // тот инстанс будет видимым вместо нас. Peer всё равно уничтожаем — он нефункционален.
         safePeerDestroy(peer);
       });
       peer.on('disconnected', () => {
@@ -17583,8 +17590,11 @@ async function _syncPairBeaconsInner() {
         if(_pjOk) setTimeout(_refreshPairBeacons, 5000);
       });
       peer.on('close', () => {
-        if(_pairBeacons.get(fp) === peer) _pairBeacons.delete(fp);
-        if(_pjOk) setTimeout(_refreshPairBeacons, 5000);
+        // Не ретраим если ID занят нами же — map уже очищен в error handler
+        if(_pairBeacons.get(fp) === peer) {
+          _pairBeacons.delete(fp);
+          if(_pjOk) setTimeout(_refreshPairBeacons, 5000);
+        }
       });
     }catch(e){ _pairBeacons.delete(fp); }
   }
@@ -20515,6 +20525,21 @@ document.addEventListener('visibilitychange', ()=>{
       console.log('[invite] _isNullOrigin=' + (typeof _isNullOrigin !== 'undefined' ? _isNullOrigin : 'undefined'));
       const info = await window._getInviteInfo(tokenInput);
       console.log('[invite] info received:', info?.ownerName);
+
+      // Если контакт уже добавлен — не показываем диалог повторно.
+      // Просто убеждаемся что pending invite_accepted ещё есть (перешлём при reconnect).
+      if (info.ownerPubHex) {
+        const _earlyFp = await _pubHexToFp(info.ownerPubHex).catch(() => null);
+        if (_earlyFp) {
+          const _existingContacts = await getContacts().catch(() => ({}));
+          if (_existingContacts[_earlyFp]) {
+            console.log('[invite] контакт уже добавлен, пропускаем диалог');
+            toast((info.ownerName || 'Контакт') + ' уже в контактах');
+            if (typeof showTab === 'function') setTimeout(() => showTab('schats'), 400);
+            return;
+          }
+        }
+      }
 
       const ok = await new Promise(resolve => {
         const overlay = document.createElement('div');

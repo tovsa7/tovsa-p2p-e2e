@@ -391,6 +391,11 @@ textarea::placeholder{color:var(--mu)}
 .presence-refresh-btn:hover{color:var(--a)}
 .presence-refresh-btn.spin{animation:spin 1s linear infinite;pointer-events:none}
 .ci-disc-btn:hover{border-color:var(--e);background:rgba(224,108,117,.08)}
+.panic-btn{width:100%;padding:14px;background:rgba(224,108,117,.1);border:1px solid rgba(224,108,117,.4);border-radius:10px;color:var(--e);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;letter-spacing:.5px}
+.panic-btn:hover{background:rgba(224,108,117,.2);border-color:var(--e)}
+#panic-zone{position:fixed;bottom:0;left:0;width:44px;height:44px;z-index:500;-webkit-tap-highlight-color:transparent}
+#panic-zone-dot{position:absolute;bottom:8px;left:8px;width:5px;height:5px;border-radius:50%;background:var(--e);opacity:0;transition:opacity .3s,transform .15s;pointer-events:none}
+#panic-zone.active #panic-zone-dot{opacity:.18}
 .ci-conn-btn{background:transparent;border:1px solid var(--a);border-radius:6px;color:var(--a);font-family:inherit;font-size:10px;padding:5px 9px;cursor:pointer;flex-shrink:0;transition:border-color .15s,color .15s;white-space:nowrap;-webkit-tap-highlight-color:transparent}
 .ci-conn-btn:hover{background:var(--ad)}
 .ci-disc-btn{background:transparent;border:1px solid rgba(224,108,117,.4);border-radius:6px;color:var(--e);font-family:inherit;font-size:10px;padding:5px 9px;cursor:pointer;flex-shrink:0;transition:border-color .15s,color .15s;white-space:nowrap;-webkit-tap-highlight-color:transparent}
@@ -1067,21 +1072,11 @@ textarea::placeholder{color:var(--mu)}
 .pin-btn.danger{color:var(--e)}
 .pin-error{font-size:11px;color:var(--e);height:16px;transition:opacity .2s}
 /* Panic button */
-.panic-btn{width:100%;padding:14px;background:rgba(224,108,117,.1);border:1px solid rgba(224,108,117,.4);border-radius:10px;color:var(--e);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;letter-spacing:.5px}
-.panic-btn:hover{background:rgba(224,108,117,.2);border-color:var(--e)}
 /* Disappearing msgs badge */
 .chat-item-ttl{font-size:9px;color:var(--a);background:var(--ad);padding:1px 5px;border-radius:4px;flex-shrink:0}
 
 /* Panic zone indicator */
-#panic-zone{position:fixed;bottom:0;left:0;width:44px;height:44px;z-index:500;-webkit-tap-highlight-color:transparent}
-#panic-zone-dot{position:absolute;bottom:8px;left:8px;width:5px;height:5px;border-radius:50%;background:var(--e);opacity:0;transition:opacity .3s,transform .15s;pointer-events:none}
-#panic-zone.active #panic-zone-dot{opacity:.18}
-
-/* ── Sync file progress ──────────────────────────────────────────────────────── */
-#sync-progress{position:fixed;bottom:calc(var(--tabbar-h,56px) + 8px);left:50%;transform:translateX(-50%);
-  z-index:600;background:var(--sf);border:1px solid var(--bd);border-radius:10px;
-  padding:8px 14px;min-width:200px;font-size:11px;
-  box-shadow:0 4px 12px rgba(0,0,0,.2);display:none;flex-direction:column;gap:4px}
+#sync-progress{display:none;position:fixed;bottom:calc(var(--tabbar-h,56px) + 8px);left:50%;transform:translateX(-50%);background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:8px 14px;gap:8px;align-items:center;font-size:11px;z-index:490;min-width:180px;box-shadow:0 2px 12px rgba(0,0,0,.3)}
 #sync-progress.on{display:flex}
 #sync-progress-bar{height:3px;border-radius:2px;background:var(--bd);overflow:hidden}
 #sync-progress-fill{height:100%;background:var(--a);border-radius:2px;transition:width .2s ease;width:0}
@@ -3017,7 +3012,6 @@ if (typeof globalThis !== 'undefined') {
   </div>
 </div>
 
-<div id="panic-zone"><div id="panic-zone-dot"></div></div>
 <div id="sync-progress"><div id="sync-progress-label">Синхронизация...</div><div id="sync-progress-bar"><div id="sync-progress-fill"></div></div></div>
 <div class="tabbar" id="tabbar">
   <div id="tab-pill"></div>
@@ -3031,6 +3025,8 @@ if (typeof globalThis !== 'undefined') {
     <span>Настройки</span>
   </button>
 </div>
+
+<div id="panic-zone"><div id="panic-zone-dot"></div></div>
 
 <!-- Groups list screen -->
 
@@ -6117,7 +6113,6 @@ async function buildFavNode(m, contacts){
 
 async function renderFavMsgs(){
   // В decoy профиле избранное пустое
-  if (window._decoyMode || (typeof _currentProfile !== 'undefined' && _currentProfile === 'decoy')) { const m = document.getElementById('fav-msgs'); if(m) m.innerHTML='<div class="msg-empty">нет записей</div>'; return; }
 
   const allMsgs = await getFavMsgs();
   const contacts = await getContacts();
@@ -10200,14 +10195,14 @@ function createPC(){
         pc._reconnectHint = setTimeout(()=>{
           if(pc&&(pc.iceConnectionState==='disconnected'||pc.iceConnectionState==='failed')){
             _dbgPush('log', ['[p2p] ICE restart timeout → _p2pHandleFailure']);
-            _p2pHandleFailure('disconnected');
+            if(!window._goingBack){ setStat('соединение потеряно'); $('reconnect-bar').style.display='flex'; $('reconnect-btn').disabled=!_pjOk; }
           }
         }, 5000);
       } else {
         // Получатель или повторный разрыв — ждём меньше, потом реконнект
         pc._reconnectHint = setTimeout(()=>{
           if(pc&&(pc.iceConnectionState==='disconnected'||pc.iceConnectionState==='failed')){
-            _p2pHandleFailure('disconnected');
+            if(!window._goingBack){ setStat('соединение потеряно'); $('reconnect-bar').style.display='flex'; $('reconnect-btn').disabled=!_pjOk; }
           }
         }, 4000);
       }
@@ -10222,11 +10217,11 @@ function createPC(){
           try{ pc.restartIce(); }catch(_){}
           pc._reconnectHint = setTimeout(()=>{
             if(pc&&(pc.iceConnectionState==='failed'||pc.iceConnectionState==='disconnected')){
-              _p2pHandleFailure('failed');
+              if(!window._goingBack){ setStat('соединение потеряно'); $('reconnect-bar').style.display='flex'; $('reconnect-btn').disabled=!_pjOk; }
             }
           }, 5000);
         } else {
-          _p2pHandleFailure('failed');
+          if(!window._goingBack){ setStat('соединение потеряно'); $('reconnect-bar').style.display='flex'; $('reconnect-btn').disabled=!_pjOk; }
         }
       }else{
         setStat('не удалось подключиться');
@@ -10240,7 +10235,7 @@ function createPC(){
         setStat('подключено ✓');
         $('dot').className='dot con';
         // Не показываем уведомление при тихом авто-реконнекте
-        if(!_p2pReconnectFp){
+        if(true){
           const peerName = window.peerNameCache || 'Собеседник';
           _sendNotif('🔗 ' + peerName, 'Соединение установлено', ()=>showTab('sc'));
         }
@@ -10253,97 +10248,11 @@ function createPC(){
 // ── P2P авто-реконнект ────────────────────────────────────────────────────────
 
 // Точка входа при разрыве: решаем — авто или ручная кнопка
-function _p2pHandleFailure(reason){
-  const fp = lastPeerFp;
-  // contacts — не в скоупе, используем кеш presence имени если есть
-  const peerName = fp ? (window.peerNameCache || 'Собеседник') : 'Собеседник';
-
-  // Показываем уведомление только при явном failed и только если не в режиме авто-реконнекта
-  if(reason === 'failed' && !_p2pReconnectFp){
-    _sendNotif('📵 ' + peerName, 'Соединение разорвано');
-  }
-
-  if(!fp || !_pjOk){
-    // Нет цели или signaling недоступен — только ручная кнопка
-    setStat('соединение разорвано');
-    $('reconnect-bar').style.display='flex';
-    $('reconnect-btn').disabled = !_pjOk;
-    return;
-  }
-
-  const peerOnline = _presenceCache[fp] === 'online';
-  if(peerOnline){
-    // Собеседник онлайн → сразу начинаем автопереподключение
-    _p2pReconnectStopped = false;
-    _p2pReconnectFp = fp;
-    setStat('переподключаемся...');
-    $('reconnect-bar').style.display='none';
-    _p2pScheduleReconnect(fp, 0);
-  } else {
-    // Собеседник офлайн → ждём через presence
-    setStat('собеседник офлайн');
-    $('reconnect-bar').style.display='flex';
-    $('reconnect-btn').disabled = !_pjOk;
-    _callOnlineWatching = fp;
-    _p2pReconnectFp = fp;
-    _p2pReconnectStopped = false;
-  }
-}
-
 // Планируем следующую попытку переподключения
 // Пока собеседник онлайн — продолжаем; интервал нарастает до 30 с
 const _P2P_RETRY_DELAYS = [2000, 5000, 10000, 20000, 30000];
 
-function _p2pScheduleReconnect(fp, attempt){
-  clearTimeout(_p2pReconnectTimer);
-  if(_p2pReconnectStopped || _p2pReconnectFp !== fp) return;
-
-  const delay = _P2P_RETRY_DELAYS[Math.min(attempt, _P2P_RETRY_DELAYS.length - 1)];
-  const sec = Math.round(delay / 1000);
-  setStat(`переподключаемся... (${sec}с)`);
-
-  _p2pReconnectTimer = setTimeout(async () => {
-    if(_p2pReconnectStopped || _p2pReconnectFp !== fp) return;
-
-    // Проверяем presence прямо перед попыткой (свежий результат)
-    if(!_pjOk){
-      setStat('signaling недоступен');
-      $('reconnect-bar').style.display='flex';
-      $('reconnect-btn').disabled = true;
-      // Будем ждать восстановления маяка через _onPjStatusChange
-      return;
-    }
-
-    const peerOnline = _presenceCache[fp] === 'online';
-    if(!peerOnline){
-      // Ушёл офлайн — переходим в режим ожидания
-      setStat('собеседник офлайн');
-      $('reconnect-bar').style.display='flex';
-      $('reconnect-btn').disabled = false;
-      _callOnlineWatching = fp;
-      return;
-    }
-
-    setStat(`переподключаемся... (попытка ${attempt + 1})`);
-    // connectToContact не бросает исключений (использует toast) — следим за результатом через таймер
-    connectToContact(fp, { stayInChat: true });
-    // Если через 15 с соединение не поднялось — пробуем ещё раз
-    _p2pReconnectTimer = setTimeout(()=>{
-      if(_p2pReconnectStopped || _p2pReconnectFp !== fp) return;
-      const connected = dc && dc.readyState === 'open';
-      if(!connected) _p2pScheduleReconnect(fp, attempt + 1);
-    }, 15000);
-  }, delay);
-}
-
 // Остановить авто-реконнект (вызывается из goBack и onConn)
-function _p2pReconnectStop(){
-  _p2pReconnectStopped = true;
-  _p2pReconnectFp = null;
-  clearTimeout(_p2pReconnectTimer);
-  _p2pReconnectTimer = null;
-}
-
 // ── Конец P2P авто-реконнект ──────────────────────────────────────────────────
 
 // ── Служебные пакеты от собеседника (typing, shadow, react, pin, file, edit, msg) ──
@@ -10603,6 +10512,12 @@ function setupDC(){
       let j;
       try{ j = JSON.parse(e.data); }catch(_){ return; }
 
+      // Собеседник явно завершил соединение — отмечаем чтобы dc.onclose показал правильное сообщение
+      if(j.__bye__){
+        window._peerSentBye = true;
+        return;
+      }
+
       // 1а. Рекей — инициатор прислал новый публичный ключ
       if(j._t === '__e2e_rekey__'){
         if(_e2eReady && j.pub) await _e2eHandleRekey(j.pub);
@@ -10681,12 +10596,23 @@ function setupDC(){
     $('sc').dataset.active = '';
     $('dot').className = 'dot';
     renderChatsList(); // обновляем список — убираем isActivePeer/discBtn
-    if(!_p2pReconnectFp && !window._goingBack) setStat('собеседник отключился');
-    if($('sc').classList.contains('on') && !_p2pReconnectFp && !window._goingBack) sysMsg('Собеседник закрыл соединение');
-    if(!_p2pReconnectFp && !window._goingBack){
-      $('reconnect-bar').style.display = 'flex';
-      $('reconnect-btn').disabled = !_pjOk;
-      $('reconnect-btn').title = _pjOk ? '' : 'Signaling недоступен';
+    if(!window._goingBack){
+      const byePeer = window._peerSentBye;
+      window._peerSentBye = false;
+      if($('sc').classList.contains('on')){
+        if(byePeer){
+          setStat('собеседник завершил связь');
+          sysMsg('Собеседник завершил соединение');
+        } else {
+          setStat('соединение потеряно');
+          sysMsg('Соединение прервано');
+        }
+      }
+      if(!byePeer){
+        $('reconnect-bar').style.display = 'flex';
+        $('reconnect-btn').disabled = !_pjOk;
+        $('reconnect-btn').title = _pjOk ? '' : 'Signaling недоступен';
+      }
     }
     // dc закрылся — перезапускаем входящий listener чтобы принимать новые соединения
     setTimeout(() => { if(!dc || dc.readyState !== 'open') _startIncomingListener(); }, 1000);
@@ -10888,13 +10814,9 @@ async function onConn(){
   clearTimeout(pc._connTimeout);
 
   // Запомним флаг до остановки — нужен для wasReconnect
-  const _wasAutoReconnect = !!_p2pReconnectFp;
-
-  // Останавливаем авто-реконнект — соединение восстановлено
-  _p2pReconnectStop();
 
   $('dot').className='dot con'; setStat('подключено ✓');
-  const wasReconnect = $('sc').dataset.active==='1' || _wasAutoReconnect; // уже были в чате (или это авто-реконнект)
+  const wasReconnect = $('sc').dataset.active==='1';
   resetPeerIdentity();
   $('sc').dataset.active='1';
   $('reconnect-bar').style.display='none';
@@ -11035,30 +10957,42 @@ function goBack(){
   hideAlert();
   $('reconnect-bar').style.display='none';
   hideInfoBanner();
-  if(contactsSubScreen==='sc') contactsSubScreen='sh';
+  contactsSubScreen='sh';
   showTab(wasInChat ? 'schats' : 'connect');
   renderChatsList(); // обновляем список — покажет кнопку "→ связь" для активного соединения
 }
 
 // Явный разрыв соединения (кнопка ✕ в списке чатов или ручное отключение)
 function disconnectFromContact(){
-  _p2pReconnectStop();
   window._goingBack = true;
   setTimeout(()=>{ window._goingBack = false; }, 500);
+  // Отправляем bye — собеседник увидит "завершил связь" вместо "соединение прервано"
+  try{ if(dc && dc.readyState==='open') dc.send(JSON.stringify({__bye__:true})); }catch(_){}
   _e2eReset();
   _resetReadState();
   _resetPinState();
   _resetReactions();
   _clearUnread();
-  try{if(dc&&dc.readyState==='open')dc.close();}catch(e){}
-  try{if(pc){clearTimeout(pc._connTimeout);pc._cleanup&&pc._cleanup();pc.close();}}catch(e){}
-  setTimeout(()=>{pc=null;dc=null;},300);
+  setTimeout(()=>{
+    try{if(dc&&dc.readyState==='open')dc.close();}catch(e){}
+    try{if(pc){clearTimeout(pc._connTimeout);pc._cleanup&&pc._cleanup();pc.close();}}catch(e){}
+    setTimeout(()=>{pc=null;dc=null;},300);
+  }, 80); // даём bye дойти
   role=null;
   $('msgs').innerHTML='';
   resetPeerIdentity();
   $('dot').className='dot'; setStat('без сервера');
   $('reconnect-bar').style.display='none';
   renderChatsList();
+}
+
+window._peerSentBye = false; // флаг: собеседник явно закрыл соединение (прислал __bye__)
+
+// Ручное переподключение — вызывается кнопкой в reconnect-bar
+function reconnectToPeer(){
+  if(!lastPeerFp || !_pjOk) return;
+  $('reconnect-bar').style.display = 'none';
+  connectToContact(lastPeerFp, { stayInChat: false });
 }
 
 function waitIce(){
@@ -17847,16 +17781,7 @@ async function _onPeerCameOnline(fp){
   const name = contacts[fp]?.name || 'Собеседник';
 
   // 1. Ждали именно этого собеседника после разрыва → авто-реконнект
-  if(_p2pReconnectFp === fp && !_p2pReconnectStopped){
-    const isDisconnected = !dc || dc.readyState !== 'open';
-    if(isDisconnected){
-      setStat('собеседник онлайн — переподключаемся...');
-      _callOnlineWatching = null;
-      $('reconnect-bar').style.display='none';
-      _p2pScheduleReconnect(fp, 0);
-      return;
-    }
-  }
+
 
   // 2. Ждали появления через "позвать онлайн" (callPeerOnline / inviteFromHistory)
   if(_callOnlineWatching === fp){
@@ -17864,14 +17789,7 @@ async function _onPeerCameOnline(fp){
     const callBtn = $('call-online-btn');
     if(callBtn) callBtn.style.display = 'none';
 
-    const wasConnected = lastPeerFp === fp;
-    const isOpen = dc && dc.readyState === 'open';
-    if(wasConnected && !isOpen){
-      // Был наш собеседник — сразу переподключаемся
-      _p2pReconnectFp = fp;
-      _p2pReconnectStopped = false;
-      _p2pScheduleReconnect(fp, 0);
-    } else if(!isOpen) {
+    if(!dc || dc.readyState !== 'open') {
       // Другой контакт вошёл онлайн — уведомляем (уже подключённые сюда не попадают)
       _sendNotif('🟢 ' + name, 'Вошёл в сеть — можно подключиться', ()=>showTab('sc'));
       toast('🟢 ' + name + ' онлайн!');
@@ -22807,7 +22725,6 @@ async function secHashPin(pin, salt) {
 // PIN C → вход + удаление всей истории сообщений
 
 let _appUnlocked = false;
-let _currentProfile = 'main'; // 'main' | 'decoy'
 
 async function appLockCheck() {
   const s = await secLoad();
@@ -22832,13 +22749,6 @@ function _hideAppLock() {
   document.getElementById('tabbar')?.style.removeProperty('display');
   _appUnlocked = true;
   // Восстанавливаем жесты только для основного профиля
-  if (_currentProfile !== 'decoy' && window._currentProfile !== 'decoy') {
-    window._decoyMode = false;
-    window._currentProfile = 'main';
-    const title = document.getElementById('hdr-title');
-    if (title) title.style.cursor = 'pointer';
-    _refreshPanicZone?.();
-  }
 }
 
 // ── PIN PAD ──────────────────────────────────────────────────────────────────
@@ -22850,10 +22760,6 @@ let _pinCb  = null; // callback(success)
 function pinInit(ctx, cb, savedTmp) {
   // В decoy режиме блокируем создание и изменение PIN
   const setupCtxs = ['setA1','setA2','setB1','setB2','setC1','setC2'];
-  if (setupCtxs.includes(ctx) && (window._decoyMode || window._currentProfile === 'decoy')) {
-    toast('Недоступно в этом режиме');
-    return;
-  }
   _pinBuf = '';
   _pinCtx = ctx;
   _pinCb  = cb;
@@ -22867,7 +22773,6 @@ function pinInit(ctx, cb, savedTmp) {
     setB2:         'Повторите PIN',
     setC1:         'PIN быстрого удаления',
     setC2:         'Повторите PIN',
-    panic_confirm: '⚠ PIN для удаления всего',
   };
   const el = document.getElementById('pin-title');
   if (el) el.textContent = titleMap[ctx] || 'Введите PIN';
@@ -22985,77 +22890,86 @@ async function pinKey(k) {
   // ── Panic confirm ────────────────────────────────────────────────────────
   if (_pinCtx === 'panic_confirm') {
     const s = await secLoad();
-    const stored = s.pinA || s.pinC;
-    if (stored) {
-      const h = await secHashPin(pin, stored.salt);
-      if (h !== stored.hash) {
-        _pinShowError('Неверный PIN');
-        return;
-      }
+    const ok = s.pinC && await secCheckPin(pin, s.pinC);
+    if (ok) {
+      pinClose();
+      await secNuke();
+      return;
     }
-    pinClose();
-    await secFullReset();
+    _pinShowError('Неверный PIN');
     return;
   }
 }
 
-// ── Wipe messages (PIN C) ─────────────────────────────────────────────────────
+// ── Panic: полное стирание (PIN C) ────────────────────────────────────────
+async function secNuke() {
+  try {
+    // Удаляем все IDB базы
+    const dbs = await indexedDB.databases().catch(() => []);
+    for (const db of dbs) {
+      if (db.name) indexedDB.deleteDatabase(db.name);
+    }
+    // Чистим localStorage полностью
+    localStorage.clear();
+    // Перезагружаем страницу — чистое состояние
+    setTimeout(() => location.reload(), 300);
+  } catch(e) { console.warn('[sec] nuke error:', e); }
+}
+
+// ── Очистка сообщений (panic wipe) ───────────────────────────────────────
 async function _secWipeMessages() {
   try {
-    const h = await getHistory();
-    for (const k of Object.keys(h)) h[k] = [];
-    await saveHistory(h);
-    // Очищаем room messages
-    const rooms = await roomsLoad().catch(() => ({}));
-    for (const roomId of Object.keys(rooms)) {
-      await roomMsgsSave(roomId, []).catch(() => {});
+    // Удаляем всю историю переписки
+    await idbSet('history', 'all', {});
+    // Удаляем избранное
+    await idbSet('fav', 'all', []);
+    // Чистим кэш аватарок
+    if (typeof _avatarCache !== 'undefined') {
+      Object.keys(_avatarCache).forEach(k => delete _avatarCache[k]);
     }
-  } catch(e) { console.warn('[sec] wipe error:', e); }
+    toast('Сообщения удалены');
+    if (typeof renderChatsList === 'function') renderChatsList();
+  } catch(e) { console.warn('[sec] wipeMessages error:', e); }
+}
+
+// ── Panic gesture (скрытый жест в углу экрана) ────────────────────────────
+let _panicTaps = 0, _panicTimer = null;
+
+function secInitPanicGesture() {
+  const zoneEl  = document.getElementById('panic-zone');
+  const zoneDot = document.getElementById('panic-zone-dot');
+  if (!zoneEl) return;
+
+  secLoad().then(s => {
+    if (!s.panicGesture) return;
+    if (zoneEl) zoneEl.classList.toggle('active', true);
+
+    zoneEl.addEventListener('touchstart', e => {
+      e.preventDefault();
+      _panicTaps++;
+      if (zoneDot) { zoneDot.style.transform = 'scale(1.5)'; setTimeout(() => { if(zoneDot) zoneDot.style.transform = ''; }, 150); }
+      clearTimeout(_panicTimer);
+      _panicTimer = setTimeout(() => { _panicTaps = 0; }, 1500);
+      if (_panicTaps >= 5) {
+        _panicTaps = 0;
+        clearTimeout(_panicTimer);
+        // Открываем PIN подтверждения
+        if (typeof pinInit === 'function') pinInit('panic_confirm', null);
+      }
+    }, { passive: false });
+  });
+}
+
+async function secSavePanicGesture(v) {
+  const s = await secLoad();
+  s.panicGesture = !!v;
+  await secSave(s);
+  const zoneEl = document.getElementById('panic-zone');
+  if (zoneEl) zoneEl.classList.toggle('active', !!v);
+  if (v) secInitPanicGesture();
 }
 
 // ── Decoy profile (PIN B) ────────────────────────────────────────────────────
-// Второй профиль — генерируем или загружаем отдельные ключи
-async function _secLoadDecoyProfile() {
-  try {
-    let decoyPriv = await idbGet('keys', 'decoy_priv_jwk').catch(() => null);
-    let decoyPub  = await idbGet('keys', 'decoy_pub_raw').catch(() => null);
-    if (!decoyPriv || !decoyPub) {
-      const kp  = await crypto.subtle.generateKey({name:'Ed25519'}, true, ['sign','verify']);
-      decoyPriv = await crypto.subtle.exportKey('jwk', kp.privateKey);
-      decoyPub  = Array.from(new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey)));
-      await idbSet('keys', 'decoy_priv_jwk', decoyPriv);
-      await idbSet('keys', 'decoy_pub_raw',  decoyPub);
-    }
-    myPrivKey     = await crypto.subtle.importKey('jwk', decoyPriv, {name:'Ed25519'}, false, ['sign']);
-    myPubKeyRaw   = new Uint8Array(decoyPub);
-    const hash    = await crypto.subtle.digest('SHA-256', myPubKeyRaw);
-    myFingerprint = bytesToFingerprint(hash);
-    myPresenceId  = await sha256hex(myPubKeyRaw, 24);
-    myPubKeyHex   = Array.from(myPubKeyRaw).map(b=>b.toString(16).padStart(2,'0')).join('');
-    await initEncKey();
-
-    // Жест паники в decoy профиле — всегда выключен
-    const zoneEl = document.getElementById('panic-zone');
-    if (zoneEl) zoneEl.classList.remove('active');
-
-    // Название → блокировка — тоже не работает в decoy
-    // (нет смысла блокировать пустой профиль)
-    const title = document.getElementById('hdr-title');
-    if (title) title.style.cursor = '';
-
-    toast('Профиль-приманка');
-
-    // Перерисовываем — контакты и история пустые для этого ключа
-    if (typeof renderChatsList   === 'function') renderChatsList();
-    if (typeof renderChatsList  === 'function') renderChatsList();
-
-    // Избранное — скрываем историю (она привязана к основному профилю)
-    // при открытии sfav показываем пустой экран
-    window._decoyMode = true;
-    window._currentProfile = 'decoy';
-  } catch(e) { console.warn('[sec] decoy error:', e); }
-}
-
 // ── Panic: полное удаление ────────────────────────────────────────────────────
 // Полный сброс — удаляет всё, открывает как новое приложение (PIN C)
 async function secFullReset() {
@@ -23083,84 +22997,10 @@ async function secFullReset() {
   }
 }
 
-// Паника — тоже полный сброс
-async function secNuke() {
-  await secFullReset();
-}
-
 // ── Panic gesture: тройное нажатие на логотип ─────────────────────────────────
-let _panicTaps = 0, _panicTimer = null;
-
-function secInitPanicGesture() {
-  // ── Нажатие на hdr-title → блокирует приложение ──────────────────────────
-  const title = document.getElementById('hdr-title');
-  if (title) {
-    title.style.cursor = 'pointer';
-    title.title = '';
-    title.addEventListener('click', async () => {
-      const s = await secLoad();
-      if (!s.pinA && !s.pinB && !s.pinC) return;
-      if (_appUnlocked) {
-        _appUnlocked = false;
-        _showAppLock();
-      }
-    });
-  }
-
-  // ── Жест паники: 5 нажатий в нижний левый угол за 2 секунды ────────────────
-  const PANIC_ZONE   = 60;
-  const PANIC_TAPS   = 5;
-  const PANIC_WINDOW = 2000;
-
-  let _pTaps = 0, _pTimer = null;
-  const zoneEl = document.getElementById('panic-zone');
-  const zoneDot = document.getElementById('panic-zone-dot');
-
-  // Показываем/скрываем индикатор зоны в зависимости от настройки
-  async function _updatePanicZone() {
-    const s = await secLoad();
-    if (zoneEl) zoneEl.classList.toggle('active', !!s.panicGesture);
-  }
-  _updatePanicZone();
-
-  document.addEventListener('touchstart', async (e) => {
-    const s = await secLoad();
-    if (!s.panicGesture) return;
-    if (!_appUnlocked) return;
-
-
-    const t = e.touches[0];
-    const inZone = t.clientX < PANIC_ZONE
-                && t.clientY > window.innerHeight - PANIC_ZONE;
-    if (!inZone) return;
-
-    _pTaps++;
-    clearTimeout(_pTimer);
-
-    // Визуальная обратная связь — точка мигает быстрее при накоплении нажатий
-    if (zoneDot) {
-      zoneDot.style.opacity = String(0.3 + (_pTaps / PANIC_TAPS) * 0.7);
-      zoneDot.style.transform = `scale(${1 + _pTaps * 0.3})`;
-    }
-
-    _pTimer = setTimeout(() => {
-      _pTaps = 0;
-      if (zoneDot) { zoneDot.style.opacity = ''; zoneDot.style.transform = ''; }
-    }, PANIC_WINDOW);
-
-    if (_pTaps >= PANIC_TAPS) {
-      _pTaps = 0;
-      clearTimeout(_pTimer);
-      await secNuke();
-    }
-  }, { passive: true });
-}
-
 // Обновляем видимость индикатора при изменении настройки
 async function _refreshPanicZone() {
   const s = await secLoad();
-  const zoneEl = document.getElementById('panic-zone');
-  if (zoneEl) zoneEl.classList.toggle('active', !!s.panicGesture);
 }
 
 // ── Disappearing messages ────────────────────────────────────────────────────
@@ -23293,7 +23133,6 @@ async function secRenderSettings() {
 
   // Panic gesture toggle
   const pg = document.getElementById('sec-panic-gesture');
-  if (pg) pg.checked = !!s.panicGesture;
 
   // Global TTL
   const ttl = document.getElementById('sec-global-ttl');
@@ -23308,20 +23147,7 @@ async function secRenderSettings() {
 function secSetPinC() {
   pinInit('setC1', null);
 }
-
-async function secSavePanicGesture(v) {
-  const s = await secLoad();
-  s.panicGesture = v;
-  await secSave(s);
-  _refreshPanicZone?.();
-  toast(v ? '⚡ Жест паники включён — нижний левый угол' : 'Жест паники выключен');
-}
-
 async function secClearPin(field) {
-  if (window._decoyMode || window._currentProfile === 'decoy') {
-    toast('Недоступно в этом режиме');
-    return;
-  }
   const s = await secLoad();
   delete s[field];
   await secSave(s);
@@ -23358,7 +23184,7 @@ document.addEventListener('DOMContentLoaded', () => {
 window._secOnOpen = async () => { await secRenderSettings(); };
 
 Object.assign(window, {
-  pinKey, pinClose, secNuke, secFullReset, secPanicConfirm, secSetPinC,
+  pinKey, pinClose, secFullReset, secPanicConfirm, secSetPinC,
   secSavePanicGesture, secSaveGlobalTTL, secRunGlobalTTL,
   secShowDisappearingDialog, secSetDispUI, secApplyDisappearing,
   secRenderSettings, secClearPin,

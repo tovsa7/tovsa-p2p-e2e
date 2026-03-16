@@ -15136,6 +15136,15 @@ async function roomMsgsSave(roomId, msgs) {
   } catch(e) { console.warn('[rooms] msgs save error:', e); }
 }
 
+// ── Push server URL (безопасный доступ вне IIFE) ─────────────────────────────
+function _roomPushServer() {
+  if (typeof PUSH_SERVER === 'string' && PUSH_SERVER && !PUSH_SERVER.includes('ВАШ'))
+    return PUSH_SERVER;
+  const ws = window._pushServer;
+  if (ws && !ws.includes('ВАШ')) return ws;
+  return 'https://tovsa-signaling.tovsa7.workers.dev';
+}
+
 // ── Создание комнаты ──────────────────────────────────────────────────────────
 
 async function roomCreate({ name, historyPolicy = 'any_member' }) {
@@ -15168,8 +15177,7 @@ async function roomCreate({ name, historyPolicy = 'any_member' }) {
     myRole:      'admin',
     createdAt:   Date.now(),
     lastSeenSeq: 0,
-    pushUrl:     (typeof PUSH_SERVER === 'string' && !PUSH_SERVER.includes('ВАШ'))
-                   ? PUSH_SERVER : null,
+    pushUrl:     _roomPushServer() || null,
   };
 
   const rooms = await roomsLoad();
@@ -15218,7 +15226,7 @@ async function roomInviteMember(roomId, { pubKeyHex, encPub, name }) {
       roomKeyBytes: room.roomKeyBytes,
       config:       room.config,
       roster:       room.roster,
-      pushUrl:      room.pushUrl || PUSH_SERVER || null,
+      pushUrl:      room.pushUrl || _roomPushServer() || null,
     },
     encPub,
   );
@@ -15281,12 +15289,11 @@ async function roomSendMessage(roomId, text) {
 
   // ── Pub/Sub путь (масштабируемый) ─────────────────────────────────────────
   // Один blob на сообщение. Сервер не знает отправителя и получателей.
-  const pushUrl = room.pushUrl || PUSH_SERVER;
+  const pushUrl = room.pushUrl || _roomPushServer();
   if (pushUrl && !pushUrl.includes('ВАШ')) {
     const mailboxId = await roomGetMailboxId(room.roomKeyBytes, 0);
     try {
       const res = await fetch(pushUrl + '/room/publish', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mailboxId, blob }),
       });
       if (res.ok) {
@@ -15331,7 +15338,7 @@ async function roomFetchMessages(roomId) {
   const rooms = await roomsLoad();
   const room  = rooms[roomId];
   if (!room) return [];
-  const pushUrl = room.pushUrl || PUSH_SERVER;
+  const pushUrl = room.pushUrl || _roomPushServer();
   if (!pushUrl || pushUrl.includes('ВАШ')) return [];
 
   const mailboxId  = await roomGetMailboxId(room.roomKeyBytes, 0);
@@ -15425,7 +15432,7 @@ async function roomHandleIncoming(from, kind, data) {
         myRole:       'member',
         createdAt:    Date.now(),
         lastSeenSeq:  0,
-        pushUrl:      invite.pushUrl || PUSH_SERVER || null,
+        pushUrl:      invite.pushUrl || _roomPushServer() || null,
       };
       await roomsSave(rooms);
       window.dispatchEvent(new CustomEvent('tovsa-room-invite', { detail: invite }));

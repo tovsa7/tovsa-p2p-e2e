@@ -6713,8 +6713,8 @@ class TovSaSignaling {
             to: from, kind: 'offer', delivered: true, viaAnswer: true
           }}));
         }
-        console.log('[sealed] → _handleRelay kind=', kind);
-        await this._handleRelay(from, kind, data);
+        console.log('[sealed] → _handleRelay kind=', kind, 'this._handleRelay=', typeof this._handleRelay);
+        try { await this._handleRelay(from, kind, data); } catch(e) { console.warn('[sealed] _handleRelay threw:', e.message); }
         break;
       }
       case 'ALIAS-ACK':

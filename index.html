@@ -2942,6 +2942,52 @@ if (typeof globalThis !== 'undefined') {
   <button class="chats-fab" id="chats-fab" onclick="toggleFabMenu()">＋<span id="fab-main-badge" style="display:none;position:absolute;top:4px;right:4px;width:10px;height:10px;border-radius:50%;background:var(--e);border:2px solid var(--bg)"></span></button>
 </div>
 
+<!-- Room invite modal -->
+<div class="folder-modal-bg" id="room-invite-modal-bg" style="display:none" onclick="if(event.target===this)closeRoomInviteModal()">
+  <div class="folder-modal" style="max-width:380px">
+    <div class="folder-modal-hdr">
+      <div class="folder-modal-title">ПРИГЛАСИТЬ В ГРУППУ</div>
+      <button onclick="closeRoomInviteModal()" style="background:none;border:none;color:var(--mu);font-size:18px;cursor:pointer;line-height:1;padding:0 4px">✕</button>
+    </div>
+    <!-- Вкладки -->
+    <div style="display:flex;border-bottom:1px solid var(--bd);flex-shrink:0">
+      <button id="room-inv-tab-contacts" onclick="roomInvSwitchTab('contacts')"
+        style="flex:1;padding:10px;background:none;border:none;color:var(--a);font-family:inherit;font-size:12px;cursor:pointer;border-bottom:2px solid var(--a)">
+        Из контактов
+      </button>
+      <button id="room-inv-tab-link" onclick="roomInvSwitchTab('link')"
+        style="flex:1;padding:10px;background:none;border:none;color:var(--mu);font-family:inherit;font-size:12px;cursor:pointer;border-bottom:2px solid transparent">
+        Ссылка-приглашение
+      </button>
+    </div>
+    <!-- Контакты -->
+    <div id="room-inv-pane-contacts" style="flex:1;overflow-y:auto;max-height:320px">
+      <div id="room-inv-contacts-list" style="display:flex;flex-direction:column"></div>
+    </div>
+    <!-- Ссылка -->
+    <div id="room-inv-pane-link" style="display:none;padding:16px;flex-direction:column;gap:12px">
+      <div style="font-size:11px;color:var(--mu);line-height:1.5">
+        Поделитесь этой ссылкой. Когда получатель откроет её — вы получите его данные и сможете добавить в группу.
+      </div>
+      <div style="font-size:11px;color:var(--a);word-break:break-all;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px;min-height:40px" id="room-inv-link-url">
+        создание ссылки...
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="action-btn" style="flex:1;justify-content:center" onclick="roomInvCopyLink()">🔗 копировать</button>
+        <button class="action-btn" style="flex:1;justify-content:center" onclick="roomInvShareLink()">↗ поделиться</button>
+      </div>
+      <div id="room-inv-link-pending" style="display:none;padding-top:8px;border-top:1px solid var(--bd)">
+        <div style="font-size:11px;color:var(--mu);margin-bottom:8px">Ожидают принятия ссылки:</div>
+        <div id="room-inv-link-pending-list" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>
+    </div>
+    <!-- Кнопка добавить (для вкладки контактов) -->
+    <div id="room-inv-footer" style="padding:12px 16px;border-top:1px solid var(--bd);flex-shrink:0">
+      <button class="btn" style="width:100%" id="room-inv-add-btn" onclick="roomInvAddSelected()" disabled>Добавить выбранных</button>
+    </div>
+  </div>
+</div>
+
 <!-- Folder manager modal -->
 <div class="folder-modal-bg" id="folder-modal-bg" onclick="if(event.target===this)closeFolderModal()">
   <div class="folder-modal">
@@ -16217,6 +16263,11 @@ async function _handleAllIncoming(from, kind, data) {
       }
       console.log('[invite] accepted by', fp.slice(0,8), added ? '(new)' : '(duplicate, acking)');
 
+      // Если ссылка была создана для приглашения в комнату — добавляем автоматически
+      if (encPub && typeof _roomInvHandleAccepted === 'function') {
+        _roomInvHandleAccepted(pubKeyHex, encPub, name || '').catch(() => {});
+      }
+
       // delivery_ack — всегда отправляем (даже при дубле) чтобы B мог снять pending
       if (encPub && typeof sealEnvelope === 'function' && _myEncKey && myPubKeyHex) {
         try {
@@ -21197,30 +21248,194 @@ async function roomInviteUI() {
   const room  = rooms[_activeRoomId];
   if (!room) return;
   if (room.myRole !== 'admin') { toast('Только администратор может приглашать'); return; }
+  openRoomInviteModal(_activeRoomId, room);
+}
 
-  // Открываем стандартный диалог добавления контакта
-  // Пользователь вставляет ссылку/код контакта которого хочет позвать
-  const code = prompt('Вставьте ссылку или код контакта которого хотите пригласить:');
-  if (!code?.trim()) return;
+// ── Room Invite Modal ─────────────────────────────────────────────────────────
+let _roomInvModalId = null;
+let _roomInvSelected = new Set(); // pubKeyHex выбранных контактов
+let _roomInvLink = null; // { token, url }
+let _roomInvLinkPending = []; // контакты принявшие ссылку но ещё не добавленные
 
+async function openRoomInviteModal(roomId, room) {
+  _roomInvModalId = roomId;
+  _roomInvSelected = new Set();
+  _roomInvLink = null;
+  _roomInvLinkPending = [];
+
+  const bg = document.getElementById('room-invite-modal-bg');
+  if (!bg) return;
+  bg.style.display = 'flex';
+
+  roomInvSwitchTab('contacts');
+  await _roomInvLoadContacts(room);
+}
+
+function closeRoomInviteModal() {
+  const bg = document.getElementById('room-invite-modal-bg');
+  if (bg) bg.style.display = 'none';
+  _roomInvModalId = null;
+  _roomInvSelected = new Set();
+}
+
+function roomInvSwitchTab(tab) {
+  const tabC = document.getElementById('room-inv-tab-contacts');
+  const tabL = document.getElementById('room-inv-tab-link');
+  const paneC = document.getElementById('room-inv-pane-contacts');
+  const paneL = document.getElementById('room-inv-pane-link');
+  const footer = document.getElementById('room-inv-footer');
+
+  if (tab === 'contacts') {
+    tabC.style.color = 'var(--a)'; tabC.style.borderBottomColor = 'var(--a)';
+    tabL.style.color = 'var(--mu)'; tabL.style.borderBottomColor = 'transparent';
+    paneC.style.display = ''; paneL.style.display = 'none';
+    footer.style.display = '';
+  } else {
+    tabL.style.color = 'var(--a)'; tabL.style.borderBottomColor = 'var(--a)';
+    tabC.style.color = 'var(--mu)'; tabC.style.borderBottomColor = 'transparent';
+    paneC.style.display = 'none'; paneL.style.display = 'flex';
+    footer.style.display = 'none';
+    _roomInvPrepareLink();
+  }
+}
+
+async function _roomInvLoadContacts(room) {
+  const list = document.getElementById('room-inv-contacts-list');
+  if (!list) return;
+  list.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--mu)">Загрузка...</div>';
+
+  const contacts = await getContacts();
+  const inRoom = new Set((room.roster || []).map(r => r.pubKeyHex));
+  const entries = Object.entries(contacts).filter(([fp, c]) => !c._stranger && !inRoom.has(c.pubKeyHex));
+
+  if (!entries.length) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--mu)">Все контакты уже в группе</div>';
+    return;
+  }
+
+  list.innerHTML = entries.map(([fp, c]) => {
+    const hasEncPub = !!(c.pubKeyHex && contactLoadEncPubKey(c.pubKeyHex));
+    const initial = (c.name || '?')[0].toUpperCase();
+    const hint = hasEncPub ? '' : '<span style="font-size:9px;color:var(--w);margin-left:4px">нет ключа шифрования</span>';
+    return `<label style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .1s" onclick="roomInvToggle('${c.pubKeyHex}',this)">
+      <div style="width:36px;height:36px;border-radius:50%;background:var(--ad);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--a);flex-shrink:0">${initial}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--tx)">${esc(c.name || fp.slice(0,8))}${hint}</div>
+        <div style="font-size:10px;color:var(--mu)">${hasEncPub ? 'можно добавить напрямую' : 'отправить ссылку'}</div>
+      </div>
+      <div class="room-inv-check" data-pub="${c.pubKeyHex}" style="width:20px;height:20px;border-radius:50%;border:2px solid var(--bd);flex-shrink:0;transition:all .15s;display:flex;align-items:center;justify-content:center;font-size:11px"></div>
+    </label>`;
+  }).join('');
+}
+
+function roomInvToggle(pubKeyHex, labelEl) {
+  const check = labelEl.querySelector('.room-inv-check');
+  if (_roomInvSelected.has(pubKeyHex)) {
+    _roomInvSelected.delete(pubKeyHex);
+    check.style.background = ''; check.style.borderColor = 'var(--bd)'; check.textContent = '';
+    labelEl.style.background = '';
+  } else {
+    _roomInvSelected.add(pubKeyHex);
+    check.style.background = 'var(--a)'; check.style.borderColor = 'var(--a)'; check.textContent = '✓';
+    labelEl.style.background = 'rgba(0,255,157,.04)';
+  }
+  const btn = document.getElementById('room-inv-add-btn');
+  if (btn) {
+    btn.disabled = _roomInvSelected.size === 0;
+    btn.textContent = _roomInvSelected.size > 0 ? `Добавить (${_roomInvSelected.size})` : 'Добавить выбранных';
+  }
+}
+
+async function roomInvAddSelected() {
+  if (!_roomInvModalId || !_roomInvSelected.size) return;
+  const btn = document.getElementById('room-inv-add-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Добавляем...'; }
+
+  const contacts = await getContacts();
+  let ok = 0, fail = 0, noKey = [];
+
+  for (const pubKeyHex of _roomInvSelected) {
+    const c = Object.values(contacts).find(c => c.pubKeyHex === pubKeyHex);
+    if (!c) continue;
+    const encPub = contactLoadEncPubKey(pubKeyHex);
+    if (!encPub) { noKey.push(c.name || pubKeyHex.slice(0,8)); continue; }
+    try {
+      await roomInviteMember(_roomInvModalId, { pubKeyHex, encPub, name: c.name || '' });
+      ok++;
+    } catch(e) { fail++; console.warn('[roomInv]', e.message); }
+  }
+
+  let msg = '';
+  if (ok) msg += `✓ Приглашено: ${ok}. `;
+  if (fail) msg += `⚠ Ошибок: ${fail}. `;
+  if (noKey.length) msg += `Нет ключа у: ${noKey.join(', ')} — используйте ссылку.`;
+  toast(msg.trim() || 'Готово');
+
+  // Обновляем участников
+  const fresh = await roomsLoad();
+  if (fresh[_roomInvModalId]) roomRenderMembers(fresh[_roomInvModalId]);
+
+  closeRoomInviteModal();
+}
+
+async function _roomInvPrepareLink() {
+  const urlEl = document.getElementById('room-inv-link-url');
+  if (!urlEl || !_roomInvModalId) return;
+
+  // Создаём обычный invite-link. Когда кто-то его примет — получим invite_accepted
+  // со своим pubKeyHex+encPub, после чего сразу добавим в комнату.
+  if (_roomInvLink) {
+    urlEl.textContent = _roomInvLink.url;
+    return;
+  }
+  urlEl.textContent = 'создание ссылки...';
   try {
-    // Парсим инвайт-данные контакта
-    const info = await window._getInviteInfo(code.trim()).catch(() => null);
-    if (!info?.ownerPubHex || !info?.encPub) {
-      toast('Не удалось получить данные контакта');
-      return;
-    }
-    const name = info.ownerName || _shortPub(info.ownerPubHex);
-    await roomInviteMember(_activeRoomId, {
-      pubKeyHex: info.ownerPubHex,
-      encPub:    info.encPub,
-      name,
-    });
-    toast('✓ Приглашение отправлено для ' + name);
-    const fresh = await roomsLoad();
-    roomRenderMembers(fresh[_activeRoomId]);
+    const inv = await window._createInvite({ maxUses: 1, expiresIn: 3 * 24 * 3600 });
+    _roomInvLink = { token: inv.token, url: inv.url };
+    urlEl.textContent = inv.url;
+    // Помечаем контекст — при принятии ссылки добавить в эту комнату
+    localStorage.setItem('_roomInvPending_' + inv.kvKey, _roomInvModalId);
   } catch(e) {
-    toast('Ошибка: ' + e.message);
+    urlEl.textContent = 'Ошибка: ' + e.message;
+  }
+}
+
+function roomInvCopyLink() {
+  const url = document.getElementById('room-inv-link-url')?.textContent;
+  if (!url || url.startsWith('Ошибка') || url.startsWith('создание')) return;
+  navigator.clipboard.writeText(url).then(() => toast('Ссылка скопирована ✓')).catch(() => toast('Не удалось скопировать'));
+}
+
+function roomInvShareLink() {
+  const url = document.getElementById('room-inv-link-url')?.textContent;
+  if (!url || url.startsWith('Ошибка') || url.startsWith('создание')) return;
+  if (navigator.share) {
+    navigator.share({ title: 'Приглашение в группу Tovsa', url }).catch(() => {});
+  } else {
+    roomInvCopyLink();
+  }
+}
+
+// Когда контакт принимает ссылку — автоматически добавляем его в комнату
+// Вызывается из invite_accepted handler
+async function _roomInvHandleAccepted(pubKeyHex, encPub, name) {
+  // Ищем комнату ожидающую этот контакт через pending ссылки
+  const prefix = '_roomInvPending_';
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key?.startsWith(prefix)) continue;
+    const roomId = localStorage.getItem(key);
+    if (!roomId) continue;
+    try {
+      await roomInviteMember(roomId, { pubKeyHex, encPub, name: name || '' });
+      localStorage.removeItem(key);
+      const rooms = await roomsLoad();
+      const rname = rooms[roomId]?.config?.name || 'группу';
+      toast(`✓ ${name || pubKeyHex.slice(0,8)} добавлен в «${rname}»`);
+      break;
+    } catch(e) {
+      if (e.message.includes('уже в комнате')) localStorage.removeItem(key);
+    }
   }
 }
 
@@ -21799,7 +22014,9 @@ window.addEventListener('tovsa-room-rekey', async e => {
 // Экспортируем функции UI
 Object.assign(window, {
   roomsRenderList,  roomCreateUI,  roomOpenChat,
-  roomSendMessageUI, roomKickUI,   roomInviteUI,
+  roomSendMessageUI, roomKickUI, roomInviteUI,
+  closeRoomInviteModal, roomInvSwitchTab, roomInvToggle, roomInvAddSelected,
+  roomInvCopyLink, roomInvShareLink,
   roomRequestHistoryUI, roomToggleMembers,
   channelsRenderList, channelCreateUI, channelOpenView,
   channelPublishPostUI, channelOpenComment, channelCloseComment,

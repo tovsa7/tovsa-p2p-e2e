@@ -15234,7 +15234,7 @@ async function roomInviteMember(roomId, { pubKeyHex, encPub, name }) {
   // mailboxId для invitee
   const mailboxId = await getContactMailboxId(pubKeyHex, 0) ?? pubKeyHex;
 
-  // Шифруем и шлём как sealed relay
+  // Шифруем и шлём как sealed relay с персистентной очередью
   const sealed = await sealEnvelope(
     { from: myPubKeyHex, kind: 'room_invite', data: inviteBlob },
     encPub,
@@ -15243,6 +15243,12 @@ async function roomInviteMember(roomId, { pubKeyHex, encPub, name }) {
   if (sig?._open) {
     sig._wsSend({ type: 'SEALED_RELAY', to: mailboxId, sealed });
     console.log('[rooms] инвайт отправлен для', pubKeyHex.slice(0,8)+'...');
+  } else {
+    // Нет активного сигналинга — ставим в очередь (отправится при reconnect)
+    await _psAdd({ kind: 'room_invite', to: mailboxId, sealed,
+                   toName: name || pubKeyHex.slice(0,8),
+                   expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000 });
+    console.log('[rooms] инвайт поставлен в очередь для', pubKeyHex.slice(0,8)+'...');
   }
 
   return room;
@@ -20232,8 +20238,22 @@ document.addEventListener('visibilitychange', ()=>{
         if (_earlyFp) {
           const _existingContacts = await getContacts().catch(() => ({}));
           if (_existingContacts[_earlyFp]) {
-            console.log('[invite] контакт уже добавлен, пропускаем диалог');
-            toast((info.ownerName || 'Контакт') + ' уже в контактах');
+            // Проверяем — может ссылка была создана для приглашения в комнату
+            // В этом случае нужно добавить в комнату, а не просто показать "уже в контактах"
+            const pendingRoomKey = Object.keys(localStorage).find(k =>
+              k.startsWith('_roomInvPending_') && localStorage.getItem(k)
+            );
+            if (pendingRoomKey && typeof _roomInvHandleAccepted === 'function') {
+              const encPub = info.encPub || null;
+              if (encPub) {
+                await _roomInvHandleAccepted(info.ownerPubHex, encPub, info.ownerName || '').catch(()=>{});
+              }
+              // Также отправляем invite_accepted — A получит encPub и добавит в комнату
+              window._requestViaInvite(tokenInput, info).catch(()=>{});
+              toast((info.ownerName || 'Контакт') + ' уже в контактах — запрос на вступление в группу отправлен');
+            } else {
+              toast((info.ownerName || 'Контакт') + ' уже в контактах');
+            }
             if (typeof showTab === 'function') setTimeout(() => showTab('schats'), 400);
             return;
           }

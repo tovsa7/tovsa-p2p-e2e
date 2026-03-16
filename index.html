@@ -977,10 +977,10 @@ textarea::placeholder{color:var(--mu)}
 .chats-list{flex:1;overflow-y:auto;touch-action:pan-y}
 .chat-item{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .12s;-webkit-tap-highlight-color:transparent;position:relative}
 .chat-item:hover{background:var(--sf)}
-.chat-item-avatar{width:44px;height:44px;border-radius:50%;background:var(--bd);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;position:relative;overflow:hidden}
+.chat-item-avatar{width:44px;height:44px;border-radius:50%;background:var(--bd);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;position:relative}
 .chat-item-avatar.room{border-radius:12px;background:var(--ad);border:1px solid rgba(0,255,157,.2)}
 .chat-item-avatar.channel{border-radius:10px;background:var(--sf);border:1px solid var(--bd)}
-.chat-item-avatar img{width:100%;height:100%;object-fit:cover}
+.chat-item-avatar img{width:100%;height:100%;object-fit:cover;border-radius:inherit;overflow:hidden}
 .chat-type-badge{position:absolute;bottom:-2px;right:-2px;width:16px;height:16px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:9px;border:1.5px solid var(--bg)}
 .chat-item-info{flex:1;min-width:0}
 .chat-item-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:5px}
@@ -7026,7 +7026,9 @@ class FakePeer {
         _startBeaconTimer(_sigRef);
       },
       onClose: () => {
-        _stopBeaconTimer();
+        // Останавливаем таймер только если это основной presence peer
+        // (временные P2P peers не должны убивать beacon timer)
+        if (this === _presencePeer) _stopBeaconTimer();
         if (!this._destroyed) this._emit('disconnected');
       },
       onError: (err) => {
@@ -19295,8 +19297,13 @@ function _updateUnreadBadges(){
     if(_unreadCount > 0 && !inChat){
       tabBadge.textContent = _unreadCount > 99 ? '99+' : _unreadCount;
       tabBadge.style.display = 'flex';
-    } else {
-      // Не скрываем — renderChatsList сам управляет бейджем
+    } else if(_unreadCount === 0) {
+      // Явно скрываем когда нет непрочитанных в текущем чате
+      // renderChatsList обновит если есть непрочитанные в других чатах
+      tabBadge.textContent = '';
+      tabBadge.style.display = 'none';
+      // Перерисуем список чтобы подхватить непрочитанные других чатов
+      if(typeof renderChatsList === 'function') renderChatsList().catch(()=>{});
     }
   }
 }

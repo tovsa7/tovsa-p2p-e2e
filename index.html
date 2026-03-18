@@ -3593,8 +3593,9 @@ let _drState = null;
     isInit:    boolean         — мы инициатор
   }
 */
-let _drReady     = false;  // алиас _drState?.ready для быстрой проверки
+let _drReady      = false;  // алиас _drState?.ready для быстрой проверки
 let _drPendingOut = [];    // сообщения в очереди до завершения хэндшейка
+let _drIsInitiator = false; // true если мы инициатор DR-хэндшейка (createDataChannel)
 
 // ── Crypto helpers ─────────────────────────────────────────────────────────────
 
@@ -4089,6 +4090,7 @@ function _drReset() {
   _drReady       = false;
   _drPendingOut  = [];
   _drMyEK        = null;
+  _drIsInitiator = false;
 }
 
 // ── Aliases ────────────────────────────────────────────────────────────────────
@@ -13344,6 +13346,7 @@ async function acceptCall(){
       createPC();
       pc.ondatachannel = e => {
       dc = e.channel;
+      _drIsInitiator = false;
       setupDC();
     };
       await pc.setRemoteDescription(new RTCSessionDescription(offerMsg.sdp));
@@ -14296,28 +14299,39 @@ async function onConn(){
   _callOnlineWatching = null;
 
   // DR хэндшейк: инициатор генерирует EK и отправляет __dr_hello__.
-  // Ответчик ответит __dr_hello_ack__, после чего оба переходят к Double Ratchet.
+  // Ответчик только ждёт __dr_hello__ и отвечает __dr_hello_ack__.
   let _drHandshakeTimeout = null;
-  try{
-    const helloMsg = await _drInitiateHandshake();
-    const _helloStr = JSON.stringify(helloMsg);
-    dc.send(_helloStr);
-    // Повторяем hello каждые 300мс пока не получим ack
-    const _helloInterval = setInterval(() => {
-      if(_drReady || !dc || dc.readyState !== 'open'){ clearInterval(_helloInterval); return; }
+  if (_drIsInitiator) {
+    try{
+      const helloMsg = await _drInitiateHandshake();
+      const _helloStr = JSON.stringify(helloMsg);
       dc.send(_helloStr);
-    }, 300);
-    setTimeout(() => clearInterval(_helloInterval), 20000);
+      // Повторяем hello каждые 300мс пока не получим ack
+      const _helloInterval = setInterval(() => {
+        if(_drReady || !dc || dc.readyState !== 'open'){ clearInterval(_helloInterval); return; }
+        dc.send(_helloStr);
+      }, 300);
+      setTimeout(() => clearInterval(_helloInterval), 20000);
 
+      _drHandshakeTimeout = setTimeout(()=>{
+        if(!_drReady){
+          console.warn('[dr] handshake timeout — Double Ratchet не завершён за 15с');
+          sysMsg('⚠ Шифрование не установлено — попробуйте переподключиться');
+        }
+      }, 15000);
+    }catch(err){
+      _dbgPush('warn', ['[dr] onConn error:', err.message, 'dc.readyState=' + dc.readyState]);
+      try{ dc.send(await makeIdentityMsg(lastPeerPubKeyHex||'')); }catch(e2){ _dbgPush('warn', ['[dr] fallback identity error:', e2.message]); }
+    }
+  } else {
+    // Ответчик: ждём __dr_hello__ от инициатора
+    console.log('[dr] responder waiting for __dr_hello__');
     _drHandshakeTimeout = setTimeout(()=>{
       if(!_drReady){
-        console.warn('[dr] handshake timeout — Double Ratchet не завершён за 15с');
+        console.warn('[dr] handshake timeout (responder) — __dr_hello__ не получен за 15с');
         sysMsg('⚠ Шифрование не установлено — попробуйте переподключиться');
       }
     }, 15000);
-  }catch(err){
-    _dbgPush('warn', ['[dr] onConn error:', err.message, 'dc.readyState=' + dc.readyState]);
-    try{ dc.send(await makeIdentityMsg(lastPeerPubKeyHex||'')); }catch(e2){ _dbgPush('warn', ['[dr] fallback identity error:', e2.message]); }
   }
 
   // Отправляем оффлайн-очередь после установки соединения
@@ -15388,7 +15402,7 @@ async function startAs(r){
     setStat('генерируем код...');
     showStep('a1');
     showInfoBanner('a1');
-    createPC();dc=pc.createDataChannel('chat',{ordered:true});setupDC();
+    createPC();dc=pc.createDataChannel('chat',{ordered:true});_drIsInitiator=true;setupDC();
     await pc.setLocalDescription(await pc.createOffer());
     await waitIce();
     $('a1s').style.display='none';
@@ -15441,7 +15455,7 @@ async function doAccept(offer,retry=0){
   try{if(pc){pc._cleanup&&pc._cleanup();pc.close();}}catch(e){}
   pc=null;dc=null;
   createPC();
-  pc.ondatachannel=e=>{dc=e.channel;setupDC();};
+  pc.ondatachannel=e=>{dc=e.channel;_drIsInitiator=false;setupDC();};
   await pc.setRemoteDescription(new RTCSessionDescription(offer));
   await pc.setLocalDescription(await pc.createAnswer());
   setStat('генерируем ответный код...');
@@ -18545,6 +18559,7 @@ async function _handleSigConnRelay(sig, peerId, role, offerSdp, scheduleCleanup)
   if(role === 'i'){
     // Инициатор: offer уходит немедленно (Trickle ICE — не ждём waitIce)
     dc = pc.createDataChannel('chat', { ordered: true }); // pc создан выше
+    _drIsInitiator = true;
     setupDC();
     await pc.setLocalDescription(await pc.createOffer());
     const offerWithFp = { type: pc.localDescription.type, sdp: pc.localDescription.sdp, _callerFp: myFingerprint || '' };
@@ -18556,7 +18571,7 @@ async function _handleSigConnRelay(sig, peerId, role, offerSdp, scheduleCleanup)
     const cleanSdp = (offerSdp && offerSdp._callerFp !== undefined)
       ? { type: offerSdp.type, sdp: offerSdp.sdp }
       : offerSdp;
-    pc.ondatachannel = e => { dc = e.channel; setupDC(); };
+    pc.ondatachannel = e => { dc = e.channel; _drIsInitiator = false; setupDC(); };
     await pc.setRemoteDescription(new RTCSessionDescription(cleanSdp));
     _remoteReady = true;
     await _applyIceBuf(); // применяем кандидатов пришедших до offer
@@ -22126,6 +22141,33 @@ async function connectToContact(fp, opts={}){
   // Федерация: разрешаем сервер контакта (перебираем servers[])
   const peerSigUrl = await _resolveFederatedServer(fp);
   joinSigRoom(roomCode, myFingerprint, peerSigUrl);
+}
+
+// ── Применить результат presence-проверки для одного контакта ──────────────────
+// Единая точка записи в _presenceCache — обновляет кеш, dot в UI, шапку чата,
+// и триггерит авто-реконнект при переходе online.
+function _applyPresenceResult(fp, result) {
+  const prev = _presenceCache[fp];
+  _presenceCache[fp]     = result;
+  _presenceCacheTime[fp] = (result === 'checking') ? 0 : Date.now();
+
+  // Обновляем dot без полного ре-рендера списка контактов
+  const dot = document.getElementById('pd-' + fp);
+  if (dot) {
+    const titles = { online: 'онлайн', offline: 'офлайн', checking: 'проверяем...' };
+    dot.className = 'ci-presence-dot ' + (result || 'offline');
+    dot.title     = titles[result] || '';
+  }
+
+  // Шапка открытого чата
+  if (typeof _updatePeerLastSeenHeader === 'function') {
+    _updatePeerLastSeenHeader(fp);
+  }
+
+  // Триггер авто-реконнекта и прочих обработчиков при переходе online
+  if (result === 'online' && prev !== 'online') {
+    if (typeof _onPeerCameOnline === 'function') _onPeerCameOnline(fp);
+  }
 }
 
 // ── Heartbeat для контактов ─────────────────────────────────────────────────────

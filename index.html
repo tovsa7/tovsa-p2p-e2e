@@ -6531,10 +6531,10 @@ let _beaconTimer          = null;
 // Пометить контакт онлайн по его postоянному pubKeyHex
 // Вызывается из _handleRelay при получении beacon
 async function _beaconMarkOnline(fromPubKeyHex) {
-  if (!fromPubKeyHex) return;
+  if (!fromPubKeyHex || fromPubKeyHex.length !== 64) return;
   try {
     // Конвертируем pubKeyHex → fingerprint для _presenceCache
-    const fp = await _pubHexToFp(fromPubKeyHex);
+    const fp = await window._pubHexToFp(fromPubKeyHex);
     if (!fp) return;
     // Используем существующую систему кеша
     _applyPresenceResult(fp, 'online');
@@ -14341,6 +14341,13 @@ async function onConn(){
       idbSet('meta','offlineQueue', _offlineQueue).catch(()=>{});
       for(const item of queue){
         if(dc && dc.readyState === 'open'){
+          // Ответчик: CKs появляется только после первого DH ratchet (получения __dr__)
+          // Не пытаемся отправить если цепь отправки ещё не инициализирована
+          if(!_drState?.CKs) {
+            console.warn('[dr] offline queue: CKs not ready, re-queuing item');
+            _offlineQueue.push(item);
+            continue;
+          }
           const pkt = {__msg__:true, ts:item.ts, text:item.text};
           if(item.replyText){ pkt.replyText=item.replyText; pkt.replySender=item.replySender; pkt.replyTs=item.replyTs; }
           if(item.fwdFrom) pkt.fwdFrom = item.fwdFrom;
@@ -24430,6 +24437,9 @@ document.addEventListener('visibilitychange', ()=>{
     }
 
   });
+
+  // Экспортируем утилиты, которые нужны глобально
+  window._pubHexToFp = _pubHexToFp;
 
 })();
 // ══════════════════════════════════════════════════════════════════════════════

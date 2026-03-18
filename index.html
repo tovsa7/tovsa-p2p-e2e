@@ -3512,6 +3512,66 @@ let currentPeerOfferedName=null;
 //
 //   Пропущенные сообщения: MKSKIPPED: Map<"dhpub:n", MK> — хранятся до DR_MAX_SKIP
 //
+// ── ПОЛНЫЙ ФЛОУ УСТАНОВКИ СОЕДИНЕНИЯ ─────────────────────────────────────────
+//
+//  1. WebRTC сигналинг (joinSigRoom / _handleSigConnRelay):
+//     Инициатор (role='i'): pc.createDataChannel() → _drIsInitiator=true → setupDC()
+//     Ответчик  (role='r'): pc.ondatachannel       → _drIsInitiator=false → setupDC()
+//
+//     ВАЖНО: _drIsInitiator выставляется ДО setupDC(), который вызывает _e2eReset().
+//     В setupDC() флаг сохраняется/восстанавливается вокруг _e2eReset() чтобы не затереть.
+//
+//  2. DataChannel открыт → onConn():
+//     Инициатор: _drInitiateHandshake() → отправляет __dr_hello__ каждые 300мс до ack
+//     Ответчик:  ждёт __dr_hello__, ничего не отправляет (нет CKs до первого DH ratchet)
+//
+//  3. Ответчик получает __dr_hello__ (dc.onmessage):
+//     _drHelloProcessing=true  ← mutex против дублей при повторах hello за 300мс
+//     _drHandleHello(j) → генерирует EK_B, вычисляет masterSecret, _drInitState(false)
+//     отправляет __dr_hello_ack__
+//     _drPendingIdentity = sessionBinding  ← identity будет отправлена после первого __dr__
+//     (нет CKs у ответчика — отправлять нельзя пока инициатор не пришлёт первый __dr__)
+//
+//  4. Инициатор получает __dr_hello_ack__ (dc.onmessage):
+//     _drHandleHelloAck(j) → вычисляет masterSecret, _drInitState(true)
+//     _drInitState для инициатора: выполняет первый ratchet step с новым DHs →
+//       CKs = KDF_RK(RK, DH(newDHs, EK_B)).ck  ← инициатор может отправлять
+//       RK обновлён после этого шага
+//     identity отправляется немедленно через _drSend(makeIdentityMsg())
+//     RK при подписании = RK после первого ratchet step
+//
+//  5. Ответчик получает первый __dr__ (dc.onmessage):
+//     _drDecryptMsg: видит dh=newDHs.pub ≠ DHr=EK_A → _drRatchetStep(newDHs.pub)
+//       CKr = KDF_RK(RK, DH(EK_B, newDHs)).ck  ← симметрично CKs инициатора ✓
+//       RK обновлён, CKs=null (будет заполнен при первой отправке)
+//     _handleDecrypted → verifyIdentityMsg → _daDeriveIdMacKey использует текущий RK
+//       ВАЖНО: верификация до auto-ratchet, иначе RK расходится
+//     auto-ratchet перед отправкой identity:
+//       CKs = KDF_RK(RK, DH(newDHs2, newDHs)).ck
+//       RK обновлён снова
+//     identity подписывается с новым RK → отправляется через _drSend
+//
+//  6. Инициатор получает identity ответчика (__dr__):
+//     _drDecryptMsg: видит dh=newDHs2 → _drRatchetStep(newDHs2)
+//       CKr = KDF_RK(RK, DH(newDHs, newDHs2)).ck  ← симметрично CKs ответчика ✓
+//       RK после этого совпадает с RK ответчика при подписании ✓
+//     verifyIdentityMsg → OK
+//     Обе стороны верифицированы, чат открывается.
+//
+//  7. Последующие сообщения:
+//     При каждой отправке: _drSend → _drSendQueue (последовательная очередь!)
+//     Если CKs=null (после ratchetStep): auto-ratchet в _drEncryptMsg
+//       CKs = KDF_RK(RK, DH(newDHs, DHr)).ck
+//     При каждом получении нового DHpub: _drRatchetStep → CKr, CKs=null
+//
+//  КЛЮЧЕВЫЕ ИНВАРИАНТЫ:
+//  - _drSendQueue гарантирует последовательность: параллельные _drSend не вызовут
+//    auto-ratchet дважды (race condition → несинхронизированные MK)
+//  - CKs явно обнуляется в _drRatchetStep → auto-ratchet всегда выполняется при
+//    первой отправке после получения нового DHpub
+//  - _handleDecrypted вызывается ДО auto-ratchet при отправке identity ответчика →
+//    RK при верификации входящего = RK при подписании исходящего
+//
 // ── ИНИЦИАЛИЗАЦИЯ И ИНТЕГРАЦИЯ ───────────────────────────────────────────────
 //   Инициатор (onConn):
 //     helloMsg = await _drInitiateHandshake()  → dc.send(JSON.stringify(helloMsg))
@@ -3593,9 +3653,11 @@ let _drState = null;
     isInit:    boolean         — мы инициатор
   }
 */
-let _drReady      = false;  // алиас _drState?.ready для быстрой проверки
-let _drPendingOut = [];    // сообщения в очереди до завершения хэндшейка
-let _drIsInitiator = false; // true если мы инициатор DR-хэндшейка (createDataChannel)
+let _drReady            = false;  // алиас _drState?.ready для быстрой проверки
+let _drPendingOut       = [];     // сообщения в очереди до завершения хэндшейка
+let _drIsInitiator      = false;  // true если мы инициатор DR-хэндшейка (createDataChannel)
+let _drPendingIdentity  = null;   // sessionBinding для отложенной отправки identity (ответчик)
+let _drHelloProcessing  = false;  // mutex: защита от параллельной обработки дублей __dr_hello__
 
 // ── Crypto helpers ─────────────────────────────────────────────────────────────
 
@@ -3752,12 +3814,41 @@ async function _drKdfRoot(rk, dhOut) {
  * @param {{ pub: Uint8Array, privJwk }} myEK — наш ephemeral keypair
  * @param {Uint8Array} theirEKpub — ephemeral pub собеседника
  */
+/**
+ * Инициализировать DR state после X3DH-lite хэндшейка.
+ *
+ * Обе стороны вычисляют одинаковый masterSecret (см. X3DH блок выше).
+ *
+ * После инициализации:
+ *   Ответчик (isInit=false): CKs=null, CKr=CK — может только принимать.
+ *     CKs появится при первой отправке через auto-ratchet в _drEncryptMsg.
+ *
+ *   Инициатор (isInit=true): выполняет первый DH ratchet step с новым DHs:
+ *     newDHs = генерируем
+ *     (RK', CKs) = KDF_RK(RK, DH(newDHs, EK_B))
+ *     Это зеркалит _drRatchetStep(newDHs.pub) у ответчика:
+ *       (RK', CKr) = KDF_RK(RK, DH(EK_B, newDHs.pub)) — симметрично ✓
+ *     Первое сообщение инициатора содержит dh=newDHs.pub → ответчик
+ *     видит новый pub (≠ DHr=EK_A) → _drRatchetStep → CKr = CKs инициатора.
+ *
+ * ВАЖНО: RK после initState у инициатора = RK после _drRatchetStep у ответчика.
+ * Это необходимо для совпадения _daDeriveIdMacKey при подписании/верификации identity.
+ *
+ * @param {Uint8Array} masterSecret — 32 bytes из X3DH (zeroed после использования)
+ * @param {boolean} isInit — true если мы инициатор
+ * @param {{ pub: Uint8Array, privJwk }} myEK — наш ephemeral keypair
+ * @param {Uint8Array} theirEKpub — ephemeral pub собеседника
+ */
 async function _drInitState(masterSecret, isInit, myEK, theirEKpub) {
   // Первый DH ratchet step: из masterSecret → RK + первый chain key
   const dhOut = await _drDH(myEK.privJwk, theirEKpub);
   const { rkNew: RK, ckNew: CK } = await _drKdfRoot(masterSecret, dhOut);
   dhOut.fill(0);       // zeroing: shared secret не нужен после деривации
   masterSecret.fill(0); // zeroing: masterSecret не нужен после инициализации
+
+  // [diag]
+  const _ck_hex = Array.from(CK.slice(0,4)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  const _rk_hex = Array.from(RK.slice(0,4)).map(b=>b.toString(16).padStart(2,'0')).join('');
 
   _drState = {
     RK,
@@ -3773,12 +3864,31 @@ async function _drInitState(masterSecret, isInit, myEK, theirEKpub) {
     isInit,
   };
 
-  // Инициатор генерирует НОВЫЙ DHs после init.
-  // Иначе: первое сообщение инициатора содержит dh=EK_A.pub, но у ответчика
-  // уже DHr=EK_A.pub → не триггерится DH ratchet → ответчик никогда не получит CKs.
-  // Новый DHs.pub ≠ EK_A.pub → ответчик видит новый pub → DH ratchet → CKs инициализируется.
+  // Инициатор генерирует НОВЫЙ DHs и выполняет первый ratchet step.
+  // Зеркалит _drRatchetStep ответчика точно: два KDF_RK шага.
+  // Шаг 1: DH(newDHs, EK_B) → rk1, CKs  (CKs = CKr ответчика ✓)
+  // Шаг 2: DH(newDHs2, EK_B) → rk2, следующий sending chain
+  //   НО первое сообщение шифруется CKs из шага 1.
+  //   RK после шага 1 = rk1, что и есть RK ответчика после его первого KDF.
+  //   Ответчик затем делает шаг 2 для своего CKs — его RK становится rk2.
+  //   identity MAC вычисляется на момент отправки:
+  //     инициатор отправляет identity ДО получения ответного __dr__ → RK=rk1
+  //     ответчик верифицирует identity ПОСЛЕ своего ratchet шага 1 → RK=rk1 тоже ✓
+  //     (второй шаг ответчика происходит только при следующем входящем __dr__)
   if (isInit) {
-    _drState.DHs = await _drGenDH();
+    const newDHs  = await _drGenDH();
+    const dhStep  = await _drDH(newDHs.privJwk, theirEKpub);
+    const { rkNew: rk1, ckNew: CKs1 } = await _drKdfRoot(_drState.RK, dhStep);
+    dhStep.fill(0);
+    _drState.RK.fill(0);
+    _drState.RK  = rk1;
+    _drState.CKs = CKs1;
+    _drState.DHs = newDHs;
+    _drState.DHr = theirEKpub;
+    // [diag]
+    const _cks1_hex   = Array.from(CKs1.slice(0,4)).map(b=>b.toString(16).padStart(2,'0')).join('');
+    const _rk1_hex    = Array.from(rk1.slice(0,4)).map(b=>b.toString(16).padStart(2,'0')).join('');
+    const _newdhs_hex = Array.from(newDHs.pub.slice(0,4)).map(b=>b.toString(16).padStart(2,'0')).join('');
   }
 
   _drReady = true;
@@ -3791,6 +3901,23 @@ async function _drInitState(masterSecret, isInit, myEK, theirEKpub) {
  * и обновляет RK, CKs (новый sending chain).
  * @param {Uint8Array} theirNewDHpub
  */
+/**
+ * DH ratchet step при получении нового DHpub от собеседника.
+ *
+ * По Signal DR spec — один KDF_RK шаг:
+ *   (RK', CKr) = KDF_RK(RK, DH(DHs, theirNewDHpub))
+ *
+ * После шага генерируется новый DHs для следующего исходящего ratchet.
+ * CKs явно обнуляется — auto-ratchet в _drEncryptMsg создаст новый CKs
+ * при первой отправке после этого шага.
+ *
+ * ИНВАРИАНТ: CKs=null после каждого _drRatchetStep.
+ * Это гарантирует что auto-ratchet в _drEncryptMsg всегда выполняется
+ * при первой отправке после получения нового DHpub. Без явного null
+ * старый CKs остаётся и шифрование идёт со старой цепью → decrypt error.
+ *
+ * @param {Uint8Array} theirNewDHpub — новый DHs.pub собеседника
+ */
 async function _drRatchetStep(theirNewDHpub) {
   const st = _drState;
 
@@ -3802,23 +3929,26 @@ async function _drRatchetStep(theirNewDHpub) {
   st.Ns  = 0;
   st.Nr  = 0;
 
-  // Receiving chain из нового DHpub
-  const dhOut1 = await _drDH(st.DHs.privJwk, theirNewDHpub);
-  const { rkNew: rk1, ckNew: ckr } = await _drKdfRoot(st.RK, dhOut1);
-  dhOut1.fill(0); // zeroing: shared secret не нужен после деривации
+  // По Signal DR spec: один KDF_RK шаг:
+  // (RK', CKr) = KDF_RK(RK, DH(DHs, theirNewDHpub))
+  const dhOut = await _drDH(st.DHs.privJwk, theirNewDHpub);
+  const { rkNew: rkNew, ckNew: ckr } = await _drKdfRoot(st.RK, dhOut);
+  dhOut.fill(0);
 
-  // Новый sending keypair + новый sending chain
-  const newDHs  = await _drGenDH();
-  const dhOut2  = await _drDH(newDHs.privJwk, theirNewDHpub);
-  const { rkNew: rk2, ckNew: cks } = await _drKdfRoot(rk1, dhOut2);
-  dhOut2.fill(0); // zeroing
-  rk1.fill(0);    // zeroing: промежуточный RK не нужен
+  // Генерируем новый DHs для следующего ratchet step (не для текущего CKs)
+  const newDHs = await _drGenDH();
+
+  // [diag]
+  const _newdh_hex = Array.from(theirNewDHpub.slice(0,4)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  const _myDHs_hex = Array.from(st.DHs.pub.slice(0,4)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  const _ckr_hex   = Array.from(ckr.slice(0,4)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  const _rk_hex    = Array.from(rkNew.slice(0,4)).map(b=>b.toString(16).padStart(2,'0')).join('');
 
   st.DHs = newDHs;
   st.DHr = theirNewDHpub;
-  st.RK  = rk2;
-  st.CKs = cks;
+  st.RK  = rkNew;
   st.CKr = ckr;
+  st.CKs = null; // обнуляем sending chain — auto-ratchet выполнится при следующей отправке
 
   // Zeroing старых ключей после замены
   oldCKr?.fill(0);
@@ -3829,16 +3959,42 @@ async function _drRatchetStep(theirNewDHpub) {
 
 /**
  * Зашифровать сообщение через Double Ratchet sending chain.
- * Каждый вызов продвигает CKs → новый MK (удаляется после использования).
+ *
+ * Если CKs=null (после _drRatchetStep — нет sending chain):
+ *   auto-ratchet: (RK', CKs) = KDF_RK(RK, DH(DHs.priv, DHr))
+ *   Это происходит при первой отправке после получения нового DHpub.
+ *   DHs был сгенерирован в _drRatchetStep, DHr = последний полученный pub.
+ *
+ * ВАЖНО: вызывается только через _drSend который сериализует вызовы через
+ * _drSendQueue. Параллельные вызовы _drEncryptMsg привели бы к тому что
+ * несколько async вызовов видят CKs=null одновременно → несколько auto-ratchet
+ * с одинаковыми параметрами → разные n для одной chain → decrypt error у получателя.
+ *
  * @param {string|ArrayBuffer} payload
- * @returns {Promise<Object>} wire message: { _t, dh?, n, pn, ct }
+ * @returns {Promise<Object>} wire message: { _t, dh?, n, pn, ct, bin }
  */
 async function _drEncryptMsg(payload) {
   if (!_drState?.ready) throw new Error('DR not ready');
   const st = _drState;
 
-  // Если CKs не инициализирован (ответчик ждёт первого DH ratchet от инициатора)
-  if (!st.CKs) throw new Error('DR: no sending chain yet');
+  // Если CKs не инициализирован — выполняем ratchet step для получения sending chain.
+  // Это происходит когда сторона только что получила новый DHpub (через _drRatchetStep)
+  // и теперь хочет отправить сообщение. По Signal DR:
+  // (RK', CKs) = KDF_RK(RK, DH(newDHs, DHr))
+  if (!st.CKs) {
+    if (!st.DHr) throw new Error('DR: no sending chain and no DHr for ratchet');
+    const dhOut = await _drDH(st.DHs.privJwk, st.DHr);
+    const { rkNew, ckNew: CKs } = await _drKdfRoot(st.RK, dhOut);
+    dhOut.fill(0);
+    st.RK.fill(0);
+    st.RK  = rkNew;
+    st.CKs = CKs;
+    st.Ns  = 0;
+    // [diag]
+    const _cks_hex = Array.from(CKs.slice(0,4)).map(b=>b.toString(16).padStart(2,'0')).join('');
+    const _dhr_hex = Array.from(st.DHr.slice(0,4)).map(b=>b.toString(16).padStart(2,'0')).join('');
+    const _dhs_hex = Array.from(st.DHs.pub.slice(0,4)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
 
   const { mk, ckNext } = await _drKdfChain(st.CKs);
   st.CKs = ckNext;
@@ -3851,6 +4007,10 @@ async function _drEncryptMsg(payload) {
     pn:  st.PN,
     dh:  includeDH ? _drB64u(st.DHs.pub) : undefined,
   };
+  // [diag]
+  if (includeDH) {
+    const _dh_hex = Array.from(st.DHs.pub.slice(0,4)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
   st.Ns++;
 
   if (typeof payload === 'string') {
@@ -3998,6 +4158,12 @@ async function _drHandleHello(msg) {
   );
   dh1.fill(0); dh2.fill(0); dh3.fill(0); // zeroing DH outputs
 
+  // [diag] логируем первые байты masterSecret для сравнения с инициатором
+  const _ms_hex = Array.from(masterSecret.slice(0,4)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  const _ekA_hex = Array.from(theirEKpub.slice(0,4)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  const _ekB_hex = Array.from(_drMyEK.pub.slice(0,4)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  const _ikA_hex = theirIKpub ? Array.from(theirIKpub.slice(0,4)).map(b=>b.toString(16).padStart(2,'0')).join('') : 'null';
+
   // Ответчик: isInit=false, myEK=EK_B, theirEKpub=EK_A
   await _drInitState(masterSecret, false, _drMyEK, theirEKpub);
 
@@ -4032,6 +4198,12 @@ async function _drHandleHelloAck(msg) {
   );
   dh1.fill(0); dh2.fill(0); dh3.fill(0); // zeroing DH outputs
 
+  // [diag] логируем первые байты masterSecret для сравнения с ответчиком
+  const _ms_hex = Array.from(masterSecret.slice(0,4)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  const _ekA_hex = Array.from(_drMyEK.pub.slice(0,4)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  const _ekB_hex = Array.from(theirEKpub.slice(0,4)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  const _ikB_hex = theirIKpub ? Array.from(theirIKpub.slice(0,4)).map(b=>b.toString(16).padStart(2,'0')).join('') : 'null';
+
   // Инициатор: isInit=true, myEK=EK_A, theirEKpub=EK_B
   await _drInitState(masterSecret, true, _drMyEK, theirEKpub);
   _drMyEK = null; // EK больше не нужен
@@ -4044,6 +4216,19 @@ async function _drHandleHelloAck(msg) {
  * Заменяет старый _e2eSend().
  * @param {string|ArrayBuffer} payload
  */
+/**
+ * Безопасная отправка через Double Ratchet.
+ * Заменяет старый _e2eSend().
+ *
+ * Все вызовы выполняются последовательно через _drSendQueue (Promise chain).
+ * Это критично: параллельные async вызовы _drEncryptMsg с CKs=null вызвали бы
+ * race condition — все видели бы CKs=null → несколько auto-ratchet → рассинхрон.
+ *
+ * Если DR ещё не готов (_drReady=false) — сообщение ставится в _drPendingOut
+ * и отправляется после завершения хэндшейка.
+ *
+ * @param {string|ArrayBuffer} payload
+ */
 function _drSend(payload) {
   const doSend = async () => {
     try {
@@ -4052,7 +4237,8 @@ function _drSend(payload) {
     } catch(e) { console.warn('[dr] send error:', e.message); }
   };
   if (_drReady) {
-    doSend();
+    // Выполняем последовательно через цепочку промисов
+    _drSendQueue = _drSendQueue.then(doSend, doSend);
   } else {
     _drPendingOut.push(doSend);
   }
@@ -4086,11 +4272,14 @@ function _drReset() {
     _drState.CKr?.fill(0);
     _drState.RK?.fill(0);
   }
-  _drState       = null;
-  _drReady       = false;
-  _drPendingOut  = [];
-  _drMyEK        = null;
-  _drIsInitiator = false;
+  _drState            = null;
+  _drReady            = false;
+  _drPendingOut       = [];
+  _drMyEK             = null;
+  _drIsInitiator      = false;
+  _drPendingIdentity  = null;
+  _drHelloProcessing  = false;
+  _drSendQueue        = Promise.resolve();
 }
 
 // ── Aliases ────────────────────────────────────────────────────────────────────
@@ -6813,6 +7002,8 @@ const DA_LABEL = 'da-auth:';
  */
 async function _daDeriveIdMacKey() {
   if (!_drState?.RK) throw new Error('DA: DR state не готов');
+  // [diag]
+  const _rk_hex = Array.from(_drState.RK.slice(0,4)).map(b=>b.toString(16).padStart(2,'0')).join('');
   const keyMaterial = await _hkdf(_drState.RK, new Uint8Array(32), DA_INFO, 32);
   return crypto.subtle.importKey(
     'raw', keyMaterial, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']
@@ -6881,6 +7072,8 @@ async function makeIdentityMsg(recipientPubHex){
   } catch(_){}
 
   const macKey = await _daDeriveIdMacKey();
+  // [diag]
+  const _rHex_preview = rHex ? rHex.slice(0,8) : '(empty)';
   const mac    = await _daSign(macKey, ts, rHex, pubHex);
 
   return JSON.stringify({
@@ -6925,6 +7118,9 @@ async function verifyIdentityMsg(msg){
     }
 
     const macKey = await _daDeriveIdMacKey();
+    // [diag]
+    const _rHex_preview = rHex ? rHex.slice(0,8) : '(empty)';
+    const _pubHex_preview = pubHex.slice(0,8);
     const ok     = await _daVerify(macKey, mac, ts, rHex, pubHex);
     if(!ok) return{valid:false,reason:'mac'};
 
@@ -13950,7 +14146,13 @@ async function _handleDecrypted(data, getIdDone, setIdDone){
 // ── Инициализация DataChannel ─────────────────────────────────────────────────
 function setupDC(){
   dc.binaryType = 'arraybuffer';
+  // _drIsInitiator выставляется caller'ом ДО setupDC().
+  // _e2eReset() внутри setupDC сбросил бы его в false, поэтому сохраняем/восстанавливаем.
+  // Инициатор: createDataChannel() → _drIsInitiator=true → setupDC()
+  // Ответчик:  ondatachannel      → _drIsInitiator=false → setupDC()
+  const _savedIsInitiator = _drIsInitiator; // сохраняем до _e2eReset
   _e2eReset();
+  _drIsInitiator = _savedIsInitiator;       // восстанавливаем после сброса
   _dmStopTicker(); // сбрасываем тикер при новом DC
 
   // idDone — флаг что identity собеседника верифицирована
@@ -13974,18 +14176,21 @@ function setupDC(){
 
       // 1. DR хэндшейк — ответчик получает hello, отправляет hello_ack
       if(j._t === '__dr_hello__'){
-        if(_drReady) return;
+        if(_drReady || _drHelloProcessing) return;
+        _drHelloProcessing = true;
         try{
           const ack = await _drHandleHello(j);
           if(dc && dc.readyState==='open') dc.send(JSON.stringify(ack));
           _e2eUpdateLockBadge();
-          const sessionBinding = lastPeerPubKeyHex || '';
-          try{ _drSend(await makeIdentityMsg(sessionBinding)); }catch(err){ _dbgPush('warn', ['[dr] identity send error:', err.message]); }
-          // Флашим pending
+          // Ответчик: CKs появится только после первого входящего __dr__ от инициатора.
+          // Откладываем отправку identity до этого момента.
+          _drPendingIdentity = lastPeerPubKeyHex || '';
+          // Флашим pending — они тоже встанут в очередь через _drSend
           const pending = _drPendingOut.splice(0);
           for(const fn of pending) fn();
           setTimeout(()=>{ try{ sysMsg('🔒 Сквозное шифрование установлено (Double Ratchet)'); }catch(_){} }, 0);
         }catch(err){ _dbgPush('warn', ['[dr] hello error:', err.message]); }
+        finally{ _drHelloProcessing = false; }
         return;
       }
 
@@ -14009,7 +14214,32 @@ function setupDC(){
         if(!_drReady) return;
         try{
           const plain = await _drDecryptMsg(j);
+          // Сначала обрабатываем полученное сообщение (identity верификация использует текущий RK)
+          // ПОРЯДОК КРИТИЧЕН: _handleDecrypted → verifyIdentityMsg → _daDeriveIdMacKey(RK)
+          // RK на этом этапе = RK после ratchetStep = тот же RK с которым инициатор подписал
+          // Если бы мы сначала сделали auto-ratchet (для makeIdentityMsg), RK бы изменился
+          // и верификация входящей identity провалилась бы.
           await _handleDecrypted(plain, getIdDone, setIdDone);
+          // Ответчик: отправляем отложенную identity.
+          // Форсируем ratchet ДО makeIdentityMsg чтобы RK был обновлён при подписании MAC.
+          // (инициатор при верификации тоже сделает ratchet, получит тот же RK)
+          if(_drPendingIdentity !== null){
+            const sessionBinding = _drPendingIdentity;
+            _drPendingIdentity = null;
+            // Форсируем ratchet если CKs ещё null (обновляет RK до подписания)
+            if(_drState && !_drState.CKs && _drState.DHr) {
+              const dhOut = await _drDH(_drState.DHs.privJwk, _drState.DHr);
+              const { rkNew, ckNew: CKs } = await _drKdfRoot(_drState.RK, dhOut);
+              dhOut.fill(0);
+              _drState.RK.fill(0);
+              _drState.RK  = rkNew;
+              _drState.CKs = CKs;
+              _drState.Ns  = 0;
+            }
+            // Теперь CKs готов и RK обновлён → makeIdentityMsg подписывает правильным RK
+            // _drSend → _drEncryptMsg не будет делать ratchet повторно (CKs уже есть)
+            try{ _drSend(await makeIdentityMsg(sessionBinding)); }catch(err){ _dbgPush('warn', ['[dr] deferred identity send error:', err.message]); }
+          }
         }catch(err){
           console.warn('[dr] decrypt error:', err);
           setTimeout(()=>{ try{ sysMsg('⚠ Не удалось расшифровать сообщение'); }catch(_){} }, 0);

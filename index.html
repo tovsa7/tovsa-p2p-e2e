@@ -6752,7 +6752,7 @@ function restoreData(event){
       toast('Данные восстановлены — перезагрузите страницу');
       setTimeout(()=>location.reload(),1800);
     }catch(err){
-      toast('Ошибка: неверный файл бэкапа');
+      console.warn('[backup] restore failed:', err.message);
     }
   };
   reader.readAsText(file);
@@ -9405,7 +9405,7 @@ class TovSaSignaling {
     }
     this._wsSend({ type: 'RELAY', to, kind, data });
   }
-  _wsSend(msg) { if (this._ws?.readyState === WebSocket.OPEN) { try { this._ws.send(JSON.stringify(msg)); } catch(_) {} } }
+  _wsSend(msg) { if (this._ws?.readyState === WebSocket.OPEN) { try { this._ws.send(JSON.stringify(msg)); } catch(e) { _dbgPush('warn', ['[sig] _wsSend failed:', e.message]); } } }
 }
 TovSaSignaling.PROTO_VERSION = 4; // должна совпадать с PROTO_VERSION на сервере
 
@@ -12036,7 +12036,7 @@ async function vrBeginRecording(kind, context){
   try {
     _stream = await navigator.mediaDevices.getUserMedia(constraints);
   } catch(e) {
-    toast('Нет доступа к ' + (kind==='circle' ? 'камере/микрофону' : 'микрофону'));
+    console.warn('[vr] getUserMedia failed:', e.name, e.message);
     return;
   }
   // Если запись уже отменена пока шёл getUserMedia — останавливаем стрим
@@ -14575,11 +14575,9 @@ async function mcallConfirmStart(){
   try{
     stream = await navigator.mediaDevices.getUserMedia(getVideoConstraints(video));
   }catch(e){
-    toast('Нет доступа к ' + (video ? 'камере/микрофону' : 'микрофону'));
+    console.warn('[mcall] getUserMedia failed:', e.name, e.message);
     return;
   }
-
-  _mc.state   = 'outgoing';
   _mc.video   = video;
   _mc.peerFp  = currentPeerFp;
   _mc.localStream = stream;
@@ -14640,7 +14638,7 @@ async function mcallAccept(withVideo){
   try{
     stream = await navigator.mediaDevices.getUserMedia(getVideoConstraints(withVideo));
   }catch(e){
-    toast('Нет доступа к ' + (withVideo ? 'камере/микрофону' : 'микрофону'));
+    console.warn('[mcall] getUserMedia (accept) failed:', e.name, e.message);
     _mcReset();
     return;
   }
@@ -14691,7 +14689,7 @@ async function mcallEnableVideo(){
     _mcFacingMode = 'environment';
   }catch(e){
     _mcCamLog('enable video fail: ' + (e.message||e.name), true);
-    toast('Нет доступа к камере: ' + (e.message || e.name)); return;
+    console.warn('[mcall] enableVideo failed:', e.name, e.message); return;
   }
   if(!videoTrack){ toast('Нет видеотрека'); return; }
 
@@ -15186,7 +15184,7 @@ async function mcallFlipCamera(){
   try{
     newStream = await _mcGetVideoStream(nextFacing, p);
   }catch(e){
-    toast('Не удалось переключить камеру: ' + (e.message || e.name));
+    console.warn('[mcall] flipCamera getVideoStream failed:', e.name, e.message);
     return;
   }
   const newTrack = newStream.getVideoTracks()[0];
@@ -15218,7 +15216,7 @@ async function mcallFlipCamera(){
       ? 'rgba(0,255,157,.25)' : 'rgba(255,255,255,.15)';
     toast(_mcFacingMode === 'user' ? '📷 Фронтальная камера' : '📷 Тыловая камера');
   } catch(e) {
-    toast('Ошибка замены трека: ' + (e.message || e.name));
+    console.warn('[mcall] replaceTrack failed:', e.name, e.message);
     try{ newTrack.stop(); }catch(_){}
   }
 }
@@ -15417,7 +15415,7 @@ async function applyAnswer(){
         showAlert(msg);
       }
     },8000);
-  }catch(e){toast('Неверный код — проверьте и вставьте снова')}
+  }catch(e){ console.warn('[connect] decode offer failed:', e.message); }
 }
 
 async function acceptOffer(){
@@ -15425,7 +15423,7 @@ async function acceptOffer(){
   try{await doAccept(await dec(raw));}
   catch(e){
     $('b1btn').disabled=false;$('b1status').style.display='none';
-    toast('Неверный код — проверьте и вставьте снова');
+    console.warn('[connect] acceptOffer failed:', e.message);
   }
 }
 
@@ -15761,7 +15759,7 @@ async function _saveWallpaper(){
     } else {
       await idbSet('meta', 'wallpaper', null);
     }
-  } catch(_){ toast('Не удалось сохранить обои'); }
+  } catch(e){ console.warn('[settings] saveWallpaper failed:', e.message); }
 }
 
 function _applyWallpaper(){
@@ -16340,9 +16338,8 @@ function fallbackCopy(text, onSuccess){
     if(ok){ if(onSuccess) onSuccess(); else toast('Скопировано'); }
     else   toast('Не удалось скопировать');
   }catch(e){
-    toast('Не удалось скопировать');
+    console.warn('[ui] fallbackCopy execCommand failed:', e.message);
   }
-  document.body.removeChild(ta);
 }
 
 // ── Reply ──
@@ -20840,7 +20837,7 @@ async function acceptContactRequest(idx) {
     await saveContactRequests(reqs);
     await renderContactRequestsList();
     renderContactRequestsBadge();
-  } catch(e) { toast('Ошибка: ' + e.message); }
+  } catch(e) { console.warn('[contacts] acceptContactRequest failed:', e.message); }
 }
 
 async function declineContactRequest(idx) {
@@ -20961,7 +20958,7 @@ async function acCreateInvite() {
     await _acLoadInvite();
     toast('✓ Ссылка создана');
   } catch(e) {
-    toast('Ошибка: ' + e.message);
+    console.warn('[invite] acCreateInvite failed:', e.message);
     if (btn) { btn.disabled = false; btn.textContent = '+ создать ссылку-приглашение'; }
   }
 }
@@ -20974,7 +20971,7 @@ async function acRevokeInvite() {
     _acCurrentInvite = null;
     await _acLoadInvite();
     toast('Ссылка удалена');
-  } catch(e) { toast('Ошибка: ' + e.message); }
+  } catch(e) { console.warn('[invite] acRevokeInvite failed:', e.message); }
 }
 
 function acCopyInvite() {
@@ -21091,7 +21088,7 @@ async function acImportContact() {
           closeAddContactScreen();
         } else { toast('Контакт уже есть'); }
       }
-    } catch(e) { toast('Ошибка: ' + e.message); }
+    } catch(e) { console.warn('[invite] acImportContact failed:', e.message); }
   }
 }
 
@@ -22739,7 +22736,7 @@ async function shareMyContactNative(){
       text: (myName ? myName + ' приглашает вас в Tovsa' : 'Добавьте меня в Tovsa'),
       url: link
     });
-  } catch(e){ if(e.name !== 'AbortError') toast('Ошибка шаринга'); }
+  } catch(e){ if(e.name !== 'AbortError') console.warn('[contacts] shareMyContact failed:', e.message); }
 }
 
 function copyMyContactCode(){
@@ -22785,13 +22782,13 @@ async function importContact(){
       const hash = await sha256(pubBytes);
       const fp   = bytesToFingerprint(hash);
       payload = { v:1, fp, pub: pubHex, name };
-    }catch(e){ toast('Ошибка разбора ключа'); return; }
+    }catch(e){ console.warn('[contacts] importContact key parse failed:', e.message); return; }
   } else {
     // Старый формат base64 JSON
     try{
       payload = JSON.parse(decodeURIComponent(escape(atob(raw))));
     }catch(e){
-      toast('Неверный формат кода'); return;
+      console.warn('[contacts] importContact base64 decode failed:', e.message); return;
     }
   }
 
@@ -22803,7 +22800,7 @@ async function importContact(){
     const hash = await sha256(pubBytes);
     const computedFp = bytesToFingerprint(hash);
     if(computedFp !== payload.fp){ toast('Ключ не соответствует коду'); return; }
-  }catch(e){ toast('Ошибка проверки ключа'); return; }
+  }catch(e){ console.warn('[contacts] importContact fp verify failed:', e.message); return; }
 
   const contacts = await getContacts();
   if(contacts[payload.fp]){
@@ -22924,10 +22921,8 @@ function _dbgPush(level, args){
     _origLog(...args);
     try {
       const s = _safe(args);
-      if(s.includes('[enc]') || s.includes('[identity]') || s.includes('[init]') ||
-         s.includes('[ntfy]') || s.includes('[sig]') || s.includes('[sync]') ||
-         s.includes('[vr]') || s.includes('[invite]') || s.includes('[manifest]') || s.includes('[version]') || s.includes('[sealed]') ||
-         s.includes('error') || s.includes('Error') || s.includes('failed')){
+      // Все сообщения с тегом вида [xxx] + явные слова об ошибках
+      if(/\[[a-z_0-9-]+\]/i.test(s) || s.includes('error') || s.includes('Error') || s.includes('failed')){
         _dbgPush('log', args);
       }
     } catch(_) {}
@@ -24114,7 +24109,7 @@ document.addEventListener('visibilitychange', ()=>{
       _refreshInviteList();
     } catch(e) {
       if (btn) { btn.disabled = false; btn.textContent = '+ пригласить'; }
-      toast('Ошибка: ' + e.message);
+      console.warn('[invite] create failed:', e.message);
     }
   };
 
@@ -24171,7 +24166,7 @@ document.addEventListener('visibilitychange', ()=>{
       if (!inv) { toast('Ссылка не найдена'); return; }
       const link = inv.url;
       navigator.clipboard.writeText(link).then(() => toast('Скопировано ✓')).catch(() => toast('Не удалось'));
-    } catch(e) { toast('Ошибка: ' + e.message); }
+    } catch(e) { console.warn('[invite] inviteCopyByIdx failed:', e.message); }
   };
 
   window.inviteRevoke = async function(idx, btn) {
@@ -24182,7 +24177,7 @@ document.addEventListener('visibilitychange', ()=>{
       if (inv) window._revokeInvite(inv.token);
       _refreshInviteList();
     } catch(e) {
-      toast('Ошибка: ' + e.message);
+      console.warn('[invite] inviteRevoke failed:', e.message);
       if (btn) { btn.disabled = false; btn.textContent = '✕'; }
     }
   };
@@ -25005,7 +25000,7 @@ async function idrInviteToRoom(){
     toast('✓ Приглашение в группу «' + (targetRoom.config?.name||'Группа') + '» отправлено');
     closeInfoDrawer();
   } catch(e){
-    toast('Ошибка: ' + e.message);
+    console.warn('[room] idrInviteToRoom failed:', e.message);
   }
 }
 
@@ -25031,7 +25026,7 @@ async function idrSubscribeToChannel(){
     if(typeof _activeFolderId!=='undefined') _activeFolderId='channels';
     showTab('schats');
   } catch(e){
-    toast('Ошибка: ' + e.message);
+    console.warn('[channel] idrSubscribeToChannel failed:', e.message);
   }
 }
 
@@ -25128,7 +25123,7 @@ async function roomCreateUI() {
     await roomsRenderList();
     roomOpenChat(room.roomId);
   } catch(e) {
-    toast('Ошибка: ' + e.message);
+    console.warn('[room] roomCreate failed:', e.message);
   }
 }
 
@@ -25307,7 +25302,7 @@ async function roomSendMessageUI() {
     if (inp) { inp.value = ''; inp.style.height = ''; }
     const rooms = await roomsLoad();
     await roomRenderMessages(_activeRoomId, rooms[_activeRoomId]);
-  } catch(e) { toast('Ошибка отправки: ' + e.message); }
+  } catch(e) { console.warn('[room] sendMessage failed:', e.message); }
 }
 
 async function roomSendFileUI(input) {
@@ -25326,7 +25321,7 @@ async function roomSendFileUI(input) {
     await roomSendMessage(_activeRoomId, '', fd);
     const rooms = await roomsLoad();
     await roomRenderMessages(_activeRoomId, rooms[_activeRoomId]);
-  } catch(e) { toast('Ошибка отправки файла: ' + e.message); }
+  } catch(e) { console.warn('[room] sendFile failed:', e.message); }
   finally { if (btn) { btn.disabled = false; btn.textContent = '📎'; } }
 }
 
@@ -25364,11 +25359,9 @@ async function roomKickUI(roomId, pubKeyHex) {
     const rooms = await roomsLoad();
     roomRenderMembers(rooms[roomId]);
   } catch(e) {
-    toast('Ошибка: ' + e.message);
+    console.warn('[room] kickMember failed:', e.message);
   }
 }
-
-// ── Room Roles UI ──────────────────────────────────────────────────────────────
 
 // Контекстное меню действий над участником
 function roomMemberMenu(event, roomId, pubKeyHex, currentRole) {
@@ -25437,10 +25430,7 @@ async function roomSetRoleUI(roomId, pubKeyHex, newRole) {
     toast(`✓ Роль изменена → ${newRole}`);
     const rooms = await roomsLoad();
     roomRenderMembers(rooms[roomId]);
-  } catch(e) { toast('Ошибка: ' + e.message); }
-}
-
-async function roomMuteUI(roomId, pubKeyHex) {
+  } catch(e) { console.warn('[room] setRole failed:', e.message); }
   document.getElementById('_room-member-menu')?.remove();
   const choice = prompt('Заглушить на сколько минут? (0 = снять заглушение)');
   if (choice === null) return;
@@ -25448,7 +25438,7 @@ async function roomMuteUI(roomId, pubKeyHex) {
   try {
     await roomMuteMember(roomId, pubKeyHex, mins * 60_000);
     toast(mins > 0 ? `✓ Заглушён на ${mins} мин` : '✓ Заглушение снято');
-  } catch(e) { toast('Ошибка: ' + e.message); }
+  } catch(e) { console.warn('[room] muteMember failed:', e.message); }
 }
 
 async function roomTransferOwnershipUI(roomId, pubKeyHex) {
@@ -25459,7 +25449,7 @@ async function roomTransferOwnershipUI(roomId, pubKeyHex) {
     toast('✓ Ownership передан');
     const rooms = await roomsLoad();
     roomRenderMembers(rooms[roomId]);
-  } catch(e) { toast('Ошибка: ' + e.message); }
+  } catch(e) { console.warn('[room] transferOwnership failed:', e.message); }
 }
 
 async function roomDeleteMessageUI(roomId, msgId) {
@@ -25469,7 +25459,7 @@ async function roomDeleteMessageUI(roomId, msgId) {
     const el = document.querySelector(`#room-msgs .msg[data-msgid="${CSS.escape(String(msgId))}"]`);
     if (el) el.remove();
     toast('✓ Сообщение удалено');
-  } catch(e) { toast('Ошибка: ' + e.message); }
+  } catch(e) { console.warn('[room] deleteMessage failed:', e.message); }
 }
 
 async function roomInviteUI() {
@@ -25501,7 +25491,7 @@ async function roomInviteUI() {
     const fresh = await roomsLoad();
     roomRenderMembers(fresh[_activeRoomId]);
   } catch(e) {
-    toast('Ошибка: ' + e.message);
+    console.warn('[room] inviteMember failed:', e.message);
   }
 }
 
@@ -25511,7 +25501,7 @@ async function roomRequestHistoryUI() {
     await roomRequestHistory(_activeRoomId);
     toast('↓ Запрос истории отправлен...');
   } catch(e) {
-    toast(e.message);
+    console.warn('[room] requestHistory failed:', e.message);
   }
 }
 
@@ -25736,7 +25726,7 @@ async function channelRotateKeyUI(channelId) {
     toast('✓ Ключ обновлён');
     channelOpenView(channelId);
   } catch(e) {
-    toast('Ошибка: ' + e.message);
+    console.warn('[channel] rotateKey failed:', e.message);
   }
 }
 
@@ -25785,7 +25775,7 @@ async function channelPublishPostUI() {
     await channelRenderPosts(_activeChannelId, channels[_activeChannelId]);
     toast('✓ Пост опубликован');
   } catch(e) {
-    toast('Ошибка: ' + e.message);
+    console.warn('[channel] publishPost failed:', e.message);
   }
 }
 
@@ -25814,7 +25804,7 @@ async function channelSubmitComment() {
     channelCloseComment();
     toast('✓ Комментарий отправлен администратору');
   } catch(e) {
-    toast('Ошибка: ' + e.message);
+    console.warn('[channel] submitComment failed:', e.message);
   }
 }
 
@@ -25838,7 +25828,7 @@ async function channelManageSubscribersUI(channelId) {
     await channelBanSubscriber(channelId, target.pubKeyHex);
     toast('✓ Забанен, ключ обновлён');
     channelOpenView(channelId);
-  } catch(e) { toast('Ошибка: ' + e.message); }
+  } catch(e) { console.warn('[channel] banSubscriber failed:', e.message); }
 }
 
 // Слушаем события каналов
@@ -25915,7 +25905,7 @@ async function deviceAddShowQR() {
     wrap.style.display = 'flex';
     wrap._inviteLink = link;
   } catch(e) {
-    toast('Ошибка: ' + e.message);
+    console.warn('[devices] generateQR failed:', e.message);
   }
 }
 
@@ -27857,7 +27847,7 @@ async function _dtListenForPacket(senderPubHex) {
         if (el) el.textContent = 'Расшифровываем...';
         await _dtReceiverImport(senderPubHex, { iv: msg.iv, d: msg.d });
       }
-    } catch(e) { toast('Ошибка получения: ' + e.message); }
+    } catch(e) { console.warn('[dt] receiver import failed:', e.message); }
   };
   window.addEventListener('tovsa-dt-msg', handler);
 
@@ -27984,7 +27974,7 @@ async function dtExportBackup() {
     URL.revokeObjectURL(url);
     toast('✓ Бэкап сохранён');
   } catch(e) {
-    toast('Ошибка: ' + e.message);
+    console.warn('[dt] exportBackup failed:', e.message);
   }
 }
 
@@ -28013,7 +28003,7 @@ async function dtImportBackup(file) {
     toast('✓ Данные восстановлены! Перезагружаем...');
     setTimeout(() => location.reload(), 1500);
   } catch(e) {
-    toast('Ошибка: неверный пароль или повреждённый файл');
+    console.warn('[dt] importBackup failed:', e.message);
   }
 }
 

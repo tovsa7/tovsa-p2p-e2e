@@ -385,6 +385,7 @@ textarea::placeholder{color:var(--mu)}
 .citem-queue-badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;background:var(--w);color:#000;font-size:9px;font-weight:700;border-radius:8px;margin-left:6px;letter-spacing:0}
 .ci-online-dot{width:9px;height:9px;border-radius:50%;background:var(--a);box-shadow:0 0 6px var(--a);animation:blink 2s infinite}
 .ci-presence-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;transition:background .3s,box-shadow .3s}
+.ci-presence-dot.online{background:var(--a);box-shadow:0 0 5px var(--a)}
 .ci-presence-dot.offline{background:var(--mu);box-shadow:none}
 .ci-presence-dot.checking{background:var(--w);box-shadow:0 0 5px var(--w);animation:blink 1s infinite}
 .presence-refresh-btn{margin-left:auto;background:none;border:none;color:var(--mu);font-size:12px;cursor:pointer;padding:4px 8px;font-family:inherit;transition:color .2s}
@@ -3446,6 +3447,10 @@ let _pushPrivKey=null, _pushPubKeyRaw=null;
 let currentPeerFp=null;
 // Имя которое собеседник передал при рукопожатии (до верификации из contacts)
 let currentPeerOfferedName=null;
+
+// Вибрация — тихо игнорируем если API недоступен (десктоп, некоторые браузеры).
+// Определяем здесь т.к. используется в блоке 3 раньше чем блок 4 где основное определение.
+function vibrate(ms){ try{ navigator.vibrate && navigator.vibrate(ms); }catch(_){} }
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Double Ratchet E2E Module v2.0

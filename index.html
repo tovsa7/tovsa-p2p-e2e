@@ -3578,6 +3578,7 @@ let _dcKeepaliveTimer = null;  // keepalive для основного DC
   }
 */
 let _drReady            = false;  // алиас _drState?.ready для быстрой проверки
+let _drSessionNonce     = 0;      // случайное число сессии — меняется при каждом _drInitState
 let _drPendingOut       = [];     // сообщения в очереди до завершения хэндшейка
 let _drIsInitiator      = false;  // true если мы инициатор DR-хэндшейка (createDataChannel)
 let _drPendingIdentity  = null;   // sessionBinding для отложенной отправки identity (ответчик)
@@ -3816,6 +3817,7 @@ async function _drInitState(masterSecret, isInit, myEK, theirEKpub) {
   }
 
   _drReady = true;
+  _drSessionNonce = (Math.random() * 0xFFFFFFFF) >>> 0;
   console.log('[dr] state initialized, isInit=' + isInit);
 }
 
@@ -4198,6 +4200,7 @@ function _drReset() {
   }
   _drState            = null;
   _drReady            = false;
+  _drSessionNonce     = 0;
   _drPendingOut       = [];
   _drMyEK             = null;
   _drIsInitiator      = false;
@@ -13618,8 +13621,7 @@ function createPC(){
     const s=pc.iceConnectionState;
     const inChat=$('sc').classList.contains('on') || !!_p2pReconnectFp;
     if(s==='disconnected'){
-      setStat('соединение нестабильно...');
-      if(inChat) $('dot').className='dot act';
+
       clearTimeout(pc._reconnectHint);
       if(!pc._iceRestartDone && role === 'i'){
         // ICE Restart: инициатор пробует переоткрыть ICE без пересоздания PC.
@@ -13644,7 +13646,7 @@ function createPC(){
       }
     }else if(s==='failed'){
       clearTimeout(pc._reconnectHint);
-      if(inChat) $('dot').className='dot';
+
       if(!pc._iceRestartDone && role === 'i'){
         // failed — пробуем рестарт один раз
         pc._iceRestartDone = true;
@@ -13662,8 +13664,6 @@ function createPC(){
       clearTimeout(pc._reconnectHint);
       pc._iceRestartDone = false; // успешно восстановились — сбрасываем флаг
       if(inChat){
-        setStat('подключено ✓');
-        $('dot').className='dot con';
         // Не показываем уведомление при тихом авто-реконнекте
         if(!_p2pReconnectFp){
           const peerName = window.peerNameCache || 'Собеседник';
@@ -13741,7 +13741,6 @@ const _connManager = (() => {
     try { if(pc){ clearTimeout(pc._connTimeout); pc._cleanup?.(); pc.close(); } } catch(_){}
     setTimeout(() => { pc = null; dc = null; }, 300);
     $('sc').dataset.active = '';
-    $('dot').className = 'dot';
     _p2pReconnectStop();
     if(typeof _updateChatConnStatus === 'function') _updateChatConnStatus();
     if(typeof _updateConnCounter === 'function') _updateConnCounter();
@@ -13879,8 +13878,7 @@ function _p2pHandleFailure(reason){
 
   if(!fp || !_pjOk){
     // Нет цели или signaling недоступен — только ручная кнопка
-    setStat('соединение разорвано');
-    return;
+      return;
   }
 
   const peerOnline = _presenceCache[fp] === 'online';
@@ -13888,11 +13886,9 @@ function _p2pHandleFailure(reason){
     // Собеседник онлайн → сразу начинаем автопереподключение
     _p2pReconnectStopped = false;
     _p2pReconnectFp = fp;
-    setStat('переподключаемся...');
     _p2pScheduleReconnect(fp, 0);
   } else {
     // Собеседник офлайн → ждём через presence
-    setStat('собеседник офлайн');
     _callOnlineWatching = fp;
     _p2pReconnectFp = fp;
     _p2pReconnectStopped = false;
@@ -13915,20 +13911,17 @@ async function _p2pScheduleReconnect(fp, attempt){
   if (!_amInitiator) {
     // Мы ждущая сторона — входящее соединение придёт через _startIncomingListener
     // Просто обновляем статус и ждём
-    setStat('ожидаем подключения...');
     return;
   }
 
   const delay = _P2P_RETRY_DELAYS[Math.min(attempt, _P2P_RETRY_DELAYS.length - 1)];
   const sec = Math.round(delay / 1000);
-  setStat(`переподключаемся... (${sec}с)`);
 
   _p2pReconnectTimer = setTimeout(async () => {
     if(_p2pReconnectStopped || _p2pReconnectFp !== fp) return;
 
     // Проверяем presence прямо перед попыткой (свежий результат)
     if(!_pjOk){
-      setStat('signaling недоступен');
       // Будем ждать восстановления маяка через _onPjStatusChange
       return;
     }
@@ -13936,12 +13929,10 @@ async function _p2pScheduleReconnect(fp, attempt){
     const peerOnline = _presenceCache[fp] === 'online';
     if(!peerOnline){
       // Ушёл офлайн — переходим в режим ожидания
-      setStat('собеседник офлайн');
       _callOnlineWatching = fp;
       return;
     }
 
-    setStat(`переподключаемся... (попытка ${attempt + 1})`);
     // Роль уже определена выше (_amInitiator) — инициируем
     connectToContact(fp, { stayInChat: true });
     // Если через 15 с соединение не поднялось — пробуем ещё раз
@@ -14316,7 +14307,14 @@ function setupDC(){
           }
         }catch(err){
           console.warn('[dr] decrypt error:', err);
-          setTimeout(()=>{ try{ sysMsg('⚠ Не удалось расшифровать сообщение'); }catch(_){} }, 0);
+          if(getIdDone()){
+            // После identity — реальная ошибка, показываем пользователю
+            setTimeout(()=>{ try{ sysMsg('⚠ Не удалось расшифровать сообщение'); }catch(_){} }, 0);
+          } else {
+            // До identity — скорее всего буферизованный пакет от старой сессии.
+            // Сбрасываем DR чтобы инициатор прислал новый __dr_hello__.
+            _drReset();
+          }
         }
         return;
       }
@@ -14346,8 +14344,7 @@ function setupDC(){
     _resetPinState();
     _resetReactions();
     $('sc').dataset.active = '';
-    if(!_p2pReconnectFp && !window._goingBack) setStat('собеседник отключился');
-    $('dot').className = 'dot';
+    
     if (typeof _updateConnCounter === 'function') _updateConnCounter();
     if (typeof renderChatsList === 'function') renderChatsList();
     if (typeof _updateChatConnStatus === 'function') _updateChatConnStatus();
@@ -14592,7 +14589,6 @@ async function onConn(){
   // Останавливаем авто-реконнект — соединение восстановлено
   _p2pReconnectStop();
 
-  $('dot').className='dot con'; setStat('подключено ✓');
   if (typeof _updateConnCounter === 'function') _updateConnCounter();
   if (typeof _updateChatConnStatus === 'function') _updateChatConnStatus();
   if (typeof _connManager !== 'undefined') _connManager.onConnected(currentPeerFp);
@@ -14798,7 +14794,6 @@ function goBack(){
   $('msgs').innerHTML='';
   resetPeerIdentity();
   hideAlert();
-  $('dot').className='dot';setStat('без сервера');
   hideInfoBanner();
   if(contactsSubScreen==='sc') contactsSubScreen='';
   showTab(wasInChat ? 'schats' : 'connect');
@@ -22211,7 +22206,6 @@ async function _onPeerCameOnline(fp){
   if(_p2pReconnectFp === fp && !_p2pReconnectStopped){
     const isDisconnected = !dc || dc.readyState !== 'open';
     if(isDisconnected){
-      setStat('собеседник онлайн — переподключаемся...');
       _callOnlineWatching = null;
       _p2pScheduleReconnect(fp, 0);
       return;
@@ -22706,7 +22700,6 @@ function _onPjStatusChange(ok){
     if(_p2pReconnectFp && !_p2pReconnectStopped){
       const connected = dc && dc.readyState === 'open';
       if(!connected){
-        setStat('signaling восстановлен — переподключаемся...');
         _p2pScheduleReconnect(_p2pReconnectFp, 0);
       }
     }
@@ -22717,7 +22710,6 @@ function _onPjStatusChange(ok){
     // Маяк упал — если шёл авто-реконнект, показываем ручную кнопку
     if(_p2pReconnectFp && !_p2pReconnectStopped){
       clearTimeout(_p2pReconnectTimer);
-      setStat('signaling недоступен');
     }
   }
   _updateBeaconStatus();

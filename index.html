@@ -3288,23 +3288,23 @@ if (typeof globalThis !== 'undefined') {
  */
 
 const STUNS=[
-  {n:'Cloudflare',    u:'stun:stun.cloudflare.com:3478'},
-  {n:'Nextcloud',     u:'stun:stun.nextcloud.com:3478'},
-  {n:'Google #1',     u:'stun:stun.l.google.com:19302'},
-  {n:'Google #2',     u:'stun:stun1.l.google.com:19302'},
-  {n:'Google #3',     u:'stun:stun2.l.google.com:19302'},
-  {n:'Google #4',     u:'stun:stun3.l.google.com:19302'},
-  {n:'Twilio',        u:'stun:global.stun.twilio.com:3478'},
-  {n:'Sipnet RU',     u:'stun:stun.sipnet.ru:3478'},
-  {n:'Ekiga',         u:'stun:stun.ekiga.net'},
-  {n:'OpenRelay',     u:'stun:openrelay.metered.ca:80'},
-  {n:'Metered',       u:'stun:stun.relay.metered.ca:80'},
-  {n:'Stunprotocol',  u:'stun:stun.stunprotocol.org:3478'},
-  {n:'Voip.ms',       u:'stun:stun.voip.ms:3478'},
-  {n:'Counterpath',   u:'stun:stun.counterpath.com:3478'},
-  {n:'IdeaScale',     u:'stun:stun.ideasip.com:3478'},
-  {n:'Voipstunt',     u:'stun:stun.voipstunt.com:3478'},
-].map(s=>({...s,on:false}));
+  {n:'Cloudflare',    u:'stun:stun.cloudflare.com:3478',    on:true},
+  {n:'Nextcloud',     u:'stun:stun.nextcloud.com:3478',      on:true},
+  {n:'Google #1',     u:'stun:stun.l.google.com:19302',      on:true},
+  {n:'Google #2',     u:'stun:stun1.l.google.com:19302',     on:false},
+  {n:'Google #3',     u:'stun:stun2.l.google.com:19302',     on:false},
+  {n:'Google #4',     u:'stun:stun3.l.google.com:19302',     on:false},
+  {n:'Twilio',        u:'stun:global.stun.twilio.com:3478',  on:false},
+  {n:'Sipnet RU',     u:'stun:stun.sipnet.ru:3478',          on:false},
+  {n:'Ekiga',         u:'stun:stun.ekiga.net',               on:false},
+  {n:'OpenRelay',     u:'stun:openrelay.metered.ca:80',      on:false},
+  {n:'Metered',       u:'stun:stun.relay.metered.ca:80',     on:false},
+  {n:'Stunprotocol',  u:'stun:stun.stunprotocol.org:3478',   on:false},
+  {n:'Voip.ms',       u:'stun:stun.voip.ms:3478',            on:false},
+  {n:'Counterpath',   u:'stun:stun.counterpath.com:3478',    on:false},
+  {n:'IdeaScale',     u:'stun:stun.ideasip.com:3478',        on:false},
+  {n:'Voipstunt',     u:'stun:stun.voipstunt.com:3478',      on:false},
+];
 
 // ── Ключевое глобальное состояние P2P-сессии ──────────────────────────────────
 // pc  — RTCPeerConnection текущей сессии, null между сессиями
@@ -21954,25 +21954,26 @@ async function _onPeerCameOnline(fp){
     return;
   }
 
-  // 3. Никого специально не ждали — но проверяем нужно ли соединиться автоматически
+  // 3. Никого специально не ждали — автоматически соединяемся если нет активного соединения
   {
     const isOpen = dc && dc.readyState === 'open';
     if(isOpen) return; // уже подключены (к кому-то)
 
-    // Есть офлайн-сообщения для этого контакта → соединяемся чтобы доставить
+    // Соединяемся с контактом который появился онлайн:
+    // приоритет — есть офлайн-сообщения или это последний собеседник
     const hasPending = _offlineQueue.some(m => m.fp === fp);
-    // Или это был последний собеседник (lastPeerFp) и мы не в активном чате
-    const wasLast = lastPeerFp === fp;
+    const wasLast    = lastPeerFp === fp;
 
     if(hasPending || wasLast){
+      // Высокий приоритет — сразу реконнект
       _p2pReconnectFp = fp;
       _p2pReconnectStopped = false;
       _p2pScheduleReconnect(fp, 0);
-    } else {
-      // Просто уведомляем — тихо, без тоста чтобы не спамить
-      if(typeof _sendNotif === 'function'){
-        _sendNotif('🟢 ' + name, 'Вошёл в сеть', () => showTab('schats'));
-      }
+    } else if(_pjOk){
+      // Просто соединяемся тихо в фоне
+      _p2pReconnectFp = fp;
+      _p2pReconnectStopped = false;
+      _p2pScheduleReconnect(fp, 0);
     }
   }
 }
@@ -22236,12 +22237,6 @@ async function connectToContact(fp, opts={}){
   if(opts.stayInChat && _p2pReconnectStopped) return;
 
   // Подключаемся в фоне, не переходим на вкладку подключения
-  // При авто-реконнекте (stayInChat) не показываем stunwrap при отсутствии STUN
-  if(opts.stayInChat && !STUNS.some((s,i)=>s.on&&$(`ss${i}`).classList.contains('ok'))){
-    // STUN недоступен — откладываем, следующая попытка сама разберётся
-    return;
-  }
-
   // Федерация: разрешаем сервер контакта (перебираем servers[])
   const peerSigUrl = await _resolveFederatedServer(fp);
   joinSigRoom(roomCode, myFingerprint, peerSigUrl);

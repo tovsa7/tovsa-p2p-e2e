@@ -21954,7 +21954,27 @@ async function _onPeerCameOnline(fp){
     return;
   }
 
-  // 3. Никого не ждали — просто обновляем UI
+  // 3. Никого специально не ждали — но проверяем нужно ли соединиться автоматически
+  {
+    const isOpen = dc && dc.readyState === 'open';
+    if(isOpen) return; // уже подключены (к кому-то)
+
+    // Есть офлайн-сообщения для этого контакта → соединяемся чтобы доставить
+    const hasPending = _offlineQueue.some(m => m.fp === fp);
+    // Или это был последний собеседник (lastPeerFp) и мы не в активном чате
+    const wasLast = lastPeerFp === fp;
+
+    if(hasPending || wasLast){
+      _p2pReconnectFp = fp;
+      _p2pReconnectStopped = false;
+      _p2pScheduleReconnect(fp, 0);
+    } else {
+      // Просто уведомляем — тихо, без тоста чтобы не спамить
+      if(typeof _sendNotif === 'function'){
+        _sendNotif('🟢 ' + name, 'Вошёл в сеть', () => showTab('schats'));
+      }
+    }
+  }
 }
 
 // ── Управление видимостью для конкретного контакта ──────────────────────────

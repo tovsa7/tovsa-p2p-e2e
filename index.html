@@ -13372,7 +13372,7 @@ async function _startIncomingListener(){
 
 // Обработчик входящего RELAY-offer (новый путь — без DataChannel-exchange)
 async function _handleIncomingRelayOffer(sig, from, offerData){
-  // Уже есть активный чат или ожидающий запрос — отклоняем
+  // Уже есть активный чат — отклоняем только если DC реально открыт
   if($('sc').dataset.active === '1' && dc && dc.readyState === 'open'){
     try{ sig._wsSend({ type:'RELAY', to:from, kind:'leave', data:null }); }catch(_){}
     return;
@@ -13670,10 +13670,10 @@ function createPC(){
 
   pc.oniceconnectionstatechange=()=>{
     const s=pc.iceConnectionState;
-    const inChat=$('sc').classList.contains('on');
-    if(s==='disconnected'&&inChat){
+    const inChat=$('sc').classList.contains('on') || !!_p2pReconnectFp;
+    if(s==='disconnected'){
       setStat('соединение нестабильно...');
-      $('dot').className='dot act';
+      if(inChat) $('dot').className='dot act';
       clearTimeout(pc._reconnectHint);
       if(!pc._iceRestartDone && role === 'i'){
         // ICE Restart: инициатор пробует переоткрыть ICE без пересоздания PC.
@@ -13698,24 +13698,19 @@ function createPC(){
       }
     }else if(s==='failed'){
       clearTimeout(pc._reconnectHint);
-      $('dot').className='dot';
-      if(inChat){
-        if(!pc._iceRestartDone && role === 'i'){
-          // failed без disconnected — тоже пробуем рестарт один раз
-          pc._iceRestartDone = true;
-          _dbgPush('log', ['[p2p] ICE failed → restartIce()']);
-          try{ pc.restartIce(); }catch(_){}
-          pc._reconnectHint = setTimeout(()=>{
-            if(pc&&(pc.iceConnectionState==='failed'||pc.iceConnectionState==='disconnected')){
-              _p2pHandleFailure('failed');
-            }
-          }, 5000);
-        } else {
-          _p2pHandleFailure('failed');
-        }
-      }else{
-        setStat('не удалось подключиться');
-        showAlert('Возможные причины:<br>· <b>Port-Restricted Cone NAT</b> — попробуйте поменяться ролями<br>· <b>Symmetric NAT</b> — соединение затруднено, попробуйте поменяться ролями');
+      if(inChat) $('dot').className='dot';
+      if(!pc._iceRestartDone && role === 'i'){
+        // failed — пробуем рестарт один раз
+        pc._iceRestartDone = true;
+        _dbgPush('log', ['[p2p] ICE failed → restartIce()']);
+        try{ pc.restartIce(); }catch(_){}
+        pc._reconnectHint = setTimeout(()=>{
+          if(pc&&(pc.iceConnectionState==='failed'||pc.iceConnectionState==='disconnected')){
+            _p2pHandleFailure('failed');
+          }
+        }, 5000);
+      } else {
+        _p2pHandleFailure('failed');
       }
     }else if(s==='connected'||s==='completed'){
       clearTimeout(pc._reconnectHint);
@@ -14467,7 +14462,7 @@ async function onConn(){
   // Скрываем кнопку "позвать онлайн" — уже подключены
   _callOnlineWatching = null;
 
-  // Keepalive: отправляем ping каждые 15с чтобы ICE не упал от простоя
+  // Keepalive: отправляем ping каждые 10с чтобы ICE не упал от простоя
   if (typeof _dcKeepaliveTimer !== 'undefined' && _dcKeepaliveTimer) clearInterval(_dcKeepaliveTimer);
   _dcKeepaliveTimer = setInterval(() => {
     if (dc && dc.readyState === 'open') {
@@ -14476,7 +14471,7 @@ async function onConn(){
       clearInterval(_dcKeepaliveTimer);
       _dcKeepaliveTimer = null;
     }
-  }, 15000);
+  }, 10000);
 
   // DR хэндшейк: инициатор генерирует EK и отправляет __dr_hello__.
   // Ответчик только ждёт __dr_hello__ и отвечает __dr_hello_ack__.

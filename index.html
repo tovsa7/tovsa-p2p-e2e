@@ -6676,11 +6676,31 @@ async function sealedPushSubscribe(pushServer) {
 //   - Fallback: контакты без encPubKey по-прежнему проверяются через PRESENCE
 
 const BEACON_KIND         = 'beacon';
+const CONNECT_REQ_KIND    = 'connect_req';
 const BEACON_INTERVAL_MS  = 25_000;  // раз в 25с — чуть чаще чем ping сервера
 const BEACON_ONLINE_TTL   = 70_000;  // считаем онлайн 70с после последнего beacon
 
 let _beaconLastSentAt     = 0;
 let _beaconTimer          = null;
+
+// Отправить запрос на подключение собеседнику (когда мы не инициатор)
+async function _sendConnectRequest(fp, peerPubHex) {
+  if (!_myEncKey || !myPubKeyHex) return;
+  const sig = _getPeerSig();
+  if (!sig?._open) return;
+  try {
+    const mailboxId = await getContactMailboxId(peerPubHex, 0).catch(() => null) ?? peerPubHex;
+    const encPub = contactLoadEncPubKey(peerPubHex);
+    if (!encPub) return;
+    const sealed = await sealEnvelope(
+      { from: myPubKeyHex, kind: CONNECT_REQ_KIND, data: { ts: Math.floor(Date.now() / 1000) } },
+      encPub
+    );
+    sig._wsSend({ type: 'SEALED_RELAY', to: mailboxId, sealed });
+  } catch(e) {
+    console.warn('[connect_req] send error:', e?.message);
+  }
+}
 
 // Пометить контакт онлайн по его postоянному pubKeyHex
 // Вызывается из _handleRelay при получении beacon
@@ -8050,6 +8070,24 @@ async function openHistory(fp){
   _updateQueueBadge(fp);
 
   showTab('sh');
+
+  // Если контакт онлайн и нет активного соединения — инициируем подключение
+  const _isOnline = _presenceCache[fp] === 'online';
+  const _isConnected = dc && dc.readyState === 'open';
+  if(_isOnline && !_isConnected && _pjOk && !_p2pReconnectFp){
+    // Определяем роль — инициирует тот у кого больший pubKeyHex
+    const _peerPub = contact?.pubKeyHex || null;
+    const _shouldInit = !_peerPub || myPubKeyHex > _peerPub;
+    if(_shouldInit){
+      _p2pReconnectFp = fp;
+      _p2pReconnectStopped = false;
+      _p2pScheduleReconnect(fp, 0);
+    } else if(_peerPub){
+      // Мы не инициатор — отправляем sealed beacon с kind='connect_req'
+      // чтобы собеседник знал что мы хотим соединиться
+      _sendConnectRequest(fp, _peerPub).catch(()=>{});
+    }
+  }
   } catch(e) {
     console.error('[openHistory] error:', e);
   }
@@ -9180,6 +9218,24 @@ class TovSaSignaling {
           window.dispatchEvent(new CustomEvent('tovsa-device-sync', {
             detail: { from, data }
           }));
+          break;
+        }
+        // Запрос на подключение от не-инициатора — мы инициатор, запускаем реконнект
+        if (kind === CONNECT_REQ_KIND) {
+          (async () => {
+            const contacts = await getContacts().catch(() => ({}));
+            const fp = Object.keys(contacts).find(k => contacts[k]?.pubKeyHex === from);
+            if (!fp) return;
+            const peerPub = contacts[fp]?.pubKeyHex;
+            const amInitiator = !peerPub || myPubKeyHex > peerPub;
+            if (!amInitiator) return; // мы тоже не инициатор — игнорируем
+            const isConnected = dc && dc.readyState === 'open';
+            if (isConnected) return; // уже подключены
+            if (_p2pReconnectFp === fp && !_p2pReconnectStopped) return; // уже идёт
+            _p2pReconnectFp = fp;
+            _p2pReconnectStopped = false;
+            _p2pScheduleReconnect(fp, 0);
+          })().catch(() => {});
           break;
         }
         // answer на наш offer — диспатчим presence-детектор (аналогично plain RELAY)

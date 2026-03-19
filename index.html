@@ -10697,11 +10697,36 @@ async function _p2pHandleDcOpen(pubKeyHex, dc, pc) {
 }
 
 // Обработать входящее сообщение через p2p DC
-function _p2pHandleDcMsg(fromPubKey, data) {
+async function _p2pHandleDcMsg(fromPubKey, data) {
   try {
     const j = JSON.parse(data);
     if (j._t === '__p2p_msg__' && j.text) {
-      addMsg(j.text, 'in', j.replyText||null, null, j.replyTs||null, j.ts || Date.now());
+      // Конвертируем pubKeyHex → fp чтобы найти контакт
+      const fp = typeof window._pubHexToFp === 'function'
+        ? await window._pubHexToFp(fromPubKey).catch(() => null)
+        : null;
+
+      const ts = j.ts || Date.now();
+
+      if (fp && fp === currentPeerFp) {
+        // Этот контакт сейчас открыт — показываем в чате как обычно
+        addMsg(j.text, 'in', j.replyText||null, null, j.replyTs||null, ts);
+      } else {
+        // Другой контакт — сохраняем в историю и показываем уведомление
+        if (fp) {
+          const contacts = await getContacts().catch(() => ({}));
+          const name = contacts[fp]?.name || fromPubKey.slice(0,8)+'...';
+          await saveMsg(fp, j.text, 'in', ts,
+            j.replyText||null, null, j.replyTs||null, null, 0).catch(() => {});
+          _addUnread();
+          _sendNotif(name, j.text, () => {
+            openHistory(fp);
+            showTab('schats');
+          });
+          // Обновляем список чатов чтобы показать новое сообщение
+          if (typeof renderChatsList === 'function') renderChatsList();
+        }
+      }
     } else if (j._t === '__room_msg_p2p__' && j.blob && j.roomId) {
       roomsLoad().then(rooms => {
         const room = rooms[j.roomId];
@@ -21954,27 +21979,21 @@ async function _onPeerCameOnline(fp){
     return;
   }
 
-  // 3. Никого специально не ждали — автоматически соединяемся если нет активного соединения
+  // 3. Никого специально не ждали
   {
     const isOpen = dc && dc.readyState === 'open';
-    if(isOpen) return; // уже подключены (к кому-то)
+    if(isOpen) return; // уже подключены
 
-    // Соединяемся с контактом который появился онлайн:
-    // приоритет — есть офлайн-сообщения или это последний собеседник
     const hasPending = _offlineQueue.some(m => m.fp === fp);
     const wasLast    = lastPeerFp === fp;
 
     if(hasPending || wasLast){
-      // Высокий приоритет — сразу реконнект
-      _p2pReconnectFp = fp;
-      _p2pReconnectStopped = false;
-      _p2pScheduleReconnect(fp, 0);
-    } else if(_pjOk){
-      // Просто соединяемся тихо в фоне
+      // Есть что доставить или это последний собеседник — тихо реконнектимся
       _p2pReconnectFp = fp;
       _p2pReconnectStopped = false;
       _p2pScheduleReconnect(fp, 0);
     }
+    // Иначе — только UI обновился (зелёный dot), пользователь сам откроет чат
   }
 }
 

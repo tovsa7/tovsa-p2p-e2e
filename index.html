@@ -6697,7 +6697,6 @@ async function _beaconMarkOnline(fromPubKeyHex) {
       console.warn('[beacon] markOnline: contact not found for', fromPubKeyHex.slice(0,8));
       return;
     }
-    console.log('[beacon] online:', fp.slice(0,8), 'prev=', _presenceCache[fp]);
     _applyPresenceResult(fp, 'online');
   } catch(e) {
     console.warn('[beacon] markOnline error:', e.message);
@@ -13728,9 +13727,12 @@ function _p2pScheduleReconnect(fp, attempt){
     }
 
     setStat(`переподключаемся... (попытка ${attempt + 1})`);
-    // Определяем роль: инициатор — тот у кого больший fingerprint (лексикографически).
+    // Определяем роль: инициатор — тот у кого больший pubKeyHex (hex, детерминировано).
     // Это предотвращает двойное соединение когда оба видят beacon одновременно.
-    const _shouldInitiate = myFingerprint > fp;
+    // Если мы не знаем pubKeyHex контакта — инициируем сами (fallback).
+    const contacts = await getContacts().catch(() => ({}));
+    const peerPubHex = contacts[fp]?.pubKeyHex || null;
+    const _shouldInitiate = !peerPubHex || myPubKeyHex > peerPubHex;
     if (_shouldInitiate) {
       connectToContact(fp, { stayInChat: true });
     }
@@ -18440,7 +18442,7 @@ function hideInfoBanner(){
 
 function _sigRoomId(code){ return 'tovsa-' + code.trim().toLowerCase().replace(/[^a-z0-9]/g,''); }
 
-async function joinSigRoom(overrideCode, callerFp, peerSigUrl){
+async function joinSigRoom(overrideCode, callerFp, peerSigUrl, _silent){
   const code = overrideCode || $('sig-room-input').value.trim();
   if(!code) return;
 
@@ -18451,8 +18453,8 @@ async function joinSigRoom(overrideCode, callerFp, peerSigUrl){
   const hint = $('sig-hint');
   const btn  = $('sig-join-btn');
   btn.disabled = true;
-  hint.textContent = '⏳ Подключаемся к signaling-серверу...';
-  connMsg('📡 Подключаемся к signaling-серверу...');
+  if(!_silent) hint.textContent = '⏳ Подключаемся к signaling-серверу...';
+  if(!_silent) connMsg('📡 Подключаемся к signaling-серверу...');
   sigModalShow(code, callerFp);
 
   const roomId  = _sigRoomId(code);
@@ -18491,9 +18493,9 @@ async function joinSigRoom(overrideCode, callerFp, peerSigUrl){
   _sigPeer = peerHost;
 
   peerHost.on('open', () => {
-    hint.textContent = '⏳ Ожидаем второго участника...';
+    if(!_silent) hint.textContent = '⏳ Ожидаем второго участника...';
     sigModalStep(1, 'Комната создана — ожидаем собеседника...');
-    connMsg('📡 Комната создана — ожидаем собеседника...');
+    if(!_silent) connMsg('📡 Комната создана — ожидаем собеседника...');
 
     // Слушаем входящий RELAY offer через нативный WS сигналинга
     const hostSig = peerHost._sig;
@@ -18503,9 +18505,9 @@ async function joinSigRoom(overrideCode, callerFp, peerSigUrl){
       if(kind !== 'offer') return;
       if(settled) return; settled = true;
       _dbgPush('log', ['[room] host: got offer via RELAY from=' + from.slice(0,14)]);
-      hint.textContent = '🔗 Гость подключился, устанавливаем P2P...';
+      if(!_silent) hint.textContent = '🔗 Гость подключился, устанавливаем P2P...';
       sigModalStep(2, 'Собеседник найден — обрабатываем offer...');
-      connMsg('🔗 Собеседник найден — устанавливаем P2P...');
+      if(!_silent) connMsg('🔗 Собеседник найден — устанавливаем P2P...');
 
       // Передаём caller info если есть — через специальный RELAY
       // (игнорируем — callerFp у хоста не нужен для идентификации)
@@ -18546,18 +18548,18 @@ async function joinSigRoom(overrideCode, callerFp, peerSigUrl){
 
   // ── Гость ─────────────────────────────────────────────────────────────────────
   function beGuest(){ _dbgPush('log', ['[room] beGuest triggered']);
-    hint.textContent = '⏳ Комната занята — подключаемся к хосту...';
+    if(!_silent) hint.textContent = '⏳ Комната занята — подключаемся к хосту...';
     sigModalStep(1, 'Комната найдена — подключаемся к хосту...');
-    connMsg('🔄 Комната занята — подключаемся к хосту...');
+    if(!_silent) connMsg('🔄 Комната занята — подключаемся к хосту...');
     const peerGuest = new FakePeer(guestId, _targetWsUrl, {
       privKey: myPrivKey, pubKey: myPubKeyRaw, iceServers: getIce(),
     });
     _sigPeer = peerGuest;
 
     peerGuest.on('open', () => {
-      hint.textContent = '⏳ Соединяемся с хостом...';
+      if(!_silent) hint.textContent = '⏳ Соединяемся с хостом...';
       sigModalStep(2, 'P2P переговоры с хостом...');
-      connMsg('⏳ Соединяемся с хостом...');
+      if(!_silent) connMsg('⏳ Соединяемся с хостом...');
 
       guestTimer = setTimeout(() => {
         if(!settled) onFail('Хост не ответил — попробуйте ещё раз');
@@ -21956,7 +21958,6 @@ async function _onPeerCameOnline(fp){
     const hasPending = _offlineQueue.some(m => m.fp === fp);
     const wasLast    = lastPeerFp === fp;
 
-    console.log('[reconnect] онлайн:', fp.slice(0,8), 'hasPending='+hasPending, 'wasLast='+wasLast, 'queueLen='+_offlineQueue.length, 'queueFps='+[...new Set(_offlineQueue.map(m=>m.fp?.slice(0,8)||'?'))].join(','));
 
     if(hasPending || wasLast){
       // Есть что доставить или это последний собеседник — тихо реконнектимся
@@ -22180,7 +22181,7 @@ async function connectToContact(fp, opts={}){
   // Подключаемся в фоне, не переходим на вкладку подключения
   // Федерация: разрешаем сервер контакта (перебираем servers[])
   const peerSigUrl = await _resolveFederatedServer(fp);
-  joinSigRoom(roomCode, myFingerprint, peerSigUrl);
+  joinSigRoom(roomCode, myFingerprint, peerSigUrl, !!opts.stayInChat);
 }
 
 // ── Применить результат presence-проверки для одного контакта ──────────────────

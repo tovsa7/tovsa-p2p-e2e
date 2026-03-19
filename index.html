@@ -21998,6 +21998,8 @@ async function _onPeerCameOnline(fp){
     const hasPending = _offlineQueue.some(m => m.fp === fp);
     const wasLast    = lastPeerFp === fp;
 
+    console.log('[reconnect] онлайн:', fp.slice(0,8), 'hasPending='+hasPending, 'wasLast='+wasLast, 'queueLen='+_offlineQueue.length);
+
     if(hasPending || wasLast){
       // Есть что доставить или это последний собеседник — тихо реконнектимся
       _p2pReconnectFp = fp;
@@ -22280,22 +22282,13 @@ function _applyPresenceResult(fp, result) {
   _presenceCache[fp]     = result;
   _presenceCacheTime[fp] = (result === 'checking') ? 0 : Date.now();
 
-  // Обновляем dot без полного ре-рендера списка контактов
-  const dot = document.getElementById('pd-' + fp);
-  if (dot) {
-    const titles = { online: 'онлайн', offline: 'офлайн', checking: 'проверяем...' };
-    dot.className = 'ci-presence-dot ' + (result || 'offline');
-    dot.title     = titles[result] || '';
-  } else if (result === 'online' && typeof renderChatsList === 'function') {
-    // Dot отсутствует — чат-лист рендерился до получения beacon.
-    // Перерисовываем чтобы online dot появился.
-    renderChatsList();
-  }
-
-  // Обновляем dot в списке чатов (schats) без полного ре-рендера
+  // Обновляем dot в списке чатов (schats)
   const ciDot = document.getElementById('ci-pd-' + fp);
   if (ciDot) {
     ciDot.style.display = (result === 'online') ? '' : 'none';
+  } else if (result === 'online' && typeof renderChatsList === 'function') {
+    // Dot ещё не в DOM — рендерим список, dot появится с правильным состоянием
+    renderChatsList();
   }
 
   // Шапка открытого чата

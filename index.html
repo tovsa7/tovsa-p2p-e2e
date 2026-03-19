@@ -15463,9 +15463,13 @@ function _mcSetupPc(peerConn){
 }
 
 // ── Guard ──
-function canStart(){
-  const ok=STUNS.some((s,i)=>s.on&&$(`ss${i}`).classList.contains('ok'));
-  if(!ok){$('stunwrap').classList.add('open');toast('Выберите рабочий STUN сервер')}
+function canStart(silent){
+  // ss${i} элементы создаются только при открытии connect-экрана.
+  // Если их нет — считаем STUN рабочим если STUNS[i].on=true (autoTest уже отработал).
+  const domOk = STUNS.some((s,i) => s.on && ($(`ss${i}`)?.classList.contains('ok') ?? false));
+  const dataOk = STUNS.some(s => s.on);
+  const ok = domOk || dataOk;
+  if(!ok && !silent){ $('stunwrap').classList.add('open'); toast('Выберите рабочий STUN сервер'); }
   return ok;
 }
 
@@ -18446,7 +18450,7 @@ async function joinSigRoom(overrideCode, callerFp, peerSigUrl, _silent){
   const code = overrideCode || $('sig-room-input').value.trim();
   if(!code) return;
 
-  if(!canStart()) return;
+  if(!canStart(_silent)) return;
 
   safePeerDestroy(_sigPeer); _sigPeer=null;
 
@@ -26574,6 +26578,7 @@ function chatsFilterSearch(query) {
 }
 
 function openChatItem(id, type) {
+  console.log('[openChatItem] id=', id?.slice?.(0,8), 'type=', type);
   closeFabMenu();
   if (type === 'fav') {
     showFav();

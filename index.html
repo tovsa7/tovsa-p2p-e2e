@@ -377,13 +377,9 @@ textarea::placeholder{color:var(--mu)}
 .connalert{display:none;margin:0 20px 16px;padding:12px 14px;border-radius:10px;font-size:11px;line-height:1.7;border:1px solid rgba(229,192,123,.3);background:rgba(229,192,123,.06);color:var(--w)}
 .connalert.on{display:block}
 .connalert b{display:block;margin-bottom:2px;font-size:12px}
-/* contacts screen */
-.ci-avatar-wrap .ci-presence-dot{position:absolute;bottom:1px;right:1px;width:10px;height:10px;border:2px solid var(--sf);border-radius:50%}
 /* Офлайн-очередь */
 .msg.pending{opacity:.65}
 .msg.pending .mmeta::after{content:' ⏳';font-size:9px;color:var(--w)}
-.citem-queue-badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;background:var(--w);color:#000;font-size:9px;font-weight:700;border-radius:8px;margin-left:6px;letter-spacing:0}
-.ci-online-dot{width:9px;height:9px;border-radius:50%;background:var(--a);box-shadow:0 0 6px var(--a);animation:blink 2s infinite}
 .ci-presence-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;transition:background .3s,box-shadow .3s}
 .ci-presence-dot.online{background:var(--a);box-shadow:0 0 5px var(--a)}
 .ci-presence-dot.offline{background:var(--mu);box-shadow:none}
@@ -391,7 +387,6 @@ textarea::placeholder{color:var(--mu)}
 .presence-refresh-btn{margin-left:auto;background:none;border:none;color:var(--mu);font-size:12px;cursor:pointer;padding:4px 8px;font-family:inherit;transition:color .2s}
 .presence-refresh-btn:hover{color:var(--a)}
 .presence-refresh-btn.spin{animation:spin 1s linear infinite;pointer-events:none}
-.ci-disc-btn:hover{border-color:var(--e);background:rgba(224,108,117,.08)}
 .panic-btn{width:100%;padding:14px;background:rgba(224,108,117,.1);border:1px solid rgba(224,108,117,.4);border-radius:10px;color:var(--e);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;letter-spacing:.5px}
 .panic-btn:hover{background:rgba(224,108,117,.2);border-color:var(--e)}
 #panic-zone{position:fixed;bottom:0;left:0;width:44px;height:44px;z-index:500;-webkit-tap-highlight-color:transparent}
@@ -399,7 +394,6 @@ textarea::placeholder{color:var(--mu)}
 #panic-zone.active #panic-zone-dot{opacity:.18}
 .ci-conn-btn{background:transparent;border:1px solid var(--a);border-radius:6px;color:var(--a);font-family:inherit;font-size:10px;padding:5px 9px;cursor:pointer;flex-shrink:0;transition:border-color .15s,color .15s;white-space:nowrap;-webkit-tap-highlight-color:transparent}
 .ci-conn-btn:hover{background:var(--ad)}
-.ci-disc-btn{background:transparent;border:1px solid rgba(224,108,117,.4);border-radius:6px;color:var(--e);font-family:inherit;font-size:10px;padding:5px 9px;cursor:pointer;flex-shrink:0;transition:border-color .15s,color .15s;white-space:nowrap;-webkit-tap-highlight-color:transparent}
 .msg-fwd-header{font-size:11px;color:var(--a);opacity:.85;margin-bottom:3px;padding:2px 0}
 .msg-fwd-name{font-weight:600}
 .req-item{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--bd)}
@@ -728,12 +722,6 @@ textarea::placeholder{color:var(--mu)}
 .stor-file-info{flex:1;min-width:0}
 .stor-file-name{font-size:11px;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .stor-file-meta{font-size:10px;color:var(--mu);margin-top:2px}
-/* contact item extended */
-.cisize{font-size:10px;color:var(--mu);white-space:nowrap;flex-shrink:0;margin-right:2px}
-.cinote{font-size:10px;color:var(--mu);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-style:italic}
-.cilast{font-size:10px;color:var(--mu);margin-top:1px}
-.ciedit{background:transparent;border:1px solid var(--bd);border-radius:6px;color:var(--mu);font-family:inherit;font-size:11px;padding:6px 10px;cursor:pointer;flex-shrink:0;transition:border-color .15s,color .15s;white-space:nowrap}
-.ciedit:hover{border-color:var(--a);color:var(--a)}
 /* context menu */
 @keyframes ctxpop{from{transform:scale(.94) translateY(-4px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
 .ctx-item+/* modal overlay */
@@ -2357,23 +2345,13 @@ if (typeof globalThis !== 'undefined') {
   </div>
 </div>
 
-<!-- Контакты -->
-<div class="scr" id="sk">
-  <div class="citem-fav" onclick="showFav()">
-    <div class="citem-fav-icon" style="font-size:16px;opacity:.5">★</div>
-    <div class="citem-fav-info">
-      <div class="citem-fav-name">Избранное</div>
-      <div class="citem-fav-last" id="fav-last">заметки для себя</div>
-    </div>
-  </div>
-  <div style="display:flex;align-items:center;padding:6px 20px 4px;border-bottom:1px solid var(--bd)">
-    <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--mu)" id="beacon-status">
-      <span id="beacon-dot" style="width:7px;height:7px;border-radius:50%;background:var(--mu);flex-shrink:0;transition:background .3s,box-shadow .3s"></span>
-      <span id="beacon-label" style="letter-spacing:.5px">маяк</span>
-    </span>
-  </div>
-  <div id="sk-list"></div>
-  <div class="sk-empty" id="sk-empty" style="display:none">Нет сохранённых контактов.<br>Подключитесь к кому-нибудь<br>и сохраните их из чата.</div>
+<!-- Скрытые элементы для JS-обновлений (beacon статус, fav-last) -->
+<div style="display:none" aria-hidden="true">
+  <span id="beacon-status">
+    <span id="beacon-dot"></span>
+    <span id="beacon-label"></span>
+  </span>
+  <span id="fav-last"></span>
 </div>
 
 <!-- Экран заявок на добавление -->
@@ -3248,11 +3226,7 @@ if (typeof globalThis !== 'undefined') {
   <button class="info-banner-close" onclick="hideInfoBanner()">✕</button>
 </div>
 
-<div id="reconnect-bar" style="display:none;position:fixed;bottom:60px;left:0;right:0;z-index:490;align-items:center;gap:10px;padding:10px 16px;background:var(--sf);border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);box-shadow:0 -2px 16px rgba(0,0,0,.3)">
-  <span style="font-size:11px;color:var(--mu);flex:1">Соединение разорвано</span>
-  <button class="ci-conn-btn" onclick="reconnectToPeer()" id="reconnect-btn">↺ Переподключиться</button>
-  <button class="reply-bar-close" onclick="$('reconnect-bar').style.display='none'" style="color:var(--mu);font-size:16px;padding:0 4px">×</button>
-</div>
+
 
 
 <script>
@@ -7430,7 +7404,6 @@ async function editDeleteHistory(){
   await idbSet('history','all',h);
   await idbSet('contacts','pins_'+_editFp,[]);
   if(currentPeerFp===_editFp){ _pins=[]; _renderPinBar(); }
-  renderContacts();
   toast('История удалена');
 }
 
@@ -7453,7 +7426,6 @@ async function saveEditModal(){
   contacts[fp]={...existing,name,note:$('edit-note').value.trim(),savedAt:existing.savedAt||Date.now()};
   await saveContacts(contacts);
   closeEditModal();
-  renderContacts();
 
   if(currentPeerFp===fp){
     showPeerIdentity(fp,true,name);
@@ -7475,7 +7447,6 @@ async function saveContact(){
     savedAt: existing.savedAt || Date.now()
   };
   await saveContacts(contacts);
-  renderContacts();
 
   showPeerIdentity(currentPeerFp, true, name);
   toast(`Контакт сохранён как «${name}»`);
@@ -7511,126 +7482,8 @@ async function deleteContact(fp,ev){
     }
   }
 
-  renderContacts();
 
   toast('Контакт удалён');
-}
-
-// Сортировка контактов: активный > закреплённые > по времени последнего сообщения
-function _sortContacts(entries, history, isConnected){
-  return entries.sort((a, b) => {
-    const aActive = (currentPeerFp === a[0] && isConnected) ? 1 : 0;
-    const bActive = (currentPeerFp === b[0] && isConnected) ? 1 : 0;
-    if(bActive !== aActive) return bActive - aActive;
-    const aPinned = a[1].pinned || 0;
-    const bPinned = b[1].pinned || 0;
-    if(bPinned !== aPinned) return bPinned - aPinned;
-    const aLast = (history[a[0]] || []).at(-1)?.ts || a[1].savedAt || 0;
-    const bLast = (history[b[0]] || []).at(-1)?.ts || b[1].savedAt || 0;
-    return bLast - aLast;
-  });
-}
-
-// HTML одного элемента списка контактов
-/**
- * Строит HTML строку для одного контакта в списке.
- * Не читает из БД — history передаётся уже загруженным.
- * @param {string} fp
- * @param {Contact} c
- * @param {Record<string, Msg[]>} h — весь объект истории
- * @param {boolean} isConnected
- * @returns {string} HTML
- */
-function _buildContactEl(fp, c, h, isConnected){
-  const msgs = h[fp] || [];
-  const lastMsg = msgs.at(-1);
-  const isActivePeer = isConnected && currentPeerFp === fp;
-
-  let lastHtml = '';
-  if(isActivePeer){
-    lastHtml = `<div class="cilast-row"><span class="cilast-text" style="color:var(--a)">нажмите чтобы открыть чат</span></div>`;
-  } else if(lastMsg){
-    const prefix = lastMsg.type === 'out' ? 'вы: ' : '';
-    const txt = esc(prefix + (lastMsg.__file__ ? ('[файл] ' + (lastMsg.name||'')) : lastMsg.text || ''));
-    const t = new Date(lastMsg.ts).toLocaleString('ru', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
-    // Под последним сообщением показываем "был(а) N назад" если контакт офлайн
-    const lsText = (_presenceCache[fp] !== 'online' && _pjOk) ? _fmtLastSeen(fp) : null;
-    const lsHtml = lsText ? `<span class="cilast-lastseen">был(а) ${esc(lsText)}</span>` : '';
-    lastHtml = `<div class="cilast-row"><span class="cilast-text">${txt}</span><span class="cilast-time">${t}</span></div>${lsHtml ? `<div class="cilast-row">${lsHtml}</div>` : ''}`;
-  } else {
-    // Нет сообщений — показываем только lastSeen
-    const lsText = (_presenceCache[fp] !== 'online' && _pjOk) ? _fmtLastSeen(fp) : null;
-    if(lsText) lastHtml = `<div class="cilast-row"><span class="cilast-lastseen">был(а) ${esc(lsText)}</span></div>`;
-  }
-
-  const pinHtml     = c.pinned ? `<span class="cipin" style="font-size:9px;opacity:.6">pin</span>` : '';
-  const unconfHtml  = c._unconfirmed ? `<span style="font-size:9px;color:var(--w);margin-left:5px;opacity:.8">ожидает</span>` : '';
-  const activeClass = isActivePeer ? ' active-peer' : (c.pinned ? ' pinned' : '');
-  const onlineDot   = isActivePeer ? `<div class="ci-online-dot"></div>` : '';
-  const presenceState = _presenceCache[fp];
-  const _pdTitle = presenceState==='online' ? 'онлайн' : presenceState==='checking' ? 'проверяем...' : (_fmtLastSeen(fp) ? 'был(а) '+_fmtLastSeen(fp) : 'офлайн');
-  const presenceDot = (!isActivePeer && _pjOk)
-    ? `<div class="ci-presence-dot ${presenceState||'offline'}" id="pd-${fp}" title="${_pdTitle}"></div>` : '';
-  const discBtn = isActivePeer ? `<button class="ci-disc-btn" onclick="event.stopPropagation();goBack()">✕</button>` : '';
-  const isOnline = !isActivePeer && _presenceCache[fp] === 'online' && !isConnected;
-  const connBtn = isOnline ? `<button class="ci-conn-btn" onclick="event.stopPropagation();connectToContact('${fp}')">→ связь</button>` : '';
-  const ctxAttr = c._stranger ? '' : `oncontextmenu="openCtxMenu(event,'${fp}');return false"`;
-  const nameHtml = esc(c.name || 'Неизвестный');
-  const _homeWs = buildWsUrl(currentSrv());
-  const fedBadge = (c.signalingUrl && _isValidSigUrl(c.signalingUrl) && c.signalingUrl !== _homeWs)
-    ? `<span title="Федеративный контакт: ${esc(new URL(c.signalingUrl.replace('wss://','https://')).hostname)}" style="font-size:10px;opacity:.7;margin-left:4px">🌐</span>`
-    : '';
-  const botBadgeCi = c.isBot ? `<span class="bot-badge">⚙ бот</span>` : '';
-  const fpHint = c._stranger ? `<div style="font-size:9px;color:var(--mu);opacity:.7">${fp}</div>` : '';
-
-  const queueCount = _offlineQueue.filter(m => m.fp === fp).length;
-  const queueBadge = queueCount > 0 ? `<span class="citem-queue-badge">${queueCount}</span>` : '';
-
-  const cachedAva = _avatarCache[fp];
-  const _initLetter = esc((c.name||'?').replace(/[\p{Emoji_Presentation}\p{Emoji}\uFE0F]/gu,'').trim()[0]?.toUpperCase() || '?');
-  const avatarHtml = (cachedAva && cachedAva !== 'loading')
-    ? `<div class="ci-avatar" style="background-image:url('${cachedAva}')"></div>`
-    : `<div class="ci-avatar ci-avatar-letter">${_initLetter}</div>`;
-
-  return `<div class="citem${activeClass}" data-fp="${fp}" onclick="openHistory('${fp}')" ${ctxAttr}>
-    <div class="ci-avatar-wrap">
-      ${avatarHtml}
-      ${presenceDot}
-      ${onlineDot}
-    </div>
-    <div class="ciinfo">
-      <div class="ciname">${nameHtml}${fedBadge}${botBadgeCi}${pinHtml}${unconfHtml}${queueBadge}</div>
-      ${fpHint}
-      ${lastHtml}
-    </div>
-    ${discBtn}${connBtn}
-  </div>`;
-}
-
-async function renderContacts(){
-  const contacts = await getContacts();
-  const h = await getHistory();
-  const isConnected = $('sc').dataset.active === '1' && dc && dc.readyState === 'open';
-
-  // Если активный собеседник — незнакомец, добавляем временную запись
-  let allContacts = contacts;
-  if(isConnected && currentPeerFp && !contacts[currentPeerFp]){
-    allContacts = {[currentPeerFp]: {name:'Неизвестный', _stranger:true}, ...contacts};
-  }
-
-  const entries = _sortContacts(Object.entries(allContacts), h, isConnected);
-  const list = $('sk-list');
-  const empty = $('sk-empty');
-
-  if(entries.length === 0){
-    list.innerHTML = '';
-    empty.style.display = 'flex';
-    return;
-  }
-  empty.style.display = 'none';
-  // Предзагружаем аватарки из IDB в память (только незагруженные)
-  await Promise.all(entries.map(([fp]) => _getAvatarCached(fp)));
-  list.innerHTML = entries.map(([fp, c]) => _buildContactEl(fp, c, h, isConnected)).join('');
 }
 
 // ── Tab navigation ──
@@ -7649,9 +7502,7 @@ const _tabState = {
     subId:      null,        // ID активной комнаты/канала/контакта
   },
 };
-// Contacts sub-state
-let contactsSubScreen='sk'; // 'sk' | 'sh' | 'sfav'
-let contactsScrollTop=0;
+let contactsSubScreen=''; // '' | 'sh' | 'sfav' | 'sc'
 
 function showTab(tab){
   // ── Сохраняем состояние уходящей вкладки ────────────────────────────────
@@ -7662,8 +7513,8 @@ function showTab(tab){
     _tabState.sn.subPage = (activeSnId === 'sn-debug') ? 'sn-home' : activeSnId;
   }
   // Сохраняем состояние чатов только когда уходим НА ДРУГУЮ вкладку (не при возврате внутри чатов)
-  const _leavingChatsArea = (activeTab === 'chats' || activeTab === 'contacts' || activeTab === 'rooms' || activeTab === 'channels');
-  const _goingToChatsArea = (tab === 'schats' || tab === 'sc' || tab === 'sk' || tab === 'sh' || tab === 'sfav'
+  const _leavingChatsArea = (activeTab === 'chats' || activeTab === 'rooms' || activeTab === 'channels');
+  const _goingToChatsArea = (tab === 'schats' || tab === 'sc' ||  tab === 'sh' || tab === 'sfav'
                              || tab === 'srooms' || tab === 'sroom-chat' || tab === 'schannels' || tab === 'sch-view');
   if(_leavingChatsArea && !_goingToChatsArea){
     // Уходим на другую вкладку (connect/sn) — сохраняем полное состояние
@@ -7671,11 +7522,11 @@ function showTab(tab){
     if(cl) _tabState.chats.scrollTop = cl.scrollTop;
     _tabState.chats.folderId = typeof _activeFolderId !== 'undefined' ? _activeFolderId : 'all';
     _tabState.chats.search   = typeof _chatsSearchQuery !== 'undefined' ? _chatsSearchQuery : '';
-    if(activeTab === 'contacts' && contactsSubScreen === 'sc')
+    if(activeTab === 'chats' && contactsSubScreen === 'sc')
       { _tabState.chats.subScreen = 'sc';         _tabState.chats.subId = currentPeerFp || null; }
-    else if(activeTab === 'contacts' && contactsSubScreen === 'sh')
+    else if(activeTab === 'chats' && contactsSubScreen === 'sh')
       { _tabState.chats.subScreen = 'sh';         _tabState.chats.subId = currentPeerFp || null; }
-    else if(activeTab === 'contacts' && contactsSubScreen === 'sfav')
+    else if(activeTab === 'chats' && contactsSubScreen === 'sfav')
       { _tabState.chats.subScreen = 'sfav';        _tabState.chats.subId = null; }
     else if(activeTab === 'rooms' && document.getElementById('sroom-chat')?.classList.contains('on'))
       { _tabState.chats.subScreen = 'sroom-chat'; _tabState.chats.subId = typeof _activeRoomId !== 'undefined' ? _activeRoomId : null; }
@@ -7683,25 +7534,24 @@ function showTab(tab){
       { _tabState.chats.subScreen = 'sch-view';   _tabState.chats.subId = typeof _activeChannelId !== 'undefined' ? _activeChannelId : null; }
     else
       { _tabState.chats.subScreen = null; _tabState.chats.subId = null; }
-    if($('sk')?.classList.contains('on')) contactsScrollTop = $('sk').scrollTop;
   }
 
   // ── Общий сброс видимости ─────────────────────────────────────────────────
   const tabIdMap = {
     connect:'tab-connect', sn:'tab-net',
     schats:'tab-chats',
-    sk:'tab-chats', sh:'tab-chats', sfav:'tab-chats', sc:'tab-chats',
+    sh:'tab-chats', sfav:'tab-chats', sc:'tab-chats',
     srooms:'tab-chats', 'sroom-chat':'tab-chats',
     schannels:'tab-chats', 'sch-view':'tab-chats'
   };
   movePill(tabIdMap[tab] || 'tab-connect');
 
-  const isContactsArea = tab==='sk'||tab==='sh'||tab==='sfav'||tab==='sc'||tab==='s-add-contact';
+  const isContactsArea = tab==='sh'||tab==='sfav'||tab==='sc'||tab==='s-add-contact';
   const isChatsArea    = tab==='schats'||isContactsArea||tab==='srooms'||tab==='sroom-chat'||tab==='schannels'||tab==='sch-view';
   const isNetArea      = tab==='sn';
   const isConnect      = !isChatsArea && !isNetArea;
 
-  hide('sr');hide('ss');hide('sc');hide('sk');hide('sh');hide('sn');hide('sfav');hide('s-add-contact');
+  hide('sr');hide('ss');hide('sc');hide('sh');hide('sn');hide('sfav');hide('s-add-contact');
   hide('schats');hide('srooms');hide('sroom-chat');hide('schannels');hide('sch-view');
 
   $('tagline').style.display = 'block';
@@ -7724,7 +7574,7 @@ function showTab(tab){
     else { show('sr'); if(!_infoBannerDismissed) showInfoBanner('role'); }
 
   } else if(tab === 'sc'){
-    activeTab = 'contacts'; hideInfoBanner();
+    activeTab = 'chats'; hideInfoBanner();
     contactsSubScreen = 'sc';
     $('sc').dataset.active = '1';
     show('sc');
@@ -7732,26 +7582,15 @@ function showTab(tab){
     requestAnimationFrame(()=>{ const m=$('msgs'); m.scrollTop=m.scrollHeight; _clearUnread(); });
     setTimeout(_sendReadReceipt, 150);
 
-  } else if(tab === 'sk'){
-    activeTab = 'contacts'; contactsSubScreen = 'sk';
-    renderContacts();
-    show('sk');
-    requestAnimationFrame(()=>{ $('sk').scrollTop = contactsScrollTop; });
-    if(typeof window._syncContactRequests === 'function') window._syncContactRequests();
-    if(_pjOk && !_presenceHbRunning){
-      const sinceLastTick = Date.now() - (_presenceLastHbAt||0);
-      if(sinceLastTick > 10000) _presenceHeartbeatTick();
-    }
-
   } else if(tab === 'sh'){
-    activeTab = 'contacts'; contactsSubScreen = 'sh'; show('sh');
+    activeTab = 'chats'; contactsSubScreen = 'sh'; show('sh');
 
   } else if(tab === 's-add-contact'){
-    activeTab = 'contacts'; contactsSubScreen = 's-add-contact'; show('s-add-contact');
+    activeTab = 'chats'; contactsSubScreen = 's-add-contact'; show('s-add-contact');
     $('tagline').style.display = 'none';
 
   } else if(tab === 'sfav'){
-    activeTab = 'contacts'; contactsSubScreen = 'sfav'; show('sfav');
+    activeTab = 'chats'; contactsSubScreen = 'sfav'; show('sfav');
 
   } else if(tab === 'sn'){
     activeTab = 'sn';
@@ -7781,11 +7620,11 @@ function showTab(tab){
     // Если был открыт конкретный экран — возвращаемся в него
     if(st.subScreen === 'sc' && st.subId && currentPeerFp === st.subId && $('sc').dataset.active === '1'){
       show('sc'); $('tagline').style.display = 'none';
-      activeTab = 'contacts'; contactsSubScreen = 'sc';
+      activeTab = 'chats'; contactsSubScreen = 'sc';
     } else if(st.subScreen === 'sh'){
-      show('sh'); activeTab = 'contacts'; contactsSubScreen = 'sh';
+      show('sh'); activeTab = 'chats'; contactsSubScreen = 'sh';
     } else if(st.subScreen === 'sfav'){
-      show('sfav'); activeTab = 'contacts'; contactsSubScreen = 'sfav';
+      show('sfav'); activeTab = 'chats'; contactsSubScreen = 'sfav';
     } else if(st.subScreen === 'sroom-chat' && st.subId){
       show('sroom-chat'); activeTab = 'rooms';
     } else if(st.subScreen === 'sch-view' && st.subId){
@@ -8289,15 +8128,21 @@ async function sendOfflineMsg(){
   vibrate(10);
 }
 
-// Обновляет жёлтый бейдж на citem и sh-size
+// Обновляет жёлтый бейдж на chat-item и sh-size
 function _updateQueueBadge(fp){
   const count = _offlineQueue.filter(m => m.fp === fp).length;
-  // В списке контактов
-  const citem = document.querySelector(`.citem[data-fp="${fp}"]`);
-  if(citem){
-    let badge = citem.querySelector('.citem-queue-badge');
+  // В списке чатов
+  const chatItem = document.querySelector(`.chat-item[data-id="${fp}"]`);
+  if(chatItem){
+    let badge = chatItem.querySelector('.chat-item-unread.queue');
     if(count > 0){
-      if(!badge){ badge = document.createElement('span'); badge.className='citem-queue-badge'; citem.querySelector('.ciname')?.appendChild(badge); }
+      if(!badge){
+        badge = document.createElement('div');
+        badge.className = 'chat-item-unread queue';
+        badge.style.background = 'var(--w)';
+        badge.style.color = '#000';
+        chatItem.querySelector('.chat-item-meta')?.appendChild(badge);
+      }
       badge.textContent = count;
     } else if(badge){ badge.remove(); }
   }
@@ -8351,7 +8196,6 @@ async function ctxPin(){
   c.pinned=c.pinned?0:Date.now();
   await saveContacts(contacts);
   closeCtxMenu();
-  renderContacts();
 }
 
 function ctxEdit(){
@@ -8431,7 +8275,6 @@ function onAvatarFile(input){
 }
 
 function _refreshContactAvatars(fp,dataUrl){
-  renderContacts();
 }
 function _updateHdrAvatar(fp, dataUrl){
   // Если этот контакт открыт в чате — можно обновить что-то в хедере
@@ -8542,7 +8385,6 @@ async function saveProfileModal(){
   closeInfoDrawer();
   closeProfileModal();
   delete _avatarCache[fp];
-  renderContacts();
 
   if(currentPeerFp===fp) showPeerIdentity(fp,true,name);
   if(_historyFp===fp) $('sh-name').textContent=name;
@@ -8558,7 +8400,6 @@ async function profDeleteHistory(){
   await idbSet('history','all',h);
   await idbSet('contacts','pins_'+_infoFp,[]);
   if(currentPeerFp===_infoFp){ _pins=[]; _renderPinBar(); }
-  renderContacts();
   toast('История удалена');
   document.getElementById('profile-modal').dataset.msgs = '0';
   document.getElementById('profile-modal').dataset.size = '0 Б';
@@ -8637,7 +8478,6 @@ async function infoDeleteHistory(){
   delete h[_infoFp];
   await idbSet('history','all',h);
   openInfoModal(_infoFp);
-  renderContacts();
   toast('История удалена');
 }
 
@@ -8662,7 +8502,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     el.addEventListener('focus', ()=>{ lockScroll(); setTimeout(lockScroll, 100); setTimeout(lockScroll, 300); });
     el.addEventListener('blur',  lockScroll);
   });
-  $('sk-list').addEventListener('touchstart',e=>{
+  null.addEventListener('touchstart',e=>{
     const item=e.target.closest('[data-fp]');
     if(!item)return;
     const fp=item.dataset.fp;
@@ -8671,10 +8511,10 @@ document.addEventListener('DOMContentLoaded',()=>{
       openCtxMenu(e.touches[0],fp);
     },500);
   },{passive:true});
-  $('sk-list').addEventListener('touchend',()=>{
+  null.addEventListener('touchend',()=>{
     clearTimeout(_longPressTimer);
   });
-  $('sk-list').addEventListener('touchmove',()=>{
+  null.addEventListener('touchmove',()=>{
     clearTimeout(_longPressTimer);
   });
 });
@@ -12063,6 +11903,7 @@ function _vrAttachBtn(btnId, context){
       _state = 'idle';
       if(context === 'fav') sendFav();
       else if(context === 'room') roomSendMessageUI();
+      else if(context === 'sh') sendOfflineMsg();
       else sendMsg();
       return;
     }
@@ -13183,7 +13024,6 @@ async function rerunAll(){
 buildStuns();
 openDB().then(async ()=>{
   updateFavLast();
-  renderContacts();
   // Загружаем обои из IDB
   _loadWallpaper();
   // Загружаем свою аватарку
@@ -13788,7 +13628,6 @@ function createPC(){
     }else if(s==='connected'||s==='completed'){
       clearTimeout(pc._reconnectHint);
       pc._iceRestartDone = false; // успешно восстановились — сбрасываем флаг
-      $('reconnect-bar').style.display='none';
       if(inChat){
         setStat('подключено ✓');
         $('dot').className='dot con';
@@ -13819,8 +13658,6 @@ function _p2pHandleFailure(reason){
   if(!fp || !_pjOk){
     // Нет цели или signaling недоступен — только ручная кнопка
     setStat('соединение разорвано');
-    $('reconnect-bar').style.display='flex';
-    $('reconnect-btn').disabled = !_pjOk;
     return;
   }
 
@@ -13830,13 +13667,10 @@ function _p2pHandleFailure(reason){
     _p2pReconnectStopped = false;
     _p2pReconnectFp = fp;
     setStat('переподключаемся...');
-    $('reconnect-bar').style.display='none';
     _p2pScheduleReconnect(fp, 0);
   } else {
     // Собеседник офлайн → ждём через presence
     setStat('собеседник офлайн');
-    $('reconnect-bar').style.display='flex';
-    $('reconnect-btn').disabled = !_pjOk;
     _callOnlineWatching = fp;
     _p2pReconnectFp = fp;
     _p2pReconnectStopped = false;
@@ -13861,8 +13695,6 @@ function _p2pScheduleReconnect(fp, attempt){
     // Проверяем presence прямо перед попыткой (свежий результат)
     if(!_pjOk){
       setStat('signaling недоступен');
-      $('reconnect-bar').style.display='flex';
-      $('reconnect-btn').disabled = true;
       // Будем ждать восстановления маяка через _onPjStatusChange
       return;
     }
@@ -13871,8 +13703,6 @@ function _p2pScheduleReconnect(fp, attempt){
     if(!peerOnline){
       // Ушёл офлайн — переходим в режим ожидания
       setStat('собеседник офлайн');
-      $('reconnect-bar').style.display='flex';
-      $('reconnect-btn').disabled = false;
       _callOnlineWatching = fp;
       return;
     }
@@ -13997,7 +13827,7 @@ async function _handleServicePacket(j, idDone){
         if(!c.isBot){
           c.isBot = true; c.botEmoji = j.emoji||'🤖'; c.botVer = j.version||'1.0';
           cs[fp] = c;
-          saveContacts(cs).then(() => { renderContacts(); renderChatsList(); });
+          saveContacts(cs).then(() => { renderChatsList(); });
         }
       });
       return true;
@@ -14283,9 +14113,6 @@ function setupDC(){
     if($('sc').classList.contains('on') && !_p2pReconnectFp && !window._goingBack) sysMsg('Собеседник закрыл соединение');
     // Не перебиваем reconnect-bar если уже идёт авто-реконнект или пользователь вышел сам
     if(!_p2pReconnectFp && !window._goingBack){
-      $('reconnect-bar').style.display = 'flex';
-      $('reconnect-btn').disabled = !_pjOk;
-      $('reconnect-btn').title = _pjOk ? '' : 'Signaling недоступен';
     }
   };
 
@@ -14515,12 +14342,10 @@ async function onConn(){
   const wasReconnect = $('sc').dataset.active==='1' || _wasAutoReconnect; // уже были в чате (или это авто-реконнект)
   resetPeerIdentity();
   $('sc').dataset.active='1';
-  $('reconnect-bar').style.display='none';
   role=null;
   updateActiveBanner();
   if(!wasReconnect){
     // Чат откроется после верификации identity в showPeerIdentity
-    contactsSubScreen='sk';
     $('sc').dataset.waitingIdentity = '1';
   } else {
     contactsSubScreen='sc';
@@ -14652,7 +14477,7 @@ function minimizeChat(){
 
 function updateActiveBanner(){
   // Banner removed — contacts list shows active state inline
-  if(activeTab==='contacts') renderContacts();
+  if(activeTab==='chats') renderChatsList();
 }
 
 function goBack(){
@@ -14689,9 +14514,8 @@ function goBack(){
   resetPeerIdentity();
   hideAlert();
   $('dot').className='dot';setStat('без сервера');
-  $('reconnect-bar').style.display='none';
   hideInfoBanner();
-  if(contactsSubScreen==='sc') contactsSubScreen='sk';
+  if(contactsSubScreen==='sc') contactsSubScreen='';
   showTab(wasInChat ? 'schats' : 'connect');
 }
 
@@ -16547,7 +16371,6 @@ async function _doFwdToContact(fp, contact){
     
   }
 
-  renderContacts();
 }
 
 async function msgCtxDelete(){
@@ -16566,7 +16389,7 @@ async function msgCtxDelete(){
     if(h[fp]){
       h[fp]=h[fp].filter(m=>Number(m.ts)!==ts);
       await idbSet('history','all',h);
-      if(activeTab==='contacts') renderContacts();
+      if(activeTab==='chats') renderChatsList();
     }
     // Если сообщение ещё не отправлено — убираем из офлайн-очереди
     if(isPending){
@@ -22091,7 +21914,6 @@ async function _onPeerCameOnline(fp){
     if(isDisconnected){
       setStat('собеседник онлайн — переподключаемся...');
       _callOnlineWatching = null;
-      $('reconnect-bar').style.display='none';
       _p2pScheduleReconnect(fp, 0);
       return;
     }
@@ -22344,7 +22166,6 @@ async function refreshPresence(){
   }
 
   // Обновляем список контактов — кнопки → связь появятся у онлайн-контактов
-  renderContacts();
 
   // Обновляем кнопки в экране истории если он открыт
   const shConnBtn = $('sh-conn-btn');
@@ -22406,10 +22227,10 @@ function _applyPresenceResult(fp, result) {
     const titles = { online: 'онлайн', offline: 'офлайн', checking: 'проверяем...' };
     dot.className = 'ci-presence-dot ' + (result || 'offline');
     dot.title     = titles[result] || '';
-  } else if (result === 'online' && typeof renderContacts === 'function') {
-    // Dot отсутствует — контакт рендерился когда _pjOk=false (без dot).
-    // Перерисовываем чтобы dot появился с правильным состоянием.
-    renderContacts();
+  } else if (result === 'online' && typeof renderChatsList === 'function') {
+    // Dot отсутствует — чат-лист рендерился до получения beacon.
+    // Перерисовываем чтобы online dot появился.
+    renderChatsList();
   }
 
   // Обновляем dot в списке чатов (schats) без полного ре-рендера
@@ -22538,7 +22359,7 @@ async function _presenceHeartbeatTick(force=false){
       const dot2 = document.getElementById('pd-' + fp);
       if(dot2){ dot2.className = 'ci-presence-dot checking'; dot2.title = 'проверяем...'; }
     });
-    await renderContacts();
+    await renderChatsList();
 
     // Метод 1: WS PRESENCE query
     // Федерация: группируем контакты по первому доступному серверу из servers[].
@@ -22602,7 +22423,6 @@ async function _presenceHeartbeatTick(force=false){
     }
 
     if(myGen !== _presenceHbGen) return;
-    renderContacts();
 
   }catch(e){
     _releaseCheckPeer(); // страховка если бросило до внутреннего try
@@ -22638,8 +22458,6 @@ function _onPjStatusChange(ok){
       const connected = dc && dc.readyState === 'open';
       if(!connected){
         setStat('signaling восстановлен — переподключаемся...');
-        $('reconnect-bar').style.display='none';
-        $('reconnect-btn').disabled = false;
         _p2pScheduleReconnect(_p2pReconnectFp, 0);
       }
     }
@@ -22651,8 +22469,6 @@ function _onPjStatusChange(ok){
     if(_p2pReconnectFp && !_p2pReconnectStopped){
       clearTimeout(_p2pReconnectTimer);
       setStat('signaling недоступен');
-      $('reconnect-bar').style.display='flex';
-      $('reconnect-btn').disabled = true;
     }
   }
   _updateBeaconStatus();
@@ -22863,7 +22679,6 @@ async function reconnectToPeer(){
   const pubKeyHex = getPubKeyHex(fp, await getContacts()) || lastPeerPubKeyHex;
   if(!pubKeyHex){ toast('Нет ключа — нельзя переподключиться автоматически'); return; }
 
-  $('reconnect-bar').style.display='none';
 
   try{if(dc&&dc.readyState==='open')dc.close();}catch(_){}
   try{if(pc){pc._cleanup&&pc._cleanup();pc.close();}}catch(_){}
@@ -23124,7 +22939,6 @@ async function importContact(){
     addedAt: Date.now()
   };
   await saveContacts(contacts);
-  renderContacts();
 
   toast('Контакт добавлен: ' + (payload.name || payload.fp.slice(0,12) + '...'));
   $('add-contact-form').style.display = 'none';
@@ -24721,7 +24535,6 @@ document.addEventListener('visibilitychange', ()=>{
         if(!contacts[fp]){
           contacts[fp] = { pubKeyHex: pubHex, name: cname };
           await saveContacts(contacts);
-          renderContacts();
           toast(cname + ' добавлен в контакты ✓');
         }
       }, 1000);
@@ -25109,19 +24922,6 @@ function _attachSwipeReply(el, text, sender, ts, fp){
           if(typeof rerunAll === 'function') await rerunAll();
           if(typeof sigConnect === 'function') sigConnect();
           await new Promise(r => setTimeout(r, 1200));
-        }
-      };
-    }
-
-    // Список контактов
-    if(activeTab === 'contacts'){
-      if(typeof contactsSubScreen === 'undefined') return null;
-      if(contactsSubScreen !== 'sk' && contactsSubScreen !== '') return null;
-      return {
-        el: document.getElementById('sk'),
-        onRefresh: async () => {
-          if(typeof refreshPresence === 'function') refreshPresence();
-          await new Promise(r => setTimeout(r, 800));
         }
       };
     }
@@ -27494,7 +27294,7 @@ async function _secLoadDecoyProfile() {
     toast('Профиль-приманка');
 
     // Перерисовываем — контакты и история пустые для этого ключа
-    if (typeof renderContacts   === 'function') renderContacts();
+    if (typeof renderChatsList  === 'function') renderChatsList();
     if (typeof renderChatsList  === 'function') renderChatsList();
 
     // Избранное — скрываем историю (она привязана к основному профилю)
@@ -28951,7 +28751,7 @@ async function _syncHandleData(fromFp, dataMsg) {
     console.log(`[sync] ← merged ${imported} items from ${fromFp.slice(0,8)}`);
     // Обновляем UI
     if (typeof renderChatsList  === 'function') renderChatsList();
-    if (typeof renderContacts   === 'function') renderContacts();
+    if (typeof renderChatsList  === 'function') renderChatsList();
     _syncShowBanner(`↕ ${imported} записей синхронизировано`, 'success');
   } else {
     _syncShowBanner('↕ Синхронизация актуальна', 'info');

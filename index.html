@@ -14388,6 +14388,8 @@ async function onConn(){
   } else {
     contactsSubScreen='sc';
     $('sc').dataset.waitingIdentity = '';
+    // При авто-реконнекте тоже показываем чат
+    showTab('sc');
   }
   if(!($('sc').dataset.waitingIdentity === '1')) _focusMiDesktop('mi');
   _e2eUpdateLockBadge();

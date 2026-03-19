@@ -14588,19 +14588,29 @@ async function onConn(){
       const queue = _offlineQueue.filter(m => !m.fp || m.fp === fp);
       _offlineQueue  = _offlineQueue.filter(m => m.fp && m.fp !== fp);
       idbSet('meta','offlineQueue', _offlineQueue).catch(()=>{});
+
+      // Ждём пока DR handshake завершится и CKs будет готов (макс 10с)
+      if(queue.length && dc && dc.readyState === 'open' && !_drState?.CKs) {
+        await new Promise(resolve => {
+          const maxWait = setTimeout(resolve, 10000);
+          const check = setInterval(() => {
+            if(!dc || dc.readyState !== 'open' || _drState?.CKs) {
+              clearInterval(check); clearTimeout(maxWait); resolve();
+            }
+          }, 100);
+        });
+      }
+
       for(const item of queue){
-        if(dc && dc.readyState === 'open'){
-          // Ответчик: CKs появляется только после первого DH ratchet (получения __dr__)
-          // Не пытаемся отправить если цепь отправки ещё не инициализирована
-          if(!_drState?.CKs) {
-            console.warn('[dr] offline queue: CKs not ready, re-queuing item');
-            _offlineQueue.push(item);
-            continue;
-          }
+        if(dc && dc.readyState === 'open' && _drState?.CKs){
           const pkt = {__msg__:true, ts:item.ts, text:item.text};
           if(item.replyText){ pkt.replyText=item.replyText; pkt.replySender=item.replySender; pkt.replyTs=item.replyTs; }
           if(item.fwdFrom) pkt.fwdFrom = item.fwdFrom;
           _e2eSend(JSON.stringify(pkt));
+        } else {
+          // DC закрылся или CKs так и не появился — вернуть в очередь
+          _offlineQueue.push(item);
+          idbSet('meta','offlineQueue', _offlineQueue).catch(()=>{});
         }
       }
       // Снимаем pending-маркер с пузырей в sh-msgs
@@ -14834,6 +14844,8 @@ async function mcallConfirmStart(){
     console.warn('[mcall] getUserMedia failed:', e.name, e.message);
     return;
   }
+
+  _mc.state   = 'outgoing';
   _mc.video   = video;
   _mc.peerFp  = currentPeerFp;
   _mc.localStream = stream;
@@ -14866,6 +14878,7 @@ async function mcallConfirmStart(){
 
 function _mcHandleOffer(video){
   if(_mc.state !== 'idle'){
+    console.warn('[mcall] handleOffer: busy, state=', _mc.state);
     _e2eSend(JSON.stringify({ __mcall__: 'busy' }));
     return;
   }
@@ -22392,6 +22405,10 @@ function _applyPresenceResult(fp, result) {
     const titles = { online: 'онлайн', offline: 'офлайн', checking: 'проверяем...' };
     dot.className = 'ci-presence-dot ' + (result || 'offline');
     dot.title     = titles[result] || '';
+  } else if (result === 'online' && typeof renderContacts === 'function') {
+    // Dot отсутствует — контакт рендерился когда _pjOk=false (без dot).
+    // Перерисовываем чтобы dot появился с правильным состоянием.
+    renderContacts();
   }
 
   // Шапка открытого чата

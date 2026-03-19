@@ -21998,7 +21998,7 @@ async function _onPeerCameOnline(fp){
     const hasPending = _offlineQueue.some(m => m.fp === fp);
     const wasLast    = lastPeerFp === fp;
 
-    console.log('[reconnect] онлайн:', fp.slice(0,8), 'hasPending='+hasPending, 'wasLast='+wasLast, 'queueLen='+_offlineQueue.length);
+    console.log('[reconnect] онлайн:', fp.slice(0,8), 'hasPending='+hasPending, 'wasLast='+wasLast, 'queueLen='+_offlineQueue.length, 'queueFps='+[...new Set(_offlineQueue.map(m=>m.fp?.slice(0,8)||'?'))].join(','));
 
     if(hasPending || wasLast){
       // Есть что доставить или это последний собеседник — тихо реконнектимся

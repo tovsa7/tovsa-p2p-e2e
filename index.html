@@ -7986,17 +7986,6 @@ async function openHistory(fp){
   });
   // Показываем кнопку "позвать онлайн" если нет активного соединения
   currentPeerFp = fp;
-  if(callBtn){
-    const isConn = $('sc').dataset.active==='1' && dc && dc.readyState==='open';
-    // Боту не нужен звонок — только текстовые сообщения
-    if (contact?.isBot) {
-      callBtn.style.display = 'none';
-    } else {
-      callBtn.style.display = isConn ? 'none' : 'block';
-      callBtn.textContent = '📣';
-      callBtn.disabled = false;
-    }
-  }
   const h=await getHistory();
   const msgs=h[fp]||[];
   const lastMsg=msgs.at(-1);
@@ -14386,7 +14375,6 @@ async function onConn(){
   _e2eUpdateLockBadge();
 
   // Скрываем кнопку "позвать онлайн" — уже подключены
-  if(callBtn) callBtn.style.display = 'none';
   _callOnlineWatching = null;
 
   // DR хэндшейк: инициатор генерирует EK и отправляет __dr_hello__.
@@ -21938,7 +21926,6 @@ async function _onPeerCameOnline(fp){
   // 2. Ждали появления через "позвать онлайн" (callPeerOnline / inviteFromHistory)
   if(_callOnlineWatching === fp){
     _callOnlineWatching = null;
-    if(callBtn) callBtn.style.display = 'none';
 
     const wasConnected = lastPeerFp === fp;
     const isOpen = dc && dc.readyState === 'open';

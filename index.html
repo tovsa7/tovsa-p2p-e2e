@@ -7967,7 +7967,8 @@ function showContactsTab(){
 
 
 async function openHistory(fp){
-  if($('sc').dataset.active==='1' && currentPeerFp===fp){ showTab('sc'); return; }
+  try {
+  if($('sc').dataset.active==='1' && currentPeerFp===fp && dc && dc.readyState==='open'){ showTab('sc'); return; }
   _historyFp=fp;
   const contacts=await getContacts();
   const contact=contacts[fp];
@@ -8060,6 +8061,9 @@ async function openHistory(fp){
   _updateQueueBadge(fp);
 
   showTab('sh');
+  } catch(e) {
+    console.error('[openHistory] error:', e);
+  }
 }
 
 function toggleContacts(){ showTab('schats'); }

@@ -10636,7 +10636,10 @@ function _p2pPoolRemove(pubKeyHex) {
   const entry = _p2pPool.get(pubKeyHex);
   if (!entry) return;
   clearTimeout(entry.idleTimer);
-  try { entry.pc?.close(); } catch {}
+  // Не закрываем основной DC/PC чата — только headless transport
+  if (!entry.isMainDc) {
+    try { entry.pc?.close(); } catch {}
+  }
   _p2pPool.delete(pubKeyHex);
   console.log('[p2p] pool remove', pubKeyHex.slice(0,8)+'...');
 }
@@ -10900,7 +10903,9 @@ async function _p2pSend(pubKeyHex, payload, peerSigUrl, timeoutMs = _P2P_SEND_TI
 // Вызывается из setupDC() после успешного открытия DataChannel.
 function _p2pPoolHookMainDc(pubKeyHex, dcRef, pcRef) {
   if (!pubKeyHex || !dcRef || !pcRef) return;
-  _p2pPoolAdd(pubKeyHex, dcRef, pcRef, null);
+  _p2pPoolRemove(pubKeyHex); // удаляем старое если есть
+  const timer = setTimeout(() => _p2pPoolRemove(pubKeyHex), _P2P_POOL_IDLE_MS);
+  _p2pPool.set(pubKeyHex, { dc: dcRef, pc: pcRef, sig: null, idleTimer: timer, isMainDc: true });
   _iceCacheCollect(pcRef, pubKeyHex).catch(() => {});
   console.log('[p2p] main DC добавлен в pool для', pubKeyHex.slice(0,8)+'...');
 }

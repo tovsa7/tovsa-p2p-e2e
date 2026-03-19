@@ -987,6 +987,7 @@ textarea::placeholder{color:var(--mu)}
 .chat-item-avatar.room{border-radius:12px;background:var(--ad);border:1px solid rgba(0,255,157,.2)}
 .chat-item-avatar.channel{border-radius:10px;background:var(--sf);border:1px solid var(--bd)}
 .chat-item-avatar img{width:100%;height:100%;object-fit:cover;border-radius:inherit;overflow:hidden}
+.chat-item-online-dot{position:absolute;bottom:1px;right:1px;width:10px;height:10px;border-radius:50%;background:var(--a);box-shadow:0 0 5px var(--a);border:2px solid var(--bg)}
 .chat-type-badge{position:absolute;bottom:-2px;right:-2px;width:16px;height:16px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:9px;border:1.5px solid var(--bg)}
 .chat-item-info{flex:1;min-width:0}
 .chat-item-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:5px}
@@ -22411,6 +22412,12 @@ function _applyPresenceResult(fp, result) {
     renderContacts();
   }
 
+  // Обновляем dot в списке чатов (schats) без полного ре-рендера
+  const ciDot = document.getElementById('ci-pd-' + fp);
+  if (ciDot) {
+    ciDot.style.display = (result === 'online') ? '' : 'none';
+  }
+
   // Шапка открытого чата
   if (typeof _updatePeerLastSeenHeader === 'function') {
     _updatePeerLastSeenHeader(fp);
@@ -26643,6 +26650,8 @@ function _buildChatItemHTML(item) {
     : `<span style="font-size:16px;font-weight:700;color:var(--a)">${item.initials}</span>`;
   const typeBadge = typeEmoji
     ? `<div class="chat-type-badge">${typeEmoji}</div>` : '';
+  const onlineDot = (item.type === 'contact' && item.online)
+    ? `<div class="chat-item-online-dot" id="ci-pd-${item.id}"></div>` : (item.type === 'contact' ? `<div class="chat-item-online-dot" id="ci-pd-${item.id}" style="display:none"></div>` : '');
   const unreadBadge = item.unread > 0
     ? `<div class="chat-item-unread">${item.unread > 99 ? '99+' : item.unread}</div>` : '';
   const myDeviceBadge = item.isMyDevice
@@ -26654,7 +26663,7 @@ function _buildChatItemHTML(item) {
     onclick="openChatItem('${item.id}','${item.type}')"
     oncontextmenu="chatItemCtx(event,'${item.id}','${item.type}');return false">
     <div class="chat-item-avatar ${avatarBg}">
-      ${avatarContent}${typeBadge}
+      ${avatarContent}${typeBadge}${onlineDot}
     </div>
     <div class="chat-item-info">
       <div class="chat-item-name">

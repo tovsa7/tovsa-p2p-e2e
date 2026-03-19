@@ -3600,6 +3600,7 @@ const MKSKIPPED_TTL_MS  = 5 * 60 * 1000;
 // Всё состояние Double Ratchet для текущей P2P сессии.
 // Сбрасывается при _drReset() (разрыв соединения).
 let _drState = null;
+let _dcKeepaliveTimer = null;  // keepalive для основного DC
 /*
   _drState = {
     RK:        Uint8Array(32)  — root key
@@ -4243,6 +4244,11 @@ function _drReset() {
   _drPendingIdentity  = null;
   _drHelloProcessing  = false;
   _drSendQueue        = Promise.resolve();
+  // Останавливаем keepalive
+  if (typeof _dcKeepaliveTimer !== 'undefined' && _dcKeepaliveTimer) {
+    clearInterval(_dcKeepaliveTimer);
+    _dcKeepaliveTimer = null;
+  }
 }
 
 // ── Aliases ────────────────────────────────────────────────────────────────────
@@ -14105,6 +14111,9 @@ function setupDC(){
         return;
       }
 
+      // Keepalive ping — просто игнорируем
+      if(j._t === '__ping__') return;
+
       // 1а. Legacy rekey — DR делает это автоматически, игнорируем
       if(j._t === '__e2e_rekey_ack__') return;
 
@@ -14457,6 +14466,17 @@ async function onConn(){
 
   // Скрываем кнопку "позвать онлайн" — уже подключены
   _callOnlineWatching = null;
+
+  // Keepalive: отправляем ping каждые 15с чтобы ICE не упал от простоя
+  if (typeof _dcKeepaliveTimer !== 'undefined' && _dcKeepaliveTimer) clearInterval(_dcKeepaliveTimer);
+  _dcKeepaliveTimer = setInterval(() => {
+    if (dc && dc.readyState === 'open') {
+      try { dc.send(JSON.stringify({ _t: '__ping__' })); } catch(_) {}
+    } else {
+      clearInterval(_dcKeepaliveTimer);
+      _dcKeepaliveTimer = null;
+    }
+  }, 15000);
 
   // DR хэндшейк: инициатор генерирует EK и отправляет __dr_hello__.
   // Ответчик только ждёт __dr_hello__ и отвечает __dr_hello_ack__.

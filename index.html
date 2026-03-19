@@ -974,6 +974,8 @@ textarea::placeholder{color:var(--mu)}
 .chat-item-avatar.channel{border-radius:10px;background:var(--sf);border:1px solid var(--bd)}
 .chat-item-avatar img{width:100%;height:100%;object-fit:cover;border-radius:inherit;overflow:hidden}
 .chat-item-online-dot{position:absolute;bottom:1px;right:1px;width:10px;height:10px;border-radius:50%;background:var(--a);box-shadow:0 0 5px var(--a);border:2px solid var(--bg)}
+.chat-item-connected{background:rgba(0,255,157,.04);border-left:2px solid var(--a)}
+.chat-item-connected .chat-item-name::after{content:'  🔗';font-size:10px;opacity:.7}
 .chat-type-badge{position:absolute;bottom:-2px;right:-2px;width:16px;height:16px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:9px;border:1.5px solid var(--bg)}
 .chat-item-info{flex:1;min-width:0}
 .chat-item-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:5px}
@@ -1406,7 +1408,7 @@ if (typeof globalThis !== 'undefined') {
   <span class="htitle" id="hdr-title">Tovsa</span>
   <span class="hstat" id="stat" style="display:none">без сервера</span>
   <span id="tagline" style="display:none"></span>
-
+  <span id="hdr-conn-count" title="Активных соединений" style="display:none;margin-left:auto;font-size:10px;color:var(--a);background:var(--ad);border:1px solid rgba(0,255,157,.25);border-radius:10px;padding:2px 8px;font-weight:600;letter-spacing:.5px"></span>
 </div>
 
 <!-- Мини-плеер -->
@@ -4643,6 +4645,12 @@ function snUpdateBadge(fp) {
 
 let lastPeerFp=null;    // сохраняется после разрыва для переподключения
 let lastPeerPubKeyHex=null;
+
+// Восстанавливаем lastPeerFp из localStorage после перезагрузки
+try {
+  const _saved = localStorage.getItem('_lastPeerFp');
+  if (_saved) lastPeerFp = _saved;
+} catch(_) {}
 let currentPeerPubKeyHex=null; // pubKey hex of active peer (from identity msg)
 
 // 6 emoji fingerprint from raw public key bytes
@@ -8776,11 +8784,13 @@ function showPeerIdentity(fp,known,name){
   // Обновляем имя в диалоге звонка
   const _ctpn = document.getElementById('call-type-peer-name');
   if(_ctpn) _ctpn.textContent = name || 'Контакт';
-  // Открываем чат после верификации identity (если ждали)
+  // Открываем чат после верификации identity только если это ручное подключение
   if($('sc').dataset.waitingIdentity === '1'){
     $('sc').dataset.waitingIdentity = '';
-    showTab('sc');
-    setTimeout(() => _focusMiDesktop('mi'), 100);
+    // Показываем чат только если пользователь был на экране чатов/истории
+    const _onChatsArea = activeTab === 'chats';
+    if(_onChatsArea) { showTab('sc'); setTimeout(() => _focusMiDesktop('mi'), 100); }
+    else if (typeof renderChatsList === 'function') renderChatsList();
   }
   // Сбрасываем бейдж при смене собеседника
   _showPeerPushBadge(null);
@@ -13372,8 +13382,10 @@ async function _startIncomingListener(){
 
 // Обработчик входящего RELAY-offer (новый путь — без DataChannel-exchange)
 async function _handleIncomingRelayOffer(sig, from, offerData){
-  // Уже есть активный чат — отклоняем только если DC реально открыт
-  if($('sc').dataset.active === '1' && dc && dc.readyState === 'open'){
+  // Уже есть активный и живой чат — отклоняем
+  const _dcOpen = dc && dc.readyState === 'open';
+  const _iceOk  = pc && (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed');
+  if($('sc').dataset.active === '1' && _dcOpen && _iceOk){
     try{ sig._wsSend({ type:'RELAY', to:from, kind:'leave', data:null }); }catch(_){}
     return;
   }
@@ -13730,8 +13742,59 @@ function createPC(){
 }
 
 // ── P2P авто-реконнект ────────────────────────────────────────────────────────
+/**
+ * СИСТЕМА СОЕДИНЕНИЯ И ПОДДЕРЖАНИЯ СВЯЗИ
+ * ========================================
+ *
+ * Два типа WebRTC соединений:
+ *   1. Основной DC (глобальные `pc`/`dc`) — активный чат, DR шифрование, один за раз.
+ *   2. P2P Transport (`_p2pPool`) — headless DataChannel'ы для доставки сообщений
+ *      другим контактам без открытия чата. Label='p2p_transport', нет DR handshake.
+ *
+ * Presence через beacon:
+ *   Каждые 25с → SEALED_RELAY `kind='beacon'` всем контактам с encPubKey.
+ *   Получатель → `_beaconMarkOnline(pubHex)` → ищет fp в contacts по pubKeyHex →
+ *   `_applyPresenceResult(fp,'online')` → обновляет dot в UI.
+ *   TTL = 70с: если новый beacon не пришёл — переводит в offline.
+ *
+ * Роль инициатора (детерминированная):
+ *   `myPubKeyHex > peerPubKeyHex` → инициатор, иначе — ждущая сторона.
+ *   Инициатор: `connectToContact()` → `joinSigRoom()` → WebRTC offer через RELAY.
+ *   Не-инициатор: `_startIncomingListener()` — постоянный хост на своём presenceId.
+ *   При `openHistory()` не-инициатор шлёт `connect_req` beacon →
+ *     инициатор получает → `_p2pScheduleReconnect(fp, 0)`.
+ *
+ * Авто-реконнект — `_p2pScheduleReconnect(fp, attempt)`:
+ *   Вызывается из:
+ *     · `dc.onclose` → `_p2pHandleFailure('disconnected')`
+ *     · ICE failed/disconnected → `_p2pHandleFailure('failed'/'disconnected')`
+ *     · `_onPeerCameOnline(fp)` п.3: hasPending || wasLast (восст. после перезагр.)
+ *     · `openHistory(fp)`: контакт онлайн и мы инициатор
+ *     · получение `connect_req` sealed beacon
+ *   Не-инициатор в `_p2pScheduleReconnect` → немедленный return (ждёт входящего).
+ *   Задержки: [2s, 5s, 10s, 20s, 30s].
+ *
+ * Keepalive:
+ *   `_dcKeepaliveTimer` каждые 10с → `dc.send({_t:'__ping__'})`.
+ *   Поддерживает ICE binding на агрессивных NAT без трафика.
+ *   Останавливается в `_e2eReset()` при разрыве.
+ *
+ * Входящий offer (`_handleIncomingRelayOffer`):
+ *   Известный контакт (не _stranger) → авто-принятие, `_handleSigConnRelay(role='r')`.
+ *   Незнакомец → баннер `call-banner`.
+ *   Отклоняется (`leave`) только если dc.readyState==='open' && ICE connected/completed.
+ *
+ * Персистентность `lastPeerFp`:
+ *   Сохраняется в localStorage при каждой верификации identity.
+ *   Восстанавливается при старте → `wasLast=true` при следующем beacon →
+ *   авто-реконнект после перезагрузки страницы.
+ *
+ * Счётчик соединений (`_updateConnCounter`):
+ *   Считает: основной DC + headless pool entries (!isMainDc).
+ *   Отображается в шапке (#hdr-conn-count) и как класс chat-item-connected в списке.
+ */
 
-// Точка входа при разрыве: решаем — авто или ручная кнопка
+
 function _p2pHandleFailure(reason){
   const fp = lastPeerFp;
   // contacts — не в скоупе, используем кеш presence имени если есть
@@ -13968,6 +14031,7 @@ async function _handleIdentityPacket(data, setIdDone){
       _presencePubKeyCache[res.fp] = res.pubHex;
       lastPeerFp = res.fp;
       lastPeerPubKeyHex = res.pubHex;
+      try { localStorage.setItem('_lastPeerFp', res.fp); } catch(_) {}
       // Сохраняем push pub key собеседника для шифрования уведомлений
       if(res.pushPub){
         try{
@@ -14212,6 +14276,8 @@ function setupDC(){
     $('sc').dataset.active = '';
     if(!_p2pReconnectFp && !window._goingBack) setStat('собеседник отключился');
     $('dot').className = 'dot';
+    if (typeof _updateConnCounter === 'function') _updateConnCounter();
+    if(typeof renderChatsList === 'function') renderChatsList();
     if($('sc').classList.contains('on') && !_p2pReconnectFp && !window._goingBack) sysMsg('Собеседник закрыл соединение');
     // Запускаем авто-реконнект если пользователь не вышел сам
     if(!window._goingBack){
@@ -14442,6 +14508,7 @@ async function onConn(){
   _p2pReconnectStop();
 
   $('dot').className='dot con'; setStat('подключено ✓');
+  if (typeof _updateConnCounter === 'function') _updateConnCounter();
   const wasReconnect = $('sc').dataset.active==='1' || _wasAutoReconnect; // уже были в чате (или это авто-реконнект)
   resetPeerIdentity();
   $('sc').dataset.active='1';
@@ -14453,8 +14520,9 @@ async function onConn(){
   } else {
     contactsSubScreen='sc';
     $('sc').dataset.waitingIdentity = '';
-    // При авто-реконнекте тоже показываем чат
-    showTab('sc');
+    // При авто-реконнекте НЕ переключаем экран — пользователь сам откроет чат
+    // renderChatsList обновит счётчик соединений и индикатор
+    if (typeof renderChatsList === 'function') renderChatsList();
   }
   if(!($('sc').dataset.waitingIdentity === '1')) _focusMiDesktop('mi');
   _e2eUpdateLockBadge();
@@ -14590,8 +14658,34 @@ function minimizeChat(){
 }
 
 function updateActiveBanner(){
-  // Banner removed — contacts list shows active state inline
+  // Обновляем счётчик соединений в шапке
+  _updateConnCounter();
   if(activeTab==='chats') renderChatsList();
+}
+
+/**
+ * Обновляет счётчик активных соединений в шапке (#hdr-conn-count).
+ * Считает: основной DC (если открыт) + headless P2P transport pool.
+ */
+function _updateConnCounter(){
+  const el = document.getElementById('hdr-conn-count');
+  if (!el) return;
+  let count = 0;
+  // Основной DC чата
+  if (dc && dc.readyState === 'open') count++;
+  // Headless P2P transport (другие контакты)
+  if (typeof _p2pPool !== 'undefined') {
+    for (const [, entry] of _p2pPool) {
+      if (entry.isMainDc) continue; // уже посчитан выше
+      if (entry.dc?.readyState === 'open') count++;
+    }
+  }
+  if (count > 0) {
+    el.textContent = count === 1 ? '1 канал' : count + ' канала';
+    el.style.display = '';
+  } else {
+    el.style.display = 'none';
+  }
 }
 
 function goBack(){
@@ -26333,6 +26427,7 @@ async function buildChatList() {
       unread,
       archived:   !!archived[fp],
       online:     _presenceCache?.[fp] === 'online',
+      connected:  fp === currentPeerFp && dc && dc.readyState === 'open',
       isMyDevice: !!c.isMyDevice,
       isBot:      !!c.isBot,
     });
@@ -26511,8 +26606,10 @@ function _buildChatItemHTML(item) {
     ? `<span style="font-size:9px;color:var(--a);background:var(--ad);padding:1px 5px;border-radius:4px">📲</span>` : '';
   const botBadge = item.isBot
     ? `<span class="bot-badge">⚙ бот</span>` : '';
+  // Подсвечиваем если есть активное соединение с этим контактом
+  const connectedClass = item.connected ? ' chat-item-connected' : '';
 
-  return `<div class="chat-item" data-id="${item.id}" data-type="${item.type}"
+  return `<div class="chat-item${connectedClass}" data-id="${item.id}" data-type="${item.type}"
     onclick="openChatItem('${item.id}','${item.type}')"
     oncontextmenu="chatItemCtx(event,'${item.id}','${item.type}');return false">
     <div class="chat-item-avatar ${avatarBg}">

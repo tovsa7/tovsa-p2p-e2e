@@ -762,8 +762,6 @@ textarea::placeholder{color:var(--mu)}
 /* ── Media call UI ─────────────────────────────────────────────────────────── */
 /* Incoming call modal */
 /* Outgoing call confirm modal */
-#mcall-confirm{position:fixed;inset:0;z-index:600;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(10,10,15,.85);backdrop-filter:blur(6px)}
-#mcall-confirm.on{display:flex}
 /* Enable camera button during audio call */
 .mcall-full-btn.add-video{background:rgba(0,255,157,.2);border:1px solid rgba(0,255,157,.4);font-size:16px}
 .mcall-full-btn.add-video:hover{background:rgba(0,255,157,.35)}
@@ -2312,8 +2310,6 @@ if (typeof globalThis !== 'undefined') {
       <div class="sh-name" id="sh-name" onclick="if(_historyFp)openProfileModal(_historyFp)" style="cursor:pointer" title="Профиль"></div>
       <span id="sh-size" style="font-size:10px;color:var(--mu)"></span>
     </div>
-    <button id="sh-conn-btn" class="ci-conn-btn" style="display:none" onclick="connectToContact(_historyFp)">→ связь</button>
-    <button id="sh-invite-btn" class="ci-conn-btn" style="display:none;background:none;border-color:var(--mu);color:var(--mu)" onclick="inviteFromHistory()">📣 позвать</button>
     <button class="hdr-more-btn" onclick="openShMoreMenu(event)" title="Ещё">···</button>
   </div>
   <div id="search-bar-sh" class="search-bar-generic">
@@ -2655,7 +2651,6 @@ if (typeof globalThis !== 'undefined') {
     </div>
     <div id="peer-push-badge" title="Статус уведомлений" style="display:none;font-size:10px;padding:3px 7px;border-radius:8px;border:1px solid var(--bd);color:var(--mu);flex-shrink:0;cursor:default"></div>
     <button class="idsave" id="idsavebtn" onclick="saveContact()" style="display:none">+ сохранить</button>
-    <button id="call-online-btn" onclick="callPeerOnline()" title="Позвать онлайн" style="display:none;background:none;border:1px solid var(--a);color:var(--a);border-radius:10px;padding:5px 10px;font-size:11px;cursor:pointer;flex-shrink:0">📣</button>
     <!-- Единая кнопка звонка -->
     <button class="hdr-call-btn" id="hdr-call-btn" onclick="openCallTypeModal()" title="Звонок" style="display:none">📞</button>
     <!-- 3 точки -->
@@ -3121,18 +3116,6 @@ if (typeof globalThis !== 'undefined') {
 
 
 <!-- ── Входящий медиа-звонок ──────────────────────────────────────────────── -->
-<!-- ── Подтверждение исходящего звонка ───────────────────────────────────── -->
-<div id="mcall-confirm">
-  <div class="mcall-box">
-    <div class="mcall-avatar" id="mcall-confirm-emoji">📞</div>
-    <div class="mcall-name" id="mcall-confirm-name">Контакт</div>
-    <div class="mcall-type" id="mcall-confirm-type">АУДИО · ВИДЕО</div>
-    <div class="mcall-btns">
-      <button class="mcall-btn decline" onclick="mcallConfirmCancel()">✕ Отмена</button>
-      <button class="mcall-btn accept"  onclick="mcallConfirmStart()" id="mcall-confirm-go">📹 Позвонить</button>
-    </div>
-  </div>
-</div>
 
 <div id="mcall-modal">
   <div class="mcall-box">
@@ -8003,7 +7986,6 @@ async function openHistory(fp){
   });
   // Показываем кнопку "позвать онлайн" если нет активного соединения
   currentPeerFp = fp;
-  const callBtn = $('call-online-btn');
   if(callBtn){
     const isConn = $('sc').dataset.active==='1' && dc && dc.readyState==='open';
     // Боту не нужен звонок — только текстовые сообщения
@@ -8026,13 +8008,9 @@ async function openHistory(fp){
   } else { $('sh-size').textContent=''; }
   // Кнопка подключения — только если контакт онлайн и мы не заняты другим соединением
   const isConnected=$('sc').dataset.active==='1' && dc && dc.readyState==='open';
-  const shConnBtn=$('sh-conn-btn');
-  const shInviteBtn=$('sh-invite-btn');
   const canConnect=!isConnected && _pjOk && _presenceCache[fp]==='online';
-  shConnBtn.style.display=canConnect?'':'none';
   // Кнопка "позвать" — только если контакт офлайн и не подключены
   const canInvite = !isConnected && !canConnect && _presenceCache[fp]!=='online';
-  if(shInviteBtn) shInviteBtn.style.display=canInvite?'':'none';
 
   const container=$('sh-msgs');
   const empty=$('sh-empty');
@@ -13750,8 +13728,12 @@ function _p2pScheduleReconnect(fp, attempt){
     }
 
     setStat(`переподключаемся... (попытка ${attempt + 1})`);
-    // connectToContact не бросает исключений (использует toast) — следим за результатом через таймер
-    connectToContact(fp, { stayInChat: true });
+    // Определяем роль: инициатор — тот у кого больший fingerprint (лексикографически).
+    // Это предотвращает двойное соединение когда оба видят beacon одновременно.
+    const _shouldInitiate = myFingerprint > fp;
+    if (_shouldInitiate) {
+      connectToContact(fp, { stayInChat: true });
+    }
     // Если через 15 с соединение не поднялось — пробуем ещё раз
     _p2pReconnectTimer = setTimeout(()=>{
       if(_p2pReconnectStopped || _p2pReconnectFp !== fp) return;
@@ -14398,7 +14380,6 @@ async function onConn(){
   _e2eUpdateLockBadge();
 
   // Скрываем кнопку "позвать онлайн" — уже подключены
-  const callBtn = $('call-online-btn');
   if(callBtn) callBtn.style.display = 'none';
   _callOnlineWatching = null;
 
@@ -14682,28 +14663,10 @@ async function _mcRestoreVideoTrack(){
 }
 
 // ── Подтверждение исходящего звонка ─────────────────────────────────────────
-let _mcPendingVideo = false;
 
-function mcallStart(video){
+async function mcallStart(video){
   if(!dc || dc.readyState !== 'open'){ toast('Нет соединения'); return; }
   if(_mc.state !== 'idle'){ toast('Звонок уже активен'); return; }
-
-  _mcPendingVideo = video;
-  const name = $('peer-name').textContent || 'Контакт';
-  $('mcall-confirm-name').textContent   = name;
-  $('mcall-confirm-emoji').textContent  = video ? '📹' : '🎤';
-  $('mcall-confirm-type').textContent   = video ? 'АУДИО · ВИДЕО' : 'АУДИО';
-  $('mcall-confirm-go').textContent     = video ? '📹 Позвонить' : '🎤 Позвонить';
-  $('mcall-confirm').classList.add('on');
-}
-
-function mcallConfirmCancel(){
-  $('mcall-confirm').classList.remove('on');
-}
-
-async function mcallConfirmStart(){
-  $('mcall-confirm').classList.remove('on');
-  const video = _mcPendingVideo;
 
   let stream;
   try{
@@ -21965,7 +21928,6 @@ async function _onPeerCameOnline(fp){
   // 2. Ждали появления через "позвать онлайн" (callPeerOnline / inviteFromHistory)
   if(_callOnlineWatching === fp){
     _callOnlineWatching = null;
-    const callBtn = $('call-online-btn');
     if(callBtn) callBtn.style.display = 'none';
 
     const wasConnected = lastPeerFp === fp;
@@ -22030,44 +21992,6 @@ function _updateHidePresenceBtnUI(fp, hidden) {
 }
 
 // Позвать собеседника онлайн — отправляем push и начинаем следить за presence
-async function callPeerOnline(){
-  if(!currentPeerFp){ toast('Нет активного чата'); return; }
-  const contacts = await getContacts();
-  const peerName = contacts[currentPeerFp]?.name || 'кто-то';
-  const myName = document.getElementById('my-name-input')?.value?.trim() || 'Tovsa';
-
-  // Отправляем push собеседнику
-  if(typeof window._pushNotifyPeer === 'function'){
-    window._pushNotifyPeer(currentPeerFp, '📣 ' + myName, 'Ждёт вас в чате — зайдите в сеть');
-  }
-
-  // Начинаем следить за presence
-  _callOnlineWatching = currentPeerFp;
-  toast('📣 Уведомление отправлено, жду ' + peerName + '...');
-
-  const callBtn = $('call-online-btn');
-  if(callBtn){ callBtn.textContent = '⏳'; callBtn.disabled = true; setTimeout(()=>{ callBtn.textContent='📣'; callBtn.disabled=false; }, 30000); }
-}
-
-// Позвать собеседника из экрана истории
-async function inviteFromHistory(){
-  if(!_historyFp) return;
-  const contacts = await getContacts();
-  const peerName = contacts[_historyFp]?.name || 'собеседник';
-  const myName = document.getElementById('my-name-input')?.value?.trim() || 'Tovsa';
-
-  if(typeof window._pushNotifyPeer === 'function'){
-    window._pushNotifyPeer(_historyFp, '📣 ' + myName, 'Ждёт вас в чате — зайдите в сеть');
-  }
-
-  _callOnlineWatching = _historyFp;
-  toast('📣 Уведомление отправлено ' + peerName);
-
-  const btn = $('sh-invite-btn');
-  if(btn){ btn.textContent = '⏳'; btn.disabled = true;
-    setTimeout(()=>{ btn.textContent='📣 позвать'; btn.disabled=false; }, 30000); }
-}
-
 // ── WebRTC-connect — единственный метод проверки присутствия ──
 // /peers на сервере закрыт — проверяем только через попытку подключения.
 async function _refreshPresenceViaWebRTC(fps, fpToPid, checkPeer, myGen){
@@ -22228,18 +22152,7 @@ async function refreshPresence(){
     if(btn) btn.classList.remove('spin');
   }
 
-  // Обновляем список контактов — кнопки → связь появятся у онлайн-контактов
-
-  // Обновляем кнопки в экране истории если он открыт
-  const shConnBtn = $('sh-conn-btn');
-  const shInviteBtn = $('sh-invite-btn');
-  if(shConnBtn && _historyFp){
-    const isConnected = $('sc').dataset.active==='1' && dc && dc.readyState==='open';
-    const canConnect = !isConnected && _pjOk && _presenceCache[_historyFp]==='online';
-    shConnBtn.style.display = canConnect ? '' : 'none';
-    const canInvite = !isConnected && !canConnect && _presenceCache[_historyFp]!=='online';
-    if(shInviteBtn) shInviteBtn.style.display = canInvite ? '' : 'none';
-  }
+  // Обновляем список контактов
 }
 
 // Подключиться к контакту напрямую через его presence ID как код комнаты

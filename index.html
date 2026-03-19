@@ -515,8 +515,8 @@ textarea::placeholder{color:var(--mu)}
 .hdr-more-btn{background:none;border:none;cursor:pointer;padding:6px 8px;border-radius:10px;font-size:18px;color:var(--mu);transition:color .15s,background .15s;flex-shrink:0;-webkit-tap-highlight-color:transparent;letter-spacing:1px;line-height:1}
 .hdr-more-btn:hover,.hdr-more-btn:active{color:var(--tx);background:rgba(255,255,255,.06)}
 /* Дроп-меню 3 точек */
-#chat-more-menu,#sh-more-menu{display:none;position:fixed;z-index:400;background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:6px 0;min-width:200px;box-shadow:0 8px 32px rgba(0,0,0,.4);animation:pop .15s ease}
-#chat-more-menu.on,#sh-more-menu.on{display:block}
+#chat-more-menu{display:none;position:fixed;z-index:400;background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:6px 0;min-width:200px;box-shadow:0 8px 32px rgba(0,0,0,.4);animation:pop .15s ease}
+#chat-more-menu.on{display:block}
 .chat-more-item{display:flex;align-items:center;gap:12px;width:100%;padding:11px 16px;background:none;border:none;color:var(--tx);font-size:13px;font-family:inherit;cursor:pointer;text-align:left;transition:background .12s;-webkit-tap-highlight-color:transparent}
 .chat-more-item:active,.chat-more-item:hover{background:rgba(255,255,255,.05)}
 .chat-more-item .cmi-icon{font-size:16px;width:22px;text-align:center;flex-shrink:0}
@@ -2304,44 +2304,6 @@ if (typeof globalThis !== 'undefined') {
 </div>
 
 <!-- История (внутри вкладки Контакты) -->
-<div class="scr" id="sh">
-  <div class="sh-back" onclick="if(typeof _tabState!=='undefined'){_tabState.chats.subScreen=null;_tabState.chats.subId=null;}showTab('schats')">← назад</div>
-  <div class="sh-hdr">
-    <div id="sh-avatar" onclick="if(_historyFp)openProfileModal(_historyFp)" style="width:34px;height:34px;border-radius:50%;background:var(--bd);display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;flex-shrink:0;overflow:hidden;transition:opacity .15s" title="Профиль">👤</div>
-    <div style="flex:1;min-width:0">
-      <div class="sh-name" id="sh-name" onclick="if(_historyFp)openProfileModal(_historyFp)" style="cursor:pointer" title="Профиль"></div>
-      <span id="sh-size" style="font-size:10px;color:var(--mu)"></span>
-    </div>
-    <button class="hdr-more-btn" onclick="openShMoreMenu(event)" title="Ещё">···</button>
-  </div>
-  <div id="search-bar-sh" class="search-bar-generic">
-    <button class="search-nav-btn" onclick="closeChatSearch('sh-msgs')" style="font-size:13px;color:var(--mu)">✕</button>
-    <input class="search-input-generic" type="search" placeholder="Поиск в переписке..." oninput="onSearchInput('sh-msgs')" onkeydown="onSearchKey(event,'sh-msgs')" autocomplete="off">
-    <span class="search-count-generic"></span>
-    <button class="search-nav-btn search-prev-generic" onclick="searchNav(-1,'sh-msgs')" disabled>▲</button>
-    <button class="search-nav-btn search-next-generic" onclick="searchNav(1,'sh-msgs')"  disabled>▼</button>
-  </div>
-  <div class="msgs" id="sh-msgs" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:16px;display:flex;flex-direction:column;gap:8px;touch-action:pan-y"></div>
-  <div class="sh-empty" id="sh-empty" style="display:none">Нет сохранённых сообщений</div>
-  <!-- История: офлайн-очередь -->
-  <div id="sh-offline-banner" style="display:none;align-items:center;gap:8px;font-size:10px;color:var(--w);padding:6px 14px;background:rgba(229,192,123,.08);border-top:1px solid rgba(229,192,123,.2)">
-    <span style="width:6px;height:6px;border-radius:50%;background:var(--w);flex-shrink:0;animation:blink .9s infinite"></span>
-    <span>Не в сети — сообщение отправится при подключении</span>
-  </div>
-  <div id="sh-iarea" class="iarea" style="display:none;position:relative">
-    <button class="btn" onclick="$('sh-file-input').click()" style="padding:10px 12px;flex-shrink:0;display:none" id="sh-attach-btn" title="Прикрепить файл">📎</button>
-    <input type="file" id="sh-file-input" style="display:none" onchange="sendOfflineFile(this)">
-    <!-- Бар записи -->
-    <div id="sh-vr-bar" style="display:none;align-items:center;gap:8px;flex:1;min-width:0;overflow:hidden">
-      <div class="vr-dot"></div>
-      <div class="vr-time" id="sh-vr-time">0:00</div>
-      <div class="vr-wave" id="sh-vr-wave" style="flex:1"></div>
-      <button onclick="vrCancelRecording()" style="background:none;border:none;color:var(--mu);font-size:12px;font-family:inherit;cursor:pointer;padding:4px 8px;white-space:nowrap">Отмена</button>
-    </div>
-    <textarea id="sh-mi" placeholder="сообщение..." onkeydown="handleShMiKey(event)" oninput="autoGrowMi(this);vrUpdateSendBtn()"></textarea>
-    <button class="mic-send-btn mic-mode" id="sh-mic-btn">🎤</button>
-  </div>
-</div>
 
 <!-- Скрытые элементы для JS-обновлений (beacon статус, fav-last) -->
 <div style="display:none" aria-hidden="true">
@@ -2648,6 +2610,7 @@ if (typeof globalThis !== 'undefined') {
     <div class="idinfo" style="flex:1;min-width:0">
       <div class="idname" id="peer-name" onclick="if(currentPeerFp)openProfileModal(currentPeerFp)" style="cursor:pointer" title="Профиль">Неизвестный</div>
       <div id="peer-lastseen" style="font-size:10px;color:var(--mu);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+      <div id="peer-conn-status" style="font-size:10px;color:var(--mu);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:none"></div>
       <div id="peer-fp" style="font-size:9px;color:var(--mu);opacity:.7;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
       <div id="typing-indicator" style="display:none;font-size:9px;color:var(--a);margin-top:1px">печатает...</div>
     </div>
@@ -2686,16 +2649,6 @@ if (typeof globalThis !== 'undefined') {
       <span class="cmi-icon">🔍</span><span class="cmi-label">Поиск в переписке</span>
     </button>
     <button class="chat-more-item" onclick="closeChatMoreMenu();openWallpaperModal()">
-      <span class="cmi-icon">🖼</span><span class="cmi-label">Обои чата</span>
-    </button>
-  </div>
-
-  <!-- Меню 3 точек истории -->
-  <div id="sh-more-menu">
-    <button class="chat-more-item" onclick="closeShMoreMenu();openChatSearch('sh-msgs')">
-      <span class="cmi-icon">🔍</span><span class="cmi-label">Поиск в переписке</span>
-    </button>
-    <button class="chat-more-item" onclick="closeShMoreMenu();openWallpaperModal()">
       <span class="cmi-icon">🖼</span><span class="cmi-label">Обои чата</span>
     </button>
   </div>
@@ -2767,6 +2720,11 @@ if (typeof globalThis !== 'undefined') {
     z-index:10;transition:opacity .2s;
     align-items:center;justify-content:center;
   ">↓<span class="scroll-badge" id="scroll-unread-badge"></span></button>
+  <!-- Баннер офлайн-очереди (всегда в sc) -->
+  <div id="sc-offline-banner" style="display:none;align-items:center;gap:8px;font-size:10px;color:var(--w);padding:6px 14px;background:rgba(229,192,123,.08);border-top:1px solid rgba(229,192,123,.2);flex-shrink:0">
+    <span style="width:6px;height:6px;border-radius:50%;background:var(--w);flex-shrink:0;animation:blink .9s infinite"></span>
+    <span id="sc-offline-banner-text">Не в сети — сообщение отправится при подключении</span>
+  </div>
   <div class="reply-bar" id="reply-bar">
     <div class="reply-bar-quote">
       <div class="reply-bar-sender" id="reply-bar-sender"></div>
@@ -7389,17 +7347,16 @@ async function saveMsg(fp,text,type,ts,replyText,replySender,replyTs,fwdFrom,exp
   checkStorageAndNotify();
 }
 
-let _historyFp=null;
 
 async function clearHistory(){
-  if(!_historyFp)return;
+  if(!currentPeerFp)return;
   if(!confirm('Очистить всю историю переписки с этим контактом?'))return;
   const h=await getHistory();
-  delete h[_historyFp];
+  delete h[currentPeerFp];
   await idbSet('history','all',h);
-  await idbSet('contacts','pins_'+_historyFp,[]);
-  if(currentPeerFp===_historyFp){ _pins=[]; _renderPinBar(); }
-  openHistory(_historyFp);
+  await idbSet('contacts','pins_'+currentPeerFp,[]);
+  if(currentPeerFp===currentPeerFp){ _pins=[]; _renderPinBar(); }
+  openHistory(currentPeerFp);
   toast('История очищена');
 }
 
@@ -7536,7 +7493,7 @@ function showTab(tab){
   }
   // Сохраняем состояние чатов только когда уходим НА ДРУГУЮ вкладку (не при возврате внутри чатов)
   const _leavingChatsArea = (activeTab === 'chats' || activeTab === 'rooms' || activeTab === 'channels');
-  const _goingToChatsArea = (tab === 'schats' || tab === 'sc' ||  tab === 'sh' || tab === 'sfav'
+  const _goingToChatsArea = (tab === 'schats' || tab === 'sc' || tab === 'sfav'
                              || tab === 'srooms' || tab === 'sroom-chat' || tab === 'schannels' || tab === 'sch-view');
   if(_leavingChatsArea && !_goingToChatsArea){
     // Уходим на другую вкладку (connect/sn) — сохраняем полное состояние
@@ -7546,8 +7503,8 @@ function showTab(tab){
     _tabState.chats.search   = typeof _chatsSearchQuery !== 'undefined' ? _chatsSearchQuery : '';
     if(activeTab === 'chats' && contactsSubScreen === 'sc')
       { _tabState.chats.subScreen = 'sc';         _tabState.chats.subId = currentPeerFp || null; }
-    else if(activeTab === 'chats' && contactsSubScreen === 'sh')
-      { _tabState.chats.subScreen = 'sh';         _tabState.chats.subId = currentPeerFp || null; }
+    else if(activeTab === 'chats' && contactsSubScreen === 'sc')
+      { _tabState.chats.subScreen = 'sc';         _tabState.chats.subId = currentPeerFp || null; }
     else if(activeTab === 'chats' && contactsSubScreen === 'sfav')
       { _tabState.chats.subScreen = 'sfav';        _tabState.chats.subId = null; }
     else if(activeTab === 'rooms' && document.getElementById('sroom-chat')?.classList.contains('on'))
@@ -7562,18 +7519,18 @@ function showTab(tab){
   const tabIdMap = {
     connect:'tab-connect', sn:'tab-net',
     schats:'tab-chats',
-    sh:'tab-chats', sfav:'tab-chats', sc:'tab-chats',
+     sfav:'tab-chats', sc:'tab-chats',
     srooms:'tab-chats', 'sroom-chat':'tab-chats',
     schannels:'tab-chats', 'sch-view':'tab-chats'
   };
   movePill(tabIdMap[tab] || 'tab-connect');
 
-  const isContactsArea = tab==='sh'||tab==='sfav'||tab==='sc'||tab==='s-add-contact';
+  const isContactsArea = tab==='sfav'||tab==='sc'||tab==='s-add-contact';
   const isChatsArea    = tab==='schats'||isContactsArea||tab==='srooms'||tab==='sroom-chat'||tab==='schannels'||tab==='sch-view';
   const isNetArea      = tab==='sn';
   const isConnect      = !isChatsArea && !isNetArea;
 
-  hide('sr');hide('ss');hide('sc');hide('sh');hide('sn');hide('sfav');hide('s-add-contact');
+  hide('sr');hide('ss');hide('sc');/* hide sh removed */;hide('sn');hide('sfav');hide('s-add-contact');
   hide('schats');hide('srooms');hide('sroom-chat');hide('schannels');hide('sch-view');
 
   $('tagline').style.display = 'block';
@@ -7603,9 +7560,6 @@ function showTab(tab){
     $('tagline').style.display = 'none';
     requestAnimationFrame(()=>{ const m=$('msgs'); m.scrollTop=m.scrollHeight; _clearUnread(); });
     setTimeout(_sendReadReceipt, 150);
-
-  } else if(tab === 'sh'){
-    activeTab = 'chats'; contactsSubScreen = 'sh'; show('sh');
 
   } else if(tab === 's-add-contact'){
     activeTab = 'chats'; contactsSubScreen = 's-add-contact'; show('s-add-contact');
@@ -7643,8 +7597,8 @@ function showTab(tab){
     if(st.subScreen === 'sc' && st.subId && currentPeerFp === st.subId && $('sc').dataset.active === '1'){
       show('sc'); $('tagline').style.display = 'none';
       activeTab = 'chats'; contactsSubScreen = 'sc';
-    } else if(st.subScreen === 'sh'){
-      show('sh'); activeTab = 'chats'; contactsSubScreen = 'sh';
+    } else if(st.subScreen === 'sc'){
+      /* show sh - use sc instead */; activeTab = 'chats'; contactsSubScreen = 'sc';
     } else if(st.subScreen === 'sfav'){
       show('sfav'); activeTab = 'chats'; contactsSubScreen = 'sfav';
     } else if(st.subScreen === 'sroom-chat' && st.subId){
@@ -8000,160 +7954,145 @@ function showContactsTab(){
 }
 
 
-async function openHistory(fp){
+/**
+ * openChat(fp) — единая точка входа для открытия чата с контактом.
+ * Заменяет бывшие openHistory (sh) и прямой showTab('sc').
+ * Всегда открывает sc-экран, загружает историю, настраивает хедер.
+ * Поле ввода всегда активно — при офлайн пишет в _offlineQueue.
+ */
+async function openChat(fp){
   try {
-  if($('sc').dataset.active==='1' && currentPeerFp===fp && dc && dc.readyState==='open'){ showTab('sc'); return; }
-  _historyFp=fp;
-  const contacts=await getContacts();
-  const contact=contacts[fp];
-  $('sh-name').textContent=contact?.name||'Неизвестный';
-  // Аватарка в хедере истории
+  currentPeerFp = fp;
+  const contacts = await getContacts();
+  const contact  = contacts[fp];
+
+  // ── Хедер ────────────────────────────────────────────────────────────────
+  $('peer-name').textContent = contact?.name || 'Неизвестный';
+  $('peer-fp').textContent   = contact ? '' : fp;
+  $('peer-fp').style.display = contact ? 'none' : '';
+  $('idsavebtn').style.display = contact ? 'none' : 'block';
+
+  // Аватарка
   _getAvatarCached(fp).then(ava => {
-    const shAva = document.getElementById('sh-avatar');
-    if(!shAva) return;
-    if(ava){ shAva.innerHTML=`<img src="${ava}" style="width:100%;height:100%;object-fit:cover">`; }
+    const el = document.getElementById('hdr-avatar');
+    if(!el) return;
+    if(ava){ el.innerHTML = `<img src="${ava}" style="width:100%;height:100%;object-fit:cover">`; }
     else {
-      const nm = contact?.name||'';
+      const nm = contact?.name || '';
       const em = nm.match(/(\p{Emoji_Presentation}|\p{Emoji}\uFE0F)/u);
-      shAva.textContent = em ? em[0] : (nm[0]||'?').toUpperCase();
+      el.textContent = em ? em[0] : (nm[0] || '?').toUpperCase();
     }
   });
-  // Показываем кнопку "позвать онлайн" если нет активного соединения
-  currentPeerFp = fp;
-  const h=await getHistory();
-  const msgs=h[fp]||[];
-  const lastMsg=msgs.at(-1);
-  if(!contact){
-    $('sh-size').textContent=fp;
-  } else if(lastMsg){
-    const t=new Date(lastMsg.ts).toLocaleString('ru',{day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'});
-    $('sh-size').textContent='последнее: '+t;
-  } else { $('sh-size').textContent=''; }
-  // Кнопка подключения — только если контакт онлайн и мы не заняты другим соединением
-  const isConnected=$('sc').dataset.active==='1' && dc && dc.readyState==='open';
-  const canConnect=!isConnected && _pjOk && _presenceCache[fp]==='online';
-  // Кнопка "позвать" — только если контакт офлайн и не подключены
-  const canInvite = !isConnected && !canConnect && _presenceCache[fp]!=='online';
 
-  const container=$('sh-msgs');
-  const empty=$('sh-empty');
-  container.innerHTML='';
-  if(msgs.length===0){
-    container.style.display='none';
-    empty.style.display='flex';
-  } else {
-    container.style.display='flex';
-    empty.style.display='none';
-    const peerName=contact?.name||'Неизвестный';
-    const renderPromises=msgs.map(async m=>{
-      const sender=m.type==='out'?'Вы':peerName;
+  // ── Статус соединения в хедере ────────────────────────────────────────────
+  _updateChatConnStatus();
+
+  // ── История сообщений ─────────────────────────────────────────────────────
+  const h    = await getHistory();
+  const msgs = h[fp] || [];
+  const container = $('msgs');
+  container.innerHTML = '';
+
+  if(msgs.length > 0){
+    const peerName = contact?.name || 'Неизвестный';
+    const renderPromises = msgs.map(async m => {
+      const sender = m.type === 'out' ? 'Вы' : peerName;
       let d;
       if(m.__file__){
-        d=await buildFileBubble(m,null,m.type==='out'?'out':'in');
-        const _senderEl=document.createElement('div');
-        _senderEl.className='msender';
-        _senderEl.textContent=sender;
+        d = await buildFileBubble(m, null, m.type === 'out' ? 'out' : 'in');
+        const _senderEl = document.createElement('div');
+        _senderEl.className = 'msender';
+        _senderEl.textContent = sender;
         d.prepend(_senderEl);
-        d.dataset.ts=m.ts;
+        d.dataset.ts = m.ts;
       } else {
-        d=document.createElement('div');
-        // Помечаем pending если сообщение ещё в офлайн-очереди
-        const _isPending = m.type==='out' && _offlineQueue.some(q=>q.fp===fp&&Number(q.ts)===Number(m.ts));
-        d.className='msg '+(m.type==='out'?'out':'in')+(_isPending?' pending':'');
-        if(_isPending) d.dataset.pending='1';
-        d.dataset.ts=m.ts;
-        const h2=m.text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        const t=new Date(m.ts).toLocaleString('ru',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
-        const quoteHtml=m.replyText?buildQuoteHtml(m.replySender,m.replyText,m.replyTs):'';
-        const fwdHdrSh = m.fwdFrom ? buildFwdHtml(m.fwdFrom) : '';
-        d.innerHTML=`<div class="msender">${esc(sender)}</div>${fwdHdrSh}${quoteHtml}${h2}<div class="mmeta">${t}</div>`;
+        d = document.createElement('div');
+        const _isPending = m.type === 'out' && _offlineQueue.some(q => q.fp === fp && Number(q.ts) === Number(m.ts));
+        d.className = 'msg ' + (m.type === 'out' ? 'out' : 'in') + (_isPending ? ' pending' : '');
+        if(_isPending) d.dataset.pending = '1';
+        d.dataset.ts = m.ts;
+        const h2 = m.text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const t  = new Date(m.ts).toLocaleString('ru', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+        const quoteHtml = m.replyText ? buildQuoteHtml(m.replySender, m.replyText, m.replyTs) : '';
+        const fwdHtml   = m.fwdFrom   ? buildFwdHtml(m.fwdFrom) : '';
+        d.innerHTML = `<div class="msender">${esc(sender)}</div>${fwdHtml}${quoteHtml}${h2}<div class="mmeta">${t}</div>`;
       }
-      attachMsgLongPress(d,m.__file__?('[файл] '+(m.name||'')):m.text,sender,m.ts,fp);
+      attachMsgLongPress(d, m.__file__ ? ('[файл] ' + (m.name||'')) : m.text, sender, m.ts, fp);
       return d;
     });
-    const nodes=await Promise.all(renderPromises);
-    nodes.forEach(n=>container.appendChild(n));
-    container.scrollTop=container.scrollHeight;
+    const nodes = await Promise.all(renderPromises);
+    nodes.forEach(n => container.appendChild(n));
   }
-  // Показываем поле ввода только если контакт офлайн (нет активного соединения с ним)
-  const shIarea   = $('sh-iarea');
-  const shBanner  = $('sh-offline-banner');
-  const isActive  = $('sc').dataset.active==='1' && currentPeerFp===fp && dc && dc.readyState==='open';
-  if(shIarea)  shIarea.style.display  = isActive ? 'none' : 'flex';
-  if(shBanner) shBanner.style.display = isActive ? 'none' : 'flex';
+
+  // ── Пины ─────────────────────────────────────────────────────────────────
+  if(typeof _loadPins === 'function') _loadPins(fp).catch(()=>{});
+
+  // ── Офлайн-баннер и очередь ──────────────────────────────────────────────
   _updateQueueBadge(fp);
 
-  showTab('sh');
+  // ── Показываем sc ─────────────────────────────────────────────────────────
+  $('sc').dataset.active = '1';
+  showTab('sc');
+  requestAnimationFrame(() => { container.scrollTop = container.scrollHeight; });
+  _focusMiDesktop('mi');
+  _clearUnread();
+  if(typeof _updatePeerLastSeenHeader === 'function') _updatePeerLastSeenHeader(fp);
+  if(typeof snUpdateBadge === 'function') snUpdateBadge(fp);
 
-  // Если контакт онлайн и нет активного соединения — инициируем подключение
-  const _isOnline = _presenceCache[fp] === 'online';
-  const _isConnected = dc && dc.readyState === 'open';
-  if(_isOnline && !_isConnected && _pjOk && !_p2pReconnectFp){
-    // Определяем роль — инициирует тот у кого больший pubKeyHex
-    const _peerPub = contact?.pubKeyHex || null;
-    const _shouldInit = !_peerPub || myPubKeyHex > _peerPub;
-    if(_shouldInit){
-      _p2pReconnectFp = fp;
-      _p2pReconnectStopped = false;
-      _p2pScheduleReconnect(fp, 0);
-    } else if(_peerPub){
-      // Мы не инициатор — отправляем sealed beacon с kind='connect_req'
-      // чтобы собеседник знал что мы хотим соединиться
-      _sendConnectRequest(fp, _peerPub).catch(()=>{});
-    }
+  // ── Инициируем соединение если контакт онлайн ────────────────────────────
+  if(typeof _connManager !== 'undefined'){
+    _connManager.ensureFor(fp, 'chat');
   }
   } catch(e) {
-    console.error('[openHistory] error:', e);
+    console.error('[openChat] error:', e);
   }
 }
+
+/** Обновляет строку статуса соединения в хедере sc. */
+function _updateChatConnStatus(){
+  const el = document.getElementById('peer-conn-status');
+  if(!el || !currentPeerFp) return;
+  const fp = currentPeerFp;
+  const isConn    = dc && dc.readyState === 'open';
+  const isOnline  = _presenceCache[fp] === 'online';
+  const pending   = _offlineQueue.filter(m => m.fp === fp).length;
+  const isReconn  = !!_p2pReconnectFp;
+
+  if(isConn){
+    el.style.color = 'var(--a)';
+    el.textContent = '● подключено';
+    el.style.display = '';
+  } else if(isReconn && isOnline){
+    el.style.color = 'var(--w)';
+    el.textContent = '⟳ соединяемся...';
+    el.style.display = '';
+  } else if(pending > 0){
+    el.style.color = 'var(--w)';
+    el.textContent = `⏳ ${pending} ${pending===1?'сообщение':'сообщений'} отправится при подключении`;
+    el.style.display = '';
+  } else if(isOnline){
+    el.style.color = 'var(--mu)';
+    el.textContent = '● онлайн';
+    el.style.display = '';
+  } else {
+    el.style.display = 'none';
+  }
+
+  // Офлайн-баннер
+  const banner = document.getElementById('sc-offline-banner');
+  if(banner) banner.style.display = (!isConn && pending > 0) ? 'flex' : 'none';
+}
+
+// Алиас для обратной совместимости со старыми вызовами openHistory
+const openHistory = openChat;
 
 function toggleContacts(){ showTab('schats'); }
 
-// ── Офлайн-сообщения из истории ──────────────────────────────────────────────
+// sendOfflineMsg теперь не нужен — sendMsg сам решает как отправить.
+// Оставляем заглушку на случай если где-то ещё вызывается.
+function sendOfflineMsg(){ sendMsg(); }
 function handleShMiKey(e){
-  if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendOfflineMsg(); }
-}
-
-async function sendOfflineMsg(){
-  const inp = $('sh-mi');
-  if(!inp) return;
-  const t = inp.value.trim();
-  if(!t || !_historyFp) return;
-
-  const ts = Date.now();
-  const fp = _historyFp;
-
-  // Кладём в очередь с fp
-  const item = { fp, text: t, ts };
-  _offlineQueue.push(item);
-  idbSet('meta','offlineQueue', _offlineQueue).catch(()=>{});
-
-  // Сохраняем в историю как 'out' (сразу, чтобы не потерялось)
-  const h = await getHistory();
-  if(!h[fp]) h[fp] = [];
-  h[fp].push({ type:'out', text:t, ts });
-  await idbSet('history','all', h).catch(()=>{});
-
-  // Добавляем пузырь с маркером pending в sh-msgs
-  const container = $('sh-msgs');
-  if(container){
-    const d = document.createElement('div');
-    d.className = 'msg out pending';
-    d.dataset.ts = ts;
-    d.dataset.pending = '1';
-    const tStr = new Date(ts).toLocaleString('ru',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
-    const contacts = await getContacts();
-    const sender = 'Вы';
-    d.innerHTML = `<div class="msender">${sender}</div>${esc(t)}<div class="mmeta">${tStr}</div>`;
-    container.style.display = 'flex';
-    $('sh-empty').style.display = 'none';
-    container.appendChild(d);
-    container.scrollTop = container.scrollHeight;
-  }
-
-  inp.value = ''; inp.style.height = 'auto';
-  _updateQueueBadge(fp);
-  vibrate(10);
+  if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendMsg(); }
 }
 
 // Обновляет жёлтый бейдж на chat-item и sh-size
@@ -8174,16 +8113,9 @@ function _updateQueueBadge(fp){
       badge.textContent = count;
     } else if(badge){ badge.remove(); }
   }
-  // В хедере истории
-  if(_historyFp === fp){
-    const sz = $('sh-size');
-    if(sz){
-      const existing = sz.querySelector('.sh-queue-info');
-      if(count > 0){
-        if(!existing){ const s=document.createElement('span'); s.className='sh-queue-info'; s.style.cssText='color:var(--w);margin-left:6px'; sz.appendChild(s); }
-        sz.querySelector('.sh-queue-info').textContent = `· ${count} в очереди`;
-      } else { sz.querySelector('.sh-queue-info')?.remove(); }
-    }
+  // Обновляем статус соединения в хедере (показывает кол-во pending)
+  if(currentPeerFp === fp && typeof _updateChatConnStatus === 'function'){
+    _updateChatConnStatus();
   }
 }
 
@@ -8415,7 +8347,7 @@ async function saveProfileModal(){
   delete _avatarCache[fp];
 
   if(currentPeerFp===fp) showPeerIdentity(fp,true,name);
-  if(_historyFp===fp) $('sh-name').textContent=name;
+  if(currentPeerFp===fp) $('peer-name').textContent=name;
   toast('Сохранено');
 }
 
@@ -8795,6 +8727,7 @@ function showPeerIdentity(fp,known,name){
   // Сбрасываем бейдж при смене собеседника
   _showPeerPushBadge(null);
   updateActiveBanner();
+  if(typeof _updateChatConnStatus === 'function') _updateChatConnStatus();
   // Safety Numbers: обновляем бейдж верификации
   if (typeof snUpdateBadge === 'function') snUpdateBadge(fp);
 }
@@ -11720,7 +11653,7 @@ function vrUpdateSendBtn(){
     }
   }
   // Синхронизируем кнопки в избранном и истории через _vrSync (он знает mode)
-  for(const btnId of ['fav-mic-btn','sh-mic-btn','room-mic-btn']){
+  for(const btnId of ['fav-mic-btn','room-mic-btn']){
     const b = document.getElementById(btnId);
     if(b && b._vrSync) b._vrSync();
   }
@@ -11773,7 +11706,7 @@ function vrInit(){
   }
   _vrAttachBtn('mic-send-btn', 'chat');
   _vrAttachBtn('fav-mic-btn',  'fav');
-  _vrAttachBtn('sh-mic-btn',   'sh');
+  // sh-mic-btn removed — sc iarea handles everything
   vrUpdateSendBtn();
 }
 
@@ -11992,7 +11925,7 @@ function _vrAttachBtn(btnId, context){
       _state = 'idle';
       if(context === 'fav') sendFav();
       else if(context === 'room') roomSendMessageUI();
-      else if(context === 'sh') sendOfflineMsg();
+      // sh context removed
       else sendMsg();
       return;
     }
@@ -12101,7 +12034,7 @@ function vrLockedStop(){
 function _vrToggleMode(){
   _vr.mode = _vr.mode === 'voice' ? 'circle' : 'voice';
   try { navigator.vibrate && navigator.vibrate(12); } catch(_) {}
-  ['mic-send-btn','fav-mic-btn','sh-mic-btn','room-mic-btn'].forEach(id => {
+  ['mic-send-btn','fav-mic-btn','room-mic-btn'].forEach(id => {
     const b = document.getElementById(id);
     if(b && b._vrSync) b._vrSync();
   });
@@ -12228,7 +12161,7 @@ async function vrBeginRecording(kind, context){
 // Возвращает ID элементов панели ввода по контексту записи
 function _vrIds(ctx){
   if(ctx === 'fav')  return { bar:'fav-vr-bar', input:'fav-input', time:'fav-vr-time', wave:'fav-vr-wave' };
-  if(ctx === 'sh')   return { bar:'sh-vr-bar',  input:'sh-mi',     time:'sh-vr-time',  wave:'sh-vr-wave'  };
+  if(ctx === 'sh')   return { bar:'vr-bar',  input:'mi',  time:'vr-time',  wave:'vr-wave' };
   if(ctx === 'room') return { bar:'room-vr-bar', input:'room-chat-input', time:'room-vr-time', wave:'room-vr-wave' };
   return { bar:'vr-bar', input:'mi', time:'vr-time', wave:'vr-wave' };
 }
@@ -12250,7 +12183,7 @@ function vrShowRecBar(show){
     const lock = document.getElementById('vr-lock-hint');
     if(lock){ lock.style.display = 'none'; lock.style.transform = ''; lock.style.background = ''; }
     // Сбрасываем кнопки
-    ['mic-send-btn','fav-mic-btn','sh-mic-btn','room-mic-btn'].forEach(id => {
+    ['mic-send-btn','fav-mic-btn','room-mic-btn'].forEach(id => {
       const b = document.getElementById(id);
       if(b){ b.classList.remove('recording'); b.style.opacity = ''; b.style.transform = ''; }
     });
@@ -12327,7 +12260,7 @@ function vrCancelRecording(){
 function vrCancelFromBar(){
   // Определяем активную кнопку по контексту (_vr.context)
   const ctx = _vr.context || 'chat';
-  const btnId = ctx === 'fav' ? 'fav-mic-btn' : ctx === 'sh' ? 'sh-mic-btn' : ctx === 'room' ? 'room-mic-btn' : 'mic-send-btn';
+  const btnId = ctx === 'fav' ? 'fav-mic-btn' : ctx === 'room' ? 'room-mic-btn' : 'mic-send-btn';
   const b = document.getElementById(btnId);
   if(b && b._vrReset) b._vrReset();
   vrCancelRecording();
@@ -12355,7 +12288,7 @@ function vrOnStop(){
 
   // Сбрасываем UI через _vrReset активной кнопки
   const _activeCtx = _vr.context || 'chat';
-  const _activeBtnId = _activeCtx === 'fav' ? 'fav-mic-btn' : _activeCtx === 'sh' ? 'sh-mic-btn' : _activeCtx === 'room' ? 'room-mic-btn' : 'mic-send-btn';
+  const _activeBtnId = _activeCtx === 'fav' ? 'fav-mic-btn' : _activeCtx === 'room' ? 'room-mic-btn' : 'mic-send-btn';
   const _activeBtn = document.getElementById(_activeBtnId);
   if(_activeBtn && _activeBtn._vrReset) _activeBtn._vrReset();
   _vr.state = 'idle';
@@ -13526,6 +13459,7 @@ async function acceptCall(){
 
 // Закрытие вкладки — если мы лидер, сообщаем об уходе
 window.addEventListener('beforeunload', ()=>{
+  if(typeof _connManager !== 'undefined') _connManager.closeNow();
   if(_isLeader && _leaderChannel){
     _leaderChannel.postMessage({ type: 'close', tabId: _tabId });
   }
@@ -13743,12 +13677,150 @@ function createPC(){
 
 // ── P2P авто-реконнект ────────────────────────────────────────────────────────
 /**
- * СИСТЕМА СОЕДИНЕНИЯ И ПОДДЕРЖАНИЯ СВЯЗИ
- * ========================================
- *
  * Два типа WebRTC соединений:
  *   1. Основной DC (глобальные `pc`/`dc`) — активный чат, DR шифрование, один за раз.
- *   2. P2P Transport (`_p2pPool`) — headless DataChannel'ы для доставки сообщений
+ *   2. P2P Transport (`_p2pPool`) — headless DataChannel'ы для доставки сообщений.
+ * Подробнее — см. JSDoc у _connManager и _p2pHandleFailure.
+ */
+
+// ── Connection Lifecycle Manager ─────────────────────────────────────────────
+/**
+ * Менеджер жизненного цикла соединения.
+ *
+ * КОГДА ПОДНИМАТЬ:
+ *   A. Контакт появился онлайн + hasPending(fp)   → _connManager.ensureFor(fp,'queue')
+ *   B. Пользователь начал печатать                → _connManager.ensureFor(fp,'typing')
+ *      (только если соединение уже есть — не устанавливаем ради typing)
+ *   C. Пользователь отправил сообщение/файл/реакцию → _connManager.ensureFor(fp,'msg')
+ *   D. Открыт чат + контакт онлайн               → _connManager.ensureFor(fp,'chat')
+ *   E. Звонок                                    → _connManager.ensureFor(fp,'call')
+ *
+ * IDLE ТАЙМЕР:
+ *   После последнего действия → 60с → закрыть (кроме 'call').
+ *   Каждый ensureFor() продлевает таймер.
+ *
+ * КОГДА ЗАКРЫВАТЬ НЕМЕДЛЕННО:
+ *   - visibilitychange → hidden + beforeunload → __bye__ + close
+ *   - Контакт ушёл офлайн → grace period 5с → close
+ *   - Явный goBack() с флагом force=true (пока не используется — ← просто минимизирует)
+ */
+const _connManager = (() => {
+  const IDLE_MS      = 60_000;  // 60с простоя → закрыть
+  const GRACE_MS     = 5_000;   // 5с после offline → закрыть
+  const TYPING_REUSE = true;    // typing не устанавливает соединение, только использует
+
+  let _idleTimer  = null;
+  let _graceTimer = null;
+  let _reason     = null; // последняя причина соединения
+
+  function _isOpen(){
+    return dc && dc.readyState === 'open';
+  }
+
+  function _resetIdle(fp){
+    clearTimeout(_idleTimer);
+    if(_reason === 'call') return; // звонок — не таймаутим
+    _idleTimer = setTimeout(() => {
+      if(_isOpen() && currentPeerFp === fp){
+        console.log('[conn] idle timeout → закрываем соединение с', fp?.slice(0,8));
+        _closeConn(fp);
+      }
+    }, IDLE_MS);
+  }
+
+  function _closeConn(fp){
+    clearTimeout(_idleTimer);
+    clearTimeout(_graceTimer);
+    _reason = null;
+    window._goingBack = true;
+    setTimeout(() => { window._goingBack = false; }, 500);
+    if(dc && dc.readyState === 'open'){
+      try { dc.send(JSON.stringify({ __bye__: true })); } catch(_){}
+    }
+    try { if(dc && dc.readyState === 'open') dc.close(); } catch(_){}
+    try { if(pc){ clearTimeout(pc._connTimeout); pc._cleanup?.(); pc.close(); } } catch(_){}
+    setTimeout(() => { pc = null; dc = null; }, 300);
+    $('sc').dataset.active = '';
+    $('dot').className = 'dot';
+    _p2pReconnectStop();
+    if(typeof _updateChatConnStatus === 'function') _updateChatConnStatus();
+    if(typeof _updateConnCounter === 'function') _updateConnCounter();
+    if(typeof renderChatsList === 'function') renderChatsList();
+  }
+
+  /**
+   * Обеспечить соединение с fp для указанной причины.
+   * reason: 'queue' | 'msg' | 'chat' | 'call' | 'typing'
+   */
+  async function ensureFor(fp, reason){
+    if(!fp || !_pjOk) return;
+    _reason = reason;
+
+    // typing — только если соединение уже есть
+    if(reason === 'typing' && !_isOpen()) return;
+
+    // Продлеваем idle таймер
+    if(_isOpen() && currentPeerFp === fp){
+      _resetIdle(fp);
+      return;
+    }
+
+    // Нужно установить соединение
+    const contacts = await getContacts().catch(() => ({}));
+    const peerPub  = contacts[fp]?.pubKeyHex || null;
+    const isOnline = _presenceCache[fp] === 'online';
+
+    if(!isOnline){
+      // Контакт офлайн — только queue-причина ждёт появления
+      if(reason === 'queue' || reason === 'msg'){
+        _callOnlineWatching = fp;
+      }
+      return;
+    }
+
+    // Контакт онлайн — запускаем реконнект если мы инициатор
+    if(_p2pReconnectFp === fp && !_p2pReconnectStopped) return;
+
+    const amInitiator = !peerPub || myPubKeyHex > peerPub;
+    if(amInitiator){
+      _p2pReconnectFp = fp;
+      _p2pReconnectStopped = false;
+      _p2pScheduleReconnect(fp, 0);
+    } else if(peerPub){
+      // Мы не инициатор — просим инициатора подключиться
+      _sendConnectRequest(fp, peerPub).catch(()=>{});
+    }
+  }
+
+  /** Вызвать когда соединение успешно установлено */
+  function onConnected(fp){
+    clearTimeout(_graceTimer);
+    _resetIdle(fp);
+  }
+
+  /** Вызвать когда контакт ушёл офлайн */
+  function onPeerOffline(fp){
+    if(!_isOpen() || currentPeerFp !== fp) return;
+    clearTimeout(_graceTimer);
+    _graceTimer = setTimeout(() => {
+      if(_isOpen() && currentPeerFp === fp){
+        console.log('[conn] peer offline grace → закрываем');
+        _closeConn(fp);
+      }
+    }, GRACE_MS);
+  }
+
+  /** Явное закрытие (напр. при закрытии вкладки) */
+  function closeNow(fp){
+    clearTimeout(_idleTimer);
+    clearTimeout(_graceTimer);
+    if(_isOpen()) _closeConn(fp || currentPeerFp);
+  }
+
+  return { ensureFor, onConnected, onPeerOffline, closeNow };
+})();
+
+/**
  *      другим контактам без открытия чата. Label='p2p_transport', нет DR handshake.
  *
  * Presence через beacon:
@@ -14277,7 +14349,8 @@ function setupDC(){
     if(!_p2pReconnectFp && !window._goingBack) setStat('собеседник отключился');
     $('dot').className = 'dot';
     if (typeof _updateConnCounter === 'function') _updateConnCounter();
-    if(typeof renderChatsList === 'function') renderChatsList();
+    if (typeof renderChatsList === 'function') renderChatsList();
+    if (typeof _updateChatConnStatus === 'function') _updateChatConnStatus();
     if($('sc').classList.contains('on') && !_p2pReconnectFp && !window._goingBack) sysMsg('Собеседник закрыл соединение');
     // Запускаем авто-реконнект если пользователь не вышел сам
     if(!window._goingBack){
@@ -14492,6 +14565,18 @@ function setupChatScroll(){
 async function onConn(){
   clearTimeout(pc._connTimeout);
 
+  // Keepalive запускаем СРАЗУ — до любых await, чтобы первый ping ушёл через 10с
+  // dc.send(__ping__) поддерживает DTLS/SCTP активным пока NAT не закрыл UDP путь
+  if (_dcKeepaliveTimer) clearInterval(_dcKeepaliveTimer);
+  _dcKeepaliveTimer = setInterval(() => {
+    if (dc && dc.readyState === 'open') {
+      try { dc.send(JSON.stringify({ _t: '__ping__' })); } catch(_) {}
+    } else {
+      clearInterval(_dcKeepaliveTimer);
+      _dcKeepaliveTimer = null;
+    }
+  }, 10000);
+
   // P2P Transport: добавляем основной DC в пул + кешируем ICE
   // currentPeerPubKeyHex устанавливается при identity — используем после небольшой задержки
   setTimeout(() => {
@@ -14509,6 +14594,8 @@ async function onConn(){
 
   $('dot').className='dot con'; setStat('подключено ✓');
   if (typeof _updateConnCounter === 'function') _updateConnCounter();
+  if (typeof _updateChatConnStatus === 'function') _updateChatConnStatus();
+  if (typeof _connManager !== 'undefined') _connManager.onConnected(currentPeerFp);
   const wasReconnect = $('sc').dataset.active==='1' || _wasAutoReconnect; // уже были в чате (или это авто-реконнект)
   resetPeerIdentity();
   $('sc').dataset.active='1';
@@ -14529,17 +14616,6 @@ async function onConn(){
 
   // Скрываем кнопку "позвать онлайн" — уже подключены
   _callOnlineWatching = null;
-
-  // Keepalive: отправляем ping каждые 10с чтобы ICE не упал от простоя
-  if (typeof _dcKeepaliveTimer !== 'undefined' && _dcKeepaliveTimer) clearInterval(_dcKeepaliveTimer);
-  _dcKeepaliveTimer = setInterval(() => {
-    if (dc && dc.readyState === 'open') {
-      try { dc.send(JSON.stringify({ _t: '__ping__' })); } catch(_) {}
-    } else {
-      clearInterval(_dcKeepaliveTimer);
-      _dcKeepaliveTimer = null;
-    }
-  }, 10000);
 
   // DR хэндшейк: инициатор генерирует EK и отправляет __dr_hello__.
   // Ответчик только ждёт __dr_hello__ и отвечает __dr_hello_ack__.
@@ -14621,9 +14697,9 @@ async function onConn(){
           idbSet('meta','offlineQueue', _offlineQueue).catch(()=>{});
         }
       }
-      // Снимаем pending-маркер с пузырей в sh-msgs
+      // Снимаем pending-маркер с пузырей в msgs
       if(queue.length){
-        const container = $('sh-msgs');
+        const container = $('msgs');
         if(container){
           queue.forEach(item => {
             const el = container.querySelector(`.msg[data-ts="${item.ts}"][data-pending="1"]`);
@@ -14631,7 +14707,7 @@ async function onConn(){
           });
         }
         _updateQueueBadge(fp);
-        
+        if(typeof _updateChatConnStatus === 'function') _updateChatConnStatus();
       }
     }, 1500);
   }
@@ -14647,9 +14723,10 @@ function handleBack(){
 }
 
 function minimizeChat(){
+  // Возвращаемся в список — соединение НЕ закрываем.
+  // Оно живёт по idle таймеру (_connIdleStop).
   closeChatSearch('msgs');
   _histFp=null; _histOffset=0; _histBottom=0; _histTotal=0; _histLoading=false;
-  // Сбрасываем subScreen чтобы showTab('schats') показал список, а не вернулся в чат
   if(typeof _tabState !== 'undefined') {
     _tabState.chats.subScreen = null;
     _tabState.chats.subId     = null;
@@ -14810,12 +14887,20 @@ document.addEventListener('visibilitychange', async () => {
   }
   if(document.hidden){
     _mcWasHidden = true;
+    // Вкладка скрыта — запускаем grace close (продлится если вернёмся)
+    // Не закрываем сразу — пользователь мог просто переключить вкладку
+    if(typeof _connManager !== 'undefined' && _mc.state === 'idle'){
+      _connManager.onPeerOffline(currentPeerFp); // используем grace 5с
+    }
     return;
+  }
+  // Возврат — отменяем grace если вернулись быстро
+  if(typeof _connManager !== 'undefined' && currentPeerFp && _presenceCache[currentPeerFp] === 'online'){
+    _connManager.onConnected(currentPeerFp); // продлевает idle таймер, отменяет grace
   }
   // Возврат из фона — восстанавливаем видео если был активный видеозвонок
   if(_mcWasHidden && _mc.state === 'active' && _mc.video && !_mc.videoMuted && !_mcRestoringVideo){
     _mcWasHidden = false;
-    // Small delay — let browser finish resuming before we request camera
     setTimeout(() => _mcRestoreVideoTrack(), 300);
   } else {
     _mcWasHidden = false;
@@ -15776,6 +15861,7 @@ function sendMsg(){
     _typingTimer=null; _typingStopTimer=null;
     _sendTypingStop();
     if(_shadowEnabled) _sendShadow('');
+    if(typeof _connManager !== 'undefined') _connManager.ensureFor(currentPeerFp, 'msg');
     return;
   }
 
@@ -15783,6 +15869,14 @@ function sendMsg(){
   addMsg(t,'out',_replyText||null,_replySender||null,_replyTs||null,ts);
   if(_replyText) cancelReply();
   i.value=''; i.style.height='auto'; _focusMiDesktop('mi');
+
+  // Пометить последний пузырь как pending
+  const _markPending = () => {
+    const el = $('msgs')?.querySelector(`.msg.out[data-ts="${ts}"]`);
+    if(el){ el.classList.add('pending'); el.dataset.pending = '1'; }
+    if(typeof _updateChatConnStatus === 'function') _updateChatConnStatus();
+    _updateQueueBadge(currentPeerFp);
+  };
 
   // Попытка автоматического P2P соединения
   const _pubKey = currentPeerPubKeyHex || lastPeerPubKeyHex;
@@ -15797,6 +15891,7 @@ function sendMsg(){
           : {fp:currentPeerFp, text:t, ts};
         _offlineQueue.push(queueItem);
         idbSet('meta','offlineQueue',_offlineQueue).catch(()=>{});
+        _markPending();
         // Показываем push (контакт офлайн)
         if(currentPeerFp && typeof window._pushNotifyPeer==='function'){
           const myName=document.getElementById('my-name-input')?.value?.trim()||'Tovsa';
@@ -15807,12 +15902,14 @@ function sendMsg(){
       const queueItem = {fp:currentPeerFp, text:t, ts};
       _offlineQueue.push(queueItem);
       idbSet('meta','offlineQueue',_offlineQueue).catch(()=>{});
+      _markPending();
     });
   } else {
     // Нет signaling — сразу в offline queue
     const queueItem = {fp:currentPeerFp, text:t, ts};
     _offlineQueue.push(queueItem);
     idbSet('meta','offlineQueue',_offlineQueue).catch(()=>{});
+    _markPending();
   }
 }
 
@@ -15827,7 +15924,7 @@ function attachMsgLongPress(el, text, sender, ts, fp) {
   let doubleTapped = false;
   let pickerFired = false;
   let startX = 0, startY = 0;
-  const isHistory = () => contactsSubScreen === 'sh';
+  const isHistory = () => contactsSubScreen === 'sc';
 
   el.addEventListener('touchstart', e => {
     // Если тапнули по кнопке/ссылке внутри пузыря — не мешаем
@@ -15924,12 +16021,12 @@ function openMsgCtx(e,text,sender,ts,fp,el){
   _msgCtxEl=el||null;
   _msgCtxIsOut = el ? el.classList.contains('out') : null;
   // Determine screen: fav, history (sh), or live chat
-  _msgCtxScreen = fp==='__fav__' ? 'fav' : (contactsSubScreen==='sh' ? 'history' : 'chat');
+  _msgCtxScreen = fp==='__fav__' ? 'fav' : 'chat';
   // Show/hide Reply depending on screen
-  $('msg-ctx-reply').style.display = _msgCtxScreen==='history' ? 'none' : '';
+  $('msg-ctx-reply').style.display = '';
   // Show/hide Edit: только своё текстовое сообщение, не история
   const isTextMsg = !text.startsWith('[файл] ');
-  $('msg-ctx-edit').style.display = (_msgCtxIsOut && isTextMsg && _msgCtxScreen!=='history') ? '' : 'none';
+  $('msg-ctx-edit').style.display = (_msgCtxIsOut && isTextMsg) ? '' : 'none';
   // Pin: только в живом чате
   const pinBtn = $('msg-ctx-pin');
   if(pinBtn){
@@ -16418,17 +16515,9 @@ function closeInfoDrawer(){
 }
 
 // ── Меню 3 точек истории ─────────────────────────────────────────────────────
-function openShMoreMenu(e){
-  e.stopPropagation();
-  const menu = $('sh-more-menu');
-  const rect = e.currentTarget.getBoundingClientRect();
-  menu.style.top  = (rect.bottom + 6) + 'px';
-  menu.style.right = (window.innerWidth - rect.right) + 'px';
-  menu.classList.add('on');
-  setTimeout(() => document.addEventListener('click', _closeShMoreOnOutside, { once: true }), 10);
-}
-function _closeShMoreOnOutside(){ closeShMoreMenu(); }
-function closeShMoreMenu(){ $('sh-more-menu').classList.remove('on'); }
+function openShMoreMenu(e){ e.stopPropagation(); /* sh-more-menu removed */ }
+function _closeShMoreOnOutside(){}
+function closeShMoreMenu(){}
 
 // ── Пересылка контакту ───────────────────────────────────────────────────────
 
@@ -16547,8 +16636,8 @@ async function _doFwdToContact(fp, contact){
     _offlineQueue.push(queueItem);
     idbSet('meta','offlineQueue', _offlineQueue).catch(()=>{});
     // Показываем pending-пузырь в истории контакта если она сейчас открыта
-    if(_historyFp === fp){
-      const container = $('sh-msgs');
+    if(currentPeerFp === fp){
+      const container = $('msgs');
       if(container){
         const d = document.createElement('div');
         d.className = 'msg out pending';
@@ -16882,7 +16971,7 @@ function buildQuoteHtml(sender,text,originTs){
 
 function scrollToMsg(ts){
   // Try live chat first, then history
-  const containers=['msgs','sh-msgs','fav-msgs'];
+  const containers=['msgs','fav-msgs'];
   for(const cid of containers){
     const c=document.getElementById(cid);
     if(!c)continue;
@@ -16931,7 +17020,7 @@ function openChatSearch(msgsId){
 function closeChatSearch(msgsId){
   if(!msgsId){
     // Закрываем все открытые
-    ['msgs','sh-msgs','fav-msgs'].forEach(id => {
+    ['msgs','fav-msgs'].forEach(id => {
       if(_srchBar(id)?.classList.contains('on')) closeChatSearch(id);
     });
     return;
@@ -17319,6 +17408,9 @@ function autoGrowMi(el){
   // Отправляем typing только если не уже отправили недавно (throttle 2s)
 function onTypingInput(){
   _onShadowInput($('mi').value);
+  // typing — только продлевает существующее соединение, не создаёт новое
+  if(typeof _connManager !== 'undefined' && currentPeerFp)
+    _connManager.ensureFor(currentPeerFp, 'typing');
   if(!_typingTimer){
     _sendTyping();
     _typingTimer = setTimeout(()=>{ _typingTimer = null; }, 2000);
@@ -17613,11 +17705,10 @@ async function buildFileBubble(meta,blobOrNull,msgType){
 
     playBtn.addEventListener('click', () => {
       if(_mpBubble===d && _mpAudio){ mpToggle(); return; }
-      let _container=$('msgs');
-      if(d.closest('#sh-msgs')) _container=$('sh-msgs');
-      else if(d.closest('#fav-msgs')) _container=$('fav-msgs');
+      let _container = $('msgs');
+      if(d.closest('#fav-msgs')) _container=$('fav-msgs');
       let _source='Чат · '+($('peer-name').textContent||'');
-      if(_container===$('sh-msgs')) _source='История · '+($('sh-name').textContent||'');
+      if(_container===$('msgs')) _source='История · '+($('peer-name').textContent||'');
       else if(_container===$('fav-msgs')) _source='Избранное';
       audioEl._mpName='🎤 Голосовое'; audioEl._mpSource=_source;
       audioEl._mpContainer=_container; audioEl._mpBubble=d;
@@ -17826,11 +17917,9 @@ async function buildFileBubble(meta,blobOrNull,msgType){
         audioEl.addEventListener('play',()=>{ playBtn.textContent='⏸'; });
       }
       // Определяем правильный контейнер по фактическому расположению пузыря в DOM
-      let _container = $('msgs');
-      if(d.closest('#sh-msgs')) _container = $('sh-msgs');
-      else if(d.closest('#fav-msgs')) _container = $('fav-msgs');
+      let _container = d.closest('#fav-msgs') ? $('fav-msgs') : $('msgs');
       let _source = '';
-      if(_container === $('sh-msgs')) _source = 'История · '+($('sh-name').textContent||'');
+      if(_container === $('msgs')) _source = 'История · '+($('peer-name').textContent||'');
       else if(_container === $('fav-msgs')) _source = 'Избранное';
       else _source = 'Чат · '+($('peer-name').textContent||'');
       // Сохраняем метаданные чтобы глобальный play-listener использовал их, а не искал .msg-file-name
@@ -18135,7 +18224,7 @@ document.addEventListener('play', e=>{
       const nameEl=msgEl.querySelector('.msg-xfer-name')||msgEl.querySelector('.msg-file-name');
       if(nameEl) name=nameEl.textContent;
       if(msgEl.closest('#fav-msgs')){source='Избранное';container=$('fav-msgs');}
-      else if(msgEl.closest('#sh-msgs')){source='История · '+($('sh-name').textContent||'');container=$('sh-msgs');}
+      // sh-msgs removed
       else if(msgEl.closest('#msgs')){source='Чат · '+($('peer-name').textContent||'');container=$('msgs');}
     }
     mpShow(audio,name,source,container);
@@ -18318,8 +18407,24 @@ async function sendFile(input){
   const file = input.files[0];
   input.value = '';
   if(!file) return;
-  if(!dc || dc.readyState !== 'open'){ toast('Нет соединения'); return; }
   if(await isOverLimit()){ toast('Лимит хранилища превышен'); return; }
+
+  // Если нет соединения — пробуем установить (ждём до 8с)
+  if(!dc || dc.readyState !== 'open'){
+    if(typeof _connManager !== 'undefined' && currentPeerFp)
+      _connManager.ensureFor(currentPeerFp, 'msg');
+    const waited = await new Promise(resolve => {
+      if(dc && dc.readyState === 'open'){ resolve(true); return; }
+      const check = setInterval(() => {
+        if(dc && dc.readyState === 'open'){ clearInterval(check); resolve(true); }
+      }, 200);
+      setTimeout(() => { clearInterval(check); resolve(false); }, 8000);
+    });
+    if(!waited){ toast('Нет соединения — файл не отправлен'); return; }
+  }
+
+  if(typeof _connManager !== 'undefined' && currentPeerFp)
+    _connManager.ensureFor(currentPeerFp, 'msg');
 
   const ts = Date.now();
   const _hdrExtra = {};
@@ -22116,17 +22221,12 @@ async function _onPeerCameOnline(fp){
   // 2. Ждали появления через "позвать онлайн" (callPeerOnline / inviteFromHistory)
   if(_callOnlineWatching === fp){
     _callOnlineWatching = null;
-
     const wasConnected = lastPeerFp === fp;
     const isOpen = dc && dc.readyState === 'open';
     if(wasConnected && !isOpen){
-      // Был наш собеседник — сразу переподключаемся
-      _p2pReconnectFp = fp;
-      _p2pReconnectStopped = false;
-      _p2pScheduleReconnect(fp, 0);
+      _connManager.ensureFor(fp, 'queue');
     } else if(!isOpen) {
-      // Другой контакт вошёл онлайн — уведомляем (уже подключённые сюда не попадают)
-      _sendNotif('🟢 ' + name, 'Вошёл в сеть — можно подключиться', ()=>showTab('sc'));
+      _sendNotif('🟢 ' + name, 'Вошёл в сеть', ()=>openChat(fp));
       toast('🟢 ' + name + ' онлайн!');
     }
     return;
@@ -22135,22 +22235,19 @@ async function _onPeerCameOnline(fp){
   // 3. Никого специально не ждали
   {
     const isOpen = dc && dc.readyState === 'open';
-    if(isOpen) return; // уже подключены
-
-    // Если реконнект уже идёт — не запускаем ещё один
+    if(isOpen) return;
     if(_p2pReconnectFp === fp && !_p2pReconnectStopped) return;
 
     const hasPending = _offlineQueue.some(m => m.fp === fp);
     const wasLast    = lastPeerFp === fp;
 
-
-    if(hasPending || wasLast){
-      // Есть что доставить или это последний собеседник — тихо реконнектимся
-      _p2pReconnectFp = fp;
-      _p2pReconnectStopped = false;
-      _p2pScheduleReconnect(fp, 0);
+    if(hasPending){
+      _connManager.ensureFor(fp, 'queue');
+    } else if(wasLast){
+      // Восстанавливаем соединение с последним собеседником тихо
+      _connManager.ensureFor(fp, 'chat');
     }
-    // Иначе — только UI обновился (зелёный dot), пользователь сам откроет чат
+    // Иначе — только UI обновился (зелёный dot)
   }
 }
 
@@ -22394,6 +22491,11 @@ function _applyPresenceResult(fp, result) {
   // Триггер авто-реконнекта и прочих обработчиков при переходе online
   if (result === 'online' && prev !== 'online') {
     if (typeof _onPeerCameOnline === 'function') _onPeerCameOnline(fp);
+  }
+  // Триггер grace-close при переходе offline
+  if (result !== 'online' && prev === 'online') {
+    if (typeof _connManager !== 'undefined') _connManager.onPeerOffline(fp);
+    if (typeof _updateChatConnStatus === 'function') _updateChatConnStatus();
   }
 }
 
@@ -23334,6 +23436,8 @@ function toggleReaction(ts, emoji, el){
   // Синхронизируем с собеседником
   if(dc && dc.readyState === 'open'){
     try{ _e2eSend(JSON.stringify({__react__: {ts, emoji: r.mine}})); }catch(_){}
+    if(typeof _connManager !== 'undefined' && currentPeerFp)
+      _connManager.ensureFor(currentPeerFp, 'msg');
   }
   // Анимация при добавлении
   if(r.mine) _popReactionAnim(el, emoji);
@@ -23515,6 +23619,8 @@ async function confirmPin(forBoth){
   await _addPin(ts, text, scope);
   if(forBoth && dc && dc.readyState === 'open'){
     try{ _e2eSend(JSON.stringify({__pin__: {action:'add', ts, text}})); }catch(_){}
+    if(typeof _connManager !== 'undefined' && currentPeerFp)
+      _connManager.ensureFor(currentPeerFp, 'msg');
   }
 }
 
@@ -23532,6 +23638,8 @@ async function confirmUnpin(){
   // Отправляем сигнал собеседнику (после рендера — нет визуального бага)
   if(scope === 'both' && dc && dc.readyState === 'open'){
     try{ _e2eSend(JSON.stringify({__pin__: {action:'remove', ts}})); }catch(_){}
+    if(typeof _connManager !== 'undefined' && currentPeerFp)
+      _connManager.ensureFor(currentPeerFp, 'msg');
   }
 }
 
@@ -26762,12 +26870,11 @@ function chatsFilterSearch(query) {
 }
 
 function openChatItem(id, type) {
-  console.log('[openChatItem] id=', id?.slice?.(0,8), 'type=', type);
   closeFabMenu();
   if (type === 'fav') {
     showFav();
   } else if (type === 'contact') {
-    openHistory(id);
+    openChat(id);
   } else if (type === 'room') {
     roomOpenChat(id);
   } else if (type === 'channel') {

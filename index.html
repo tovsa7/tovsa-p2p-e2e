@@ -13770,6 +13770,7 @@ async function _p2pScheduleReconnect(fp, attempt){
   const _contacts_pre = await getContacts().catch(() => ({}));
   const _peerPubHex_pre = _contacts_pre[fp]?.pubKeyHex || null;
   const _amInitiator = !_peerPubHex_pre || myPubKeyHex > _peerPubHex_pre;
+  console.log('[reconnect] role check: myPub=', myPubKeyHex.slice(0,8), 'peerPub=', _peerPubHex_pre?.slice(0,8)||'?', 'initiator=', _amInitiator);
 
   if (!_amInitiator) {
     // Мы ждущая сторона — входящее соединение придёт через _startIncomingListener

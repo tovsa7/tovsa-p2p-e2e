@@ -6707,13 +6707,11 @@ async function _beaconMarkOnline(fromPubKeyHex) {
     return;
   }
   try {
-    if (typeof window._pubHexToFp !== 'function') {
-      console.warn('[beacon] markOnline: _pubHexToFp not available');
-      return;
-    }
-    const fp = await window._pubHexToFp(fromPubKeyHex);
+    // Ищем контакт по pubKeyHex → получаем emoji fp (ключ в contacts)
+    const contacts = await getContacts().catch(() => ({}));
+    const fp = Object.keys(contacts).find(k => contacts[k]?.pubKeyHex === fromPubKeyHex);
     if (!fp) {
-      console.warn('[beacon] markOnline: fp=null for', fromPubKeyHex.slice(0,8));
+      console.warn('[beacon] markOnline: contact not found for', fromPubKeyHex.slice(0,8));
       return;
     }
     console.log('[beacon] online:', fp.slice(0,8), 'prev=', _presenceCache[fp]);
@@ -10709,10 +10707,9 @@ async function _p2pHandleDcMsg(fromPubKey, data) {
   try {
     const j = JSON.parse(data);
     if (j._t === '__p2p_msg__' && j.text) {
-      // Конвертируем pubKeyHex → fp чтобы найти контакт
-      const fp = typeof window._pubHexToFp === 'function'
-        ? await window._pubHexToFp(fromPubKey).catch(() => null)
-        : null;
+      // Конвертируем pubKeyHex → emoji fp через contacts
+      const contacts = await getContacts().catch(() => ({}));
+      const fp = Object.keys(contacts).find(k => contacts[k]?.pubKeyHex === fromPubKey) || null;
 
       const ts = j.ts || Date.now();
 
@@ -10722,7 +10719,6 @@ async function _p2pHandleDcMsg(fromPubKey, data) {
       } else {
         // Другой контакт — сохраняем в историю и показываем уведомление
         if (fp) {
-          const contacts = await getContacts().catch(() => ({}));
           const name = contacts[fp]?.name || fromPubKey.slice(0,8)+'...';
           await saveMsg(fp, j.text, 'in', ts,
             j.replyText||null, null, j.replyTs||null, null, 0).catch(() => {});

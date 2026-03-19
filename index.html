@@ -13324,13 +13324,26 @@ async function _handleIncomingRelayOffer(sig, from, offerData){
   }
 
   let callerName = 'Неизвестный';
+  let isKnownContact = false;
   if(callerFp){
     try{
       const contacts = await getContacts();
       if(contacts[callerFp]?.name) callerName = contacts[callerFp].name;
+      isKnownContact = !!contacts[callerFp] && !contacts[callerFp]._stranger;
     }catch(_){}
   }
 
+  // Известный контакт — принимаем автоматически без баннера
+  if(isKnownContact){
+    role = 'r';
+    hideAlert();
+    _handleSigConnRelay(sig, from, 'r', offerSdp, ()=>{}).catch(e =>
+      console.warn('[autoAccept relay] error:', e)
+    );
+    return;
+  }
+
+  // Незнакомец — показываем баннер
   const req = { _relay:true, sig, from, offerSdp, conn:null, offer:null, callerName, callerFp, shown:false };
   _pendingRequest = req;
   clearTimeout(_incomingTimer);
@@ -13693,9 +13706,21 @@ function _p2pHandleFailure(reason){
 // Пока собеседник онлайн — продолжаем; интервал нарастает до 30 с
 const _P2P_RETRY_DELAYS = [2000, 5000, 10000, 20000, 30000];
 
-function _p2pScheduleReconnect(fp, attempt){
+async function _p2pScheduleReconnect(fp, attempt){
   clearTimeout(_p2pReconnectTimer);
   if(_p2pReconnectStopped || _p2pReconnectFp !== fp) return;
+
+  // Определяем роль заранее — не инициатор просто ждёт входящего соединения
+  const _contacts_pre = await getContacts().catch(() => ({}));
+  const _peerPubHex_pre = _contacts_pre[fp]?.pubKeyHex || null;
+  const _amInitiator = !_peerPubHex_pre || myPubKeyHex > _peerPubHex_pre;
+
+  if (!_amInitiator) {
+    // Мы ждущая сторона — входящее соединение придёт через _startIncomingListener
+    // Просто обновляем статус и ждём
+    setStat('ожидаем подключения...');
+    return;
+  }
 
   const delay = _P2P_RETRY_DELAYS[Math.min(attempt, _P2P_RETRY_DELAYS.length - 1)];
   const sec = Math.round(delay / 1000);
@@ -13720,15 +13745,8 @@ function _p2pScheduleReconnect(fp, attempt){
     }
 
     setStat(`переподключаемся... (попытка ${attempt + 1})`);
-    // Определяем роль: инициатор — тот у кого больший pubKeyHex (hex, детерминировано).
-    // Это предотвращает двойное соединение когда оба видят beacon одновременно.
-    // Если мы не знаем pubKeyHex контакта — инициируем сами (fallback).
-    const contacts = await getContacts().catch(() => ({}));
-    const peerPubHex = contacts[fp]?.pubKeyHex || null;
-    const _shouldInitiate = !peerPubHex || myPubKeyHex > peerPubHex;
-    if (_shouldInitiate) {
-      connectToContact(fp, { stayInChat: true });
-    }
+    // Роль уже определена выше (_amInitiator) — инициируем
+    connectToContact(fp, { stayInChat: true });
     // Если через 15 с соединение не поднялось — пробуем ещё раз
     _p2pReconnectTimer = setTimeout(()=>{
       if(_p2pReconnectStopped || _p2pReconnectFp !== fp) return;

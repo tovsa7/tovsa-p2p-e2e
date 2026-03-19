@@ -10722,6 +10722,9 @@ function _p2pHandleDcMsg(fromPubKey, data) {
 // Установить P2P соединение через существующий WS.
 // Signaling: SEALED_RELAY с kind='p2p_offer/answer/ice'.
 // 'to' = mailboxId контакта (registered alias) или pubKeyHex как fallback.
+// Map: pubKeyHex → Promise<{dc,pc}|null> — защита от параллельных establish к одному peer
+const _p2pInflight = new Map();
+
 async function _p2pEstablish(pubKeyHex, _peerSigUrl, timeoutMs = _P2P_SEND_TIMEOUT) {
   if (!pubKeyHex) return null;
   const sig    = _getPeerSig();
@@ -10729,10 +10732,15 @@ async function _p2pEstablish(pubKeyHex, _peerSigUrl, timeoutMs = _P2P_SEND_TIMEO
   const encPub = contactLoadEncPubKey(pubKeyHex);
   if (!encPub) return null;
 
+  // Если уже идёт соединение к этому peer — ждём его результата
+  if (_p2pInflight.has(pubKeyHex)) {
+    return _p2pInflight.get(pubKeyHex);
+  }
+
   // Вычисляем mailboxId получателя — зарегистрированный alias на сервере
   const mailboxTo = await getContactMailboxId(pubKeyHex, 0).catch(() => null) ?? pubKeyHex;
 
-  return new Promise((resolve) => {
+  const promise = new Promise((resolve) => {
     const timer = setTimeout(() => {
       _p2pPending.delete(pubKeyHex);
       _iceCacheFail(pubKeyHex);
@@ -10788,6 +10796,11 @@ async function _p2pEstablish(pubKeyHex, _peerSigUrl, timeoutMs = _P2P_SEND_TIMEO
       sig._wsSend({ type: 'SEALED_RELAY', to: mailboxTo, sealed });
     }).catch(() => { clearTimeout(timer); resolve(null); });
   });
+
+  // Регистрируем inflight-промис — параллельные вызовы получат тот же результат
+  _p2pInflight.set(pubKeyHex, promise);
+  promise.finally(() => _p2pInflight.delete(pubKeyHex));
+  return promise;
 }
 
 // ── Главная функция P2P отправки ──────────────────────────────────────────────
@@ -14111,8 +14124,9 @@ function setupDC(){
     if(!_p2pReconnectFp && !window._goingBack) setStat('собеседник отключился');
     $('dot').className = 'dot';
     if($('sc').classList.contains('on') && !_p2pReconnectFp && !window._goingBack) sysMsg('Собеседник закрыл соединение');
-    // Не перебиваем reconnect-bar если уже идёт авто-реконнект или пользователь вышел сам
-    if(!_p2pReconnectFp && !window._goingBack){
+    // Запускаем авто-реконнект если пользователь не вышел сам
+    if(!window._goingBack){
+      _p2pHandleFailure('disconnected');
     }
   };
 

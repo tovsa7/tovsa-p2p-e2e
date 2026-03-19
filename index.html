@@ -6702,16 +6702,24 @@ let _beaconTimer          = null;
 // Пометить контакт онлайн по его postоянному pubKeyHex
 // Вызывается из _handleRelay при получении beacon
 async function _beaconMarkOnline(fromPubKeyHex) {
-  if (!fromPubKeyHex || fromPubKeyHex.length !== 64) return;
+  if (!fromPubKeyHex || fromPubKeyHex.length !== 64) {
+    console.warn('[beacon] markOnline: invalid pubKeyHex len=' + (fromPubKeyHex?.length));
+    return;
+  }
   try {
-    // Конвертируем pubKeyHex → fingerprint для _presenceCache
+    if (typeof window._pubHexToFp !== 'function') {
+      console.warn('[beacon] markOnline: _pubHexToFp not available');
+      return;
+    }
     const fp = await window._pubHexToFp(fromPubKeyHex);
-    if (!fp) return;
-    // Используем существующую систему кеша
+    if (!fp) {
+      console.warn('[beacon] markOnline: fp=null for', fromPubKeyHex.slice(0,8));
+      return;
+    }
+    console.log('[beacon] online:', fp.slice(0,8), 'prev=', _presenceCache[fp]);
     _applyPresenceResult(fp, 'online');
-    console.debug('[beacon] онлайн от', fromPubKeyHex.slice(0,8)+'...');
   } catch(e) {
-    console.warn('[beacon] markOnline error:', e);
+    console.warn('[beacon] markOnline error:', e.message);
   }
 }
 

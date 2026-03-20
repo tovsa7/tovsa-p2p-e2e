@@ -8042,10 +8042,10 @@ async function openChat(fp){
   if(typeof _updatePeerLastSeenHeader === 'function') _updatePeerLastSeenHeader(fp);
   if(typeof snUpdateBadge === 'function') snUpdateBadge(fp);
 
-  // ── Инициируем соединение если контакт онлайн ────────────────────────────
-  if(typeof _connManager !== 'undefined'){
-    _connManager.ensureFor(fp, 'chat');
-  }
+  // Соединение инициируется только при явных действиях пользователя
+  // (отправка сообщения, файла, реакции, закрепа) через _connManager.ensureFor(...,'msg')
+  // При открытии чата — только обновляем UI статуса
+  if(typeof _updateChatConnStatus === 'function') _updateChatConnStatus();
   } catch(e) {
     console.error('[openChat] error:', e);
   }
@@ -8719,13 +8719,12 @@ function showPeerIdentity(fp,known,name){
   // Обновляем имя в диалоге звонка
   const _ctpn = document.getElementById('call-type-peer-name');
   if(_ctpn) _ctpn.textContent = name || 'Контакт';
-  // Открываем чат после верификации identity только если это ручное подключение
+  // Открываем чат после верификации identity только если пользователь сам открыл чат
   if($('sc').dataset.waitingIdentity === '1'){
     $('sc').dataset.waitingIdentity = '';
-    // Показываем чат только если пользователь был на экране чатов/истории
-    const _onChatsArea = activeTab === 'chats';
-    if(_onChatsArea) { showTab('sc'); setTimeout(() => _focusMiDesktop('mi'), 100); }
-    else if (typeof renderChatsList === 'function') renderChatsList();
+    // Никогда не переключаем автоматически — только обновляем UI
+    if(typeof renderChatsList === 'function') renderChatsList();
+    if(typeof _updateChatConnStatus === 'function') _updateChatConnStatus();
   }
   // Сбрасываем бейдж при смене собеседника
   _showPeerPushBadge(null);
@@ -13741,6 +13740,9 @@ const _connManager = (() => {
     try { if(pc){ clearTimeout(pc._connTimeout); pc._cleanup?.(); pc.close(); } } catch(_){}
     setTimeout(() => { pc = null; dc = null; }, 300);
     $('sc').dataset.active = '';
+    // Сбрасываем lastPeerFp чтобы idle close не триггерил немедленный реконнект через beacon
+    lastPeerFp = null;
+    try { localStorage.removeItem('_lastPeerFp'); } catch(_){}
     _p2pReconnectStop();
     if(typeof _updateChatConnStatus === 'function') _updateChatConnStatus();
     if(typeof _updateConnCounter === 'function') _updateConnCounter();
@@ -13770,12 +13772,17 @@ const _connManager = (() => {
     const isOnline = _presenceCache[fp] === 'online';
 
     if(!isOnline){
-      // Контакт офлайн — только queue-причина ждёт появления
+      // Контакт офлайн — только queue/msg ждут появления
       if(reason === 'queue' || reason === 'msg'){
         _callOnlineWatching = fp;
       }
       return;
     }
+
+    // Только явные действия пользователя инициируют соединение
+    // 'chat' — открытие чата без действия — не соединяем
+    // 'typing' — уже проверено выше (только если соединение есть)
+    if(reason === 'chat') return;
 
     // Контакт онлайн — запускаем реконнект если мы инициатор
     if(_p2pReconnectFp === fp && !_p2pReconnectStopped) return;
@@ -14601,11 +14608,10 @@ async function onConn(){
     // Чат откроется после верификации identity в showPeerIdentity
     $('sc').dataset.waitingIdentity = '1';
   } else {
-    contactsSubScreen='sc';
     $('sc').dataset.waitingIdentity = '';
-    // При авто-реконнекте НЕ переключаем экран — пользователь сам откроет чат
-    // renderChatsList обновит счётчик соединений и индикатор
+    // Никогда не переключаем автоматически — только обновляем UI
     if (typeof renderChatsList === 'function') renderChatsList();
+    if (typeof _updateChatConnStatus === 'function') _updateChatConnStatus();
   }
   if(!($('sc').dataset.waitingIdentity === '1')) _focusMiDesktop('mi');
   _e2eUpdateLockBadge();
@@ -14754,7 +14760,7 @@ function _updateConnCounter(){
     }
   }
   if (count > 0) {
-    el.textContent = count === 1 ? '1 канал' : count + ' канала';
+    el.textContent = count + ' P2P';
     el.style.display = '';
   } else {
     el.style.display = 'none';
@@ -22215,11 +22221,9 @@ async function _onPeerCameOnline(fp){
   // 2. Ждали появления через "позвать онлайн" (callPeerOnline / inviteFromHistory)
   if(_callOnlineWatching === fp){
     _callOnlineWatching = null;
-    const wasConnected = lastPeerFp === fp;
     const isOpen = dc && dc.readyState === 'open';
-    if(wasConnected && !isOpen){
-      _connManager.ensureFor(fp, 'queue');
-    } else if(!isOpen) {
+    if(!isOpen) {
+      // Уведомляем что контакт онлайн — пользователь сам решит
       _sendNotif('🟢 ' + name, 'Вошёл в сеть', ()=>openChat(fp));
       toast('🟢 ' + name + ' онлайн!');
     }
@@ -22233,15 +22237,12 @@ async function _onPeerCameOnline(fp){
     if(_p2pReconnectFp === fp && !_p2pReconnectStopped) return;
 
     const hasPending = _offlineQueue.some(m => m.fp === fp);
-    const wasLast    = lastPeerFp === fp;
 
     if(hasPending){
+      // Есть что доставить — тихо реконнектимся
       _connManager.ensureFor(fp, 'queue');
-    } else if(wasLast){
-      // Восстанавливаем соединение с последним собеседником тихо
-      _connManager.ensureFor(fp, 'chat');
     }
-    // Иначе — только UI обновился (зелёный dot)
+    // Иначе — только UI обновился (зелёный dot), пользователь сам инициирует действие
   }
 }
 

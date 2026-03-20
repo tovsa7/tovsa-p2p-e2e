@@ -8728,9 +8728,12 @@ function showPeerIdentity(fp,known,name){
   const _ctpn = document.getElementById('call-type-peer-name');
   if(_ctpn) _ctpn.textContent = name || 'Контакт';
   // Открываем чат после верификации identity только если пользователь сам открыл чат
+  // waitingIdentity='1' устанавливается только при ручном подключении через connect-экран
   if($('sc').dataset.waitingIdentity === '1'){
     $('sc').dataset.waitingIdentity = '';
-    // Никогда не переключаем автоматически — только обновляем UI
+    showTab('sc');
+    setTimeout(() => _focusMiDesktop('mi'), 100);
+  } else {
     if(typeof renderChatsList === 'function') renderChatsList();
     if(typeof _updateChatConnStatus === 'function') _updateChatConnStatus();
   }
@@ -14617,17 +14620,20 @@ async function onConn(){
   if (typeof _updateConnCounter === 'function') _updateConnCounter();
   if (typeof _updateChatConnStatus === 'function') _updateChatConnStatus();
   if (typeof _connManager !== 'undefined') _connManager.onConnected(currentPeerFp);
-  const wasReconnect = $('sc').dataset.active==='1' || _wasAutoReconnect; // уже были в чате (или это авто-реконнект)
+  const wasReconnect = $('sc').dataset.active==='1' || _wasAutoReconnect;
+  // Ручное подключение — пользователь сам нажал кнопку на connect-экране
+  const isManualConnect = !_wasAutoReconnect && activeTab === 'connect';
   resetPeerIdentity();
   $('sc').dataset.active='1';
   role=null;
   updateActiveBanner();
   if(!wasReconnect){
     // Чат откроется после верификации identity в showPeerIdentity
-    $('sc').dataset.waitingIdentity = '1';
+    // Только для ручного подключения через connect-экран
+    $('sc').dataset.waitingIdentity = isManualConnect ? '1' : '';
   } else {
     $('sc').dataset.waitingIdentity = '';
-    // Никогда не переключаем автоматически — только обновляем UI
+    // Авто-реконнект — только обновляем UI без переключения
     if (typeof renderChatsList === 'function') renderChatsList();
     if (typeof _updateChatConnStatus === 'function') _updateChatConnStatus();
   }

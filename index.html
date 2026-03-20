@@ -6652,6 +6652,29 @@ async function sealedPushSubscribe(pushServer) {
 
 const BEACON_KIND         = 'beacon';
 const CONNECT_REQ_KIND    = 'connect_req';
+const BYE_KIND            = 'bye';        // намеренное закрытие соединения — не реконнектить
+
+/** Отправить sealed beacon "bye" собеседнику по надёжному каналу (не DataChannel). */
+async function _sendByeBeacon(fp) {
+  if (!fp || !_myEncKey || !myPubKeyHex) return;
+  try {
+    const contacts = await getContacts().catch(() => ({}));
+    const peerPubHex = contacts[fp]?.pubKeyHex;
+    if (!peerPubHex) return;
+    const sig = _getPeerSig();
+    if (!sig?._open) return;
+    const mailboxId = await getContactMailboxId(peerPubHex, 0).catch(() => null) ?? peerPubHex;
+    const encPub = contactLoadEncPubKey(peerPubHex);
+    if (!encPub) return;
+    const sealed = await sealEnvelope(
+      { from: myPubKeyHex, kind: BYE_KIND, data: { ts: Math.floor(Date.now() / 1000) } },
+      encPub
+    );
+    sig._wsSend({ type: 'SEALED_RELAY', to: mailboxId, sealed });
+  } catch(e) {
+    console.debug('[bye] send error:', e?.message);
+  }
+}
 const BEACON_INTERVAL_MS  = 25_000;  // раз в 25с — чуть чаще чем ping сервера
 const BEACON_ONLINE_TTL   = 70_000;  // считаем онлайн 70с после последнего beacon
 
@@ -9169,6 +9192,13 @@ class TovSaSignaling {
           window.dispatchEvent(new CustomEvent('tovsa-device-sync', {
             detail: { from, data }
           }));
+          break;
+        }
+        // Намеренное закрытие соединения — не реконнектим
+        if (kind === BYE_KIND) {
+          window._peerSentBye = true;
+          // Сбрасываем через 3с на случай если dc.onclose ещё не пришёл
+          setTimeout(() => { window._peerSentBye = false; }, 3000);
           break;
         }
         // Запрос на подключение от не-инициатора — мы инициатор, запускаем реконнект
@@ -13733,6 +13763,9 @@ const _connManager = (() => {
     _reason = null;
     window._goingBack = true;
     setTimeout(() => { window._goingBack = false; }, 500);
+    // Сначала шлём bye по надёжному каналу (sealed relay) — DC может быть уже мёртв
+    if(fp) _sendByeBeacon(fp).catch(()=>{});
+    // Также по DC если ещё открыт
     if(dc && dc.readyState === 'open'){
       try { dc.send(JSON.stringify({ __bye__: true })); } catch(_){}
     }
@@ -13740,7 +13773,6 @@ const _connManager = (() => {
     try { if(pc){ clearTimeout(pc._connTimeout); pc._cleanup?.(); pc.close(); } } catch(_){}
     setTimeout(() => { pc = null; dc = null; }, 300);
     $('sc').dataset.active = '';
-    // Сбрасываем lastPeerFp чтобы idle close не триггерил немедленный реконнект через beacon
     lastPeerFp = null;
     try { localStorage.removeItem('_lastPeerFp'); } catch(_){}
     _p2pReconnectStop();

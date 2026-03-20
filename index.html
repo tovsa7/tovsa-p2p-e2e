@@ -14621,8 +14621,9 @@ async function onConn(){
   if (typeof _updateChatConnStatus === 'function') _updateChatConnStatus();
   if (typeof _connManager !== 'undefined') _connManager.onConnected(currentPeerFp);
   const wasReconnect = $('sc').dataset.active==='1' || _wasAutoReconnect;
-  // Ручное подключение — пользователь сам нажал кнопку на connect-экране
-  const isManualConnect = !_wasAutoReconnect && activeTab === 'connect';
+  // Ручное подключение — пользователь сам нажал кнопку (startAs или joinSigRoom)
+  const isManualConnect = !_wasAutoReconnect && !!window._manualConnectPending;
+  window._manualConnectPending = false; // сбрасываем сразу
   resetPeerIdentity();
   $('sc').dataset.active='1';
   role=null;
@@ -15772,6 +15773,7 @@ function canStart(silent){
 async function startAs(r){
   if(!canStart())return;
   role=r;hideAlert();
+  window._manualConnectPending = true; // пользователь явно нажал подключить
   $('dot').className='dot act';
   showTab('connect');
   hide('sr');show('ss');
@@ -18738,6 +18740,8 @@ async function joinSigRoom(overrideCode, callerFp, peerSigUrl, _silent){
   if(!canStart(_silent)) return;
 
   safePeerDestroy(_sigPeer); _sigPeer=null;
+
+  if(!_silent) window._manualConnectPending = true; // явный join от пользователя
 
   const hint = $('sig-hint');
   const btn  = $('sig-join-btn');

@@ -14355,11 +14355,12 @@ function setupDC(){
     if (typeof _updateConnCounter === 'function') _updateConnCounter();
     if (typeof renderChatsList === 'function') renderChatsList();
     if (typeof _updateChatConnStatus === 'function') _updateChatConnStatus();
-    if($('sc').classList.contains('on') && !_p2pReconnectFp && !window._goingBack) sysMsg('Собеседник закрыл соединение');
-    // Запускаем авто-реконнект если пользователь не вышел сам
-    if(!window._goingBack){
+    if($('sc').classList.contains('on') && !_p2pReconnectFp && !window._goingBack && !window._peerSentBye) sysMsg('Собеседник закрыл соединение');
+    // Реконнект только если это неожиданный разрыв, не намеренное закрытие
+    if(!window._goingBack && !window._peerSentBye){
       _p2pHandleFailure('disconnected');
     }
+    window._peerSentBye = false; // сбрасываем флаг
   };
 
   if(dc.readyState === 'open') onConn();

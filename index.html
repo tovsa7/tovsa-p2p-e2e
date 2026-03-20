@@ -8121,24 +8121,9 @@ function handleShMiKey(e){
   if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendMsg(); }
 }
 
-// Обновляет жёлтый бейдж на chat-item и sh-size
+// Обновляет бейдж отложенных — делегируем renderChatsList
 function _updateQueueBadge(fp){
-  const count = _offlineQueue.filter(m => m.fp === fp).length;
-  // В списке чатов
-  const chatItem = document.querySelector(`.chat-item[data-id="${fp}"]`);
-  if(chatItem){
-    let badge = chatItem.querySelector('.chat-item-unread.queue');
-    if(count > 0){
-      if(!badge){
-        badge = document.createElement('div');
-        badge.className = 'chat-item-unread queue';
-        badge.style.background = 'var(--w)';
-        badge.style.color = '#000';
-        chatItem.querySelector('.chat-item-meta')?.appendChild(badge);
-      }
-      badge.textContent = count;
-    } else if(badge){ badge.remove(); }
-  }
+  if(typeof renderChatsList === 'function') renderChatsList();
   // Обновляем статус соединения в хедере (показывает кол-во pending)
   if(currentPeerFp === fp && typeof _updateChatConnStatus === 'function'){
     _updateChatConnStatus();
@@ -15899,59 +15884,25 @@ function sendMsg(){
     return;
   }
 
-  // DC не открыт — показываем сообщение сразу (оптимистично) и пробуем P2P
+  // DC не открыт — кладём в очередь и инициируем основное соединение
   addMsg(t,'out',_replyText||null,_replySender||null,_replyTs||null,ts);
   if(_replyText) cancelReply();
   i.value=''; i.style.height='auto'; _focusMiDesktop('mi');
 
-  // Пометить последний пузырь как pending и инициировать соединение
-  const _markPending = () => {
-    const el = $('msgs')?.querySelector(`.msg.out[data-ts="${ts}"]`);
-    if(el){ el.classList.add('pending'); el.dataset.pending = '1'; }
-    if(typeof _updateChatConnStatus === 'function') _updateChatConnStatus();
-    _updateQueueBadge(currentPeerFp);
-    // Инициируем соединение — пользователь отправил сообщение
-    if(typeof _connManager !== 'undefined' && currentPeerFp)
-      _connManager.ensureFor(currentPeerFp, 'msg');
-  };
+  // Кладём в offline queue
+  const queueItem = _replyText
+    ? {fp:currentPeerFp, text:t, ts, replyText:_replyText, replySender:msgObj.replySender, replyTs:msgObj.replyTs}
+    : {fp:currentPeerFp, text:t, ts};
+  _offlineQueue.push(queueItem);
+  idbSet('meta','offlineQueue', _offlineQueue).catch(()=>{});
 
-  // Попытка автоматического P2P соединения
-  const _pubKey = currentPeerPubKeyHex || lastPeerPubKeyHex;
-  if(_pubKey && _pjOk && typeof _p2pSend === 'function'){
-    const payload = { _t: '__p2p_msg__', ts, text: t,
-      replyText: msgObj.replyText||null, replySender: msgObj.replySender||null, replyTs: msgObj.replyTs||null };
-    _p2pSend(_pubKey, payload).then(ok => {
-      if(!ok){
-        // P2P не получилось — кладём в offline queue
-        const queueItem = _replyText
-          ? {fp:currentPeerFp, text:t, ts, replyText:t, replySender:msgObj.replySender, replyTs:msgObj.replyTs}
-          : {fp:currentPeerFp, text:t, ts};
-        _offlineQueue.push(queueItem);
-        idbSet('meta','offlineQueue',_offlineQueue).catch(()=>{});
-        _markPending();
-        // Показываем push (контакт офлайн)
-        if(currentPeerFp && typeof window._pushNotifyPeer==='function'){
-          const myName=document.getElementById('my-name-input')?.value?.trim()||'Tovsa';
-          window._pushNotifyPeer(currentPeerFp, myName, t);
-        }
-      } else {
-        // P2P успешно — продлеваем idle таймер
-        if(typeof _connManager !== 'undefined' && currentPeerFp)
-          _connManager.ensureFor(currentPeerFp, 'msg');
-      }
-    }).catch(()=>{
-      const queueItem = {fp:currentPeerFp, text:t, ts};
-      _offlineQueue.push(queueItem);
-      idbSet('meta','offlineQueue',_offlineQueue).catch(()=>{});
-      _markPending();
-    });
-  } else {
-    // Нет signaling — сразу в offline queue
-    const queueItem = {fp:currentPeerFp, text:t, ts};
-    _offlineQueue.push(queueItem);
-    idbSet('meta','offlineQueue',_offlineQueue).catch(()=>{});
-    _markPending();
-  }
+  // Помечаем пузырь как pending и поднимаем соединение
+  const el = $('msgs')?.querySelector(`.msg.out[data-ts="${ts}"]`);
+  if(el){ el.classList.add('pending'); el.dataset.pending = '1'; }
+  if(typeof _updateChatConnStatus === 'function') _updateChatConnStatus();
+  _updateQueueBadge(currentPeerFp);
+  if(typeof _connManager !== 'undefined' && currentPeerFp)
+    _connManager.ensureFor(currentPeerFp, 'msg');
 }
 
 // Последняя использованная реакция (для двойного тапа)
@@ -26556,6 +26507,15 @@ async function buildChatList() {
     const msgs    = history[fp] || [];
     const last    = msgs.at(-1);
     const unread  = msgs.filter(m => m.type !== 'out' && !m._read).length;
+    const pending = _offlineQueue.filter(m => m.fp === fp).length;
+    // Последнее отложенное может быть новее последнего в истории
+    const lastPending = _offlineQueue.filter(m => m.fp === fp).at(-1);
+    const lastItem = (lastPending && (!last || lastPending.ts > last.ts)) ? lastPending : last;
+    const lastText = lastItem
+      ? (lastItem === lastPending ? '⏳ Вы: ' : (lastItem.type === 'out' ? 'Вы: ' : '')) +
+        (lastItem.__file__ ? '[файл]' : lastItem.text || '')
+      : '';
+    const lastTs = lastItem?.ts || c.savedAt || 0;
     const cachedAva = _avatarCache?.[fp];
     items.push({
       id:       fp,
@@ -26563,9 +26523,10 @@ async function buildChatList() {
       name:     c.name || fp.slice(0,8)+'...',
       avatar:   cachedAva || null,
       initials: (c.name||'?').replace(/[\p{Emoji_Presentation}\p{Emoji}️]/gu,'').trim()[0]?.toUpperCase() || '?',
-      lastText: last ? (last.type === 'out' ? 'Вы: ' : '') + (last.__file__ ? '[файл]' : last.text || '') : '',
-      lastTs:   last?.ts || c.savedAt || 0,
+      lastText: lastText,
+      lastTs:   lastTs,
       unread,
+      pending,
       archived:   !!archived[fp],
       online:     _presenceCache?.[fp] === 'online',
       connected:  fp === currentPeerFp && dc && dc.readyState === 'open',
@@ -26743,6 +26704,8 @@ function _buildChatItemHTML(item) {
     ? `<div class="chat-item-online-dot" id="ci-pd-${item.id}"></div>` : (item.type === 'contact' ? `<div class="chat-item-online-dot" id="ci-pd-${item.id}" style="display:none"></div>` : '');
   const unreadBadge = item.unread > 0
     ? `<div class="chat-item-unread">${item.unread > 99 ? '99+' : item.unread}</div>` : '';
+  const pendingBadge = item.pending > 0
+    ? `<div class="chat-item-unread" style="background:var(--w);color:#000" title="Отложенных: ${item.pending}">⏳${item.pending}</div>` : '';
   const myDeviceBadge = item.isMyDevice
     ? `<span style="font-size:9px;color:var(--a);background:var(--ad);padding:1px 5px;border-radius:4px">📲</span>` : '';
   const botBadge = item.isBot
@@ -26764,7 +26727,7 @@ function _buildChatItemHTML(item) {
     </div>
     <div class="chat-item-meta">
       <div class="chat-item-time">${_fmtChatTime(item.lastTs)}</div>
-      ${unreadBadge}
+      ${unreadBadge}${pendingBadge}
       <div class="chat-item-sync ${window._syncingChats?.has(item.id) ? 'on' : ''}" data-sync-id="${item.id}">↻</div>
     </div>
   </div>`;

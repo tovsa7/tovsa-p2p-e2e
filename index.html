@@ -15871,12 +15871,15 @@ function sendMsg(){
   if(_replyText) cancelReply();
   i.value=''; i.style.height='auto'; _focusMiDesktop('mi');
 
-  // Пометить последний пузырь как pending
+  // Пометить последний пузырь как pending и инициировать соединение
   const _markPending = () => {
     const el = $('msgs')?.querySelector(`.msg.out[data-ts="${ts}"]`);
     if(el){ el.classList.add('pending'); el.dataset.pending = '1'; }
     if(typeof _updateChatConnStatus === 'function') _updateChatConnStatus();
     _updateQueueBadge(currentPeerFp);
+    // Инициируем соединение — пользователь отправил сообщение
+    if(typeof _connManager !== 'undefined' && currentPeerFp)
+      _connManager.ensureFor(currentPeerFp, 'msg');
   };
 
   // Попытка автоматического P2P соединения
@@ -15898,6 +15901,10 @@ function sendMsg(){
           const myName=document.getElementById('my-name-input')?.value?.trim()||'Tovsa';
           window._pushNotifyPeer(currentPeerFp, myName, t);
         }
+      } else {
+        // P2P успешно — продлеваем idle таймер
+        if(typeof _connManager !== 'undefined' && currentPeerFp)
+          _connManager.ensureFor(currentPeerFp, 'msg');
       }
     }).catch(()=>{
       const queueItem = {fp:currentPeerFp, text:t, ts};
